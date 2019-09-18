@@ -90,7 +90,6 @@ class Main(QtWidgets.QMainWindow):
         self._widget.layout().addWidget(QtWidgets.QLabel('Center distance'), 4, 0)
         self._widget.layout().addWidget(self._dspn_vp_center_dist, 4, 1)
 
-
         self._btn_submit = QtWidgets.QPushButton('Submit')
         self._btn_submit.clicked.connect(self.displaySettingsUpdated)
         self._widget.layout().addWidget(self._btn_submit, 10, 1)
@@ -99,17 +98,30 @@ class Main(QtWidgets.QMainWindow):
         self._btn_startStim.clicked.connect(self.startStimulus)
         self._widget.layout().addWidget(self._btn_startStim, 11, 1)
 
+        self._spn_disp_screen = QtWidgets.QSpinBox()
+        self._spn_disp_screen.setValue(0)
+        self._widget.layout().addWidget(QtWidgets.QLabel('Screen'), 20, 0)
+        self._widget.layout().addWidget(self._spn_disp_screen, 20, 1)
+
+        self._check_fullscreen = QtWidgets.QCheckBox('Fullscreen')
+        self._check_fullscreen.setCheckState(QtCore.Qt.Unchecked)
+        self._widget.layout().addWidget(self._check_fullscreen, 21, 1)
+
+
         if self.liveUpdate:
             # Define update timer
             self.timer_param_update = QtCore.QTimer()
             self.timer_param_update.setSingleShot(True)
             self.timer_param_update.timeout.connect(self.displaySettingsUpdated)
 
+            # Connect events
             self._dspn_x_pos.valueChanged.connect(self.onDisplayParamChange)
             self._dspn_y_pos.valueChanged.connect(self.onDisplayParamChange)
             self._dspn_elev_angle.valueChanged.connect(self.onDisplayParamChange)
             self._dspn_disp_size_glob.valueChanged.connect(self.onDisplayParamChange)
             self._dspn_vp_center_dist.valueChanged.connect(self.onDisplayParamChange)
+            self._spn_disp_screen.valueChanged.connect(self.onDisplayParamChange)
+            self._check_fullscreen.stateChanged.connect(self.onDisplayParamChange)
 
         self.show()
 
@@ -123,7 +135,9 @@ class Main(QtWidgets.QMainWindow):
             y_pos = self._dspn_y_pos.value(),
             elev_angle = self._dspn_elev_angle.value(),
             disp_size_glob = self._dspn_disp_size_glob.value(),
-            disp_vp_center_dist = self._dspn_vp_center_dist.value()
+            disp_vp_center_dist = self._dspn_vp_center_dist.value(),
+            disp_screen = self._spn_disp_screen.value(),
+            disp_fullscreen = True if (self._check_fullscreen.checkState() == QtCore.Qt.Checked) else False
         )
 
         if return_settings:

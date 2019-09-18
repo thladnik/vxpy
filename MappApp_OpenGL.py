@@ -155,6 +155,10 @@ class Presenter:
             # Set global display size
             self.vp_global_size = params['disp_size_glob']
 
+            # Set screen
+            self.window.set_screen(params['disp_screen'])
+            self.window.set_fullscreen(params['disp_fullscreen'])
+
             # Set elevation
             for orient in self.modelRotationAxes:
                 # Get current model
