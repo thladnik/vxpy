@@ -35,10 +35,10 @@ class DisplayCheckerboard(Stimulus):
         self.frametime = 1.0 / self.fps
         self.time = 0.0
 
-        primitive = np.append(np.ones((10,10)), np.zeros((10,10)), axis=0)
+        primitive = np.append(np.ones((5,5)), np.zeros((5,5)), axis=0)
         primitive = np.append(primitive, np.flipud(primitive), axis=1)
-        rows = 10
-        cols = 10
+        rows = 20
+        cols = 20
         checker = primitive.copy()
         for i in range(rows-1):
             checker = np.append(checker, primitive, axis=0)

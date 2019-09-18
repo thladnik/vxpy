@@ -57,14 +57,6 @@ class DisplaySettings(QtWidgets.QWidget):
         self.layout().addWidget(QtWidgets.QLabel('Center distance'), 4, 0)
         self.layout().addWidget(self._dspn_vp_center_dist, 4, 1)
 
-        self._btn_submit = QtWidgets.QPushButton('Submit')
-        self._btn_submit.clicked.connect(self.main.displaySettingsUpdated)
-        self.layout().addWidget(self._btn_submit, 10, 1)
-
-        self._btn_startStim = QtWidgets.QPushButton('Start stimulus')
-        self._btn_startStim.clicked.connect(self.main.startStimulus)
-        self.layout().addWidget(self._btn_startStim, 11, 1)
-
         self._spn_disp_screen = QtWidgets.QSpinBox()
         self._spn_disp_screen.setValue(0)
         self.layout().addWidget(QtWidgets.QLabel('Screen'), 20, 0)

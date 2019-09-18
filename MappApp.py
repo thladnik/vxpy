@@ -2,13 +2,11 @@ import configparser
 from PyQt5 import QtCore, QtWidgets
 import sys
 from multiprocessing import Process, Pipe
-import time
 
 import MappApp_OpenGL as gl
 import MappApp_Com as com
 import MappApp_Stimulus as stim
 from MappApp_Widgets import *
-
 
 
 class Main(QtWidgets.QMainWindow):
@@ -55,6 +53,16 @@ class Main(QtWidgets.QMainWindow):
         self.dispSettings = DisplaySettings(self)
         self._centralwidget.layout().addWidget(self.dispSettings, 0, 0)
 
+        # Display checkerboard
+        self._btn_displayCheckerboard = QtWidgets.QPushButton('Display checkerboard')
+        self._btn_displayCheckerboard.clicked.connect(self.displayCheckerboard)
+        self._centralwidget.layout().addWidget(self._btn_displayCheckerboard, 1, 0)
+
+        # Display moving grating
+        self._btn_displayMovGrating = QtWidgets.QPushButton('Display moving grating')
+        self._btn_displayMovGrating.clicked.connect(self.displayMovGrating)
+        self._centralwidget.layout().addWidget(self._btn_displayMovGrating, 2, 0)
+
         if self.liveUpdate:
             # Define update timer
             self.timer_param_update = QtCore.QTimer()
@@ -94,8 +102,12 @@ class Main(QtWidgets.QMainWindow):
         obj = [com.OGL.ToOpenGL.DisplaySettings, settings]
         self.pipein.send(obj)
 
-    def startStimulus(self):
+    def displayCheckerboard(self):
         self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayCheckerboard])
+
+    def displayMovGrating(self):
+        self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayGrating])
+
 
     def saveConfigurations(self):
         config = configparser.ConfigParser()

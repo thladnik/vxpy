@@ -70,15 +70,26 @@ class Presenter:
         self.pipein = pipein
         self.pipeout = pipeout
 
-        self.window = app.Window(width=1600, height=1000, color=(1, 1, 1, 1))
-        #self.window.set_fullscreen(True, screen=1)
+        self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
         #self.window.close_event = self.sendCloseInfo(self.window.close_event)
 
+        self.program = None
         self.stimulus = None
         self.vp_global_pos = (0., 0.)
         self.vp_global_size = 1.0
         self.disp_vp_center_dist = 0.0
 
+
+        # Use event wrapper
+        self.on_draw = self.window.event(self.on_draw)
+        self.on_resize = self.window.event(self.on_resize)
+        self.on_init = self.window.event(self.on_init)
+
+        # Report ready
+        self.pipeout.send([com.OGL.ToMain.Ready])
+
+
+    def setupProgram(self):
         self.program = dict()
         self.v = dict()
         self.i = dict()
@@ -119,13 +130,6 @@ class Presenter:
             self.program[orient]['u_view'] = glm.translation(0, 0.0, -1)
             self.program[orient]['viewport'] = transforms.Viewport()
 
-        # Use event wrapper
-        self.on_draw = self.window.event(self.on_draw)
-        self.on_resize = self.window.event(self.on_resize)
-        self.on_init = self.window.event(self.on_init)
-
-        # Report ready
-        self.pipeout.send([com.OGL.ToMain.Ready])
 
     def checkInbox(self, dt):
 
@@ -142,6 +146,9 @@ class Presenter:
 
         # New display settings
         elif obj[0] == com.OGL.ToOpenGL.DisplaySettings:
+
+            if self.program is None:
+                return
 
             # Display parameters
             params = obj[1]
@@ -187,10 +194,15 @@ class Presenter:
             if len(obj) > 3:
                 kwargs = obj[3]
 
+            self.setupProgram()
+
             # Create stimulus instance
             self.stimulus = stimcls(*args, **kwargs)
 
     def on_draw(self, dt):
+
+        if self.program is None:
+            return
 
         if self.stimulus is None:
             return
@@ -215,7 +227,10 @@ class Presenter:
 
     def on_resize(self, width, height):
 
-        # Fix?
+        if self.program is None:
+            return
+
+        # Fixes
         self.window._width = width
         self.window._height = height
 
@@ -259,7 +274,8 @@ class Presenter:
         self.window.swap()
 
     def on_init(self):
-        pass
+        if self.program is None:
+            return
 
     def sendCloseInfo(self, fun):
         print('closing')
