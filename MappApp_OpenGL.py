@@ -125,12 +125,13 @@ class Presenter:
         self.on_resize = self.window.event(self.on_resize)
         self.on_init = self.window.event(self.on_init)
 
+        # Report ready
         self.pipeout.send([com.OGL.ToMain.Ready])
 
     def checkInbox(self, dt):
 
         # Check if there is something in the pipe
-        if not (self.pipeout.poll(timeout=0.0001)):
+        if not (self.pipeout.poll(timeout=.0001)):
             return
 
         # Receive data
@@ -156,8 +157,7 @@ class Presenter:
             self.vp_global_size = params['disp_size_glob']
 
             # Set screen
-            self.window.set_screen(params['disp_screen'])
-            self.window.set_fullscreen(params['disp_fullscreen'])
+            self.window.set_fullscreen(params['disp_fullscreen'], screen=params['disp_screen'])
 
             # Set elevation
             for orient in self.modelRotationAxes:
