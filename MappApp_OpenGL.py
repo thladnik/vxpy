@@ -71,7 +71,7 @@ class Presenter:
         self.pipeout = pipeout
 
         self.window = app.Window(width=1600, height=1000, color=(1, 1, 1, 1))
-        #self.window.set_fullscreen(True)
+        self.window.set_fullscreen(True, screen=0)
         #self.window.close_event = self.sendCloseInfo(self.window.close_event)
 
         self.stimulus = None
@@ -157,7 +157,10 @@ class Presenter:
             self.vp_global_size = params['disp_size_glob']
 
             # Set screen
-            self.window.set_fullscreen(params['disp_fullscreen'], screen=params['disp_screen'])
+            if False:
+                self.window.set_screen(params['disp_screen'])
+                if self.window.get_fullscreen() != params['disp_fullscreen']:
+                    self.window.set_fullscreen(params['disp_fullscreen'], screen=params['disp_screen'])
 
             # Set elevation
             for orient in self.modelRotationAxes:
