@@ -67,7 +67,6 @@ class Main(QtWidgets.QMainWindow):
             self.dispSettings._dspn_elev_angle.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._dspn_disp_size_glob.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._dspn_vp_center_dist.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._spn_disp_screen.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._check_fullscreen.stateChanged.connect(self.onDisplayParamChange)
 
         self.show()

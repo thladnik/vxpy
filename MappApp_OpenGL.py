@@ -71,7 +71,7 @@ class Presenter:
         self.pipeout = pipeout
 
         self.window = app.Window(width=1600, height=1000, color=(1, 1, 1, 1))
-        self.window.set_fullscreen(True, screen=0)
+        #self.window.set_fullscreen(True, screen=1)
         #self.window.close_event = self.sendCloseInfo(self.window.close_event)
 
         self.stimulus = None
@@ -110,7 +110,6 @@ class Presenter:
             # Program
             self.program[orient] = gloo.Program(vertex, fragment)
             self.program[orient].bind(self.v[orient])
-            #self.program[orient]['u_texture'] = movie[0, :, :, :]
             model = np.eye(4, dtype=np.float32)
             glm.rotate(model, 180, 0, 0, 1)
             glm.rotate(model, self.modelZeroElevRotation[orient], *self.modelRotationAxes[orient])
@@ -157,10 +156,9 @@ class Presenter:
             self.vp_global_size = params['disp_size_glob']
 
             # Set screen
-            if False:
-                self.window.set_screen(params['disp_screen'])
-                if self.window.get_fullscreen() != params['disp_fullscreen']:
-                    self.window.set_fullscreen(params['disp_fullscreen'], screen=params['disp_screen'])
+            if self.window.get_fullscreen() != params['disp_fullscreen']:
+                print('Fullscreen state changed')
+                self.window.set_fullscreen(params['disp_fullscreen'], screen=params['disp_screen'])
 
             # Set elevation
             for orient in self.modelRotationAxes:
