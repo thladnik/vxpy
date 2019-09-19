@@ -84,16 +84,16 @@ class Main(QtWidgets.QMainWindow):
 
     def displaySettingsUpdated(self, return_settings=False):
 
-        settings = dict(
-            x_pos                = self.dispSettings._dspn_x_pos.value(),
-            y_pos                = self.dispSettings._dspn_y_pos.value(),
-            elev_angle           = self.dispSettings._dspn_elev_angle.value(),
-            disp_size_glob       = self.dispSettings._dspn_disp_size_glob.value(),
-            disp_vp_center_dist  = self.dispSettings._dspn_vp_center_dist.value(),
-            disp_screen          = self.dispSettings._spn_disp_screen.value(),
-            disp_fullscreen      = True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
+        settings = {
+            com.OGL.DispSettings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
+            com.OGL.DispSettings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
+            com.OGL.DispSettings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
+            com.OGL.DispSettings.glob_disp_size       : self.dispSettings._dspn_disp_size_glob.value(),
+            com.OGL.DispSettings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
+            com.OGL.DispSettings.disp_screen_id       : self.dispSettings._spn_disp_screen.value(),
+            com.OGL.DispSettings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
                                    else False
-        )
+        }
 
         if return_settings:
             return settings
@@ -107,7 +107,6 @@ class Main(QtWidgets.QMainWindow):
 
     def displayMovGrating(self):
         self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayGrating])
-
 
     def saveConfigurations(self):
         config = configparser.ConfigParser()

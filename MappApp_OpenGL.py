@@ -154,18 +154,24 @@ class Presenter:
             params = obj[1]
 
             # Set child viewport distance from center
-            self.disp_vp_center_dist = params['disp_vp_center_dist']
+            self.disp_vp_center_dist = params[com.OGL.DispSettings.vp_center_dist]
 
             # Set global viewpoint position
-            self.vp_global_pos = (params['x_pos'], params['y_pos'])
+            self.vp_global_pos = (params[com.OGL.DispSettings.glob_x_pos], params[com.OGL.DispSettings.glob_y_pos])
 
             # Set global display size
-            self.vp_global_size = params['disp_size_glob']
+            self.vp_global_size = params[com.OGL.DispSettings.glob_disp_size]
 
             # Set screen
-            if self.window.get_fullscreen() != params['disp_fullscreen']:
+            if not(self.window.get_fullscreen()):
+                self.window.set_screen(params[com.OGL.DispSettings.disp_screen_id])
+                geo = self.window.get_screen().geometry()
+                pos = geo.topLeft()
+                self.window.set_position(pos.x(), pos.y())
+
+            if self.window.get_fullscreen() != params[com.OGL.DispSettings.disp_fullscreen]:
                 print('Fullscreen state changed')
-                self.window.set_fullscreen(params['disp_fullscreen'], screen=params['disp_screen'])
+                self.window.set_fullscreen(params[com.OGL.DispSettings.disp_fullscreen], screen=params[com.OGL.DispSettings.disp_screen_id])
 
             # Set elevation
             for orient in self.modelRotationAxes:
@@ -174,9 +180,9 @@ class Presenter:
                 # Rotate back to zero elevation
                 glm.rotate(model, -self.modelElevRotation[orient], *self.modelRotationAxes[orient])
                 # Apply new rotation
-                glm.rotate(model, params['elev_angle'], *self.modelRotationAxes[orient])
+                glm.rotate(model, params[com.OGL.DispSettings.elev_angle], *self.modelRotationAxes[orient])
                 # Save rotation for next back-rotation
-                self.modelElevRotation[orient] = params['elev_angle']
+                self.modelElevRotation[orient] = params[com.OGL.DispSettings.elev_angle]
                 # Set model
                 self.program[orient]['u_model'] = model
 
@@ -198,6 +204,10 @@ class Presenter:
 
             # Create stimulus instance
             self.stimulus = stimcls(*args, **kwargs)
+
+            # Dispatch resize event
+            self.window.dispatch_event('on_resize', self.window.width, self.window.height)
+
 
     def on_draw(self, dt):
 
