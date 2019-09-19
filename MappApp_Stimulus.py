@@ -30,27 +30,28 @@ class DisplayGrating(Stimulus):
 
 class DisplayCheckerboard(Stimulus):
 
-    def __init__(self):
+    def __init__(self, rows=5, cols=5):
         self.fps = 20
         self.frametime = 1.0 / self.fps
         self.time = 0.0
 
+        # Generate primitive
         primitive = np.append(np.ones((5,5)), np.zeros((5,5)), axis=0)
         primitive = np.append(primitive, np.flipud(primitive), axis=1)
-        rows = 20
-        cols = 20
+
+        # Construct rows
         checker = primitive.copy()
         for i in range(rows-1):
             checker = np.append(checker, primitive, axis=0)
 
+        # Construct columns
         primitive = checker.copy()
         for i in range(cols-1):
             checker = np.append(checker, primitive, axis=1)
 
-        # Construct checkerboard frame
+        # Construct checkerboard frame (RGBA)
         self.checkerboard = np.repeat(checker[:, :, np.newaxis], 3, axis=2)  # Triple for RGB
         self.checkerboard = np.append(self.checkerboard, np.ones(self.checkerboard.shape[:2])[:, :, np.newaxis], axis=2)  # Add alpha
-
 
     def frame(self, dt):
         return self.checkerboard

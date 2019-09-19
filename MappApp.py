@@ -54,9 +54,8 @@ class Main(QtWidgets.QMainWindow):
         self._centralwidget.layout().addWidget(self.dispSettings, 0, 0)
 
         # Display checkerboard
-        self._btn_displayCheckerboard = QtWidgets.QPushButton('Display checkerboard')
-        self._btn_displayCheckerboard.clicked.connect(self.displayCheckerboard)
-        self._centralwidget.layout().addWidget(self._btn_displayCheckerboard, 1, 0)
+        self.checkerboardDisp = CheckerboardCalibration(self)
+        self._centralwidget.layout().addWidget(self.checkerboardDisp, 1, 0)
 
         # Display moving grating
         self._btn_displayMovGrating = QtWidgets.QPushButton('Display moving grating')
@@ -73,7 +72,7 @@ class Main(QtWidgets.QMainWindow):
             self.dispSettings._dspn_x_pos.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._dspn_y_pos.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._dspn_elev_angle.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._dspn_disp_size_glob.valueChanged.connect(self.onDisplayParamChange)
+            self.dispSettings._dspn_glob_disp_size.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._dspn_vp_center_dist.valueChanged.connect(self.onDisplayParamChange)
             self.dispSettings._check_fullscreen.stateChanged.connect(self.onDisplayParamChange)
 
@@ -88,9 +87,9 @@ class Main(QtWidgets.QMainWindow):
             com.OGL.DispSettings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
             com.OGL.DispSettings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
             com.OGL.DispSettings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
-            com.OGL.DispSettings.glob_disp_size       : self.dispSettings._dspn_disp_size_glob.value(),
+            com.OGL.DispSettings.glob_disp_size       : self.dispSettings._dspn_glob_disp_size.value(),
             com.OGL.DispSettings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
-            com.OGL.DispSettings.disp_screen_id       : self.dispSettings._spn_disp_screen.value(),
+            com.OGL.DispSettings.disp_screen_id       : self.dispSettings._spn_screen_id.value(),
             com.OGL.DispSettings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
                                    else False
         }
@@ -102,8 +101,6 @@ class Main(QtWidgets.QMainWindow):
         obj = [com.OGL.ToOpenGL.DisplaySettings, settings]
         self.pipein.send(obj)
 
-    def displayCheckerboard(self):
-        self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayCheckerboard])
 
     def displayMovGrating(self):
         self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayGrating])
