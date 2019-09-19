@@ -36,8 +36,12 @@ class Main(QtWidgets.QMainWindow):
         # Setup user interface
         self.setupUi()
 
-        # Send display settings to OpenGL
+        # Load configurations
+        self.loadConfiguration()
+
+        # Last: Send display settings to OpenGL
         self.displaySettingsUpdated()
+
 
     def setupUi(self):
         self.setGeometry(300, 300, 500, 250)
@@ -105,20 +109,41 @@ class Main(QtWidgets.QMainWindow):
     def displayMovGrating(self):
         self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayGrating])
 
-    def saveConfigurations(self):
+    def saveConfiguration(self):
         config = configparser.ConfigParser()
-        config['Display'] = self.displaySettingsUpdated(return_settings=True)
+        config['DisplaySettings'] = self.displaySettingsUpdated(return_settings=True)
 
         with open('settings.cfg', 'w') as cfgfile:
             config.write(cfgfile)
+        print('Config saved.')
 
+    def loadConfiguration(self):
+        config = configparser.ConfigParser()
+        config.read('settings.cfg',)
+
+        if len(config.sections()) == 0:
+            print('No config file found')
+            return
+
+        # Set display settings
+        print('Loading display settings from config')
+        disp_settings = config['DisplaySettings']
+        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[com.OGL.DispSettings.glob_x_pos]))
+        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[com.OGL.DispSettings.glob_y_pos]))
+        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[com.OGL.DispSettings.glob_x_pos]))
+        self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[com.OGL.DispSettings.glob_disp_size]))
+        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[com.OGL.DispSettings.vp_center_dist]))
+        self.dispSettings._spn_screen_id.setValue(int(disp_settings[com.OGL.DispSettings.disp_screen_id]))
+        self.dispSettings._check_fullscreen.setCheckState(True
+                                                          if disp_settings[com.OGL.DispSettings.disp_fullscreen] == 'True'
+                                                          else False)
 
     def closeEvent(self, event):
         print('Shutting down...')
         self.pipein.send([com.OGL.ToOpenGL.Close])
 
-        print('> Saving configurations...')
-        self.saveConfigurations()
+        print('> Saving config...')
+        self.saveConfiguration()
 
         # Close
         self.close()
