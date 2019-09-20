@@ -97,5 +97,5 @@ class CheckerboardCalibration(QtWidgets.QGroupBox):
         self.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
 
     def displayCheckerboard(self):
-        self.main.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayCheckerboard,
-                          [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])
+        self.main.pipein.send([com.Display.ToDisplay.SetNewStimulus, stim.DisplayCheckerboard,
+                               [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])

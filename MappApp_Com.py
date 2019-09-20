@@ -1,13 +1,6 @@
-class OGL:
-    class ToOpenGL:
-        DisplaySettings = 'Main2OGL_10'
-        SetNewStimulus = 'Main2OGL_20'
-        Close = 'Main2OGL_99'
+class Display:
 
-    class ToMain:
-        Ready = 'Ready_01'
-
-    class DispSettings:
+    class Settings:
         glob_x_pos = 'glob_x_pos'
         glob_y_pos = 'glob_y_pos'
         glob_disp_size = 'disp_size_glob'
@@ -15,3 +8,17 @@ class OGL:
         vp_center_dist = 'vp_center_dist'
         disp_screen_id = 'disp_screen_id'
         disp_fullscreen = 'disp_fullscreen'
+
+    class ToPresenter:
+        range = [0, 100]
+
+    class ToDisplay:
+        range = [100, 200]
+        NewSettings = 100
+        SetNewStimulus = 101
+        Close = 199
+
+    class ToMain:
+        range = [200, 300]
+        Ready = 200
+        Close = 299

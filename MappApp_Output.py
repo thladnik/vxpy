@@ -1,9 +1,11 @@
 from glumpy import app, gl, glm, gloo, transforms
-import h5py
 import numpy as np
+from multiprocessing import Pipe, Process
+import time
 
 from MappApp_Geometry import SphericalArena
 import MappApp_Com as com
+
 
 from IPython import embed
 
@@ -41,9 +43,52 @@ void main()
 """
 
 # Define sphere
-sphere = SphericalArena(theta_lvls=100, phi_lvls=50, upper_phi=45.0, radius=0.5)
+sphere = SphericalArena(theta_lvls=100, phi_lvls=50, upper_phi=45.0, radius=1.0)
+
+class States:
+    Idle = 0
+
+    Terminated = 99
 
 class Presenter:
+
+    state = States.Idle
+
+    def __init__(self, pipein, pipeout):
+        self.pipein = pipein
+        self.pipeout = pipeout
+
+        self.disp_pipeout, self.disp_pipein = Pipe()
+
+        self.display = Process(name='Display', target=runDisplay, args=(self.disp_pipein, self.disp_pipeout))
+        self.display.start()
+
+        # TODO: add second process which coordinates digital outputs
+
+    def start(self):
+        while self.state != States.Terminated:
+            if self.pipeout.poll():
+                obj = self.pipeout.recv()
+
+                if obj[0] in range(*com.Display.ToPresenter.range):
+                    # Handle here
+                    pass
+
+                elif obj[0] in range(*com.Display.ToDisplay.range):
+                    self.disp_pipein.send(obj)
+
+                else:
+                    print('WARNING: received orphaned object through pipe.')
+
+
+            time.sleep(.001)
+
+def runPresenter(*args, **kwargs):
+    presenter = Presenter(*args, **kwargs)
+    presenter.start()
+
+
+class Display:
 
     modelRotationAxes = {
         'ne' : (1, -1, 0),
@@ -86,7 +131,7 @@ class Presenter:
         self.on_init = self.window.event(self.on_init)
 
         # Report ready
-        self.pipeout.send([com.OGL.ToMain.Ready])
+        self.pipeout.send([com.Display.ToMain.Ready])
 
 
     def setupProgram(self):
@@ -141,11 +186,11 @@ class Presenter:
         obj = self.pipeout.recv()
 
         # App close event
-        if obj[0] == com.OGL.ToOpenGL.Close:
+        if obj[0] == com.Display.ToDisplay.Close:
             self.window.close()
 
         # New display settings
-        elif obj[0] == com.OGL.ToOpenGL.DisplaySettings:
+        elif obj[0] == com.Display.ToDisplay.NewSettings:
 
             if self.program is None:
                 return
@@ -154,24 +199,24 @@ class Presenter:
             params = obj[1]
 
             # Set child viewport distance from center
-            self.disp_vp_center_dist = params[com.OGL.DispSettings.vp_center_dist]
+            self.disp_vp_center_dist = params[com.Display.Settings.vp_center_dist]
 
             # Set global viewpoint position
-            self.vp_global_pos = (params[com.OGL.DispSettings.glob_x_pos], params[com.OGL.DispSettings.glob_y_pos])
+            self.vp_global_pos = (params[com.Display.Settings.glob_x_pos], params[com.Display.Settings.glob_y_pos])
 
             # Set global display size
-            self.vp_global_size = params[com.OGL.DispSettings.glob_disp_size]
+            self.vp_global_size = params[com.Display.Settings.glob_disp_size]
 
             # Set screen
             if not(self.window.get_fullscreen()):
-                self.window.set_screen(params[com.OGL.DispSettings.disp_screen_id])
+                self.window.set_screen(params[com.Display.Settings.disp_screen_id])
                 geo = self.window.get_screen().geometry()
                 pos = geo.topLeft()
                 self.window.set_position(pos.x(), pos.y())
 
-            if self.window.get_fullscreen() != params[com.OGL.DispSettings.disp_fullscreen]:
+            if self.window.get_fullscreen() != params[com.Display.Settings.disp_fullscreen]:
                 print('Fullscreen state changed')
-                self.window.set_fullscreen(params[com.OGL.DispSettings.disp_fullscreen], screen=params[com.OGL.DispSettings.disp_screen_id])
+                self.window.set_fullscreen(params[com.Display.Settings.disp_fullscreen], screen=params[com.Display.Settings.disp_screen_id])
 
             # Set elevation
             for orient in self.modelRotationAxes:
@@ -180,9 +225,9 @@ class Presenter:
                 # Rotate back to zero elevation
                 glm.rotate(model, -self.modelElevRotation[orient], *self.modelRotationAxes[orient])
                 # Apply new rotation
-                glm.rotate(model, params[com.OGL.DispSettings.elev_angle], *self.modelRotationAxes[orient])
+                glm.rotate(model, params[com.Display.Settings.elev_angle], *self.modelRotationAxes[orient])
                 # Save rotation for next back-rotation
-                self.modelElevRotation[orient] = params[com.OGL.DispSettings.elev_angle]
+                self.modelElevRotation[orient] = params[com.Display.Settings.elev_angle]
                 # Set model
                 self.program[orient]['u_model'] = model
 
@@ -190,7 +235,7 @@ class Presenter:
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
         # New stimulus to present
-        elif obj[0] == com.OGL.ToOpenGL.SetNewStimulus:
+        elif obj[0] == com.Display.ToDisplay.SetNewStimulus:
             stimcls = obj[1]
 
             args = []
@@ -273,13 +318,15 @@ class Presenter:
 
         # Set projection
         dist = self.disp_vp_center_dist
-        disp_size = np.array([-0.5, 0.5, -0.5, 0.5]) * 1. / self.vp_global_size
+        disp_size = np.array([-1.0, 1.0, -1.0, 1.0]) / self.vp_global_size
 
         self.program['ne']['u_projection'] = glm.ortho(*disp_size-dist, 0.0, 2.0)
         self.program['se']['u_projection'] = glm.ortho(*disp_size[:2]-dist, *disp_size[2:]+dist, 0.0, 2.0)
         self.program['sw']['u_projection'] = glm.ortho(*disp_size+dist, 0.0, 2.0)
         self.program['nw']['u_projection'] = glm.ortho(*disp_size[:2]+dist, *disp_size[2:]-dist, 0.0, 2.0)
 
+
+        # Draw
         self.window.dispatch_event('on_draw', 0.0)
         self.window.swap()
 
@@ -291,10 +338,10 @@ class Presenter:
         print('closing')
         fun()
 
-def runPresenter(*args, **kwargs):
+def runDisplay(*args, **kwargs):
 
-    presenter = Presenter(*args, **kwargs)
-    #presenter.window.set_fullscreen(True, screen=1)
+    display = Display(*args, **kwargs)
 
-    app.clock.schedule_interval(presenter.checkInbox, 0.1)
+    # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
+    app.clock.schedule_interval(display.checkInbox, 0.1)
     app.run(framerate=60)

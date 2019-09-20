@@ -3,7 +3,7 @@ from PyQt5 import QtCore, QtWidgets
 import sys
 from multiprocessing import Process, Pipe
 
-import MappApp_OpenGL as gl
+import MappApp_Output as out
 import MappApp_Com as com
 import MappApp_Stimulus as stim
 from MappApp_Widgets import *
@@ -16,19 +16,17 @@ class Main(QtWidgets.QMainWindow):
 
         # Set up presenter screen
         self.pipeout, self.pipein = Pipe()
-        self.presenter = Process(target=gl.runPresenter,
-                                 args=(self.pipein, self.pipeout),
-                                 kwargs=dict())
+        self.presenter = Process(target=out.runPresenter, args=(self.pipein, self.pipeout), kwargs=dict())
         self.presenter.start()
 
         # Wait for presenter to report readyness
         print('Waiting for presenter to respond...')
         if self.pipein.poll(timeout=5.):
             obj = self.pipein.recv()
-            if obj[0] == com.OGL.ToMain.Ready:
+            if obj[0] == com.Display.ToMain.Ready:
                 print('Presenter is ready.')
             else:
-                self.pipein.send([com.OGL.ToOpenGL.Close])
+                self.pipein.send([com.Display.ToDisplay.Close])
                 print('Invalid response from presenter. EXIT')
                 self.close()
                 return
@@ -88,13 +86,13 @@ class Main(QtWidgets.QMainWindow):
     def displaySettingsUpdated(self, return_settings=False):
 
         settings = {
-            com.OGL.DispSettings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
-            com.OGL.DispSettings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
-            com.OGL.DispSettings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
-            com.OGL.DispSettings.glob_disp_size       : self.dispSettings._dspn_glob_disp_size.value(),
-            com.OGL.DispSettings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
-            com.OGL.DispSettings.disp_screen_id       : self.dispSettings._spn_screen_id.value(),
-            com.OGL.DispSettings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
+            com.Display.Settings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
+            com.Display.Settings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
+            com.Display.Settings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
+            com.Display.Settings.glob_disp_size       : self.dispSettings._dspn_glob_disp_size.value(),
+            com.Display.Settings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
+            com.Display.Settings.disp_screen_id       : self.dispSettings._spn_screen_id.value(),
+            com.Display.Settings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
                                    else False
         }
 
@@ -102,12 +100,12 @@ class Main(QtWidgets.QMainWindow):
             return settings
 
         # Send new display parameters to presenter
-        obj = [com.OGL.ToOpenGL.DisplaySettings, settings]
+        obj = [com.Display.ToDisplay.NewSettings, settings]
         self.pipein.send(obj)
 
 
     def displayMovGrating(self):
-        self.pipein.send([com.OGL.ToOpenGL.SetNewStimulus, stim.DisplayGrating])
+        self.pipein.send([com.Display.ToDisplay.SetNewStimulus, stim.DisplayGrating])
 
     def saveConfiguration(self):
         config = configparser.ConfigParser()
@@ -128,19 +126,19 @@ class Main(QtWidgets.QMainWindow):
         # Set display settings
         print('Loading display settings from config')
         disp_settings = config['DisplaySettings']
-        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[com.OGL.DispSettings.glob_x_pos]))
-        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[com.OGL.DispSettings.glob_y_pos]))
-        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[com.OGL.DispSettings.glob_x_pos]))
-        self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[com.OGL.DispSettings.glob_disp_size]))
-        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[com.OGL.DispSettings.vp_center_dist]))
-        self.dispSettings._spn_screen_id.setValue(int(disp_settings[com.OGL.DispSettings.disp_screen_id]))
+        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[com.Display.Settings.glob_x_pos]))
+        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[com.Display.Settings.glob_y_pos]))
+        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[com.Display.Settings.glob_x_pos]))
+        self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[com.Display.Settings.glob_disp_size]))
+        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[com.Display.Settings.vp_center_dist]))
+        self.dispSettings._spn_screen_id.setValue(int(disp_settings[com.Display.Settings.disp_screen_id]))
         self.dispSettings._check_fullscreen.setCheckState(True
-                                                          if disp_settings[com.OGL.DispSettings.disp_fullscreen] == 'True'
+                                                          if disp_settings[com.Display.Settings.disp_fullscreen] == 'True'
                                                           else False)
 
     def closeEvent(self, event):
         print('Shutting down...')
-        self.pipein.send([com.OGL.ToOpenGL.Close])
+        self.pipein.send([com.Display.ToDisplay.Close])
 
         print('> Saving config...')
         self.saveConfiguration()
