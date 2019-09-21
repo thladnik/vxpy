@@ -71,17 +71,19 @@ class Presenter:
                 obj = self.pipeout.recv()
 
                 if obj[0] in range(*com.Display.ToPresenter.range):
-                    # Handle here
-                    pass
+                    if obj[0] == com.Display.ToPresenter.Close:
+                        self.disp_pipein.send(com.Display.ToDisplay.Close)
+                        # TODO: terminate process as soon as display window is closed
+                        # TODO: report back that processes are terminated
 
                 elif obj[0] in range(*com.Display.ToDisplay.range):
                     self.disp_pipein.send(obj)
 
                 else:
-                    print('WARNING: received orphaned object through pipe.')
+                    print('WARNING: orphaned object in pipe.')
 
 
-            time.sleep(.001)
+            #time.sleep(.001)
 
 def runPresenter(*args, **kwargs):
     presenter = Presenter(*args, **kwargs)
@@ -116,7 +118,6 @@ class Display:
         self.pipeout = pipeout
 
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
-        #self.window.close_event = self.sendCloseInfo(self.window.close_event)
 
         self.program = None
         self.stimulus = None

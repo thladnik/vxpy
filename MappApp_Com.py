@@ -11,6 +11,7 @@ class Display:
 
     class ToPresenter:
         range = [0, 100]
+        Close = 199
 
     class ToDisplay:
         range = [100, 200]

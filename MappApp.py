@@ -16,7 +16,7 @@ class Main(QtWidgets.QMainWindow):
 
         # Set up presenter screen
         self.pipeout, self.pipein = Pipe()
-        self.presenter = Process(target=out.runPresenter, args=(self.pipein, self.pipeout), kwargs=dict())
+        self.presenter = Process(name='Presenter', target=out.runPresenter, args=(self.pipein, self.pipeout), kwargs=dict())
         self.presenter.start()
 
         # Wait for presenter to report readyness
@@ -138,7 +138,7 @@ class Main(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         print('Shutting down...')
-        self.pipein.send([com.Display.ToDisplay.Close])
+        self.pipein.send([com.Display.ToPresenter.Close])
 
         print('> Saving config...')
         self.saveConfiguration()
