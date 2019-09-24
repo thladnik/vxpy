@@ -67,6 +67,7 @@ class DisplaySettings(QtWidgets.QGroupBox):
 
         self._check_fullscreen = QtWidgets.QCheckBox('Fullscreen')
         self._check_fullscreen.setCheckState(QtCore.Qt.Unchecked)
+        self._check_fullscreen.setTristate(False)
         self.layout().addWidget(self._check_fullscreen, 21, 1)
 
 class CheckerboardCalibration(QtWidgets.QGroupBox):

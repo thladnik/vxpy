@@ -82,7 +82,6 @@ class Presenter:
                 else:
                     print('WARNING: orphaned object in pipe.')
 
-
             #time.sleep(.001)
 
 def runPresenter(*args, **kwargs):
@@ -173,7 +172,7 @@ class Display:
 
             self.program[orient]['u_model'] = model
 
-            self.program[orient]['u_view'] = glm.translation(0, 0.0, -1)
+            self.program[orient]['u_view'] = glm.translation(0, 0.0, -3)
             self.program[orient]['viewport'] = transforms.Viewport()
 
 
@@ -321,10 +320,18 @@ class Display:
         dist = self.disp_vp_center_dist
         disp_size = np.array([-1.0, 1.0, -1.0, 1.0]) / self.vp_global_size
 
-        self.program['ne']['u_projection'] = glm.ortho(*disp_size-dist, 0.0, 2.0)
-        self.program['se']['u_projection'] = glm.ortho(*disp_size[:2]-dist, *disp_size[2:]+dist, 0.0, 2.0)
-        self.program['sw']['u_projection'] = glm.ortho(*disp_size+dist, 0.0, 2.0)
-        self.program['nw']['u_projection'] = glm.ortho(*disp_size[:2]+dist, *disp_size[2:]-dist, 0.0, 2.0)
+        ortho = False
+        if ortho:
+            self.program['ne']['u_projection'] = glm.ortho(*disp_size-dist, 0.0, 2.0)
+            self.program['se']['u_projection'] = glm.ortho(*disp_size[:2]-dist, *disp_size[2:]+dist, 0.0, 2.0)
+            self.program['sw']['u_projection'] = glm.ortho(*disp_size+dist, 0.0, 2.0)
+            self.program['nw']['u_projection'] = glm.ortho(*disp_size[:2]+dist, *disp_size[2:]-dist, 0.0, 2.0)
+        else:
+
+            self.program['ne']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
+            self.program['se']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
+            self.program['sw']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
+            self.program['nw']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
 
 
         # Draw
