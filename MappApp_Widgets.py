@@ -1,11 +1,11 @@
 from PyQt5 import QtWidgets, QtCore
 
-import MappApp_Com as com
+import MappApp_Com as macom
 import MappApp_Stimulus as stim
 
 class DisplaySettings(QtWidgets.QGroupBox):
 
-    def __init__(self, main, ):
+    def __init__(self, main):
         super().__init__('Display settings')
         self.main = main
 
@@ -75,6 +75,8 @@ class CheckerboardCalibration(QtWidgets.QGroupBox):
         super().__init__('Checkerboard calibration')
         self.main = main
 
+#self.displayClient = macom.Display.Client()
+
         self.setupUi()
 
 
@@ -97,5 +99,6 @@ class CheckerboardCalibration(QtWidgets.QGroupBox):
         self.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
 
     def displayCheckerboard(self):
-        self.main.pipein.send([com.Display.ToDisplay.SetNewStimulus, stim.DisplayCheckerboard,
+        print('Sending')
+        self.main.displayClient.send([macom.Display.Code.SetNewStimulus, stim.DisplayCheckerboard,
                                [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])

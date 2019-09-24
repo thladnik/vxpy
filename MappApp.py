@@ -2,11 +2,13 @@ import configparser
 from PyQt5 import QtCore, QtWidgets
 import sys
 from multiprocessing import Process, Pipe
+from multiprocessing.connection import Client, Listener
 
-import MappApp_Output as out
-import MappApp_Com as com
+import MappApp_Output as maout
+import MappApp_Com as macom
 import MappApp_Stimulus as stim
 from MappApp_Widgets import *
+import MappApp_Definition as madef
 
 
 class Main(QtWidgets.QMainWindow):
@@ -15,29 +17,36 @@ class Main(QtWidgets.QMainWindow):
         super().__init__(*args, **kwargs)
 
         # Set up presenter screen
-        self.pipeout, self.pipein = Pipe()
-        self.presenter = Process(name='Presenter', target=out.runPresenter, args=(self.pipein, self.pipeout), kwargs=dict())
+        print('Starting presenter...')
+        self.presenter = Process(name='Presenter', target=maout.runPresenter)
         self.presenter.start()
 
+        self.displayClient = macom.Display.Client()
+        self.presenterClient = macom.Presenter.Client()
+
         # Wait for presenter to report readyness
-        print('Waiting for presenter to respond...')
-        if self.pipein.poll(timeout=5.):
-            obj = self.pipein.recv()
-            if obj[0] == com.Display.ToMain.Ready:
-                print('Presenter is ready.')
-            else:
-                self.pipein.send([com.Display.ToDisplay.Close])
-                print('Invalid response from presenter. EXIT')
-                self.close()
-                return
+        if False:
+            print('Waiting for presenter to respond...')
+            if self.pipein.poll(timeout=5.):
+                obj = self.pipein.recv()
+                if obj[0] == macom.ToMain.Ready:
+                    print('Presenter is ready.')
+                else:
+                    self.pipein.send([macom.ToDisplay.Close])
+                    print('Invalid response from presenter. EXIT')
+                    self.close()
+                    return
 
         # Setup user interface
+        print('Setting up UI...')
         self.setupUi()
 
         # Load configurations
+        print('Load config...')
         self.loadConfiguration()
 
         # Last: Send display settings to OpenGL
+        print('Updating display params...')
         self.displaySettingsUpdated()
 
 
@@ -86,13 +95,13 @@ class Main(QtWidgets.QMainWindow):
     def displaySettingsUpdated(self, return_settings=False):
 
         settings = {
-            com.Display.Settings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
-            com.Display.Settings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
-            com.Display.Settings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
-            com.Display.Settings.glob_disp_size       : self.dispSettings._dspn_glob_disp_size.value(),
-            com.Display.Settings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
-            com.Display.Settings.disp_screen_id       : self.dispSettings._spn_screen_id.value(),
-            com.Display.Settings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
+            madef.DisplaySettings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
+            madef.DisplaySettings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
+            madef.DisplaySettings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
+            madef.DisplaySettings.glob_disp_size       : self.dispSettings._dspn_glob_disp_size.value(),
+            madef.DisplaySettings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
+            madef.DisplaySettings.disp_screen_id       : self.dispSettings._spn_screen_id.value(),
+            madef.DisplaySettings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
                                    else False
         }
 
@@ -100,12 +109,12 @@ class Main(QtWidgets.QMainWindow):
             return settings
 
         # Send new display parameters to presenter
-        obj = [com.Display.ToDisplay.NewSettings, settings]
-        self.pipein.send(obj)
+        obj = [macom.Display.Code.NewSettings, settings]
+        self.displayClient.send(obj)
 
 
     def displayMovGrating(self):
-        self.pipein.send([com.Display.ToDisplay.SetNewStimulus, stim.DisplayGrating])
+        self.displayClient.send([macom.Display.Code.SetNewStimulus, stim.DisplayGrating])
 
     def saveConfiguration(self):
         config = configparser.ConfigParser()
@@ -117,7 +126,7 @@ class Main(QtWidgets.QMainWindow):
 
     def loadConfiguration(self):
         config = configparser.ConfigParser()
-        config.read('settings.cfg',)
+        config.read('settings.cfg')
 
         if len(config.sections()) == 0:
             print('No config file found')
@@ -126,19 +135,20 @@ class Main(QtWidgets.QMainWindow):
         # Set display settings
         print('Loading display settings from config')
         disp_settings = config['DisplaySettings']
-        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[com.Display.Settings.glob_x_pos]))
-        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[com.Display.Settings.glob_y_pos]))
-        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[com.Display.Settings.glob_x_pos]))
-        self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[com.Display.Settings.glob_disp_size]))
-        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[com.Display.Settings.vp_center_dist]))
-        self.dispSettings._spn_screen_id.setValue(int(disp_settings[com.Display.Settings.disp_screen_id]))
+        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[madef.DisplaySettings.glob_x_pos]))
+        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[madef.DisplaySettings.glob_y_pos]))
+        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[madef.DisplaySettings.glob_x_pos]))
+        self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[madef.DisplaySettings.glob_disp_size]))
+        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[madef.DisplaySettings.vp_center_dist]))
+        self.dispSettings._spn_screen_id.setValue(int(disp_settings[madef.DisplaySettings.disp_screen_id]))
         self.dispSettings._check_fullscreen.setCheckState(True
-                                                          if disp_settings[com.Display.Settings.disp_fullscreen] == 'True'
+                                                          if disp_settings[madef.DisplaySettings.disp_fullscreen] == 'True'
                                                           else False)
 
     def closeEvent(self, event):
         print('Shutting down...')
-        self.pipein.send([com.Display.ToPresenter.Close])
+        self.presenterClient.conn.send([macom.Presenter.Code.Close])
+        #self.displayClient.conn.send([macom.Display.Code.Close])
 
         print('> Saving config...')
         self.saveConfiguration()
