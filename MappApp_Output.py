@@ -1,10 +1,12 @@
 from glumpy import app, gl, glm, gloo, transforms
 import numpy as np
 from multiprocessing import Pipe, Process
+from multiprocessing.connection import Listener, Client
 import time
 
 from MappApp_Geometry import SphericalArena
-import MappApp_Com as com
+import MappApp_Com as macom
+import MappApp_Definition as madef
 
 
 from IPython import embed
@@ -54,33 +56,31 @@ class Presenter:
 
     state = States.Idle
 
-    def __init__(self, pipein, pipeout):
-        self.pipein = pipein
-        self.pipeout = pipeout
+    def __init__(self):
 
-        self.disp_pipeout, self.disp_pipein = Pipe()
-
-        self.display = Process(name='Display', target=runDisplay, args=(self.disp_pipein, self.disp_pipeout))
+        print('Starting display...')
+        self.display = Process(name='Display', target=runDisplay)
         self.display.start()
+
+        self.listener = macom.Presenter.Listener()
+
+        self.displayClient = macom.Display.Client()
 
         # TODO: add second process which coordinates digital outputs
 
+
     def start(self):
         while self.state != States.Terminated:
-            if self.pipeout.poll():
-                obj = self.pipeout.recv()
+            if self.listener.conn.poll():
+                obj = self.listener.conn.recv()
 
-                if obj[0] in range(*com.Display.ToPresenter.range):
-                    if obj[0] == com.Display.ToPresenter.Close:
-                        self.disp_pipein.send(com.Display.ToDisplay.Close)
-                        # TODO: terminate process as soon as display window is closed
-                        # TODO: report back that processes are terminated
+                if obj[0] == macom.Presenter.Code.Close:
+                    print(obj)
+                    self.displayClient.conn.send([macom.Display.Code.Close])
 
-                elif obj[0] in range(*com.Display.ToDisplay.range):
-                    self.disp_pipein.send(obj)
+                    # TODO: terminate process as soon as display window is closed
+                    # TODO: report back that processes are terminated
 
-                else:
-                    print('WARNING: orphaned object in pipe.')
 
             #time.sleep(.001)
 
@@ -118,9 +118,9 @@ class Display:
         'se' : 0.0
     }
 
-    def __init__(self, pipein, pipeout):
-        self.pipein = pipein
-        self.pipeout = pipeout
+    def __init__(self):
+
+        self.listener = macom.Display.Listener()
 
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
@@ -130,14 +130,13 @@ class Display:
         self.vp_global_size = 1.0
         self.disp_vp_center_dist = 0.0
 
-
         # Use event wrapper
         self.on_draw = self.window.event(self.on_draw)
         self.on_resize = self.window.event(self.on_resize)
         self.on_init = self.window.event(self.on_init)
 
         # Report ready
-        self.pipeout.send([com.Display.ToMain.Ready])
+        #self.pipeout.send([madef.Display.ToMain.Ready])
 
 
     def setupProgram(self):
@@ -185,18 +184,19 @@ class Display:
     def checkInbox(self, dt):
 
         # Check if there is something in the pipe
-        if not (self.pipeout.poll(timeout=.0001)):
+        if not (self.listener.conn.poll(timeout=.0001)):
             return
 
         # Receive data
-        obj = self.pipeout.recv()
+        obj = self.listener.conn.recv()
 
         # App close event
-        if obj[0] == com.Display.ToDisplay.Close:
+        #print(obj)
+        if obj[0] == macom.Display.Code.Close:
             self.window.close()
 
         # New display settings
-        elif obj[0] == com.Display.ToDisplay.NewSettings:
+        elif obj[0] == macom.Display.Code.NewSettings:
 
             if self.program is None:
                 return
@@ -206,24 +206,24 @@ class Display:
             params = obj[1]
 
             # Set child viewport distance from center
-            self.disp_vp_center_dist = params[com.Display.Settings.vp_center_dist]
+            self.disp_vp_center_dist = params[madef.DisplaySettings.vp_center_dist]
 
             # Set global viewpoint position
-            self.vp_global_pos = (params[com.Display.Settings.glob_x_pos], params[com.Display.Settings.glob_y_pos])
+            self.vp_global_pos = (params[madef.DisplaySettings.glob_x_pos], params[madef.DisplaySettings.glob_y_pos])
 
             # Set global display size
-            self.vp_global_size = params[com.Display.Settings.glob_disp_size]
+            self.vp_global_size = params[madef.DisplaySettings.glob_disp_size]
 
             # Set screen
             if not(self.window.get_fullscreen()):
-                self.window.set_screen(params[com.Display.Settings.disp_screen_id])
+                self.window.set_screen(params[madef.DisplaySettings.disp_screen_id])
                 geo = self.window.get_screen().geometry()
                 pos = geo.topLeft()
                 self.window.set_position(pos.x(), pos.y())
 
-            if self.window.get_fullscreen() != params[com.Display.Settings.disp_fullscreen]:
+            if self.window.get_fullscreen() != params[madef.DisplaySettings.disp_fullscreen]:
                 print('Fullscreen state changed')
-                self.window.set_fullscreen(params[com.Display.Settings.disp_fullscreen], screen=params[com.Display.Settings.disp_screen_id])
+                self.window.set_fullscreen(params[madef.DisplaySettings.disp_fullscreen], screen=params[madef.DisplaySettings.disp_screen_id])
 
             # Set elevation
             for orient in self.modelRotationAxes:
@@ -232,9 +232,9 @@ class Display:
                 # Rotate back to zero elevation
                 glm.rotate(model, -self.modelElevRotation[orient], *self.modelRotationAxes[orient])
                 # Apply new rotation
-                glm.rotate(model, params[com.Display.Settings.elev_angle], *self.modelRotationAxes[orient])
+                glm.rotate(model, params[madef.DisplaySettings.elev_angle], *self.modelRotationAxes[orient])
                 # Save rotation for next back-rotation
-                self.modelElevRotation[orient] = params[com.Display.Settings.elev_angle]
+                self.modelElevRotation[orient] = params[madef.DisplaySettings.elev_angle]
                 # Set model
                 self.program[orient]['u_model'] = model
 
@@ -242,7 +242,7 @@ class Display:
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
         # New stimulus to present
-        elif obj[0] == com.Display.ToDisplay.SetNewStimulus:
+        elif obj[0] == macom.Display.Code.SetNewStimulus:
             stimcls = obj[1]
 
             args = []
