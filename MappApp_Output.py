@@ -97,6 +97,12 @@ class Display:
         'sw' : (-1, 1, 0),
         'se' : (-1, -1, 0)
     }
+    modelTranslationAxes = {
+        'ne' : (1, 1, 0),
+        'nw' : (-1, 1, 0),
+        'sw' : (-1, -1, 0),
+        'se' : (1, -1, 0)
+    }
 
     modelZeroElevRotation =  {
         'ne' : -90.0,
@@ -172,7 +178,7 @@ class Display:
 
             self.program[orient]['u_model'] = model
 
-            self.program[orient]['u_view'] = glm.translation(0, 0.0, -3)
+            self.program[orient]['u_view'] = glm.translation(self.modelTranslationAxes[orient][0] *0.3, self.modelTranslationAxes[orient][1] *0.3, -3)
             self.program[orient]['viewport'] = transforms.Viewport()
 
 
@@ -194,6 +200,7 @@ class Display:
 
             if self.program is None:
                 return
+
 
             # Display parameters
             params = obj[1]
@@ -301,6 +308,10 @@ class Display:
         xpos = int(width * self.vp_global_pos[0])
         ypos = int(height * self.vp_global_pos[1])
 
+        #self.program['ne']['u_view'] = glm.translation(self.modelRotationAxes['ne'][0]*self.disp_vp_center_dist,
+        #                                               self.modelRotationAxes['ne'][1] * self.disp_vp_center_dist
+        #                                               , 0)
+        #self.program['ne']['u_view'] = glm.translation(0, 0.0, -3)
 
         # Set viewports
         self.program['ne']['viewport']['global'] = (0, 0, width, height)
