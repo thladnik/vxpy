@@ -62,15 +62,16 @@ class Presenter:
         self.display = Process(name='Display', target=runDisplay)
         self.display.start()
 
-        self.listener = macom.Presenter.Listener()
-
-        self.displayClient = macom.Display.Client()
+        #ipc = macom.IPC()
+        #ipc.loadConnections()
+        #self.listener = ipc.getMetaListener('presenter')
 
         # TODO: add second process which coordinates digital outputs
 
 
     def start(self):
         while self.state != States.Terminated:
+            continue
             if self.listener.conn.poll():
                 obj = self.listener.conn.recv()
 
@@ -104,6 +105,13 @@ class Display:
         'se' : (1, -1, 0)
     }
 
+    modelTranslation = {
+        'ne' : 0.0,
+        'nw' : 0.0,
+        'sw' : 0.0,
+        'se' : 0.0
+    }
+
     modelZeroElevRotation =  {
         'ne' : -90.0,
         'nw' : -90.0,
@@ -120,7 +128,9 @@ class Display:
 
     def __init__(self):
 
-        self.listener = macom.Display.Listener()
+        ipc = macom.IPC()
+        ipc.loadConnections()
+        self.clientToMain = ipc.getClientConnection('main', 'display')
 
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
@@ -183,15 +193,16 @@ class Display:
 
     def checkInbox(self, dt):
 
-        # Check if there is something in the pipe
-        if not (self.listener.conn.poll(timeout=.0001)):
+        # Receive data
+        if not(self.clientToMain.poll(timeout=.0001)):
             return
 
-        # Receive data
-        obj = self.listener.conn.recv()
+        obj = self.clientToMain.recv()
+
+        if obj is None:
+            return
 
         # App close event
-        #print(obj)
         if obj[0] == macom.Display.Code.Close:
             self.window.close()
 
@@ -237,6 +248,13 @@ class Display:
                 self.modelElevRotation[orient] = params[madef.DisplaySettings.elev_angle]
                 # Set model
                 self.program[orient]['u_model'] = model
+
+            # Set view translation
+            for orient in self.modelTranslationAxes:
+                self.program[orient]['u_view'] = glm.translation(
+                    self.modelTranslationAxes[orient][0] * np.sqrt(self.disp_vp_center_dist),
+                    self.modelTranslationAxes[orient][1] * np.sqrt(self.disp_vp_center_dist),
+                    -3)
 
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)

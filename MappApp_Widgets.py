@@ -100,6 +100,5 @@ class CheckerboardCalibration(QtWidgets.QGroupBox):
         self.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
 
     def displayCheckerboard(self):
-        print('Sending')
-        self.main.displayClient.send([macom.Display.Code.SetNewStimulus, stim.DisplayCheckerboard,
+        self.main.listener.connections['display'].send([macom.Display.Code.SetNewStimulus, stim.DisplayCheckerboard,
                                [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])

@@ -2,7 +2,7 @@ import configparser
 from PyQt5 import QtCore, QtWidgets
 import sys
 from multiprocessing import Process, Pipe
-from multiprocessing.connection import Client, Listener
+import time
 
 import MappApp_Output as maout
 import MappApp_Com as macom
@@ -16,26 +16,24 @@ class Main(QtWidgets.QMainWindow):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        ### Set up IPC
+        ipc = macom.IPC()
+        ## Main listener
+        ipc.registerConnection('main', 'presenter')
+        ipc.registerConnection('main', 'display')
+        # Display listener
+        ipc.registerConnection('presenter', 'display')
+        # Save to file
+        ipc.saveToFile()
+
+        # Set up listener
+        self.listener = ipc.getMetaListener('main')
+
         # Set up presenter screen
         print('Starting presenter...')
         self.presenter = Process(name='Presenter', target=maout.runPresenter)
         self.presenter.start()
 
-        self.displayClient = macom.Display.Client()
-        self.presenterClient = macom.Presenter.Client()
-
-        # Wait for presenter to report readyness
-        if False:
-            print('Waiting for presenter to respond...')
-            if self.pipein.poll(timeout=5.):
-                obj = self.pipein.recv()
-                if obj[0] == macom.ToMain.Ready:
-                    print('Presenter is ready.')
-                else:
-                    self.pipein.send([macom.ToDisplay.Close])
-                    print('Invalid response from presenter. EXIT')
-                    self.close()
-                    return
 
         # Setup user interface
         print('Setting up UI...')
@@ -44,6 +42,10 @@ class Main(QtWidgets.QMainWindow):
         # Load configurations
         print('Load config...')
         self.loadConfiguration()
+
+        # Set up listener
+        #time.sleep(5)
+        self.listener.acceptClients()
 
         # Last: Send display settings to OpenGL
         print('Updating display params...')
@@ -110,7 +112,7 @@ class Main(QtWidgets.QMainWindow):
 
         # Send new display parameters to presenter
         obj = [macom.Display.Code.NewSettings, settings]
-        self.displayClient.send(obj)
+        self.listener.connections['display'].send(obj)
 
 
     def displayMovGrating(self):
@@ -147,7 +149,7 @@ class Main(QtWidgets.QMainWindow):
 
     def closeEvent(self, event):
         print('Shutting down...')
-        self.presenterClient.conn.send([macom.Presenter.Code.Close])
+        #self.presenterClient.conn.send([macom.Presenter.Code.Close])
         #self.displayClient.conn.send([macom.Display.Code.Close])
 
         print('> Saving config...')
