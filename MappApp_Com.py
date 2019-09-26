@@ -93,7 +93,7 @@ class MetaListener:
     def acceptClients(self):
         for client in self.listeners:
             print('Listener "%s" waiting for client "%s"...' % (self._name, client))
-            self.listeners[client]._listener._socket.settimeout(1)
+            self.listeners[client]._listener._socket.settimeout(5)
             try:
                 conn = self.listeners[client].accept()
                 self.connections[client] = conn
