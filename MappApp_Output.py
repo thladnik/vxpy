@@ -62,22 +62,23 @@ class Presenter:
         self.display = Process(name='Display', target=runDisplay)
         self.display.start()
 
-        #ipc = macom.IPC()
-        #ipc.loadConnections()
-        #self.listener = ipc.getMetaListener('presenter')
+        ipc = macom.IPC()
+        ipc.loadConnections()
+        self.clientToMain = ipc.getClientConnection('main', 'presenter')
+        self.listener = ipc.getMetaListener('presenter')
+        self.listener.acceptClients()
 
         # TODO: add second process which coordinates digital outputs
 
-
     def start(self):
+        _ = self.clientToMain.recv()
+
         while self.state != States.Terminated:
-            continue
-            if self.listener.conn.poll():
-                obj = self.listener.conn.recv()
+            if self.clientToMain.poll():
+                obj = self.clientToMain.recv()
 
                 if obj[0] == macom.Presenter.Code.Close:
-                    print(obj)
-                    self.displayClient.conn.send([macom.Display.Code.Close])
+                    self.listener.connections['display'].send([macom.Display.Code.Close])
 
                     # TODO: terminate process as soon as display window is closed
                     # TODO: report back that processes are terminated
@@ -131,6 +132,7 @@ class Display:
         ipc = macom.IPC()
         ipc.loadConnections()
         self.clientToMain = ipc.getClientConnection('main', 'display')
+        self.clientToPresenter = ipc.getClientConnection('presenter', 'display')
 
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
@@ -195,9 +197,12 @@ class Display:
 
         # Receive data
         if not(self.clientToMain.poll(timeout=.0001)):
-            return
-
-        obj = self.clientToMain.recv()
+            if not (self.clientToPresenter.poll(timeout=.0001)):
+                return
+            else:
+                obj = self.clientToPresenter.recv()
+        else:
+            obj = self.clientToMain.recv()
 
         if obj is None:
             return
@@ -212,7 +217,6 @@ class Display:
             if self.program is None:
                 return
 
-
             # Display parameters
             params = obj[1]
 
@@ -224,13 +228,6 @@ class Display:
 
             # Set global display size
             self.vp_global_size = params[madef.DisplaySettings.glob_disp_size]
-
-            # Set screen
-            if not(self.window.get_fullscreen()):
-                self.window.set_screen(params[madef.DisplaySettings.disp_screen_id])
-                geo = self.window.get_screen().geometry()
-                pos = geo.topLeft()
-                self.window.set_position(pos.x(), pos.y())
 
             if self.window.get_fullscreen() != params[madef.DisplaySettings.disp_fullscreen]:
                 print('Fullscreen state changed')
@@ -252,9 +249,9 @@ class Display:
             # Set view translation
             for orient in self.modelTranslationAxes:
                 self.program[orient]['u_view'] = glm.translation(
-                    self.modelTranslationAxes[orient][0] * np.sqrt(self.disp_vp_center_dist),
-                    self.modelTranslationAxes[orient][1] * np.sqrt(self.disp_vp_center_dist),
-                    -3)
+                    self.modelTranslationAxes[orient][0] * self.disp_vp_center_dist,
+                    self.modelTranslationAxes[orient][1] * self.disp_vp_center_dist,
+                    -3*self.vp_global_size)
 
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
@@ -357,10 +354,10 @@ class Display:
             self.program['nw']['u_projection'] = glm.ortho(*disp_size[:2]+dist, *disp_size[2:]-dist, 0.0, 2.0)
         else:
 
-            self.program['ne']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
-            self.program['se']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
-            self.program['sw']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
-            self.program['nw']['u_projection'] = glm.perspective(50, 1.0, 0.1, 5.0)
+            self.program['ne']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
+            self.program['se']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
+            self.program['sw']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
+            self.program['nw']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
 
 
         # Draw

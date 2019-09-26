@@ -26,14 +26,14 @@ class Main(QtWidgets.QMainWindow):
         # Save to file
         ipc.saveToFile()
 
-        # Set up listener
-        self.listener = ipc.getMetaListener('main')
-
         # Set up presenter screen
         print('Starting presenter...')
         self.presenter = Process(name='Presenter', target=maout.runPresenter)
         self.presenter.start()
 
+        # Set up listener
+        self.listener = ipc.getMetaListener('main')
+        self.listener.acceptClients()
 
         # Setup user interface
         print('Setting up UI...')
@@ -43,9 +43,9 @@ class Main(QtWidgets.QMainWindow):
         print('Load config...')
         self.loadConfiguration()
 
-        # Set up listener
-        #time.sleep(5)
-        self.listener.acceptClients()
+
+        # By default: show checkerboard
+        self.checkerboardDisp.displayCheckerboard()
 
         # Last: Send display settings to OpenGL
         print('Updating display params...')
@@ -139,17 +139,17 @@ class Main(QtWidgets.QMainWindow):
         disp_settings = config['DisplaySettings']
         self.dispSettings._dspn_x_pos.setValue(float(disp_settings[madef.DisplaySettings.glob_x_pos]))
         self.dispSettings._dspn_y_pos.setValue(float(disp_settings[madef.DisplaySettings.glob_y_pos]))
-        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[madef.DisplaySettings.glob_x_pos]))
+        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[madef.DisplaySettings.elev_angle]))
         self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[madef.DisplaySettings.glob_disp_size]))
         self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[madef.DisplaySettings.vp_center_dist]))
         self.dispSettings._spn_screen_id.setValue(int(disp_settings[madef.DisplaySettings.disp_screen_id]))
-        self.dispSettings._check_fullscreen.setCheckState(True
+        self.dispSettings._check_fullscreen.setCheckState(QtCore.Qt.Checked
                                                           if disp_settings[madef.DisplaySettings.disp_fullscreen] == 'True'
-                                                          else False)
+                                                          else QtCore.Qt.Unchecked)
 
     def closeEvent(self, event):
         print('Shutting down...')
-        #self.presenterClient.conn.send([macom.Presenter.Code.Close])
+        self.listener.connections['presenter'].send([macom.Presenter.Code.Close])
         #self.displayClient.conn.send([macom.Display.Code.Close])
 
         print('> Saving config...')
