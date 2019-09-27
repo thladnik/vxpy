@@ -14,82 +14,23 @@ from IPython import embed
 # Set Glumpy to use qt5 backend
 app.use('qt5')
 
-# Shaders
-vertex = """
-uniform mat4   u_model;         // Model matrix
-uniform mat4   u_view;          // View matrix
-uniform mat4   u_projection;    // Projection matrix
-attribute vec3 a_position;      // Vertex position
-attribute vec2 a_texcoord;      // Vertex texture coordinates
-varying vec2   v_texcoord;      // Interpolated fragment texture coordinates (out)
-void main()
-{
-    // Assign varying variables
-    v_texcoord  = a_texcoord;
-    // Final position
-    gl_Position = u_projection * u_view * u_model * vec4(a_position,1.0);
-    <viewport.transform>;
-}
-"""
-fragment = """
-uniform sampler2D u_texture;  // Texture 
-varying vec2      v_texcoord; // Interpolated fragment texture coordinates (in)
-void main()
-{
-    <viewport.clipping>;
-    // Get texture color
-    vec4 t_color = texture2D(u_texture, v_texcoord);
-    // Final color
-    gl_FragColor = t_color;
-}
-"""
+class IO:
+    """
+    Handles analogue/digital IO
+    """
+    pass
+
+    def start(self):
+        pass
+
+def runIO():
+    io = IO()
+    io.start()
+
+
 
 # Define sphere
 sphere = SphericalArena(theta_lvls=100, phi_lvls=50, upper_phi=45.0, radius=1.0)
-
-class States:
-    Idle = 0
-
-    Terminated = 99
-
-class Presenter:
-
-    state = States.Idle
-
-    def __init__(self):
-
-        print('Starting display...')
-        self.display = Process(name='Display', target=runDisplay)
-        self.display.start()
-
-        ipc = macom.IPC()
-        ipc.loadConnections()
-        self.clientToMain = ipc.getClientConnection('main', 'presenter')
-        self.listener = ipc.getMetaListener('presenter')
-        self.listener.acceptClients()
-
-        # TODO: add second process which coordinates digital outputs
-
-    def start(self):
-        _ = self.clientToMain.recv()
-
-        while self.state != States.Terminated:
-            if self.clientToMain.poll():
-                obj = self.clientToMain.recv()
-
-                if obj[0] == macom.Presenter.Code.Close:
-                    self.listener.connections['display'].send([macom.Display.Code.Close])
-
-                    # TODO: terminate process as soon as display window is closed
-                    # TODO: report back that processes are terminated
-
-
-            #time.sleep(.001)
-
-def runPresenter(*args, **kwargs):
-    presenter = Presenter(*args, **kwargs)
-    presenter.start()
-
 
 class Display:
 
@@ -132,7 +73,6 @@ class Display:
         ipc = macom.IPC()
         ipc.loadConnections()
         self.clientToMain = ipc.getClientConnection('main', 'display')
-        self.clientToPresenter = ipc.getClientConnection('presenter', 'display')
 
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
@@ -141,14 +81,13 @@ class Display:
         self.vp_global_pos = (0., 0.)
         self.vp_global_size = 1.0
         self.disp_vp_center_dist = 0.0
+        self.vp_fov = 50.
+        self.elev_angle = 0.
 
         # Use event wrapper
         self.on_draw = self.window.event(self.on_draw)
         self.on_resize = self.window.event(self.on_resize)
         self.on_init = self.window.event(self.on_init)
-
-        # Report ready
-        #self.pipeout.send([madef.Display.ToMain.Ready])
 
 
     def setupProgram(self):
@@ -159,8 +98,6 @@ class Display:
         theta_range = 90.0
         for j, orient in enumerate(['ne', 'nw', 'sw', 'se']):
             theta_center = 45.0 + j * 90.0
-
-            dir = sphere.sph2cart(theta_center, 0)
 
             thetas, phis = sphere.getThetaSubset(theta_center - theta_range / 2, theta_center + theta_range / 2)
 
@@ -181,28 +118,20 @@ class Display:
 
             ########
             # Program
-            self.program[orient] = gloo.Program(vertex, fragment)
+            self.program[orient] = gloo.Program(self.stimulus.vertex_shader, self.stimulus.fragment_shader)
             self.program[orient].bind(self.v[orient])
-            model = np.eye(4, dtype=np.float32)
-            glm.rotate(model, 180, 0, 0, 1)
-            glm.rotate(model, self.modelZeroElevRotation[orient], *self.modelRotationAxes[orient])
 
-            self.program[orient]['u_model'] = model
 
-            self.program[orient]['u_view'] = glm.translation(self.modelTranslationAxes[orient][0] *0.3, self.modelTranslationAxes[orient][1] *0.3, -3)
             self.program[orient]['viewport'] = transforms.Viewport()
 
 
-    def checkInbox(self, dt):
+    def _handleCommunication(self, dt):
 
         # Receive data
         if not(self.clientToMain.poll(timeout=.0001)):
-            if not (self.clientToPresenter.poll(timeout=.0001)):
-                return
-            else:
-                obj = self.clientToPresenter.recv()
-        else:
-            obj = self.clientToMain.recv()
+            return
+
+        obj = self.clientToMain.recv()
 
         if obj is None:
             return
@@ -212,7 +141,7 @@ class Display:
             self.window.close()
 
         # New display settings
-        elif obj[0] == macom.Display.Code.NewSettings:
+        elif obj[0] == macom.Display.Code.NewDisplaySettings:
 
             if self.program is None:
                 return
@@ -221,37 +150,19 @@ class Display:
             params = obj[1]
 
             # Set child viewport distance from center
-            self.disp_vp_center_dist = params[madef.DisplaySettings.vp_center_dist]
+            self.disp_vp_center_dist = params[madef.DisplaySettings.float_vp_center_dist]
 
             # Set global viewpoint position
-            self.vp_global_pos = (params[madef.DisplaySettings.glob_x_pos], params[madef.DisplaySettings.glob_y_pos])
+            self.vp_global_pos = (params[madef.DisplaySettings.float_glob_x_pos], params[madef.DisplaySettings.float_glob_y_pos])
 
-            # Set global display size
-            self.vp_global_size = params[madef.DisplaySettings.glob_disp_size]
-
-            if self.window.get_fullscreen() != params[madef.DisplaySettings.disp_fullscreen]:
+            if self.window.get_fullscreen() != params[madef.DisplaySettings.bool_disp_fullscreen]:
                 print('Fullscreen state changed')
-                self.window.set_fullscreen(params[madef.DisplaySettings.disp_fullscreen], screen=params[madef.DisplaySettings.disp_screen_id])
+                self.window.set_fullscreen(params[madef.DisplaySettings.bool_disp_fullscreen], screen=params[madef.DisplaySettings.int_disp_screen_id])
 
-            # Set elevation
-            for orient in self.modelRotationAxes:
-                # Get current model
-                model = self.program[orient]['u_model'].reshape((4,4))
-                # Rotate back to zero elevation
-                glm.rotate(model, -self.modelElevRotation[orient], *self.modelRotationAxes[orient])
-                # Apply new rotation
-                glm.rotate(model, params[madef.DisplaySettings.elev_angle], *self.modelRotationAxes[orient])
-                # Save rotation for next back-rotation
-                self.modelElevRotation[orient] = params[madef.DisplaySettings.elev_angle]
-                # Set model
-                self.program[orient]['u_model'] = model
+            self.vp_fov = params[madef.DisplaySettings.float_vp_fov]
 
-            # Set view translation
-            for orient in self.modelTranslationAxes:
-                self.program[orient]['u_view'] = glm.translation(
-                    self.modelTranslationAxes[orient][0] * self.disp_vp_center_dist,
-                    self.modelTranslationAxes[orient][1] * self.disp_vp_center_dist,
-                    -3*self.vp_global_size)
+            self.elev_angle = params[madef.DisplaySettings.float_elev_angle]
+
 
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
@@ -267,10 +178,11 @@ class Display:
             if len(obj) > 3:
                 kwargs = obj[3]
 
-            self.setupProgram()
 
             # Create stimulus instance
             self.stimulus = stimcls(*args, **kwargs)
+
+            self.setupProgram()
 
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
@@ -287,20 +199,15 @@ class Display:
         # Fetch texture frame
         frame = self.stimulus.frame(dt)
 
-        # Set texture
-        self.program['ne']['u_texture'] = frame
-        self.program['se']['u_texture'] = frame
-        self.program['sw']['u_texture'] = frame
-        self.program['nw']['u_texture'] = frame
-
-        # Draw new display frame
+        # Clear
         self.window.clear(color=(0.0, 0.0, 0.0, 1.0))  # black
         gl.glDisable(gl.GL_BLEND)
         gl.glEnable(gl.GL_DEPTH_TEST)
-        self.program['ne'].draw(gl.GL_TRIANGLES, self.i['ne'])
-        self.program['se'].draw(gl.GL_TRIANGLES, self.i['se'])
-        self.program['sw'].draw(gl.GL_TRIANGLES, self.i['sw'])
-        self.program['nw'].draw(gl.GL_TRIANGLES, self.i['nw'])
+
+        # Set texture and draw new frame
+        for orient in self.program:
+            self.program[orient]['u_texture'] = frame
+            self.program[orient].draw(gl.GL_TRIANGLES, self.i[orient])
 
     def on_resize(self, width, height):
 
@@ -323,10 +230,18 @@ class Display:
         xpos = int(width * self.vp_global_pos[0])
         ypos = int(height * self.vp_global_pos[1])
 
-        #self.program['ne']['u_view'] = glm.translation(self.modelRotationAxes['ne'][0]*self.disp_vp_center_dist,
-        #                                               self.modelRotationAxes['ne'][1] * self.disp_vp_center_dist
-        #                                               , 0)
-        #self.program['ne']['u_view'] = glm.translation(0, 0.0, -3)
+        for orient in self.program:
+
+            self.program[orient]['u_trans'] = glm.translation(
+                self.modelTranslationAxes[orient][0] * self.disp_vp_center_dist,
+                self.modelTranslationAxes[orient][1] * self.disp_vp_center_dist,
+                -3
+            )
+            rot = np.eye(4, dtype=np.float32)
+            glm.rotate(rot, 180, 0, 0, 1)
+            glm.rotate(rot, self.modelZeroElevRotation[orient], *self.modelRotationAxes[orient])
+            glm.rotate(rot, self.elev_angle, *self.modelRotationAxes[orient])
+            self.program[orient]['u_rot'] = rot
 
         # Set viewports
         self.program['ne']['viewport']['global'] = (0, 0, width, height)
@@ -341,24 +256,11 @@ class Display:
         self.program['nw']['viewport']['global'] = (0, 0, width, height)
         self.program['nw']['viewport']['local'] = (0+xpos, halflength+ypos, halflength, halflength)
 
-
         # Set projection
-        dist = self.disp_vp_center_dist
-        disp_size = np.array([-1.0, 1.0, -1.0, 1.0]) / self.vp_global_size
-
-        ortho = False
-        if ortho:
-            self.program['ne']['u_projection'] = glm.ortho(*disp_size-dist, 0.0, 2.0)
-            self.program['se']['u_projection'] = glm.ortho(*disp_size[:2]-dist, *disp_size[2:]+dist, 0.0, 2.0)
-            self.program['sw']['u_projection'] = glm.ortho(*disp_size+dist, 0.0, 2.0)
-            self.program['nw']['u_projection'] = glm.ortho(*disp_size[:2]+dist, *disp_size[2:]-dist, 0.0, 2.0)
-        else:
-
-            self.program['ne']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
-            self.program['se']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
-            self.program['sw']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
-            self.program['nw']['u_projection'] = glm.perspective(40, 1.0, 0.1, 5.0)
-
+        self.program['ne']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
+        self.program['se']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
+        self.program['sw']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
+        self.program['nw']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
 
         # Draw
         self.window.dispatch_event('on_draw', 0.0)
@@ -377,5 +279,5 @@ def runDisplay(*args, **kwargs):
     display = Display(*args, **kwargs)
 
     # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
-    app.clock.schedule_interval(display.checkInbox, 0.1)
+    app.clock.schedule_interval(display._handleCommunication, 0.1)
     app.run(framerate=60)

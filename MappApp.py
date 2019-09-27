@@ -19,17 +19,19 @@ class Main(QtWidgets.QMainWindow):
         ### Set up IPC
         ipc = macom.IPC()
         ## Main listener
-        ipc.registerConnection('main', 'presenter')
         ipc.registerConnection('main', 'display')
-        # Display listener
-        ipc.registerConnection('presenter', 'display')
+        #ipc.registerConnection('main', 'io')
         # Save to file
         ipc.saveToFile()
 
         # Set up presenter screen
-        print('Starting presenter...')
-        self.presenter = Process(name='Presenter', target=maout.runPresenter)
-        self.presenter.start()
+        print('Starting display...')
+        self.display = Process(name='Display', target=maout.runDisplay)
+        self.display.start()
+
+        print('Starting IO...')
+        self.io = Process(name='IO', target=maout.runIO)
+        #self.io.start()
 
         # Set up listener
         self.listener = ipc.getMetaListener('main')
@@ -39,10 +41,12 @@ class Main(QtWidgets.QMainWindow):
         print('Setting up UI...')
         self.setupUi()
 
+        # Map relations
+        self.mapRelations()
+
         # Load configurations
         print('Load config...')
         self.loadConfiguration()
-
 
         # By default: show checkerboard
         self.checkerboardDisp.displayCheckerboard()
@@ -51,15 +55,12 @@ class Main(QtWidgets.QMainWindow):
         print('Updating display params...')
         self.displaySettingsUpdated()
 
-
     def setupUi(self):
         self.setGeometry(300, 300, 500, 250)
         self.setWindowTitle('MappApp')
 
-        self.liveUpdate = True
-
         # Central widget
-        self._centralwidget = QtWidgets.QWidget()
+        self._centralwidget = QtWidgets.QWidget(self)
         self._centralwidget.setLayout(QtWidgets.QGridLayout())
         self.setCentralWidget(self._centralwidget)
 
@@ -75,21 +76,47 @@ class Main(QtWidgets.QMainWindow):
         self._btn_displayMovGrating.clicked.connect(self.displayMovGrating)
         self._centralwidget.layout().addWidget(self._btn_displayMovGrating, 2, 0)
 
-        if self.liveUpdate:
-            # Define update timer
-            self.timer_param_update = QtCore.QTimer()
-            self.timer_param_update.setSingleShot(True)
-            self.timer_param_update.timeout.connect(self.displaySettingsUpdated)
+        # Define update timer
+        self.timer_param_update = QtCore.QTimer()
+        self.timer_param_update.setSingleShot(True)
+        self.timer_param_update.timeout.connect(self.displaySettingsUpdated)
 
-            # Connect events
-            self.dispSettings._dspn_x_pos.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._dspn_y_pos.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._dspn_elev_angle.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._dspn_glob_disp_size.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._dspn_vp_center_dist.valueChanged.connect(self.onDisplayParamChange)
-            self.dispSettings._check_fullscreen.stateChanged.connect(self.onDisplayParamChange)
+        # Connect events
+        self.dispSettings._dspn_x_pos.valueChanged.connect(self.onDisplayParamChange)
+        self.dispSettings._dspn_y_pos.valueChanged.connect(self.onDisplayParamChange)
+        self.dispSettings._dspn_elev_angle.valueChanged.connect(self.onDisplayParamChange)
+        self.dispSettings._dspn_vp_center_dist.valueChanged.connect(self.onDisplayParamChange)
+        self.dispSettings._check_fullscreen.stateChanged.connect(self.onDisplayParamChange)
+        self.dispSettings._dspn_fov.valueChanged.connect(self.onDisplayParamChange)
 
+        # Show window
         self.show()
+
+    def _convCheckstateToBool(self, checkstate):
+        return True if (checkstate == QtCore.Qt.Checked) else False
+
+    def _convBoolToCheckstate(self, bool):
+        return QtCore.Qt.Checked if bool else QtCore.Qt.Unchecked
+
+    def mapRelations(self):
+        return
+        self.mapDisplaySettings = [
+            (madef.DisplaySettings.float_glob_x_pos,      self.dispSettings._dspn_x_pos.value,
+             self.dispSettings._dspn_x_pos.setValue),
+            (madef.DisplaySettings.float_glob_y_pos,      self.dispSettings._dspn_y_pos.value,
+             self.dispSettings._dspn_y_pos.setValue),
+            (madef.DisplaySettings.float_elev_angle,      self.dispSettings._dspn_elev_angle.value,
+             self.dispSettings._dspn_elev_angle.setValue),
+            (madef.DisplaySettings.float_vp_center_dist,  self.dispSettings._dspn_vp_center_dist.value,
+             self.dispSettings._dspn_vp_center_dist.setValue),
+            (madef.DisplaySettings.float_vp_fov,          self.dispSettings._dspn_fov.value,
+             self.dispSettings._dspn_fov.setValue),
+            (madef.DisplaySettings.int_disp_screen_id,    self.dispSettings._spn_screen_id.value,
+             self.dispSettings._spn_screen_id.setValue),
+            (madef.DisplaySettings.bool_disp_fullscreen,
+            lambda: self._convCheckstateToBool(self.dispSettings._check_fullscreen.checkState()),
+            lambda: self.dispSettings._check_fullscreen.setCheckState(self._convBoolToCheckstate()))
+        ]
 
     def onDisplayParamChange(self):
         self.timer_param_update.start(100)
@@ -97,21 +124,24 @@ class Main(QtWidgets.QMainWindow):
     def displaySettingsUpdated(self, return_settings=False):
 
         settings = {
-            madef.DisplaySettings.glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
-            madef.DisplaySettings.glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
-            madef.DisplaySettings.elev_angle           : self.dispSettings._dspn_elev_angle.value(),
-            madef.DisplaySettings.glob_disp_size       : self.dispSettings._dspn_glob_disp_size.value(),
-            madef.DisplaySettings.vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
-            madef.DisplaySettings.disp_screen_id       : self.dispSettings._spn_screen_id.value(),
-            madef.DisplaySettings.disp_fullscreen      : True if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
-                                   else False
+            madef.DisplaySettings.float_glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
+            madef.DisplaySettings.float_glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
+            madef.DisplaySettings.float_elev_angle           : self.dispSettings._dspn_elev_angle.value(),
+            madef.DisplaySettings.float_vp_center_dist       : self.dispSettings._dspn_vp_center_dist.value(),
+            madef.DisplaySettings.float_vp_fov               : self.dispSettings._dspn_fov.value(),
+            madef.DisplaySettings.int_disp_screen_id         : self.dispSettings._spn_screen_id.value(),
+            madef.DisplaySettings.bool_disp_fullscreen       :
+                True
+                if (self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
+                else False
         }
+        #settings = {option[0] : self.mapDisplaySettings[option[1]] for option in self.mapDisplaySettings}
 
         if return_settings:
             return settings
 
-        # Send new display parameters to presenter
-        obj = [macom.Display.Code.NewSettings, settings]
+        # Send new display parameters to display
+        obj = [macom.Display.Code.NewDisplaySettings, settings]
         self.listener.connections['display'].send(obj)
 
 
@@ -137,20 +167,18 @@ class Main(QtWidgets.QMainWindow):
         # Set display settings
         print('Loading display settings from config')
         disp_settings = config['DisplaySettings']
-        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[madef.DisplaySettings.glob_x_pos]))
-        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[madef.DisplaySettings.glob_y_pos]))
-        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[madef.DisplaySettings.elev_angle]))
-        self.dispSettings._dspn_glob_disp_size.setValue(float(disp_settings[madef.DisplaySettings.glob_disp_size]))
-        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[madef.DisplaySettings.vp_center_dist]))
-        self.dispSettings._spn_screen_id.setValue(int(disp_settings[madef.DisplaySettings.disp_screen_id]))
+        self.dispSettings._dspn_x_pos.setValue(float(disp_settings[madef.DisplaySettings.float_glob_x_pos]))
+        self.dispSettings._dspn_y_pos.setValue(float(disp_settings[madef.DisplaySettings.float_glob_y_pos]))
+        self.dispSettings._dspn_elev_angle.setValue(float(disp_settings[madef.DisplaySettings.float_elev_angle]))
+        self.dispSettings._dspn_vp_center_dist.setValue(float(disp_settings[madef.DisplaySettings.float_vp_center_dist]))
+        self.dispSettings._spn_screen_id.setValue(int(disp_settings[madef.DisplaySettings.int_disp_screen_id]))
         self.dispSettings._check_fullscreen.setCheckState(QtCore.Qt.Checked
-                                                          if disp_settings[madef.DisplaySettings.disp_fullscreen] == 'True'
+                                                          if disp_settings[madef.DisplaySettings.bool_disp_fullscreen] == 'True'
                                                           else QtCore.Qt.Unchecked)
 
     def closeEvent(self, event):
         print('Shutting down...')
-        self.listener.connections['presenter'].send([macom.Presenter.Code.Close])
-        #self.displayClient.conn.send([macom.Display.Code.Close])
+        self.listener.connections['display'].send([macom.Display.Code.Close])
 
         print('> Saving config...')
         self.saveConfiguration()

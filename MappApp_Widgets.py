@@ -21,7 +21,7 @@ class DisplaySettings(QtWidgets.QGroupBox):
         self._dspn_x_pos.setMinimum(-1.0)
         self._dspn_x_pos.setMaximum(1.0)
         self._dspn_x_pos.setSingleStep(0.001)
-        self.layout().addWidget(QtWidgets.QLabel('X position'), 0, 0)
+        self.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
         self.layout().addWidget(self._dspn_x_pos, 0, 1)
 
         self._dspn_y_pos = QtWidgets.QDoubleSpinBox()
@@ -30,26 +30,8 @@ class DisplaySettings(QtWidgets.QGroupBox):
         self._dspn_y_pos.setMinimum(-1.0)
         self._dspn_y_pos.setMaximum(1.0)
         self._dspn_y_pos.setSingleStep(0.001)
-        self.layout().addWidget(QtWidgets.QLabel('Y position'), 1, 0)
+        self.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
         self.layout().addWidget(self._dspn_y_pos, 1, 1)
-
-        self._dspn_elev_angle = QtWidgets.QDoubleSpinBox()
-        self._dspn_elev_angle.setDecimals(1)
-        self._dspn_elev_angle.setValue(0.)
-        self._dspn_elev_angle.setMinimum(-90.0)
-        self._dspn_elev_angle.setMaximum(90.0)
-        self._dspn_elev_angle.setSingleStep(0.1)
-        self.layout().addWidget(QtWidgets.QLabel('Elevation angle'), 2, 0)
-        self.layout().addWidget(self._dspn_elev_angle, 2, 1)
-
-        self._dspn_glob_disp_size = QtWidgets.QDoubleSpinBox()
-        self._dspn_glob_disp_size.setDecimals(3)
-        self._dspn_glob_disp_size.setValue(1.)
-        self._dspn_glob_disp_size.setMinimum(0.01)
-        self._dspn_glob_disp_size.setMaximum(2.0)
-        self._dspn_glob_disp_size.setSingleStep(0.005)
-        self.layout().addWidget(QtWidgets.QLabel('Global display size'), 3, 0)
-        self.layout().addWidget(self._dspn_glob_disp_size, 3, 1)
 
         self._dspn_vp_center_dist = QtWidgets.QDoubleSpinBox()
         self._dspn_vp_center_dist.setDecimals(3)
@@ -57,8 +39,27 @@ class DisplaySettings(QtWidgets.QGroupBox):
         self._dspn_vp_center_dist.setMinimum(-1.0)
         self._dspn_vp_center_dist.setMaximum(1.0)
         self._dspn_vp_center_dist.setSingleStep(0.001)
-        self.layout().addWidget(QtWidgets.QLabel('Center distance'), 4, 0)
-        self.layout().addWidget(self._dspn_vp_center_dist, 4, 1)
+        self.layout().addWidget(QtWidgets.QLabel('Center distance'), 3, 0)
+        self.layout().addWidget(self._dspn_vp_center_dist, 3, 1)
+
+        self._dspn_fov = QtWidgets.QDoubleSpinBox()
+        self._dspn_fov.setDecimals(1)
+        self._dspn_fov.setValue(50.0)
+        self._dspn_fov.setMinimum(1.0)
+        self._dspn_fov.setMaximum(180.0)
+        self._dspn_fov.setSingleStep(0.5)
+        self.layout().addWidget(QtWidgets.QLabel('FOV'), 4, 0)
+        self.layout().addWidget(self._dspn_fov, 4, 1)
+
+        self._dspn_elev_angle = QtWidgets.QDoubleSpinBox()
+        self._dspn_elev_angle.setDecimals(1)
+        self._dspn_elev_angle.setValue(0.)
+        self._dspn_elev_angle.setMinimum(-90.0)
+        self._dspn_elev_angle.setMaximum(90.0)
+        self._dspn_elev_angle.setSingleStep(0.1)
+        self.layout().addWidget(QtWidgets.QLabel('Elevation [deg]'), 5, 0)
+        self.layout().addWidget(self._dspn_elev_angle, 5, 1)
+
 
         self._spn_screen_id = QtWidgets.QSpinBox()
         self._spn_screen_id.setValue(0)
@@ -75,8 +76,6 @@ class CheckerboardCalibration(QtWidgets.QGroupBox):
     def __init__(self, main):
         super().__init__('Checkerboard calibration')
         self.main = main
-
-#self.displayClient = macom.Display.Client()
 
         self.setupUi()
 

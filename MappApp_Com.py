@@ -8,6 +8,7 @@ class Main:
         Ready = 200
 
     class Code:
+        NewDisplaySettings = 10
         Close = 99
 
 class Display:
@@ -15,7 +16,7 @@ class Display:
         pass
 
     class Code:
-        NewSettings = 10
+        NewDisplaySettings = 10
         SetNewStimulus = 20
         Close = 99
 
