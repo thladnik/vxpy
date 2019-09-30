@@ -1,17 +1,19 @@
 import configparser
 from collections import namedtuple
 
+import MappApp_Defaults as madflt
 import MappApp_Definition as madef
+
 
 class Config:
 
-    filename = 'config.ini'
+    filepath = 'config.ini'
 
     def __init__(self):
         self.config = configparser.ConfigParser()
-        self.config.read(self.filename)
+        self.config.read(self.filepath)
 
-    def _parsedSection(self, section, return_dict=False):
+    def _parsedSection(self, section):
         parsed = dict()
         for option in self.config[section]:
             dtype = option.split('_')[0]
@@ -22,20 +24,29 @@ class Config:
             elif dtype == 'bool':
                 value = self.config.getboolean(section, option)
             else:
-                value = self.config.getboolean(section, option)
+                value = self.config.get(section, option)
             parsed[option] = value
 
-        if return_dict:
-            return parsed
-        return namedtuple(section, parsed.keys())(*parsed.values())
+        return parsed
+        # return namedtuple(section, parsed.keys())(*parsed.values()) # DOES NOT WORK WITH MULTIPROCESSING
 
-    def displaySettings(self):
-        if self.config.has_section(madef.DisplaySettings.name):
-            return self._parsedSection(madef.DisplaySettings.name)
-        return None
+    def displaySettings(self, **kwargs):
+        # If section does not exist: create it and set to defaults
+        if not(self.config.has_section(madef.DisplaySettings._name)):
+            self.config.add_section(madef.DisplaySettings._name)
+            for option in madflt.DisplaySettings:
+                self.config.set(madef.DisplaySettings._name,
+                                getattr(madef.DisplaySettings, option), str(madflt.DisplaySettings[option]))
+        # Return display settings
+        return self._parsedSection(madef.DisplaySettings._name)
 
-    def setDisplaySettings(self, **settings):
-        if not(self.config.has_section(madef.DisplaySettings.name)):
-            self.config.add_section(madef.DisplaySettings.name)
+    def updateDisplaySettings(self, **settings):
+        if not(self.config.has_section(madef.DisplaySettings._name)):
+            self.displaySettings()
 
-        self.config[madef.DisplaySettings.name].update(settings)
+        self.config[madef.DisplaySettings._name].update(**{option : str(settings[option]) for option in settings})
+
+    def saveToFile(self):
+        with open(self.filepath, 'w') as fobj:
+            self.config.write(fobj)
+            fobj.close()

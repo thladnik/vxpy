@@ -96,15 +96,10 @@ class MetaListener:
             print('Listener "%s" waiting for client "%s"...' % (self._name, client))
             self.listeners[client]._listener._socket.settimeout(5)
             try:
-                conn = self.listeners[client].accept()
-                self.connections[client] = conn
+                self.connections[client] = self.listeners[client].accept()
                 print('> connected')
             except:
                 print('> no response from client.')
-
-        # Report readyness
-        for client in self.connections:
-            self.connections[client].send(None)
 
     def receive(self):
         for client in self.connections:
@@ -112,3 +107,15 @@ class MetaListener:
                 return self.connections[client].recv()
         return None
 
+    def sendToClient(self, client, obj):
+        # Check if client is connected
+        if not(client in self.connections):
+            print('WARNING: client "%s" not connected or unregistered' % client)
+            return
+
+        # Send to client
+        try:
+            self.connections[client].send(obj)
+            return True
+        except:
+            return False

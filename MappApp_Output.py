@@ -5,7 +5,7 @@ from multiprocessing.connection import Listener, Client
 import time
 
 from MappApp_Geometry import SphericalArena
-import MappApp_Com as macom
+import MappApp_Communication as macom
 import MappApp_Definition as madef
 
 
@@ -72,23 +72,24 @@ class Display:
 
         ipc = macom.IPC()
         ipc.loadConnections()
-        self.clientToMain = ipc.getClientConnection('main', 'display')
+        self.clientToCtrl = ipc.getClientConnection(madef.Processes.CONTROL, madef.Processes.DISPLAY)
 
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
         self.program = None
         self.stimulus = None
-        self.vp_global_pos = (0., 0.)
-        self.vp_global_size = 1.0
-        self.disp_vp_center_dist = 0.0
-        self.vp_fov = 50.
-        self.elev_angle = 0.
 
-        # Use event wrapper
+        # Apply event wrapper
         self.on_draw = self.window.event(self.on_draw)
         self.on_resize = self.window.event(self.on_resize)
         self.on_init = self.window.event(self.on_init)
 
+        # Wait to receive display settings
+        obj = self.clientToCtrl.recv()
+        if not(obj[0] == macom.Display.Code.NewDisplaySettings):
+            print('ERROR: display requires initial message to be the display configuration.')
+            self.window.close()
+        self.displaySettings = obj[1]
 
     def setupProgram(self):
         self.program = dict()
@@ -121,20 +122,17 @@ class Display:
             self.program[orient] = gloo.Program(self.stimulus.vertex_shader, self.stimulus.fragment_shader)
             self.program[orient].bind(self.v[orient])
 
-
             self.program[orient]['viewport'] = transforms.Viewport()
 
 
     def _handleCommunication(self, dt):
 
         # Receive data
-        if not(self.clientToMain.poll(timeout=.0001)):
+        if not(self.clientToCtrl.poll(timeout=.0001)):
             return
 
-        obj = self.clientToMain.recv()
-
-        if obj is None:
-            return
+        # Receive message
+        obj = self.clientToCtrl.recv()
 
         # App close event
         if obj[0] == macom.Display.Code.Close:
@@ -146,28 +144,13 @@ class Display:
             if self.program is None:
                 return
 
-            # Display parameters
-            params = obj[1]
-
-            # Set child viewport distance from center
-            self.disp_vp_center_dist = params[madef.DisplaySettings.float_vp_center_dist]
-
-            # Set global viewpoint position
-            self.vp_global_pos = (params[madef.DisplaySettings.float_glob_x_pos], params[madef.DisplaySettings.float_glob_y_pos])
-
-            if self.window.get_fullscreen() != params[madef.DisplaySettings.bool_disp_fullscreen]:
-                print('Fullscreen state changed')
-                self.window.set_fullscreen(params[madef.DisplaySettings.bool_disp_fullscreen], screen=params[madef.DisplaySettings.int_disp_screen_id])
-
-            self.vp_fov = params[madef.DisplaySettings.float_vp_fov]
-
-            self.elev_angle = params[madef.DisplaySettings.float_elev_angle]
-
+            # Update display settings
+            self.displaySettings = obj[1]
 
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
-        # New stimulus to present
+        # New stimulus
         elif obj[0] == macom.Display.Code.SetNewStimulus:
             stimcls = obj[1]
 
@@ -178,10 +161,10 @@ class Display:
             if len(obj) > 3:
                 kwargs = obj[3]
 
-
             # Create stimulus instance
             self.stimulus = stimcls(*args, **kwargs)
 
+            # Setup new program
             self.setupProgram()
 
             # Dispatch resize event
@@ -214,7 +197,7 @@ class Display:
         if self.program is None:
             return
 
-        # Fixes
+        # Fixes for qt5 backend
         self.window._width = width
         self.window._height = height
 
@@ -227,40 +210,60 @@ class Display:
             length = height
         halflength = length // 2
 
-        xpos = int(width * self.vp_global_pos[0])
-        ypos = int(height * self.vp_global_pos[1])
+        # Get display settings
+        view_axis_offset = self.displaySettings[madef.DisplaySettings.float_view_axis_offset]
+        vp_fov = self.displaySettings[madef.DisplaySettings.float_vp_fov]
+        elev_angle = self.displaySettings[madef.DisplaySettings.float_elev_angle]
+        vp_glob_x_pos = self.displaySettings[madef.DisplaySettings.float_glob_x_pos]
+        vp_glob_y_pos = self.displaySettings[madef.DisplaySettings.float_glob_x_pos]
+        vp_center_offset = 1-self.displaySettings[madef.DisplaySettings.float_vp_center_offset]
+
+        # Change screen settings
+        if self.window.get_fullscreen() != self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
+            print('Fullscreen state changed')
+            self.window.set_fullscreen(self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
+                                       screen=self.displaySettings[madef.DisplaySettings.int_disp_screen_id])
+
+        xpos = int(width * vp_glob_x_pos)
+        ypos = int(height * vp_glob_y_pos)
 
         for orient in self.program:
-
+            # Set translation
             self.program[orient]['u_trans'] = glm.translation(
-                self.modelTranslationAxes[orient][0] * self.disp_vp_center_dist,
-                self.modelTranslationAxes[orient][1] * self.disp_vp_center_dist,
-                -3
+                self.modelTranslationAxes[orient][0] * view_axis_offset,
+                self.modelTranslationAxes[orient][1] * view_axis_offset,
+                -2
             )
+            # Set rotation
             rot = np.eye(4, dtype=np.float32)
             glm.rotate(rot, 180, 0, 0, 1)
             glm.rotate(rot, self.modelZeroElevRotation[orient], *self.modelRotationAxes[orient])
-            glm.rotate(rot, self.elev_angle, *self.modelRotationAxes[orient])
+            glm.rotate(rot, elev_angle, *self.modelRotationAxes[orient])
             self.program[orient]['u_rot'] = rot
 
         # Set viewports
+        offset = halflength*vp_center_offset
         self.program['ne']['viewport']['global'] = (0, 0, width, height)
-        self.program['ne']['viewport']['local'] = (halflength+xpos, halflength+ypos, halflength, halflength)
+        x, y = halflength+xpos-int(offset), halflength+ypos-int(offset)
+        self.program['ne']['viewport']['local'] = (x, y, halflength, halflength)
 
         self.program['se']['viewport']['global'] = (0, 0, width, height)
-        self.program['se']['viewport']['local'] = (halflength+xpos, 0+ypos, halflength, halflength)
+        x, y = halflength+xpos-int(offset), ypos+int(offset)
+        self.program['se']['viewport']['local'] = (x, y, halflength, halflength)
 
         self.program['sw']['viewport']['global'] = (0, 0, width, height)
-        self.program['sw']['viewport']['local'] = (0+xpos, 0+ypos, halflength, halflength)
+        x, y = xpos+int(offset), ypos+int(offset)
+        self.program['sw']['viewport']['local'] = (x, y, halflength, halflength)
 
         self.program['nw']['viewport']['global'] = (0, 0, width, height)
-        self.program['nw']['viewport']['local'] = (0+xpos, halflength+ypos, halflength, halflength)
+        x, y = xpos+int(offset), halflength+ypos-int(offset)
+        self.program['nw']['viewport']['local'] = (x, y, halflength, halflength)
 
         # Set projection
-        self.program['ne']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
-        self.program['se']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
-        self.program['sw']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
-        self.program['nw']['u_projection'] = glm.perspective(self.vp_fov, 1.0, 0.1, 5.0)
+        self.program['ne']['u_projection'] = glm.perspective(vp_fov, 1.0, 0.1, 5.0)
+        self.program['se']['u_projection'] = glm.perspective(vp_fov, 1.0, 0.1, 5.0)
+        self.program['sw']['u_projection'] = glm.perspective(vp_fov, 1.0, 0.1, 5.0)
+        self.program['nw']['u_projection'] = glm.perspective(vp_fov, 1.0, 0.1, 5.0)
 
         # Draw
         self.window.dispatch_event('on_draw', 0.0)
@@ -269,10 +272,6 @@ class Display:
     def on_init(self):
         if self.program is None:
             return
-
-    def sendCloseInfo(self, fun):
-        print('closing')
-        fun()
 
 def runDisplay(*args, **kwargs):
 
