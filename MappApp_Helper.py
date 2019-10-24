@@ -1,5 +1,5 @@
 import configparser
-from collections import namedtuple
+from PyQt5 import QtCore
 
 import MappApp_Defaults as madflt
 import MappApp_Definition as madef
@@ -50,3 +50,13 @@ class Config:
         with open(self.filepath, 'w') as fobj:
             self.config.write(fobj)
             fobj.close()
+
+class Conversion:
+
+    @staticmethod
+    def boolToQtCheckstate(boolean):
+        return QtCore.Qt.Checked if boolean else QtCore.Qt.Unchecked
+
+    @staticmethod
+    def QtCheckstateToBool(checkstate):
+        return True if (checkstate == QtCore.Qt.Checked) else False

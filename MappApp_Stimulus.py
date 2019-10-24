@@ -65,23 +65,21 @@ class DisplayCheckerboard(Stimulus):
         self.frametime = 1.0 / self.fps
         self.time = 0.0
 
-        # Generate primitive
-        primitive = np.append(np.ones((5,5)), np.zeros((5,5)), axis=0)
-        primitive = np.append(primitive, np.flipud(primitive), axis=1)
+        # Construct checkerboard
+        sr = 20
+        checker = np.ones((sr*rows, sr*cols))
+        checker = (checker * np.sin(np.linspace(0., np.pi*cols, sr*cols))).T
+        checker = (checker * np.sin(np.linspace(0., np.pi*rows, sr*rows))).T
+        checker[checker > 0.] = 1.
+        checker[checker <= 0] = 0.
 
-        # Construct rows
-        checker = primitive.copy()
-        for i in range(rows-1):
-            checker = np.append(checker, primitive, axis=0)
+        checker = np.repeat(checker[:,:,np.newaxis], 4, axis=2)
+        checker[:,:,-1] = 1
 
-        # Construct columns
-        primitive = checker.copy()
-        for i in range(cols-1):
-            checker = np.append(checker, primitive, axis=1)
+        self.checkerboard = checker
 
-        # Construct checkerboard frame (RGBA)
-        self.checkerboard = np.repeat(checker[:, :, np.newaxis], 3, axis=2)  # Triple for RGB
-        self.checkerboard = np.append(self.checkerboard, np.ones(self.checkerboard.shape[:2])[:, :, np.newaxis], axis=2)  # Add alpha
 
     def frame(self, dt):
         return self.checkerboard
+
+

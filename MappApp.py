@@ -1,14 +1,13 @@
-import configparser
 from PyQt5 import QtCore, QtWidgets
 import sys
-from multiprocessing import Process, Pipe
-import time
 
 
 from MappApp_Widgets import *
 from MappApp_Control import Controller
 import MappApp_Definition as madef
+import MappApp_Helper as mahlp
 
+import IPython
 
 class Main(QtWidgets.QMainWindow):
 
@@ -26,7 +25,7 @@ class Main(QtWidgets.QMainWindow):
         self._wrapController()
 
         # By default: show checkerboard
-        self.checkerboardDisp.displayCheckerboard()
+        self.checkerboardCalibration.displayCheckerboard()
 
 
     def _wrapController(self):
@@ -38,20 +37,33 @@ class Main(QtWidgets.QMainWindow):
 
 
     def setupUi(self):
-        self.setGeometry(300, 300, 500, 250)
-        self.setWindowTitle('MappApp')
 
-        # Central widget
-        self._centralwidget = QtWidgets.QWidget(self)
+        ## Setup MainWindow
+        self.setWindowTitle('MappApp')
+        self.move(0, 0)
+        self.setFixedSize(800, 100)
+        self.show()
+
+        geo = self.window().geometry()
+
+        ## Setup central widget
+        self._centralwidget = QtWidgets.QWidget(parent=self, flags=Qt.Widget)
         self._centralwidget.setLayout(QtWidgets.QGridLayout())
         self.setCentralWidget(self._centralwidget)
 
+        ## Setup display settings widget
         self.dispSettings = DisplaySettings(self)
-        self._centralwidget.layout().addWidget(self.dispSettings, 0, 0)
+        self.dispSettings.setMinimumSize(300, 300)
+        self._openDisplaySettings()
+        self.dispSettings.move(geo.x(), geo.y()+geo.height())
 
-        # Display checkerboard
-        self.checkerboardDisp = CheckerboardCalibration(self)
-        self._centralwidget.layout().addWidget(self.checkerboardDisp, 1, 0)
+        geo_disp = self.dispSettings.window().geometry()
+
+        ## Setup checkerboard calibration
+        self.checkerboardCalibration = CheckerboardCalibration(self)
+        self.checkerboardCalibration.setMinimumSize(300, 100)
+        self._openCheckerboardCalibration()
+        self.checkerboardCalibration.move(geo.x(), geo_disp.y()+geo_disp.height())
 
         # Display moving grating
         self._btn_displayMovGrating = QtWidgets.QPushButton('Display moving grating')
@@ -72,14 +84,12 @@ class Main(QtWidgets.QMainWindow):
         self.dispSettings._check_fullscreen.stateChanged.connect(self.onDisplaySettingChange)
         self.dispSettings._dspn_fov.valueChanged.connect(self.onDisplaySettingChange)
 
-        # Show window
-        self.show()
 
-    def _convCheckstateToBool(self, checkstate):
-        return True if (checkstate == QtCore.Qt.Checked) else False
+    def _openDisplaySettings(self):
+        self.dispSettings.show()
 
-    def _convBoolToCheckstate(self, bool):
-        return QtCore.Qt.Checked if bool else QtCore.Qt.Unchecked
+    def _openCheckerboardCalibration(self):
+        self.checkerboardCalibration.show()
 
     def onDisplaySettingChange(self):
         self.timer_param_update.start(100)
@@ -87,6 +97,7 @@ class Main(QtWidgets.QMainWindow):
     def displaySettingsChanged(self):
 
         self.ctrl.updateDisplaySettings(**{
+
             madef.DisplaySettings.float_glob_x_pos           : self.dispSettings._dspn_x_pos.value(),
             madef.DisplaySettings.float_glob_y_pos           : self.dispSettings._dspn_y_pos.value(),
             madef.DisplaySettings.float_elev_angle           : self.dispSettings._dspn_elev_angle.value(),
@@ -94,15 +105,19 @@ class Main(QtWidgets.QMainWindow):
             madef.DisplaySettings.float_vp_center_offset     : self.dispSettings._dspn_vp_center_offset.value(),
             madef.DisplaySettings.float_vp_fov               : self.dispSettings._dspn_fov.value(),
             madef.DisplaySettings.int_disp_screen_id         : self.dispSettings._spn_screen_id.value(),
-            madef.DisplaySettings.bool_disp_fullscreen       : self._convCheckstateToBool(
-                self.dispSettings._check_fullscreen.checkState() == QtCore.Qt.Checked)
+            madef.DisplaySettings.bool_disp_fullscreen       : mahlp.Conversion.QtCheckstateToBool(
+                self.dispSettings._check_fullscreen.checkState())
         })
 
 
-    def closeEvent(self, event):
+    def closeEvent(self, QCloseEvent):
+        # Terminate controller instance
         self.ctrl.terminate()
-        # Close
-        self.close()
+        # Close widgets
+        self.dispSettings.close()
+        self.checkerboardCalibration.close()
+        # Close MainWindow
+        QCloseEvent.accept()
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)

@@ -91,6 +91,9 @@ class Display:
             self.window.close()
         self.displaySettings = obj[1]
 
+        # Check fullscreen state and change if necessary
+        self.checkFullscreen()
+
     def setupProgram(self):
         self.program = dict()
         self.v = dict()
@@ -147,6 +150,9 @@ class Display:
             # Update display settings
             self.displaySettings = obj[1]
 
+            # Check fullscreen state and change if necessary
+            self.checkFullscreen()
+
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
@@ -170,6 +176,10 @@ class Display:
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
+    def checkFullscreen(self):
+        if self.window.get_fullscreen() != self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
+            self.window.set_fullscreen(self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
+                                       screen=self.displaySettings[madef.DisplaySettings.int_disp_screen_id])
 
     def on_draw(self, dt):
 
@@ -218,11 +228,6 @@ class Display:
         vp_glob_y_pos = self.displaySettings[madef.DisplaySettings.float_glob_x_pos]
         vp_center_offset = 1-self.displaySettings[madef.DisplaySettings.float_vp_center_offset]
 
-        # Change screen settings
-        if self.window.get_fullscreen() != self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
-            print('Fullscreen state changed')
-            self.window.set_fullscreen(self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
-                                       screen=self.displaySettings[madef.DisplaySettings.int_disp_screen_id])
 
         xpos = int(width * vp_glob_x_pos)
         ypos = int(height * vp_glob_y_pos)
