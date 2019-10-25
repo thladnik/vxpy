@@ -20,6 +20,14 @@ class Display:
         SetNewStimulus = 20
         Close = 99
 
+class IO:
+    class State:
+        pass
+
+    class Code:
+        DigitalOut01 = 1
+        Close = 99
+
 class Presenter:
     class State:
         pass
@@ -97,9 +105,13 @@ class MetaListener:
             self.listeners[client]._listener._socket.settimeout(5)
             try:
                 self.connections[client] = self.listeners[client].accept()
-                print('> connected')
+                obj = self.connections[client].recv()
+                if obj:
+                    print('> client "%s" connected to listener "%s"' % (client, self._name))
+                else:
+                    print('> WARNING: listener "%s" get wrong initial auth code "%s"' % (self._name, client))
             except:
-                print('> no response from client.')
+                print('> No response from client "%s" for listener "%s"' % (client, self._name))
 
     def receive(self):
         for client in self.connections:
@@ -119,3 +131,7 @@ class MetaListener:
             return True
         except:
             return False
+
+    def close(self):
+        for client in self.listeners:
+            self.connections[client].close()

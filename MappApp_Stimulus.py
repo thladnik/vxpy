@@ -39,24 +39,50 @@ class Stimulus:
         """
         pass
 
-class DisplayGrating(Stimulus):
+
+class DisplayMovingGrating(Stimulus):
 
     def __init__(self):
         self.fps = 20
         self.frametime = 1.0 / self.fps
+        self.movementVelocity = 3
+
         self.time = 0.0
-        self.movie = h5py.File('teststim.h5', 'r')['stimulus'][:]
-        self.endtime = self.movie.shape[0] / self.fps
 
     def frame(self, dt):
         self.time += dt
 
-        # Just for now: loop
-        if self.time > self.endtime:
-            self.time = 0.0
+        shift = self.time*self.movementVelocity
 
-        return self.movie[int(self.time//self.frametime),:,:,:]
+        _frame = np.ones((400, 800))
+        _frame *= np.sin(2 * np.pi * np.linspace(0, 20, _frame.shape[1]) + shift).reshape((1, -1))
+        _frame = np.repeat(_frame[:, :, np.newaxis], 4, axis=2)
+        _frame[_frame >= 0.] = 1.
+        _frame[_frame < 0.] = 0.
+        _frame[:, :, -1] = 1.
 
+        return _frame
+
+class DisplayMovingSinusoid(Stimulus):
+
+    def __init__(self):
+        self.fps = 20
+        self.frametime = 1.0 / self.fps
+        self.movementVelocity = 3
+
+        self.time = 0.0
+
+    def frame(self, dt):
+        self.time += dt
+
+        shift = self.time*self.movementVelocity
+
+        _frame = np.ones((400, 800))
+        _frame *= np.sin(2 * np.pi * np.linspace(0, 20, _frame.shape[1]) + shift).reshape((1, -1))
+        _frame = np.repeat(_frame[:,:,np.newaxis], 4, axis=2)
+        _frame[:,:,-1] = 1.
+
+        return _frame
 
 class DisplayCheckerboard(Stimulus):
 
@@ -78,8 +104,10 @@ class DisplayCheckerboard(Stimulus):
 
         self.checkerboard = checker
 
-
     def frame(self, dt):
+        # Color inverse flickering
+        #self.checkerboard = (self.checkerboard.astype(bool) == False).astype(float)
+        #self.checkerboard[:,:,-1] = 1.
         return self.checkerboard
 
 

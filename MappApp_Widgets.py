@@ -114,7 +114,9 @@ class CheckerboardCalibration(QtWidgets.QWidget):
 
     def setupUi(self):
 
+        ## Setup widget
         self.setLayout(QtWidgets.QGridLayout())
+        self.setWindowTitle('Checkerboard calibration')
 
         self._spn_rows = QtWidgets.QSpinBox()
         self._spn_rows.setValue(16)
@@ -134,3 +136,39 @@ class CheckerboardCalibration(QtWidgets.QWidget):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                         [macom.Display.Code.SetNewStimulus, stim.DisplayCheckerboard,
                                         [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])
+
+
+class TestStimuli(QtWidgets.QWidget):
+
+    def __init__(self, main):
+        super().__init__(parent=main, flags=Qt.Window)
+
+        self.setupUi()
+
+    def setupUi(self):
+
+        ## Setup widget
+        self.setLayout(QtWidgets.QVBoxLayout())
+        self.setWindowTitle('Test stimuli')
+
+        # Display moving grating
+        self._btn_displayMovGrating = QtWidgets.QPushButton('Moving grating')
+        self._btn_displayMovGrating.clicked.connect(self.displayMovingGrating)
+        self.layout().addWidget(self._btn_displayMovGrating)
+
+        # Display moving sinusoid
+        self._btn_displayMovSinusoid = QtWidgets.QPushButton('Moving sinusoid')
+        self._btn_displayMovSinusoid.clicked.connect(self.displayMovingSinusoid)
+        self.layout().addWidget(self._btn_displayMovSinusoid)
+
+
+    def displayMovingGrating(self):
+        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
+                                        [macom.Display.Code.SetNewStimulus, stim.DisplayMovingGrating,
+                                        [], dict()])
+
+    def displayMovingSinusoid(self):
+        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
+                                        [macom.Display.Code.SetNewStimulus, stim.DisplayMovingSinusoid,
+                                        [], dict()])
+

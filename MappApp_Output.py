@@ -1,13 +1,10 @@
 from glumpy import app, gl, glm, gloo, transforms
 import numpy as np
-from multiprocessing import Pipe, Process
-from multiprocessing.connection import Listener, Client
-import time
 
 from MappApp_Geometry import SphericalArena
 import MappApp_Communication as macom
 import MappApp_Definition as madef
-
+from devices import Arduino
 
 from IPython import embed
 
@@ -18,10 +15,37 @@ class IO:
     """
     Handles analogue/digital IO
     """
-    pass
+
+    def __init__(self):
+
+        ## Setup listener
+        ipc = macom.IPC()
+        ipc.loadConnections()
+        self.listener = ipc.getMetaListener(madef.Processes.IO)
+        # Wait for clients
+        self.listener.acceptClients()
+
+        ## Setup serial connection
+        self.serialConn = Arduino.getSerialConnection()
+
 
     def start(self):
-        pass
+        while True:
+            obj = self.listener.receive()
+
+            if obj is None:
+                continue
+
+            if obj[0] == macom.IO.Code.DigitalOut01:
+                # Write 1 to serial device
+                self.serialConn.write(b'1')
+            elif obj[0] == macom.IO.Code.Close:
+                print('Closing IO')
+                # Close serial connection
+                self.serialConn.close()
+                # Close listener connections
+                self.listener.close()
+                break
 
 def runIO():
     io = IO()
@@ -70,10 +94,13 @@ class Display:
 
     def __init__(self):
 
+        ## Load client connections
         ipc = macom.IPC()
         ipc.loadConnections()
         self.clientToCtrl = ipc.getClientConnection(madef.Processes.CONTROL, madef.Processes.DISPLAY)
+        self.clientToIO = ipc.getClientConnection(madef.Processes.IO, madef.Processes.DISPLAY)
 
+        ## Setup window
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
         self.program = None
@@ -139,6 +166,9 @@ class Display:
 
         # App close event
         if obj[0] == macom.Display.Code.Close:
+            print('Closing display')
+            self.clientToCtrl.close()
+            self.clientToIO.close()
             self.window.close()
 
         # New display settings
@@ -201,6 +231,10 @@ class Display:
         for orient in self.program:
             self.program[orient]['u_texture'] = frame
             self.program[orient].draw(gl.GL_TRIANGLES, self.i[orient])
+
+        # Output frame sync signal
+        self.clientToIO.send([macom.IO.Code.DigitalOut01])
+
 
     def on_resize(self, width, height):
 
