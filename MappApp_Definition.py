@@ -9,11 +9,14 @@ class Processes:
 class DisplaySettings:
     _name = 'DisplaySettings'
 
-    float_glob_x_pos = 'float_glob_x_pos'
-    float_glob_y_pos = 'float_glob_y_pos'
-    float_vp_center_offset = 'float_vp_center_offset'
-    float_view_axis_offset = 'float_view_axis_offset'
-    float_elev_angle = 'float_elev_angle'
-    float_vp_fov = 'float_vp_fov'
-    int_disp_screen_id = 'int_disp_screen_id'
-    bool_disp_fullscreen = 'bool_disp_fullscreen'
+    float_pos_glob_x_pos         = 'float_pos_glob_x_pos'
+    float_pos_glob_y_pos         = 'float_pos_glob_y_pos'
+    float_pos_glob_center_offset = 'float_pos_glob_center_offset'
+
+    float_view_elev_angle        = 'float_view_elev_angle'
+    float_view_axis_offset       = 'float_view_axis_offset'
+    float_view_origin_distance   = 'float_view_origin_distance'
+    float_view_fov               = 'float_view_fov'
+
+    int_disp_screen_id           = 'int_disp_screen_id'
+    bool_disp_fullscreen         = 'bool_disp_fullscreen'

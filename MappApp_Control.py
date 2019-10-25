@@ -21,11 +21,12 @@ class Controller:
         # Save to file
         ipc.saveToFile()
 
-        # Set up presenter screen
+        ## Setup presenter screen
         print('Starting display...')
-        self.display = Process(name=madef.Processes.DISPLAY, target=maout.runDisplay)
+        self.display = Process(name=madef.Processes.DISPLAY, target=maout.runDisplay, kwargs=dict(fps=20))
         self.display.start()
 
+        ## Setup input/output
         print('Starting IO...')
         self.io = Process(name=madef.Processes.IO, target=maout.runIO)
         self.io.start()
@@ -35,8 +36,10 @@ class Controller:
         self.listener = ipc.getMetaListener(madef.Processes.CONTROL)
         self.listener.acceptClients()
 
-        # Load configuration
+        ## Load configuration
         self.config = mahlp.Config()
+
+        ## Update display settings
         self.updateDisplaySettings()
 
     def updateDisplaySettings(self, **settings):

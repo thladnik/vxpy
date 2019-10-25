@@ -256,12 +256,12 @@ class Display:
 
         # Get display settings
         view_axis_offset = self.displaySettings[madef.DisplaySettings.float_view_axis_offset]
-        vp_fov = self.displaySettings[madef.DisplaySettings.float_vp_fov]
-        elev_angle = self.displaySettings[madef.DisplaySettings.float_elev_angle]
-        vp_glob_x_pos = self.displaySettings[madef.DisplaySettings.float_glob_x_pos]
-        vp_glob_y_pos = self.displaySettings[madef.DisplaySettings.float_glob_x_pos]
-        vp_center_offset = 1-self.displaySettings[madef.DisplaySettings.float_vp_center_offset]
-
+        vp_fov = self.displaySettings[madef.DisplaySettings.float_view_fov]
+        elev_angle = self.displaySettings[madef.DisplaySettings.float_view_elev_angle]
+        vp_glob_x_pos = self.displaySettings[madef.DisplaySettings.float_pos_glob_x_pos]
+        vp_glob_y_pos = self.displaySettings[madef.DisplaySettings.float_pos_glob_y_pos]
+        vp_center_offset = 1-self.displaySettings[madef.DisplaySettings.float_pos_glob_center_offset]
+        origin_distance = self.displaySettings[madef.DisplaySettings.float_view_origin_distance]
 
         xpos = int(width * vp_glob_x_pos)
         ypos = int(height * vp_glob_y_pos)
@@ -271,7 +271,7 @@ class Display:
             self.program[orient]['u_trans'] = glm.translation(
                 self.modelTranslationAxes[orient][0] * view_axis_offset,
                 self.modelTranslationAxes[orient][1] * view_axis_offset,
-                -2
+                -origin_distance
             )
             # Set rotation
             rot = np.eye(4, dtype=np.float32)
@@ -312,10 +312,11 @@ class Display:
         if self.program is None:
             return
 
-def runDisplay(*args, **kwargs):
+def runDisplay(fps, *args, **kwargs):
 
     display = Display(*args, **kwargs)
 
     # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
     app.clock.schedule_interval(display._handleCommunication, 0.1)
-    app.run(framerate=60)
+    #
+    app.run(framerate=fps)

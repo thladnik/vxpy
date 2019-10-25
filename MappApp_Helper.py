@@ -28,7 +28,6 @@ class Config:
             parsed[option] = value
 
         return parsed
-        # return namedtuple(section, parsed.keys())(*parsed.values()) # DOES NOT WORK WITH MULTIPROCESSING
 
     def displaySettings(self, **kwargs):
         # If section does not exist: create it and set to defaults
