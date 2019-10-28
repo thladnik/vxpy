@@ -111,27 +111,24 @@ class DisplaySettings(QtWidgets.QWidget):
             mahlp.Conversion.boolToQtCheckstate(init_settings[madef.DisplaySettings.bool_disp_fullscreen]))
         self._grp_disp.layout().addWidget(self._check_fullscreen, 0, 2)
 
-        ## Connect events to update timer call
-        self._dspn_x_pos.valueChanged.connect(self.onSettingChange)
-        self._dspn_y_pos.valueChanged.connect(self.onSettingChange)
-        self._dspn_elev_angle.valueChanged.connect(self.onSettingChange)
-        self._dspn_view_axis_offset.valueChanged.connect(self.onSettingChange)
-        self._dspn_vp_center_offset.valueChanged.connect(self.onSettingChange)
-        self._dspn_view_origin_distance.valueChanged.connect(self.onSettingChange)
-        self._check_fullscreen.stateChanged.connect(self.onSettingChange)
-        self._dspn_fov.valueChanged.connect(self.onSettingChange)
+        ## Connect change events to a timer
         # Define update timer
         self.timer_param_update = QtCore.QTimer()
         self.timer_param_update.setSingleShot(True)
         self.timer_param_update.timeout.connect(self.settingsChanged)
-
-
-    def onSettingChange(self):
-        self.timer_param_update.start(100)
+        # Timer delay
+        td = 250
+        # Connect to timer
+        self._dspn_x_pos.valueChanged.connect(lambda: self.timer_param_update.start(td))
+        self._dspn_y_pos.valueChanged.connect(lambda: self.timer_param_update.start(td))
+        self._dspn_elev_angle.valueChanged.connect(lambda: self.timer_param_update.start(td))
+        self._dspn_view_axis_offset.valueChanged.connect(lambda: self.timer_param_update.start(td))
+        self._dspn_vp_center_offset.valueChanged.connect(lambda: self.timer_param_update.start(td))
+        self._dspn_view_origin_distance.valueChanged.connect(lambda: self.timer_param_update.start(td))
+        self._check_fullscreen.stateChanged.connect(lambda: self.timer_param_update.start(td))
+        self._dspn_fov.valueChanged.connect(lambda: self.timer_param_update.start(td))
 
     def settingsChanged(self):
-        print('Updating....')
-
         self.parent().ctrl.updateDisplaySettings(**{
             madef.DisplaySettings.float_pos_glob_x_pos           : self._dspn_x_pos.value(),
             madef.DisplaySettings.float_pos_glob_y_pos           : self._dspn_y_pos.value(),

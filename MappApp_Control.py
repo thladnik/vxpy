@@ -51,8 +51,6 @@ class Controller:
         print('Terminating MappApp')
         # Signal processes to terminate
         self.listener.sendToClient(madef.Processes.DISPLAY, [macom.Display.Code.Close])
-        import time
-        time.sleep(1)
         self.listener.sendToClient(madef.Processes.IO, [macom.IO.Code.Close])
 
         # Save configuration

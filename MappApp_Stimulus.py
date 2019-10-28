@@ -111,3 +111,82 @@ class DisplayCheckerboard(Stimulus):
         return self.checkerboard
 
 
+class TunnelWalker(Stimulus):
+
+    vertex_shader = """
+    uniform mat4   u_rot;         // Model matrix
+    uniform mat4   u_trans;       // View matrix
+    uniform mat4   u_projection;  // Projection matrix
+    
+    attribute vec3 a_position;    // Vertex position
+    
+    varying vec3 vPosition;
+    
+    void main()
+    {
+        vPosition = a_position;
+        // Final position
+        gl_Position = u_projection * u_trans * u_rot * vec4(a_position, 1.0);
+        <viewport.transform>;
+    }
+    """
+
+    # Re-implement fragment_shader for this stimulus
+    fragment_shader = """
+    uniform float time;
+    uniform vec3 color;
+    uniform float sf;
+    uniform float v;
+    uniform float rotRateY;
+    uniform float rotRateZ;
+    
+    varying vec3 vPosition;
+    
+    const float pi = 3.14159265359;
+    
+    mat4 rotationX( in float angle ) {
+        return mat4(	1.0,		0,			0,			0,
+                        0, 	cos(angle),	-sin(angle),		0,
+                        0, 	sin(angle),	 cos(angle),		0,
+                        0, 			0,			  0, 		1);
+    }
+    
+    mat4 rotationY( in float angle ) {
+        return mat4(	cos(angle),		0,		sin(angle),	0,
+                                0,		1.0,			 0,	0,
+                        -sin(angle),	0,		cos(angle),	0,
+                                0, 		0,				0,	1);
+    }
+    
+    mat4 rotationZ( in float angle ) {
+        return mat4(	cos(angle),		-sin(angle),	0,	0,
+                        sin(angle),		cos(angle),		0,	0,
+                                0,				0,		1,	0,
+                                0,				0,		0,	1);
+    }
+    
+    void main() {
+        
+        // Rotate in Y direction
+        vec4 p = rotationY(rotRateY*2.0*pi*time) * rotationZ(rotRateZ*2.0*pi*time) * vec4(vPosition, 1.0);
+        
+        // Calculate coordinate on cylinder wall
+        float texc = acos(p.z);
+        
+        // Blank front and back to preent aliasing artifacts
+        if (texc > 3.0 || texc < 0.14) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+        // Set color otherwise
+        } else {
+            gl_FragColor = vec4( color * sin((v * time + tan((texc-pi/2.0))) * sf) , 1.0 );
+        }
+    }
+    """
+
+    uniforms = []
+
+    def __init__(self, rows=5, cols=5):
+        self.fps = 20
+        self.frametime = 1.0 / self.fps
+        self.time = 0.0

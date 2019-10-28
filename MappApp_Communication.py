@@ -25,7 +25,7 @@ class IO:
         pass
 
     class Code:
-        DigitalOut01 = 1
+        DO_NextFrame = 1
         Close = 99
 
 class Presenter:
