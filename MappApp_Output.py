@@ -137,8 +137,8 @@ class Display:
 
             # Vertices
             vertices = sphere.sph2cart(thetas, phis)
-            tex_coords = sphere.mercator2DTexture(thetas, phis)
             indices = sphere.getFaceIndices(vertices)
+            tex_coords = sphere.mercator2DTexture(thetas, phis)
             self.v[orient] = np.zeros(vertices.shape[0],
                          [('a_position', np.float32, 3),
                           ('a_texcoord', np.float32, 2)])
@@ -219,9 +219,6 @@ class Display:
         if self.stimulus is None:
             return
 
-        ## Fetch texture for next frame
-        frame = self.stimulus.frame(dt)
-
         ## Clear window
         self.window.clear(color=(0.0, 0.0, 0.0, 1.0))  # black
         gl.glDisable(gl.GL_BLEND)
@@ -231,8 +228,10 @@ class Display:
         #       This would require an option to not use texture mapping but to set uniforms as
         #       Specified by a uniforms attribute in the Stimulus class for example.
         ## Set texture and draw new frame
+
+        # Draw next frame
+        self.stimulus.prepare_frame(dt, self.program)
         for orient in self.program:
-            self.program[orient]['u_texture'] = frame
             self.program[orient].draw(gl.GL_TRIANGLES, self.i[orient])
 
         ## Output frame sync signal via IO
