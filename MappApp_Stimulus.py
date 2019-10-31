@@ -15,7 +15,9 @@ class Stimulus:
             // Assign varying variables
             v_texcoord  = a_texcoord;
             // Final position
-            gl_Position = u_projection * u_trans * u_rot * vec4(a_position, 1.0);
+            //gl_Position = u_projection * u_trans * u_rot * vec4(a_position, 1.0);
+            gl_Position = u_projection * vec4(a_position, 1.0);
+
             <viewport.transform>;
         }
     """

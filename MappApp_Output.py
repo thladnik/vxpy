@@ -1,5 +1,6 @@
 from glumpy import app, gl, glm, gloo, transforms
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from MappApp_Geometry import SphericalArena
 import MappApp_Communication as macom
@@ -126,6 +127,7 @@ class Display:
 
     def setupProgram(self):
         self.program = dict()
+        self.vertices = dict()
         self.v = dict()
         self.i = dict()
 
@@ -137,11 +139,13 @@ class Display:
 
             # Vertices
             vertices = sphere.sph2cart(thetas, phis)
+
             indices = sphere.getFaceIndices(vertices)
             tex_coords = sphere.mercator2DTexture(thetas, phis)
             self.v[orient] = np.zeros(vertices.shape[0],
                          [('a_position', np.float32, 3),
                           ('a_texcoord', np.float32, 2)])
+            self.vertices[orient] = vertices.astype(np.float32)
             self.v[orient]['a_position'] = vertices.astype(np.float32)
             self.v[orient]['a_texcoord'] = tex_coords.astype(np.float32).T
             self.v[orient] = self.v[orient].view(gloo.VertexBuffer)
@@ -272,18 +276,43 @@ class Display:
         ## Set uniforms for each part of the sphere
         for orient in self.program:
             ## Set translation
-            self.program[orient]['u_trans'] = glm.translation(
-                self.modelTranslationAxes[orient][0] * view_axis_offset,
-                self.modelTranslationAxes[orient][1] * view_axis_offset,
-                -origin_distance
-            )
+            if False:
+                self.program[orient]['u_trans'] = glm.translation(
+                    self.modelTranslationAxes[orient][0] * view_axis_offset,
+                    self.modelTranslationAxes[orient][1] * view_axis_offset,
+                    -origin_distance
+                )
+            translate = np.array([
+                    0,
+                    0,
+                    -origin_distance
+            ])
 
-            ## Set rotation
-            rot = np.eye(4, dtype=np.float32)
-            glm.rotate(rot, 180, 0, 0, 1)
-            glm.rotate(rot, self.modelZeroElevRotation[orient], *self.modelRotationAxes[orient])
-            glm.rotate(rot, view_elev_angle, *self.modelRotationAxes[orient])
-            self.program[orient]['u_rot'] = rot
+            pos = self.vertices[orient]
+
+            # Flip (rotate by 180 degree)
+            rvec_flip = np.array([0, 0, 1])
+            rvec_flip = rvec_flip / np.linalg.norm(rvec_flip)
+            r_flip = Rotation.from_rotvec(np.pi * rvec_flip)
+            pos = r_flip.apply(pos)
+
+            # Rotate along azimuth line
+            rvec_az = np.array(self.modelRotationAxes[orient])
+            rvec_az = rvec_az / np.linalg.norm(rvec_az)
+            angle_az = (self.modelZeroElevRotation[orient] + view_elev_angle)/360 * 2 * np.pi
+            r_az = Rotation.from_rotvec(angle_az * rvec_az)
+            pos = r_az.apply(pos)
+
+            # Translate
+            pos[:,0] += self.modelTranslationAxes[orient][0] * view_axis_offset
+            pos[:,1] += self.modelTranslationAxes[orient][1] * view_axis_offset
+            pos[:,2] -= origin_distance
+
+            # Set new vertex positions
+            self.v[orient]['a_position'] = pos
+
+
+            #self.v[orient]['a_position'][:,-1] -= origin_distance
 
         ## Set viewports
         # North-east
