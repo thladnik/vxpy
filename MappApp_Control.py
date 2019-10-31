@@ -23,7 +23,8 @@ class Controller:
 
         ## Setup presenter screen
         print('Starting display...')
-        self.display = Process(name=madef.Processes.DISPLAY, target=maout.runDisplay, kwargs=dict(fps=20))
+        self.display = Process(name=madef.Processes.DISPLAY, target=maout.runDisplay,
+                               kwargs=dict(fps=30))
         self.display.start()
 
         ## Setup input/output

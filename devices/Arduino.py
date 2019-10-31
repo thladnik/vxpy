@@ -1,12 +1,12 @@
 import serial
 
 def getSerialConnection():
-    serialConn = serial.Serial('COM4',
+    serialConn = serial.Serial('COM5',
                                9600,
                                parity=serial.PARITY_NONE,
                                stopbits=serial.STOPBITS_ONE,
                                bytesize=serial.EIGHTBITS,
-                               timeout=1.0,
+                               timeout=0,
                                writeTimeout=None
                                )
 

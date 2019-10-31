@@ -28,9 +28,22 @@ class IO:
         ## Setup serial connection
         self.serialConn = Arduino.getSerialConnection()
 
+        self.data = list()
+
+        self.serialbit = 0
 
     def start(self):
         while True:
+
+            line = self.serialConn.readline()
+            if line.decode('ascii') != '':
+                self.data.append(line.decode('ascii'))
+
+            if len(self.data) == 2000:
+                with open('your_file.txt', 'w') as f:
+                    for item in self.data:
+                        f.write("%s" % item)
+
             obj = self.listener.receive()
 
             if obj is None:
@@ -47,6 +60,7 @@ class IO:
                 import time
                 time.sleep(4)
                 self.listener.close()
+
                 break
 
 def runIO():
@@ -215,7 +229,7 @@ class Display:
 
         # TODO: include possibility to construct stimuli directly in the shader
         #       This would require an option to not use texture mapping but to set uniforms as
-        #       Specified by a uniforms attribute in the Stimulus class for examplce.
+        #       Specified by a uniforms attribute in the Stimulus class for example.
         ## Set texture and draw new frame
         for orient in self.program:
             self.program[orient]['u_texture'] = frame

@@ -33,11 +33,10 @@ class Stimulus:
         }
     """
 
-    def frame(self, dt):
-        """
-        Re-implemented by stimulus class
-        """
-        pass
+    def __init__(self):
+        self.time = 0.0
+
+
 
 
 class DisplayMovingGrating(Stimulus):
@@ -184,9 +183,7 @@ class TunnelWalker(Stimulus):
     }
     """
 
-    uniforms = []
+    def __init__(self):
+        super().__init__()
 
-    def __init__(self, rows=5, cols=5):
-        self.fps = 20
-        self.frametime = 1.0 / self.fps
-        self.time = 0.0
+
