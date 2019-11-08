@@ -139,11 +139,11 @@ class Display:
 
             # Vertices
             vertices = sphere.sph2cart(thetas, phis)
-
             indices = sphere.getFaceIndices(vertices)
+            vertices = np.append(vertices, np.ones(vertices.shape[0]).reshape((-1,1)), axis=1)
             tex_coords = sphere.mercator2DTexture(thetas, phis)
             self.v[orient] = np.zeros(vertices.shape[0],
-                         [('a_position', np.float32, 3),
+                         [('a_position', np.float32, 4),
                           ('a_texcoord', np.float32, 2)])
             self.vertices[orient] = vertices.astype(np.float32)
             self.v[orient]['a_position'] = vertices.astype(np.float32)
@@ -164,7 +164,7 @@ class Display:
 
     def _handleCommunication(self, dt):
 
-        # Receive data
+# Receive data
         if not(self.clientToCtrl.poll(timeout=.0001)):
             return
 
@@ -275,20 +275,9 @@ class Display:
 
         ## Set uniforms for each part of the sphere
         for orient in self.program:
-            ## Set translation
-            if False:
-                self.program[orient]['u_trans'] = glm.translation(
-                    self.modelTranslationAxes[orient][0] * view_axis_offset,
-                    self.modelTranslationAxes[orient][1] * view_axis_offset,
-                    -origin_distance
-                )
-            translate = np.array([
-                    0,
-                    0,
-                    -origin_distance
-            ])
 
-            pos = self.vertices[orient]
+            # Get original vertex positions
+            pos = self.vertices[orient][:,:-1]
 
             # Flip (rotate by 180 degree)
             rvec_flip = np.array([0, 0, 1])
@@ -308,11 +297,14 @@ class Display:
             pos[:,1] += self.modelTranslationAxes[orient][1] * view_axis_offset
             pos[:,2] -= origin_distance
 
-            # Set new vertex positions
-            self.v[orient]['a_position'] = pos
+            # Calculate projection
+            proj = np.array(glm.perspective(view_fov, 1.0, 0.1, 10.0))
+            pos_proj = np.zeros((pos.shape[0], 4))
+            for i in range(pos.shape[0]):
+                pos_proj[i,:] = np.dot(proj, np.append(pos[i,:], 1.))
 
-
-            #self.v[orient]['a_position'][:,-1] -= origin_distance
+            # Update vertex positions
+            self.v[orient]['a_position'] = pos_proj
 
         ## Set viewports
         # North-east
@@ -334,10 +326,12 @@ class Display:
         self.program['nw']['viewport']['local'] = (x, y, halflength, halflength)
 
         ## Set perspective projection
-        self.program['ne']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-        self.program['se']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-        self.program['sw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-        self.program['nw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        #self.program['ne']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        #self.program['se']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        #self.program['sw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        #self.program['nw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+
+        self.program['ne']['u_projection'] = glm.ortho(view_fov, 1.0, 0.1, 10.0)
 
         # Draw
         self.window.dispatch_event('on_draw', 0.0)
