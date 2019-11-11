@@ -10,44 +10,61 @@ class Config:
     filepath = 'config.ini'
 
     def __init__(self):
-        self.config = configparser.ConfigParser()
-        self.config.read(self.filepath)
+        self.data = configparser.ConfigParser()
+        self.data.read(self.filepath)
 
     def _parsedSection(self, section):
         parsed = dict()
-        for option in self.config[section]:
+        for option in self.data[section]:
             dtype = option.split('_')[0]
             if dtype == 'int':
-                value = self.config.getint(section, option)
+                value = self.data.getint(section, option)
             elif dtype == 'float':
-                value = self.config.getfloat(section, option)
+                value = self.data.getfloat(section, option)
             elif dtype == 'bool':
-                value = self.config.getboolean(section, option)
+                value = self.data.getboolean(section, option)
             else:
-                value = self.config.get(section, option)
+                value = self.data.get(section, option)
             parsed[option] = value
 
         return parsed
 
     def displaySettings(self, **kwargs):
         # If section does not exist: create it and set to defaults
-        if not(self.config.has_section(madef.DisplaySettings._name)):
-            self.config.add_section(madef.DisplaySettings._name)
+        if not(self.data.has_section(madef.DisplaySettings._name)):
+            self.data.add_section(madef.DisplaySettings._name)
             for option in madflt.DisplaySettings:
-                self.config.set(madef.DisplaySettings._name,
-                                getattr(madef.DisplaySettings, option), str(madflt.DisplaySettings[option]))
+                self.data.set(madef.DisplaySettings._name,
+                              getattr(madef.DisplaySettings, option), str(madflt.DisplaySettings[option]))
         # Return display settings
         return self._parsedSection(madef.DisplaySettings._name)
 
     def updateDisplaySettings(self, **settings):
-        if not(self.config.has_section(madef.DisplaySettings._name)):
+        if not(self.data.has_section(madef.DisplaySettings._name)):
             self.displaySettings()
 
-        self.config[madef.DisplaySettings._name].update(**{option : str(settings[option]) for option in settings})
+        self.data[madef.DisplaySettings._name].update(**{option : str(settings[option]) for option in settings})
 
     def saveToFile(self):
         with open(self.filepath, 'w') as fobj:
-            self.config.write(fobj)
+            self.data.write(fobj)
+            fobj.close()
+
+class Sessiondata:
+
+    filepath = 'sessiondata.ini'
+
+    def __init__(self):
+        self.data = configparser.ConfigParser()
+        self.data.read(self.filepath)
+
+    def rpcSettings(self):
+        if not(self.data.has_section('rpc')):
+            self.data.add_section(madef.DisplaySettings._name)
+
+    def saveToFile(self):
+        with open(self.filepath, 'w') as fobj:
+            self.data.write(fobj)
             fobj.close()
 
 class Conversion:
