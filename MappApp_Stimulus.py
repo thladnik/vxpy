@@ -1,265 +1,193 @@
+from glumpy import gl
 import h5py
 import imageio
 import numpy as np
 
 class Stimulus:
+    base_vertex_shader = """
+        const float pi = 3.14;
 
-    vertex_shader = """
-        uniform mat4   u_rot;         // Model matrix
-        uniform mat4   u_trans;          // View matrix
-        uniform mat4   u_projection;    // Projection matrix
-        attribute vec3 a_position;      // Vertex position
-        attribute vec2 a_texcoord;      // Vertex texture coordinates
-        varying vec2   v_texcoord;      // Interpolated fragment texture coordinates (out)
-        void main()
-        {
-            // Assign varying variables
-            v_texcoord  = a_texcoord;
-            // Final position
-            gl_Position = u_projection * u_trans * u_rot * vec4(a_position, 1.0);
-            //gl_Position = a_position;
+        // Transforms SOUTH WEST
+        uniform mat4   u_rot_sw; 
+        uniform mat4   u_trans_sw;   
+        uniform mat4   u_projection_sw;
+        uniform float  u_radial_offset_sw;
+        uniform float  u_tangent_offset_sw;
 
-            <viewport.transform>;
-        }
-    """
+        // Transforms SOUTH EAST
+        uniform mat4   u_rot_se;
+        uniform mat4   u_trans_se;
+        uniform mat4   u_projection_se;
+        uniform float  u_radial_offset_se;
+        uniform float  u_tangent_offset_se;
 
-    fragment_shader = """
-        uniform sampler2D u_texture;  // Texture 
-        varying vec2      v_texcoord; // Interpolated fragment texture coordinates (in)
-        void main()
-        {
-            <viewport.clipping>;
-            // Get texture color
-            vec4 t_color = texture2D(u_texture, v_texcoord);
-            // Final color
-            gl_FragColor = t_color;
-        }
-    """
+        // Transforms NORTH EAST
+        uniform mat4   u_rot_ne;
+        uniform mat4   u_trans_ne;
+        uniform mat4   u_projection_ne;
+        uniform float  u_radial_offset_ne;
+        uniform float  u_tangent_offset_ne;
 
-    def __init__(self):
-        self.time = 0.0
+        // Transforms NORTH WEST
+        uniform mat4   u_rot_nw;
+        uniform mat4   u_trans_nw;
+        uniform mat4   u_projection_nw;
+        uniform float  u_radial_offset_nw;
+        uniform float  u_tangent_offset_nw;
 
+        // Vertex attributes
+        attribute vec3 a_cart_pos;      // Cartesian vertex position
+        attribute vec2 a_sph_pos;       // Spherical vertex position
+        attribute vec2 a_channel;       // Image channel id (1: SW, 2: SE, 3: NE, 4: NW)
 
-class DisplayMovingGrating(Stimulus):
+        // Variables
+        varying vec4 v_cart_pos_transformed;
+        varying vec3   v_cart_pos;      // Cartesian vertex position
+        varying vec2   v_sph_pos;       // Spherical vertex position
 
-    def __init__(self):
-        super().__init__()
-
-        self.fps = 20
-        self.frametime = 1.0 / self.fps
-        self.movementVelocity = 3
-
-    def frame(self, dt):
-        self.time += dt
-
-        shift = self.time*self.movementVelocity
-
-        _frame = np.ones((400, 800))
-        _frame *= np.sin(2 * np.pi * np.linspace(0, 20, _frame.shape[1]) + shift).reshape((1, -1))
-        _frame = np.repeat(_frame[:, :, np.newaxis], 4, axis=2)
-        _frame[_frame >= 0.] = 1.
-        _frame[_frame < 0.] = 0.
-        _frame[:, :, -1] = 1.
-
-        return _frame
-
-    def prepare_frame(self, dt, program):
-
-        frame = self.frame(dt)
-
-        for orient in program:
-            program[orient]['u_texture'] = frame
-
-class DisplayMovingSinusoid(Stimulus):
-
-    def __init__(self):
-        super().__init__()
-
-        self.fps = 20
-        self.frametime = 1.0 / self.fps
-        self.movementVelocity = 3
-
-        self.time = 0.0
-
-    def frame(self, dt):
-        self.time += dt
-
-        shift = self.time*self.movementVelocity
-
-        _frame = np.ones((400, 800))
-        _frame *= np.sin(2 * np.pi * np.linspace(0, 20, _frame.shape[1]) + shift).reshape((1, -1))
-        _frame = np.repeat(_frame[:,:,np.newaxis], 4, axis=2)
-        _frame[:,:,-1] = 1.
-
-        return _frame
-
-class Display360Movie(Stimulus):
-
-    vertex_shader = """
-        uniform mat4   u_rot;         // Model matrix
-        uniform mat4   u_trans;          // View matrix
-        uniform mat4   u_projection;    // Projection matrix
-        attribute vec3 a_position;      // Vertex position
-        attribute vec2 a_texcoord;      // Vertex texture coordinates
-        varying vec2   v_texcoord;      // Interpolated fragment texture coordinates (out)
-        void main()
-        {
-        
-            // MAPPING FOR THE INSTA360 ONEX DOUBLE FISHEYE VIDEOS:
-            // Assign varying variables
-            if (a_position.x <= 0.0) {
-                v_texcoord = vec2((-a_position.z + 1.0) / 4.0, (a_position.y + 1.0) / 2.0);
-            } else {
-                v_texcoord = vec2((a_position.z + 1.0) / 4.0  + 0.5, (a_position.y + 1.0) / 2.0);
+        vec4 channelPosition() {
+            // SOUTH WEST
+            if (a_channel == 1) {
+                // First: non-linear projection
+                vec4 pos =  u_projection_sw * u_trans_sw * u_rot_sw * vec4(a_cart_pos, 1.0);
+                //// Second: linear transformations in image plane (shifting/scaling/rotating 2d image)
+                // Radial offset
+                pos.xy -= u_radial_offset_sw * pos.w;
+                // Rangential offset
+                pos.x += u_tangent_offset_sw * pos.w;
+                pos.y -= u_tangent_offset_sw * pos.w;
+                // Last: return position for vertex
+                return pos;
             }
-            
-            //v_texcoord  = a_texcoord;
-            // Final position
-            gl_Position = u_projection * u_trans * u_rot * vec4(a_position,1.0);
-            <viewport.transform>;
+            // SOUTH EAST
+            else if (a_channel == 2) {
+               // First: non-linear projection
+                vec4 pos = u_projection_se * u_trans_se * u_rot_se * vec4(a_cart_pos, 1.0);
+                //// Second: linear transformations in image plane (shifting/scaling/rotating 2d image)
+                // Radial offset
+                pos.x += u_radial_offset_se * pos.w;
+                pos.y -= u_radial_offset_se * pos.w;
+                // Tangential offset
+                pos.xy += u_tangent_offset_se * pos.w;
+                // Last: return position for vertex
+                return pos;
+            }
+            // NORTH EAST
+            else if (a_channel == 3) {
+               // First: non-linear projection
+                vec4 pos = u_projection_ne * u_trans_ne * u_rot_ne * vec4(a_cart_pos, 1.0);
+                //// Second: linear transformations in image plane (shifting/scaling/rotating 2d image)
+                // Radial offset
+                pos.xy += u_radial_offset_ne * pos.w;
+                // Tangential offset
+                pos.x -= u_tangent_offset_ne * pos.w;
+                pos.y += u_tangent_offset_ne * pos.w;
+                // Last: return position for vertex
+                return pos;
+            }
+            // NORTH WEST
+            else if (a_channel == 4) {
+               // First: non-linear projection
+                vec4 pos = u_projection_nw * u_trans_nw * u_rot_nw * vec4(a_cart_pos, 1.0);
+                //// Second: linear transformations in image plane (shifting/scaling/rotating 2d image)
+                // Radial offset
+                pos.x -= u_radial_offset_nw * pos.w;
+                pos.y += u_radial_offset_nw * pos.w;
+                // Tangential offset
+                pos.xy -= u_tangent_offset_nw * pos.w;
+                // Last: return position for vertex
+                return pos;
+            }
+        }"""
+
+    vertex_shader = """
+        void main()
+        {
+          v_cart_pos = a_cart_pos;
+          v_sph_pos = a_sph_pos;
+
+          // Final position
+          v_cart_pos_transformed = channelPosition();
+          gl_Position = v_cart_pos_transformed;
+
+          <viewport.transform>;
         }
     """
 
     fragment_shader = """
-        uniform sampler2D u_texture;  // Texture 
-        varying vec2      v_texcoord; // Interpolated fragment texture coordinates (in)
+        const float pi = 3.14;
+
+        varying vec3 v_cart_pos;
+        varying vec2 v_sph_pos;
+
         void main()
         {
             <viewport.clipping>;
-            // Get texture color
-            vec4 t_color = texture2D(u_texture, v_texcoord);
+
+            // Checkerboard
+            float c = sin(10.0 * v_sph_pos.x) * sin(8.0 * v_sph_pos.y);
+            if (c > 0) {
+               c = 1.0;
+            } else {
+                 c = 0.0;
+            }
+
             // Final color
-            gl_FragColor = t_color;
+            gl_FragColor = vec4(c, c, c, 1.0);
+
         }
     """
 
-    def __init__(self, filepath):
-
-        self.fps = 20
-        self.frametime = 1.0 / self.fps
+    def __init__(self, _program):
+        self.program = _program
 
         self.time = 0.0
 
-        print('Loading %s' % filepath)
-        self.movie = imageio.get_reader(filepath, 'ffmpeg')
+    def _constructSphere(self):
+        pass
 
-
-    def frame(self, dt):
+    def draw(self, dt):
+        """
+        METHOD CAN BE RE-IMPLEMENTED
+        :param dt: time since last call
+        :return:
+        """
         self.time += dt
 
-        _frame = self.movie.get_data(int(self.time//self.frametime))
-
-        return _frame
-
-class DisplayCheckerboard(Stimulus):
-
-    def __init__(self, rows=5, cols=5):
-        self.fps = 20
-        self.frametime = 1.0 / self.fps
-        self.time = 0.0
-
-        # Construct checkerboard
-        sr = 20
-        checker = np.ones((sr*rows, sr*cols))
-        checker = (checker * np.sin(np.linspace(0., np.pi*cols, sr*cols))).T
-        checker = (checker * np.sin(np.linspace(0., np.pi*rows, sr*rows))).T
-        checker[checker > 0.] = 1.
-        checker[checker <= 0] = 0.
-
-        checker = np.repeat(checker[:,:,np.newaxis], 4, axis=2)
-        checker[:,:,-1] = 1
-
-        self.checkerboard = checker
-
-    def frame(self, dt):
-        # Color inverse flickering
-        #self.checkerboard = (self.checkerboard.astype(bool) == False).astype(float)
-        #self.checkerboard[:,:,-1] = 1.
-        return self.checkerboard
+        self.program.draw(gl.GL_TRIANGLES, self.indices)
 
 
-    def prepare_frame(self, dt, program):
+class Checkerboard(Stimulus):
 
-        frame = self.frame(dt)
-
-        for orient in program:
-            program[orient]['u_texture'] = frame
-
-
-class TunnelWalker(Stimulus):
-
-    vertex_shader = """
-    uniform mat4   u_rot;         // Model matrix
-    uniform mat4   u_trans;       // View matrix
-    uniform mat4   u_projection;  // Projection matrix
-    
-    attribute vec3 a_position;    // Vertex position
-    
-    varying vec3 vPosition;
-    
-    void main()
-    {
-        vPosition = a_position;
-        // Final position
-        gl_Position = u_projection * u_trans * u_rot * vec4(a_position, 1.0);
-        <viewport.transform>;
-    }
-    """
-
-    # Re-implement fragment_shader for this stimulus
     fragment_shader = """
-    uniform float time;
-    uniform vec3 color;
-    uniform float sf;
-    uniform float v;
-    uniform float rotRateY;
-    uniform float rotRateZ;
-    
-    varying vec3 vPosition;
-    
-    const float pi = 3.14159265359;
-    
-    mat4 rotationX( in float angle ) {
-        return mat4(	1.0,		0,			0,			0,
-                        0, 	cos(angle),	-sin(angle),		0,
-                        0, 	sin(angle),	 cos(angle),		0,
-                        0, 			0,			  0, 		1);
-    }
-    
-    mat4 rotationY( in float angle ) {
-        return mat4(	cos(angle),		0,		sin(angle),	0,
-                                0,		1.0,			 0,	0,
-                        -sin(angle),	0,		cos(angle),	0,
-                                0, 		0,				0,	1);
-    }
-    
-    mat4 rotationZ( in float angle ) {
-        return mat4(	cos(angle),		-sin(angle),	0,	0,
-                        sin(angle),		cos(angle),		0,	0,
-                                0,				0,		1,	0,
-                                0,				0,		0,	1);
-    }
-    
-    void main() {
-        
-        // Rotate in Y direction
-        vec4 p = rotationY(rotRateY*2.0*pi*time) * rotationZ(rotRateZ*2.0*pi*time) * vec4(vPosition, 1.0);
-        
-        // Calculate coordinate on cylinder wall
-        float texc = acos(p.z);
-        
-        // Blank front and back to preent aliasing artifacts
-        if (texc > 3.0 || texc < 0.14) {
-            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
-            return;
-        // Set color otherwise
-        } else {
-            gl_FragColor = vec4( color * sin((v * time + tan((texc-pi/2.0))) * sf) , 1.0 );
+        const float pi = 3.14;
+
+        varying vec3 v_cart_pos;
+        varying vec2 v_sph_pos;
+
+        void main()
+        {
+            <viewport.clipping>;
+
+            // Checkerboard
+            float c = sin(10.0 * v_sph_pos.x) * sin(8.0 * v_sph_pos.y);
+            if (c > 0) {
+               c = 1.0;
+            } else {
+                 c = 0.0;
+            }
+
+            // Final color
+            gl_FragColor = vec4(c, c, c, 1.0);
+
         }
-    }
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, _program):
+        super().__init__(_program)
+
+        if not(hasattr(self, 'constructSphere')):
+            self._constructSphere()
 
 
+    def draw(self, dt):
