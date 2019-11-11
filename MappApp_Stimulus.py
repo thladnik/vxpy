@@ -8,7 +8,7 @@ class Stimulus:
         uniform mat4   u_rot;         // Model matrix
         uniform mat4   u_trans;          // View matrix
         uniform mat4   u_projection;    // Projection matrix
-        attribute vec3 a_position;      // Vertex position
+        attribute vec4 a_position;      // Vertex position
         attribute vec2 a_texcoord;      // Vertex texture coordinates
         varying vec2   v_texcoord;      // Interpolated fragment texture coordinates (out)
         void main()
@@ -16,7 +16,9 @@ class Stimulus:
             // Assign varying variables
             v_texcoord  = a_texcoord;
             // Final position
-            gl_Position = u_projection * u_trans * u_rot * vec4(a_position,1.0);
+            //gl_Position = u_projection * u_trans * u_rot * vec4(a_position, 1.0);
+            gl_Position = a_position;
+
             <viewport.transform>;
         }
     """
@@ -38,16 +40,14 @@ class Stimulus:
         self.time = 0.0
 
 
-
-
 class DisplayMovingGrating(Stimulus):
 
     def __init__(self):
+        super().__init__()
+
         self.fps = 20
         self.frametime = 1.0 / self.fps
         self.movementVelocity = 3
-
-        self.time = 0.0
 
     def frame(self, dt):
         self.time += dt
@@ -63,9 +63,18 @@ class DisplayMovingGrating(Stimulus):
 
         return _frame
 
+    def prepare_frame(self, dt, program):
+
+        frame = self.frame(dt)
+
+        for orient in program:
+            program[orient]['u_texture'] = frame
+
 class DisplayMovingSinusoid(Stimulus):
 
     def __init__(self):
+        super().__init__()
+
         self.fps = 20
         self.frametime = 1.0 / self.fps
         self.movementVelocity = 3
@@ -167,6 +176,14 @@ class DisplayCheckerboard(Stimulus):
         #self.checkerboard = (self.checkerboard.astype(bool) == False).astype(float)
         #self.checkerboard[:,:,-1] = 1.
         return self.checkerboard
+
+
+    def prepare_frame(self, dt, program):
+
+        frame = self.frame(dt)
+
+        for orient in program:
+            program[orient]['u_texture'] = frame
 
 
 class TunnelWalker(Stimulus):
