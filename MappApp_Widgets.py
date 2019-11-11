@@ -198,6 +198,11 @@ class TestStimuli(QtWidgets.QWidget):
         self._btn_displayMovSinusoid.clicked.connect(self.displayMovingSinusoid)
         self.layout().addWidget(self._btn_displayMovSinusoid)
 
+        # Display moving sinusoid
+        self._btn_display360Movie = QtWidgets.QPushButton('Moving 360 movie')
+        self._btn_display360Movie.clicked.connect(self.display360Movie)
+        self.layout().addWidget(self._btn_display360Movie)
+
 
     def displayMovingGrating(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
@@ -208,4 +213,10 @@ class TestStimuli(QtWidgets.QWidget):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                         [macom.Display.Code.SetNewStimulus, stim.DisplayMovingSinusoid,
                                         [], dict()])
+
+
+    def display360Movie(self):
+        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
+                                        [macom.Display.Code.SetNewStimulus, stim.Display360Movie,
+                                        ['media/Rotation.mp4'], dict()])
 

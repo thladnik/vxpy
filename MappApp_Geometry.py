@@ -58,6 +58,27 @@ class SphericalArena:
 
         return np.asarray([x, y])
 
+    def ortho2DTexture(self, verts):
+
+        w = verts[:,0]
+
+        x = verts[:,1]
+        y = verts[:,2]
+
+        # Normalize x
+        x[w >= 0.5] /= x[w >= 0.5].max() - x[w >= 0.5].min()
+        x[w >= 0.5] /= 2
+
+        x[w < 0.5] /= x[w < 0.5].max() - x[w < 0.5].min()
+        x[w < 0.5] /= 2
+        x[w < 0.5] += 0.5
+
+        # Normalize y
+        y /= y.max() - y.min()
+        y -= y.min()
+
+
+        return np.array([x, y])
 
     def getThetaSubset(self, theta_low: float, theta_high: float, return_bool: bool = False) -> tuple:
         """Returns the vertices which have an theta (azimuth) in between

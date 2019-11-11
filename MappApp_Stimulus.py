@@ -1,4 +1,5 @@
 import h5py
+import imageio
 import numpy as np
 
 class Stimulus:
@@ -92,12 +93,63 @@ class DisplayMovingSinusoid(Stimulus):
 
         return _frame
 
-    def prepare_frame(self, dt, program):
+class Display360Movie(Stimulus):
 
-        frame = self.frame(dt)
+    vertex_shader = """
+        uniform mat4   u_rot;         // Model matrix
+        uniform mat4   u_trans;          // View matrix
+        uniform mat4   u_projection;    // Projection matrix
+        attribute vec3 a_position;      // Vertex position
+        attribute vec2 a_texcoord;      // Vertex texture coordinates
+        varying vec2   v_texcoord;      // Interpolated fragment texture coordinates (out)
+        void main()
+        {
+        
+            // MAPPING FOR THE INSTA360 ONEX DOUBLE FISHEYE VIDEOS:
+            // Assign varying variables
+            if (a_position.x <= 0.0) {
+                v_texcoord = vec2((-a_position.z + 1.0) / 4.0, (a_position.y + 1.0) / 2.0);
+            } else {
+                v_texcoord = vec2((a_position.z + 1.0) / 4.0  + 0.5, (a_position.y + 1.0) / 2.0);
+            }
+            
+            //v_texcoord  = a_texcoord;
+            // Final position
+            gl_Position = u_projection * u_trans * u_rot * vec4(a_position,1.0);
+            <viewport.transform>;
+        }
+    """
 
-        for orient in program:
-            program[orient]['u_texture'] = frame
+    fragment_shader = """
+        uniform sampler2D u_texture;  // Texture 
+        varying vec2      v_texcoord; // Interpolated fragment texture coordinates (in)
+        void main()
+        {
+            <viewport.clipping>;
+            // Get texture color
+            vec4 t_color = texture2D(u_texture, v_texcoord);
+            // Final color
+            gl_FragColor = t_color;
+        }
+    """
+
+    def __init__(self, filepath):
+
+        self.fps = 20
+        self.frametime = 1.0 / self.fps
+
+        self.time = 0.0
+
+        print('Loading %s' % filepath)
+        self.movie = imageio.get_reader(filepath, 'ffmpeg')
+
+
+    def frame(self, dt):
+        self.time += dt
+
+        _frame = self.movie.get_data(int(self.time//self.frametime))
+
+        return _frame
 
 class DisplayCheckerboard(Stimulus):
 

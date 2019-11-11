@@ -139,6 +139,8 @@ class Display:
 
             # Vertices
             vertices = sphere.sph2cart(thetas, phis)
+            tex_coords = sphere.mercator2DTexture(thetas, phis)
+
             indices = sphere.getFaceIndices(vertices)
             vertices = np.append(vertices, np.ones(vertices.shape[0]).reshape((-1,1)), axis=1)
             tex_coords = sphere.mercator2DTexture(thetas, phis)
