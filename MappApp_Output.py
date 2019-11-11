@@ -1,6 +1,5 @@
 from glumpy import app, gl, glm, gloo, transforms
 import numpy as np
-from scipy.spatial.transform import Rotation
 
 from MappApp_Geometry import SphericalArena
 import MappApp_Communication as macom
@@ -127,7 +126,6 @@ class Display:
 
     def setupProgram(self):
         self.program = dict()
-        self.vertices = dict()
         self.v = dict()
         self.i = dict()
 
@@ -140,14 +138,12 @@ class Display:
             # Vertices
             vertices = sphere.sph2cart(thetas, phis)
             tex_coords = sphere.mercator2DTexture(thetas, phis)
+            #tex_coords = sphere.ortho2DTexture(vertices)
 
             indices = sphere.getFaceIndices(vertices)
-            vertices = np.append(vertices, np.ones(vertices.shape[0]).reshape((-1,1)), axis=1)
-            tex_coords = sphere.mercator2DTexture(thetas, phis)
             self.v[orient] = np.zeros(vertices.shape[0],
-                         [('a_position', np.float32, 4),
+                         [('a_position', np.float32, 3),
                           ('a_texcoord', np.float32, 2)])
-            self.vertices[orient] = vertices.astype(np.float32)
             self.v[orient]['a_position'] = vertices.astype(np.float32)
             self.v[orient]['a_texcoord'] = tex_coords.astype(np.float32).T
             self.v[orient] = self.v[orient].view(gloo.VertexBuffer)
@@ -166,7 +162,7 @@ class Display:
 
     def _handleCommunication(self, dt):
 
-# Receive data
+        # Receive data
         if not(self.clientToCtrl.poll(timeout=.0001)):
             return
 
@@ -225,6 +221,9 @@ class Display:
         if self.stimulus is None:
             return
 
+        ## Fetch texture for next frame
+        frame = self.stimulus.frame(dt)
+
         ## Clear window
         self.window.clear(color=(0.0, 0.0, 0.0, 1.0))  # black
         gl.glDisable(gl.GL_BLEND)
@@ -234,10 +233,8 @@ class Display:
         #       This would require an option to not use texture mapping but to set uniforms as
         #       Specified by a uniforms attribute in the Stimulus class for example.
         ## Set texture and draw new frame
-
-        # Draw next frame
-        self.stimulus.prepare_frame(dt, self.program)
         for orient in self.program:
+            self.program[orient]['u_texture'] = frame
             self.program[orient].draw(gl.GL_TRIANGLES, self.i[orient])
 
         ## Output frame sync signal via IO
@@ -278,35 +275,19 @@ class Display:
         ## Set uniforms for each part of the sphere
         for orient in self.program:
 
-            # Get original vertex positions
-            pos = self.vertices[orient][:,:-1]
+            ## Set translation
+            self.program[orient]['u_trans'] = glm.translation(
+                self.modelTranslationAxes[orient][0] * view_axis_offset,
+                self.modelTranslationAxes[orient][1] * view_axis_offset,
+                -origin_distance
+            )
 
-            # Flip (rotate by 180 degree)
-            rvec_flip = np.array([0, 0, 1])
-            rvec_flip = rvec_flip / np.linalg.norm(rvec_flip)
-            r_flip = Rotation.from_rotvec(np.pi * rvec_flip)
-            pos = r_flip.apply(pos)
-
-            # Rotate along azimuth line
-            rvec_az = np.array(self.modelRotationAxes[orient])
-            rvec_az = rvec_az / np.linalg.norm(rvec_az)
-            angle_az = (self.modelZeroElevRotation[orient] + view_elev_angle)/360 * 2 * np.pi
-            r_az = Rotation.from_rotvec(angle_az * rvec_az)
-            pos = r_az.apply(pos)
-
-            # Translate
-            pos[:,0] += self.modelTranslationAxes[orient][0] * view_axis_offset
-            pos[:,1] += self.modelTranslationAxes[orient][1] * view_axis_offset
-            pos[:,2] -= origin_distance
-
-            # Calculate projection
-            proj = np.array(glm.perspective(view_fov, 1.0, 0.1, 10.0))
-            pos_proj = np.zeros((pos.shape[0], 4))
-            for i in range(pos.shape[0]):
-                pos_proj[i,:] = np.dot(proj, np.append(pos[i,:], 1.))
-
-            # Update vertex positions
-            self.v[orient]['a_position'] = pos_proj
+            ## Set rotation
+            rot = np.eye(4, dtype=np.float32)
+            glm.rotate(rot, 180, 0, 0, 1)
+            glm.rotate(rot, self.modelZeroElevRotation[orient], *self.modelRotationAxes[orient])
+            glm.rotate(rot, view_elev_angle, *self.modelRotationAxes[orient])
+            self.program[orient]['u_rot'] = rot
 
         ## Set viewports
         # North-east
@@ -328,12 +309,10 @@ class Display:
         self.program['nw']['viewport']['local'] = (x, y, halflength, halflength)
 
         ## Set perspective projection
-        #self.program['ne']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-        #self.program['se']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-        #self.program['sw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-        #self.program['nw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
-
-        self.program['ne']['u_projection'] = glm.ortho(view_fov, 1.0, 0.1, 10.0)
+        self.program['ne']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        self.program['se']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        self.program['sw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
+        self.program['nw']['u_projection'] = glm.perspective(view_fov, 1.0, 0.1, 10.0)
 
         # Draw
         self.window.dispatch_event('on_draw', 0.0)
