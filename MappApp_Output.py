@@ -21,18 +21,19 @@ class IO:
         ## Setup listener
         ipc = macom.IPC()
         ipc.loadConnections()
-        self.listener = ipc.getMetaListener(madef.Processes.IO)
+        #self.listener = ipc.getMetaListener(madef.Processes.IO)
         # Wait for clients
         self.listener.acceptClients()
 
         ## Setup serial connection
-        self.serialConn = Arduino.getSerialConnection()
+        #self.serialConn = Arduino.getSerialConnection()
 
         self.data = list()
 
         self.serialbit = 0
 
     def start(self):
+        return
         while True:
 
             line = self.serialConn.readline()
@@ -101,7 +102,7 @@ class Display:
         ipc = macom.IPC()
         ipc.loadConnections()
         self.clientToCtrl = ipc.getClientConnection(madef.Processes.CONTROL, madef.Processes.DISPLAY)
-        self.clientToIO = ipc.getClientConnection(madef.Processes.IO, madef.Processes.DISPLAY)
+        #self.clientToIO = ipc.getClientConnection(madef.Processes.IO, madef.Processes.DISPLAY)
 
         ## Setup window
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
@@ -238,7 +239,7 @@ class Display:
             self.program[orient].draw(gl.GL_TRIANGLES, self.i[orient])
 
         ## Output frame sync signal via IO
-        self.clientToIO.send([macom.IO.Code.DO_NextFrame])
+        #self.clientToIO.send([macom.IO.Code.DO_NextFrame])
 
     def on_resize(self, width, height):
         ## Only draw a frame if both program and stimulus are set

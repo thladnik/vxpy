@@ -17,7 +17,7 @@ class Controller:
         ipc.registerConnection(madef.Processes.CONTROL, madef.Processes.DISPLAY)
         # ipc.registerConnection('main', 'io')
         ## IO Listener
-        ipc.registerConnection(madef.Processes.IO, madef.Processes.DISPLAY)
+        #ipc.registerConnection(madef.Processes.IO, madef.Processes.DISPLAY)
         # Save to file
         ipc.saveToFile()
 
@@ -30,7 +30,7 @@ class Controller:
         ## Setup input/output
         print('Starting IO...')
         self.io = Process(name=madef.Processes.IO, target=maout.runIO)
-        self.io.start()
+        #self.io.start()
 
         # Set up listener (Listener waits for clients, so all client processes
         # need to be started at this point or they won't be able to connect)
