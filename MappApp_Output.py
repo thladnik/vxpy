@@ -274,6 +274,7 @@ class Display:
 
         ## Set uniforms for each part of the sphere
         for orient in self.program:
+
             ## Set translation
             self.program[orient]['u_trans'] = glm.translation(
                 self.modelTranslationAxes[orient][0] * view_axis_offset,
