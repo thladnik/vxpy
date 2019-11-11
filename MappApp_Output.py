@@ -138,6 +138,8 @@ class Display:
             # Vertices
             vertices = sphere.sph2cart(thetas, phis)
             tex_coords = sphere.mercator2DTexture(thetas, phis)
+            #tex_coords = sphere.ortho2DTexture(vertices)
+
             indices = sphere.getFaceIndices(vertices)
             self.v[orient] = np.zeros(vertices.shape[0],
                          [('a_position', np.float32, 3),
