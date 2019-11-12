@@ -301,3 +301,53 @@ class Checkerboard(Stimulus):
 
         if rows is not None and rows > 0:
             self.program['u_checker_rows'] = rows
+
+
+class StaticStripes(Stimulus):
+    fragment_shader = """
+        uniform int u_orientation;
+        uniform int u_stripes_num;
+
+        void main()
+        {
+            <viewport.clipping>;
+
+            // Checkerboard
+            float c = 1.0;
+            if (u_orientation == 1) { 
+                c = sin(float(u_stripes_num) * v_sph_pos.x);
+            } else {
+                c = sin(float(u_stripes_num) * v_sph_pos.y);
+            }
+            
+            if (c > 0) {
+               c = 1.0;
+            } else {
+                 c = 0.0;
+            }
+
+            // Final color
+            gl_FragColor = vec4(c, c, c, 1.0);
+
+        }
+    """
+
+    def __init__(self, num=20, orientation='vertical'):
+        super().__init__()
+
+        self.program['u_stripes_num'] = num
+        self.setOrientation(orientation)
+
+    def update(self, num=None, orientation=None):
+
+        if orientation is not None:
+            self.setOrientation(orientation)
+
+        if num is not None and num > 0:
+            self.program['u_stripes_num'] = num
+
+    def setOrientation(self, orientation):
+        if orientation == 'vertical':
+            self.program['u_orientation'] = 1
+        else:
+            self.program['u_orientation'] = 2

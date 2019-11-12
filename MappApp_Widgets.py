@@ -142,7 +142,7 @@ class DisplaySettings(QtWidgets.QWidget):
                 self._check_fullscreen.checkState())
         })
 
-class CheckerboardCalibration(QtWidgets.QWidget):
+class Calibration(QtWidgets.QWidget):
 
     def __init__(self, main):
         super().__init__(parent=main, flags=Qt.Window)
@@ -153,33 +153,77 @@ class CheckerboardCalibration(QtWidgets.QWidget):
 
         ## Setup widget
         self.setLayout(QtWidgets.QGridLayout())
-        self.setWindowTitle('Checkerboard calibration')
+        self.setWindowTitle('Calibration')
 
-        self._spn_rows = QtWidgets.QSpinBox()
-        self._spn_rows.setValue(16)
-        self._spn_rows.valueChanged.connect(self.update)
-        self.layout().addWidget(QtWidgets.QLabel('Rows'), 0, 0)
-        self.layout().addWidget(self._spn_rows, 0, 1)
-
-        self._spn_cols = QtWidgets.QSpinBox()
-        self._spn_cols.setValue(16)
-        self._spn_cols.valueChanged.connect(self.update)
-        self.layout().addWidget(QtWidgets.QLabel('Columns'), 1, 0)
-        self.layout().addWidget(self._spn_cols, 1, 1)
-
+        ## Checkerboard
+        self._grp_checker = QtWidgets.QGroupBox('Checkerboard')
+        self._grp_checker.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self._grp_checker)
+        # Rows
+        self._spn_checker_rows = QtWidgets.QSpinBox()
+        self._spn_checker_rows.setValue(16)
+        self._spn_checker_rows.valueChanged.connect(self.updateCheckerboard)
+        self._grp_checker.layout().addWidget(QtWidgets.QLabel('Rows'), 0, 0)
+        self._grp_checker.layout().addWidget(self._spn_checker_rows, 0, 1)
+        # Cols
+        self._spn_checker_cols = QtWidgets.QSpinBox()
+        self._spn_checker_cols.setValue(16)
+        self._spn_checker_cols.valueChanged.connect(self.updateCheckerboard)
+        self._grp_checker.layout().addWidget(QtWidgets.QLabel('Columns'), 1, 0)
+        self._grp_checker.layout().addWidget(self._spn_checker_cols, 1, 1)
+        # Set checkerboard
         self._btn_disp_checkerboard = QtWidgets.QPushButton('Display checkerboard')
         self._btn_disp_checkerboard.clicked.connect(self.displayCheckerboard)
-        self.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
+        self._grp_checker.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
+
+        ## Static stripes
+        self._grp_sstripes = QtWidgets.QGroupBox('Static stripes')
+        self._grp_sstripes.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self._grp_sstripes)
+        # Vertical or horizontal
+        self._cb_orientation = QtWidgets.QComboBox()
+        self._cb_orientation.addItem('vertical')
+        self._cb_orientation.addItem('horizontal')
+        self._grp_sstripes.layout().addWidget(QtWidgets.QLabel('Orientation'), 0, 0)
+        self._cb_orientation.currentTextChanged.connect(self.updateSStripes)
+        self._grp_sstripes.layout().addWidget(self._cb_orientation, 0, 1)
+        # Number of stripes
+        self._spn_sstripes_num = QtWidgets.QSpinBox()
+        self._spn_sstripes_num.setValue(20)
+        self._spn_sstripes_num.valueChanged.connect(self.updateSStripes)
+        self._grp_sstripes.layout().addWidget(QtWidgets.QLabel('Number'), 1, 0)
+        self._grp_sstripes.layout().addWidget(self._spn_sstripes_num, 1, 1)
+        # Set static stripes
+        self._btn_disp_sstripes = QtWidgets.QPushButton('Display static stripes')
+        self._btn_disp_sstripes.clicked.connect(self.displayStaticStripes)
+        self._grp_sstripes.layout().addWidget(self._btn_disp_sstripes, 2, 0, 1, 2)
+
+
 
     def displayCheckerboard(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
-                                        [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])
+                                                 [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
+                                                  [], dict(rows=self._spn_checker_rows.value(), cols=self._spn_checker_cols.value())])
 
-    def update(self):
+    def updateCheckerboard(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                                 [macom.Display.Code.UpdateStimulusParams,
-                                                  dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])
+                                                 [macom.Display.Code.UpdateStimulusParams, stim.Checkerboard,
+                                                  dict(rows=self._spn_checker_rows.value(), cols=self._spn_checker_cols.value())])
+
+    def displayStaticStripes(self):
+        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
+                                                 [macom.Display.Code.SetNewStimulus, stim.StaticStripes,
+                                                  [], dict(
+                                                     num=self._spn_sstripes_num.value(), orientation=self._cb_orientation.currentText()
+                                                 )])
+
+    def updateSStripes(self):
+        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
+                                                 [macom.Display.Code.UpdateStimulusParams, stim.StaticStripes,
+                                                  dict(
+                                                      num=self._spn_sstripes_num.value(),
+                                                      orientation=self._cb_orientation.currentText()
+                                                  )])
 
 
 class TestStimuli(QtWidgets.QWidget):
@@ -206,7 +250,7 @@ class TestStimuli(QtWidgets.QWidget):
         self.layout().addWidget(self._btn_displayMovSinusoid)
 
         # Display moving sinusoid
-        self._btn_display360Movie = QtWidgets.QPushButton('Moving 360 movie')
+        self._btn_display360Movie = QtWidgets.QPushButton('360 movie')
         self._btn_display360Movie.clicked.connect(self.display360Movie)
         self.layout().addWidget(self._btn_display360Movie)
 

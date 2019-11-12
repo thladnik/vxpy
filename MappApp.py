@@ -72,7 +72,7 @@ class Main(QtWidgets.QMainWindow):
         geo_disp = self._wgt_dispSettings.window().geometry()
 
         ## Setup checkerboard calibration
-        self._wgt_checkerboardCalibration = CheckerboardCalibration(self)
+        self._wgt_checkerboardCalibration = Calibration(self)
         self._wgt_checkerboardCalibration.setMinimumSize(300, 100)
         self._openCheckerboardCalibration()
         self._wgt_checkerboardCalibration.move(geo.x(), geo_disp.y() + geo_disp.height())

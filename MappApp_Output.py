@@ -91,11 +91,16 @@ class Display:
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
+        ## New stimulus parameters
         elif obj[0] == macom.Display.Code.UpdateStimulusParams:
+            stim = obj[1]
+            if not(isinstance(self.stimulus, stim)):
+                print('WARNING: trying to update wrong stimulus type!')
+                return
 
             kwargs = dict()
-            if len(obj) > 1:
-                kwargs = obj[1]
+            if len(obj) > 2:
+                kwargs = obj[2]
 
             self.stimulus.update(**kwargs)
 
@@ -118,7 +123,6 @@ class Display:
 
 
     def on_resize(self, width, height):
-        ## Only draw a frame if both program and stimulus are set
         if self.stimulus is None:
             return
 
