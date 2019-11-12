@@ -177,52 +177,80 @@ class Calibration(QtWidgets.QWidget):
         self._grp_checker.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
 
         ## Static stripes
-        self._grp_sstripes = QtWidgets.QGroupBox('Static stripes')
-        self._grp_sstripes.setLayout(QtWidgets.QGridLayout())
-        self.layout().addWidget(self._grp_sstripes)
+        self._grp_grating = QtWidgets.QGroupBox('Grating')
+        self._grp_grating.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self._grp_grating)
+        # Rectangular or sinusoidal
+        self._cb_grating_shape = QtWidgets.QComboBox()
+        self._cb_grating_shape.addItem('rectangular')
+        self._cb_grating_shape.addItem('sinusoidal')
+        self._cb_grating_shape.currentTextChanged.connect(self.updateGrating)
+        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Shape'), 0, 0)
+        self._grp_grating.layout().addWidget(self._cb_grating_shape, 0, 1)
         # Vertical or horizontal
-        self._cb_orientation = QtWidgets.QComboBox()
-        self._cb_orientation.addItem('vertical')
-        self._cb_orientation.addItem('horizontal')
-        self._grp_sstripes.layout().addWidget(QtWidgets.QLabel('Orientation'), 0, 0)
-        self._cb_orientation.currentTextChanged.connect(self.updateSStripes)
-        self._grp_sstripes.layout().addWidget(self._cb_orientation, 0, 1)
+        self._cb_grating_orient = QtWidgets.QComboBox()
+        self._cb_grating_orient.addItem('vertical')
+        self._cb_grating_orient.addItem('horizontal')
+        self._cb_grating_orient.currentTextChanged.connect(self.updateGrating)
+        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Orientation'), 1, 0)
+        self._grp_grating.layout().addWidget(self._cb_grating_orient, 1, 1)
+        # Velocity
+        self._dspn_grating_v = QtWidgets.QDoubleSpinBox()
+        self._dspn_grating_v.setMinimum(-99.9)
+        self._dspn_grating_v.setMaximum(99.9)
+        self._dspn_grating_v.setValue(0.0)
+        self._dspn_grating_v.valueChanged.connect(self.updateGrating)
+        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Velocity'), 2, 0)
+        self._grp_grating.layout().addWidget(self._dspn_grating_v, 2, 1)
         # Number of stripes
-        self._spn_sstripes_num = QtWidgets.QSpinBox()
-        self._spn_sstripes_num.setValue(20)
-        self._spn_sstripes_num.valueChanged.connect(self.updateSStripes)
-        self._grp_sstripes.layout().addWidget(QtWidgets.QLabel('Number'), 1, 0)
-        self._grp_sstripes.layout().addWidget(self._spn_sstripes_num, 1, 1)
+        self._spn_grating_num = QtWidgets.QSpinBox()
+        self._spn_grating_num.setValue(20)
+        self._spn_grating_num.valueChanged.connect(self.updateGrating)
+        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Number'), 3, 0)
+        self._grp_grating.layout().addWidget(self._spn_grating_num, 3, 1)
         # Set static stripes
-        self._btn_disp_sstripes = QtWidgets.QPushButton('Display static stripes')
-        self._btn_disp_sstripes.clicked.connect(self.displayStaticStripes)
-        self._grp_sstripes.layout().addWidget(self._btn_disp_sstripes, 2, 0, 1, 2)
+        self._btn_disp_grating = QtWidgets.QPushButton('Display grating')
+        self._btn_disp_grating.clicked.connect(self.displayGrating)
+        self._grp_grating.layout().addWidget(self._btn_disp_grating, 4, 0, 1, 2)
 
 
 
     def displayCheckerboard(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                                  [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
-                                                  [], dict(rows=self._spn_checker_rows.value(), cols=self._spn_checker_cols.value())])
+                                                  [],
+                                                  dict(
+                                                      rows=self._spn_checker_rows.value(),
+                                                      cols=self._spn_checker_cols.value()
+                                                  )])
 
     def updateCheckerboard(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                                  [macom.Display.Code.UpdateStimulusParams, stim.Checkerboard,
-                                                  dict(rows=self._spn_checker_rows.value(), cols=self._spn_checker_cols.value())])
+                                                  dict(
+                                                      rows=self._spn_checker_rows.value(),
+                                                      cols=self._spn_checker_cols.value()
+                                                  )])
 
-    def displayStaticStripes(self):
+    def displayGrating(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                                 [macom.Display.Code.SetNewStimulus, stim.StaticStripes,
-                                                  [], dict(
-                                                     num=self._spn_sstripes_num.value(), orientation=self._cb_orientation.currentText()
+                                                 [macom.Display.Code.SetNewStimulus, stim.Grating,
+                                                  [],
+                                                  dict(
+                                                      orientation=self._cb_grating_orient.currentText(),
+                                                      shape=self._cb_grating_shape.currentText(),
+                                                      num=self._spn_grating_num.value(),
+                                                      velocity=self._dspn_grating_v.value()
                                                  )])
 
-    def updateSStripes(self):
+    def updateGrating(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                                 [macom.Display.Code.UpdateStimulusParams, stim.StaticStripes,
+                                                 [macom.Display.Code.UpdateStimulusParams, stim.Grating,
                                                   dict(
-                                                      num=self._spn_sstripes_num.value(),
-                                                      orientation=self._cb_orientation.currentText()
+                                                      orientation=self._cb_grating_orient.currentText(),
+                                                      shape=self._cb_grating_shape.currentText(),
+                                                      num=self._spn_grating_num.value(),
+                                                      velocity=self._dspn_grating_v.value()
                                                   )])
 
 
@@ -239,32 +267,10 @@ class TestStimuli(QtWidgets.QWidget):
         self.setLayout(QtWidgets.QVBoxLayout())
         self.setWindowTitle('Test stimuli')
 
-        # Display moving grating
-        self._btn_displayMovGrating = QtWidgets.QPushButton('Moving grating')
-        self._btn_displayMovGrating.clicked.connect(self.displayMovingGrating)
-        self.layout().addWidget(self._btn_displayMovGrating)
-
-        # Display moving sinusoid
-        self._btn_displayMovSinusoid = QtWidgets.QPushButton('Moving sinusoid')
-        self._btn_displayMovSinusoid.clicked.connect(self.displayMovingSinusoid)
-        self.layout().addWidget(self._btn_displayMovSinusoid)
-
         # Display moving sinusoid
         self._btn_display360Movie = QtWidgets.QPushButton('360 movie')
         self._btn_display360Movie.clicked.connect(self.display360Movie)
         self.layout().addWidget(self._btn_display360Movie)
-
-
-    def displayMovingGrating(self):
-        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
-                                        [], dict()])
-
-    def displayMovingSinusoid(self):
-        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
-                                        [], dict()])
-
 
     def display360Movie(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,

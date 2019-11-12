@@ -120,8 +120,9 @@ class Stimulus:
     """
 
     base_fragment_shader = """
-    
         const float pi = 3.14159265359;
+
+        uniform float u_time;
 
         varying vec3 v_cart_pos;
         varying vec2 v_sph_pos;
@@ -253,6 +254,7 @@ class Stimulus:
         :return:
         """
         self.time += dt
+        self.program['u_time'] = self.time
 
         self.program.draw(gl.GL_TRIANGLES, self.indexBuffer)
 
@@ -303,10 +305,12 @@ class Checkerboard(Stimulus):
             self.program['u_checker_rows'] = rows
 
 
-class StaticStripes(Stimulus):
+class Grating(Stimulus):
     fragment_shader = """
-        uniform int u_orientation;
+        uniform int u_shape;
         uniform int u_stripes_num;
+        uniform float u_velocity;
+        uniform int u_orientation;
 
         void main()
         {
@@ -315,15 +319,17 @@ class StaticStripes(Stimulus):
             // Checkerboard
             float c = 1.0;
             if (u_orientation == 1) { 
-                c = sin(float(u_stripes_num) * v_sph_pos.x);
+                c = sin(float(u_stripes_num) * v_sph_pos.x + u_time * u_velocity);
             } else {
-                c = sin(float(u_stripes_num) * v_sph_pos.y);
+                c = sin(float(u_stripes_num) * v_sph_pos.y + u_time * u_velocity);
             }
             
-            if (c > 0) {
-               c = 1.0;
-            } else {
-                 c = 0.0;
+            if (u_shape == 1) {
+                if (c > 0) {
+                   c = 1.0;
+                } else {
+                     c = 0.0;
+                }
             }
 
             // Final color
@@ -332,22 +338,36 @@ class StaticStripes(Stimulus):
         }
     """
 
-    def __init__(self, num=20, orientation='vertical'):
+    def __init__(self, orientation='vertical', shape='rectangular', velocity=0.0, num=20):
         super().__init__()
 
-        self.program['u_stripes_num'] = num
+        self.setShape(shape)
         self.setOrientation(orientation)
+        self.program['u_velocity'] = velocity
+        self.program['u_stripes_num'] = num
 
-    def update(self, num=None, orientation=None):
+    def update(self, shape=None, orientation=None, velocity=None, num=None):
+
+        if shape is not None:
+            self.setShape(shape)
 
         if orientation is not None:
             self.setOrientation(orientation)
 
+        if velocity is not None:
+            self.program['u_velocity'] = velocity
+
         if num is not None and num > 0:
             self.program['u_stripes_num'] = num
+
+    def setShape(self, shape):
+        if shape == 'rectangular':
+            self.program['u_shape'] = 1
+        elif shape == 'sinusoidal':
+            self.program['u_shape'] = 2
 
     def setOrientation(self, orientation):
         if orientation == 'vertical':
             self.program['u_orientation'] = 1
-        else:
+        elif orientation == 'horizontal':
             self.program['u_orientation'] = 2
