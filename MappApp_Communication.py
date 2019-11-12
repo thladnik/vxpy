@@ -18,6 +18,7 @@ class Display:
     class Code:
         NewDisplaySettings = 10
         SetNewStimulus = 20
+        UpdateStimulusParams = 30
         Close = 99
 
 class IO:

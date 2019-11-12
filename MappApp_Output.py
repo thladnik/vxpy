@@ -1,18 +1,15 @@
 from glumpy import app, gl, glm, gloo, transforms
 import numpy as np
 
-from MappApp_Geometry import SphericalArena
 import MappApp_Communication as macom
 import MappApp_Definition as madef
+import MappApp_Geometry as mageo
 from devices import Arduino
 
 from IPython import embed
 
 # Set Glumpy to use qt5 backend
 app.use('qt5')
-
-# Define sphere
-sphere = SphericalArena(theta_lvls=100, phi_lvls=50, upper_phi=45.0, radius=1.0)
 
 class Display:
 
@@ -26,7 +23,6 @@ class Display:
         ## Setup window
         self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
-        self.program = None
         self.stimulus = None
 
         # Apply event wrapper
@@ -45,8 +41,12 @@ class Display:
         self.checkFullscreen()
 
     def loadNewStimulus(self, stimcls, *args, **kwargs):
-        self.stimulus = stimcls(self.program, *args, **kwargs)
 
+        ## Initialize new stimulus
+        self.stimulus = stimcls(*args, **kwargs)
+
+        ## Attach viewport
+        self.window.attach(self.stimulus.program['viewport'])
 
     def _handleCommunication(self, dt):
 
@@ -65,9 +65,6 @@ class Display:
         ## New display settings
         elif obj[0] == macom.Display.Code.NewDisplaySettings:
 
-            if self.program is None:
-                return
-
             # Update display settings
             self.displaySettings = obj[1]
 
@@ -82,9 +79,9 @@ class Display:
             stimcls = obj[1]
 
             args = []
+            kwargs = dict()
             if len(obj) > 2:
                 args = obj[2]
-            kwargs = dict()
             if len(obj) > 3:
                 kwargs = obj[3]
 
@@ -94,6 +91,14 @@ class Display:
             # Dispatch resize event
             self.window.dispatch_event('on_resize', self.window.width, self.window.height)
 
+        elif obj[0] == macom.Display.Code.UpdateStimulusParams:
+
+            kwargs = dict()
+            if len(obj) > 1:
+                kwargs = obj[1]
+
+            self.stimulus.update(**kwargs)
+
     def checkFullscreen(self):
         if self.window.get_fullscreen() != self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
             self.window.set_fullscreen(self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
@@ -101,8 +106,6 @@ class Display:
 
     def on_draw(self, dt):
         ## Only draw a frame if both program and stimulus are set
-        if self.program is None:
-            return
         if self.stimulus is None:
             return
 
@@ -116,8 +119,6 @@ class Display:
 
     def on_resize(self, width, height):
         ## Only draw a frame if both program and stimulus are set
-        if self.program is None:
-            return
         if self.stimulus is None:
             return
 
@@ -130,8 +131,8 @@ class Display:
             length = height
             x_offset = (width - length) // 2
             y_offset = 0
-        self.program['viewport']['global'] = (0, 0, width, height)
-        self.program['viewport']['local'] = (x_offset, y_offset, length, length)
+        self.stimulus.program['viewport']['global'] = (0, 0, width, height)
+        self.stimulus.program['viewport']['local'] = (x_offset, y_offset, length, length)
 
         ## Set default image channel parameters
         std_trans_distance = -10.
@@ -159,12 +160,12 @@ class Display:
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_sw,
                    *rot_axis_sw)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.program['u_trans_sw'] = u_trans
-        self.program['u_rot_sw'] = u_rot
-        self.program['u_projection_sw'] = u_projection
+        self.stimulus.program['u_trans_sw'] = u_trans
+        self.stimulus.program['u_rot_sw'] = u_rot
+        self.stimulus.program['u_projection_sw'] = u_projection
         # Linear image plane transformations
-        self.program['u_radial_offset_sw'] = std_radial_offset
-        self.program['u_tangent_offset_sw'] = std_tangent_offset
+        self.stimulus.program['u_radial_offset_sw'] = std_radial_offset
+        self.stimulus.program['u_tangent_offset_sw'] = std_tangent_offset
 
         ## SOUTH EAST
         # Non-linear transformations
@@ -175,12 +176,12 @@ class Display:
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_se,
                    *rot_axis_se)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.program['u_trans_se'] = u_trans
-        self.program['u_rot_se'] = u_rot
-        self.program['u_projection_se'] = u_projection
+        self.stimulus.program['u_trans_se'] = u_trans
+        self.stimulus.program['u_rot_se'] = u_rot
+        self.stimulus.program['u_projection_se'] = u_projection
         # Linear image plane transformations
-        self.program['u_radial_offset_se'] = std_radial_offset
-        self.program['u_tangent_offset_se'] = std_tangent_offset
+        self.stimulus.program['u_radial_offset_se'] = std_radial_offset
+        self.stimulus.program['u_tangent_offset_se'] = std_tangent_offset
 
         rot_axis_ne = (1, -1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
@@ -189,12 +190,12 @@ class Display:
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_ne,
                    *rot_axis_ne)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.program['u_trans_ne'] = u_trans
-        self.program['u_rot_ne'] = u_rot
-        self.program['u_projection_ne'] = u_projection
+        self.stimulus.program['u_trans_ne'] = u_trans
+        self.stimulus.program['u_rot_ne'] = u_rot
+        self.stimulus.program['u_projection_ne'] = u_projection
         # Linear image plane transformations
-        self.program['u_radial_offset_ne'] = std_radial_offset
-        self.program['u_tangent_offset_ne'] = std_tangent_offset
+        self.stimulus.program['u_radial_offset_ne'] = std_radial_offset
+        self.stimulus.program['u_tangent_offset_ne'] = std_tangent_offset
 
         rot_axis_nw = (1, 1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
@@ -203,12 +204,12 @@ class Display:
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_nw,
                    *rot_axis_nw)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.program['u_trans_nw'] = u_trans
-        self.program['u_rot_nw'] = u_rot
-        self.program['u_projection_nw'] = u_projection
+        self.stimulus.program['u_trans_nw'] = u_trans
+        self.stimulus.program['u_rot_nw'] = u_rot
+        self.stimulus.program['u_projection_nw'] = u_projection
         # Linear image plane transformations
-        self.program['u_radial_offset_nw'] = std_radial_offset
-        self.program['u_tangent_offset_nw'] = std_tangent_offset
+        self.stimulus.program['u_radial_offset_nw'] = std_radial_offset
+        self.stimulus.program['u_tangent_offset_nw'] = std_tangent_offset
 
 
         # Draw

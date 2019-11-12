@@ -36,8 +36,14 @@ class SphereHelper:
         z = r * np.sin(phi)
         return np.array([x, y, z])
 
+class Sphere:
+
+    def getVertices(self): pass
+    def getSphericalCoords(self): pass
+    def getFaceIdcs(self): pass
+
 gr = 1.61803398874989484820
-class IcosahedronSphere:
+class IcosahedronSphere(Sphere):
 
     corners = [
         [-1, gr, 0],
@@ -134,7 +140,7 @@ class IcosahedronSphere:
     def getFaces(self):
         return np.array(self.faces)
 
-class UVSphere:
+class UVSphere(Sphere):
 
     def __init__(self, theta_lvls: int, phi_lvls: int, upper_phi: float = np.pi/4, radius: float = 1.0):
         # Set attributes

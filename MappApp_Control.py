@@ -29,7 +29,7 @@ class Controller:
 
         ## Setup input/output
         print('Starting IO...')
-        self.io = Process(name=madef.Processes.IO, target=maout.runIO)
+        #self.io = Process(name=madef.Processes.IO, target=maout.runIO)
         #self.io.start()
 
         # Set up listener (Listener waits for clients, so all client processes

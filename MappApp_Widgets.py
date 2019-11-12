@@ -157,11 +157,13 @@ class CheckerboardCalibration(QtWidgets.QWidget):
 
         self._spn_rows = QtWidgets.QSpinBox()
         self._spn_rows.setValue(16)
+        self._spn_rows.valueChanged.connect(self.update)
         self.layout().addWidget(QtWidgets.QLabel('Rows'), 0, 0)
         self.layout().addWidget(self._spn_rows, 0, 1)
 
         self._spn_cols = QtWidgets.QSpinBox()
         self._spn_cols.setValue(16)
+        self._spn_cols.valueChanged.connect(self.update)
         self.layout().addWidget(QtWidgets.QLabel('Columns'), 1, 0)
         self.layout().addWidget(self._spn_cols, 1, 1)
 
@@ -171,8 +173,13 @@ class CheckerboardCalibration(QtWidgets.QWidget):
 
     def displayCheckerboard(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.DisplayCheckerboard,
+                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
                                         [], dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])
+
+    def update(self):
+        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
+                                                 [macom.Display.Code.UpdateStimulusParams,
+                                                  dict(rows=self._spn_rows.value(), cols=self._spn_cols.value())])
 
 
 class TestStimuli(QtWidgets.QWidget):
@@ -206,17 +213,17 @@ class TestStimuli(QtWidgets.QWidget):
 
     def displayMovingGrating(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.DisplayMovingGrating,
+                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
                                         [], dict()])
 
     def displayMovingSinusoid(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.DisplayMovingSinusoid,
+                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
                                         [], dict()])
 
 
     def display360Movie(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.Display360Movie,
+                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
                                         ['media/Rotation.mp4'], dict()])
 
