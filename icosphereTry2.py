@@ -5,8 +5,9 @@
 # Distributed under the 2-Clause BSD License.
 # -----------------------------------------------------------------------------
 import numpy as np
-import os
+import sys
 from scipy import signal
+import Q_num as qn
 from glumpy import app, gl, glm, gloo, data
 
 def cen2tri(cen_x = np.array([0]),cen_y = np.array([0]), triangle_size = np.array([1])):
@@ -71,6 +72,9 @@ void main()
 def vecNorm(vec,Norm_axis = -1):
     return np.sqrt(np.sum(vec**2,Norm_axis))
 
+def vecNormalize(vec,Norm_axis = -1):
+    return vec/np.expand_dims(np.sqrt(np.sum(vec**2,Norm_axis)),Norm_axis)
+
 def vecAngle(vec1,vec2,Norm_axis = -1):
     v1Norm = vecNorm(vec1,Norm_axis)
     v2Norm = vecNorm(vec2,Norm_axis)
@@ -120,10 +124,13 @@ def icoSphere(subdivisionTimes = 1):
                      [8, 6, 7],
                      [9, 8, 1]
                      ]);
+    # faces  = np.roll(faces,2,axis = 1)
+    # subdivisionTimes = 0
     # [usV,usF] = [vertices,faces]
     [usV,usF] = subdivide_triangle(vertices,faces,subdivisionTimes)
     sphereR = vecNorm(usV[0,:]);
     tileCen = np.mean(usV[usF,:],axis = 1)
+    tileOri = vecNormalize(np.cross(tileCen,usV[usF[:,1],:]-usV[usF[:,0],:]))+1.j*vecNormalize(usV[usF[:,1],:]-usV[usF[:,0],:])
     tileDist = sphAngle(tileCen,sphereR)
     vtype = [('position', np.float32, 3),('texcoord', np.float32, 2)]
     # vtype = [('position', np.float32, 3),('a_color', np.float32, 3)]
@@ -136,21 +143,22 @@ def icoSphere(subdivisionTimes = 1):
     # vertices['position'] = usV
     # vertices['a_color']  = np.random.rand(*(usV.shape))
     # vertices = vertices.view(gloo.VertexBuffer)
-    return Vout, Iout, tileDist,tileCen
 
-app.use("pyglet")
+    return Vout, Iout, tileDist, tileCen, tileOri
+
+app.use("qt5")
 window = app.Window(width=512, height=512, color=(0.30, 0.30, 0.35, 1.00))
 keypressed = 0
 keycontrol_increment = 1
 p_dist = 0.687
 @window.event
 def on_draw(dt):
-    global keypressed,model,z_distance,keycontrol_increment,t,motmat_x,motmat_y
+    global keypressed,model,z_distance,keycontrol_increment,t,motmatFull
     window.clear()
     gl.glDisable(gl.GL_BLEND)
     gl.glEnable(gl.GL_DEPTH_TEST)
     tidx = np.mod(t,499)
-    motmat   = cen2tri(spsmooth_azi[:,tidx],spsmooth_elv[:,tidx],.01).reshape([-1,2])
+    motmat   = np.repeat(motmatFull[:,tidx],3,axis = 0) #cen2tri(spsmooth_azi[:,tidx],spsmooth_elv[:,tidx],.01).reshape([-1,2])
     if keypressed == 97:
         patchMat['view'] = glm.translation(0,0,-z_distance)
         glm.rotate(model,-5*keycontrol_increment,*model[2,:3])
@@ -185,7 +193,7 @@ def on_draw(dt):
             keycontrol_increment -= .1
         print(keycontrol_increment)
     else:
-        V['texcoord'] += motmat/1000
+        V['texcoord'] += np.array([np.real(motmat),np.imag(motmat)]).T/80
     keycontrol_increment = min(max(keycontrol_increment,0.00001),10)
     patchMat['model'] = model
     patchMat['view'] = glm.translation(0,0,z_distance)
@@ -220,9 +228,9 @@ def on_key_release(symbol, modifiers):
     global keypressed
     keypressed = 0
 
-V,I,tileDist,tileCen = icoSphere(3)
-sp_sigma = 1     # width of kernel
-tp_sigma = 5
+V,I,tileDist,tileCen,tileOri = icoSphere(2)
+sp_sigma = .3    # width of kernel
+tp_sigma = 15
 spkernel = np.exp(-(tileDist**2)/(2*sp_sigma**2))
 spkernel *= spkernel>.001
 tp_min_length = np.int(np.ceil(np.sqrt(-2*tp_sigma**2*np.log(.01*tp_sigma*np.sqrt(2*np.pi)))))
@@ -237,20 +245,42 @@ tpsmooth_z = signal.convolve(flowvec[:,:,2],tpkernel[np.newaxis,:],mode='same')
 spsmooth_x = np.dot(spkernel,tpsmooth_x)
 spsmooth_y = np.dot(spkernel,tpsmooth_y)
 spsmooth_z = np.dot(spkernel,tpsmooth_z)
-tileDist.shape
-spsmooth_azi = np.angle(spsmooth_x+spsmooth_y*1.j)*0
-spsmooth_elv = np.angle(np.abs(spsmooth_x+spsmooth_y*1.j)+spsmooth_z*1.j)*0+1
+spsmooth_Q = qn.qn(np.array([spsmooth_x,spsmooth_y,spsmooth_z]).transpose([1,2,0]))
+tileCen_Q  = qn.qn(tileCen)
+tileOri_Q1  = qn.qn(np.real(tileOri)).normalize[:,None]
+tileOri_Q2  = qn.qn(np.imag(tileOri)).normalize[:,None]
+projected_motmat = qn.projection(tileCen_Q[:,None],spsmooth_Q)
+motmatFull = qn.qdot(tileOri_Q1,projected_motmat)-1.j*qn.qdot(tileOri_Q2,projected_motmat)
+# projected_motmat = qn.ortho_project(tileCen_Q,spsmooth_Q)
+# motAngle = qn.anglebtw(np.squeeze(projected_motmat),tileOri_Q[:,None]);
+# motmatFull   = np.exp((np.pi/2-np.squeeze(motAngle))*1.j)#*spsmooth_Q.norm()
+
+def cart2sph(cx,cy,cz):
+    cxy = cx+cy*1.j
+    azi = np.angle(cxy)
+    elv = np.angle(np.abs(cxy)+cz*1.j)
+    return azi, elv
+
+spsmooth_azi = np.angle(spsmooth_x+spsmooth_y*1.j)*0+1
+spsmooth_elv = np.angle(np.abs(spsmooth_x+spsmooth_y*1.j)+spsmooth_z*1.j)*0
 ### Just realize the way you define each triangle will affect their texture direction.
-startpoint = cen2tri(np.random.rand(np.int(I.size/3)),np.random.rand(np.int(I.size/3)),.05)
+startpoint = cen2tri(np.random.rand(np.int(I.size/3)),np.random.rand(np.int(I.size/3)),.1)
+V_azi,V_elv = cart2sph(*V['position'].T)
+############### Need to solve the shared points problem ######## vertices['texcoord_R'] = startpoint[faces_t]
 V['texcoord'] = startpoint.reshape([-1,2])
+# V['texcoord'] = [V_azi+np.random.rand(np.int(I.size/3)),V_elv+np.random.rand(np.int(I.size/3))]
 V = V.view(gloo.VertexBuffer)
 I = I.view(gloo.IndexBuffer)
 t = 1
 patchMat = gloo.Program(vertex, fragment)
 patchMat.bind(V)
-############### Need to solve the shared points problem ######## vertices['texcoord_R'] = startpoint[faces_t]
-
-patchMat['texture'] = np.uint8(np.round((np.random.rand(100,100,1)>.5)*200+55)*np.array([[[1,1,1]]]))
+saturation = np.random.rand(100,100)
+rgbnoise = np.eye(3)[np.random.randint(0,3,[100,100]),:]
+#rgbnoise = np.random.rand(100,100,3)
+patchMat['texture'] = np.uint8(np.round(rgbnoise*200+55))
+# texturemat = np.zeros([100,100,1]);
+# texturemat[::2,:,:] = 1;
+# patchMat['texture'] = np.uint8(texturemat*np.array([[[1,1,1]]])*255)
 patchMat['texture'].wrapping = gl.GL_REPEAT
 model = np.eye(4, dtype=np.float32)
 patchMat['model'] = model
