@@ -12,6 +12,9 @@ class Controller:
 
     def __init__(self):
 
+        ## Load configuration
+        self.config = mahlp.Config()
+
         ### Set up IPC
         ipc = macom.IPC()
         ## Main listener
@@ -25,7 +28,7 @@ class Controller:
         ## Setup presenter screen
         print('Starting display...')
         self.display = Process(name=madef.Processes.DISPLAY, target=maout.runDisplay,
-                               kwargs=dict(fps=30))
+                               kwargs=dict(fps=30, settings=self.config.displaySettings()))
         self.display.start()
 
         ## Setup stimulus inspector
@@ -43,11 +46,6 @@ class Controller:
         self.listener = ipc.getMetaListener(madef.Processes.CONTROL)
         self.listener.acceptClients()
 
-        ## Load configuration
-        self.config = mahlp.Config()
-
-        ## Update display settings
-        self.updateDisplaySettings()
 
     def updateDisplaySettings(self, **settings):
         self.config.updateDisplaySettings(**settings)
@@ -58,7 +56,7 @@ class Controller:
         print('Terminating MappApp')
         # Signal processes to terminate
         self.listener.sendToClient(madef.Processes.DISPLAY, [macom.Display.Code.Close])
-        self.listener.sendToClient(madef.Processes.IO, [macom.IO.Code.Close])
+        #self.listener.sendToClient(madef.Processes.IO, [macom.IO.Code.Close])
 
         # Save configuration
         self.config.saveToFile()

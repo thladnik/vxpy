@@ -26,3 +26,4 @@ class Paths:
 
     Shader = 'shaders'
     Model = 'models'
+    Protocol = 'protocols'

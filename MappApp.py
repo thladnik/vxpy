@@ -25,7 +25,7 @@ class Main(QtWidgets.QMainWindow):
         self._wrapController()
 
         # By default: show checkerboard
-        self._wgt_checkerboardCalibration.displayCheckerboard()
+        #self._wgt_checkerboardCalibration.displayCheckerboard()
 
     def _wrapController(self):
         """
@@ -60,8 +60,8 @@ class Main(QtWidgets.QMainWindow):
         self._menu_act_checkerCalib = QtWidgets.QAction('Checkerboard calibration')
         self._menu_act_checkerCalib.triggered.connect(self._openCheckerboardCalibration)
         self._menu_windows.addAction(self._menu_act_checkerCalib)
-        self._menu_act_testStimuli = QtWidgets.QAction('Test stimuli')
-        self._menu_act_testStimuli.triggered.connect(self._openTestStimuli)
+        self._menu_act_testStimuli = QtWidgets.QAction('Stimulation protocols')
+        self._menu_act_testStimuli.triggered.connect(self._openStimProtocols)
         self._menu_windows.addAction(self._menu_act_testStimuli)
 
         ## Setup display settings widget
@@ -72,18 +72,18 @@ class Main(QtWidgets.QMainWindow):
         geo_disp = self._wgt_dispSettings.window().geometry()
 
         ## Setup checkerboard calibration
-        self._wgt_checkerboardCalibration = Calibration(self)
-        self._wgt_checkerboardCalibration.setMinimumSize(300, 100)
-        self._openCheckerboardCalibration()
-        self._wgt_checkerboardCalibration.move(geo.x(), geo_disp.y() + geo_disp.height())
-        geo_checker = self._wgt_checkerboardCalibration.window().geometry()
+        #self._wgt_checkerboardCalibration = Calibration(self)
+        #self._wgt_checkerboardCalibration.setMinimumSize(300, 100)
+        #self._openCheckerboardCalibration()
+        #self._wgt_checkerboardCalibration.move(geo.x(), geo_disp.y() + geo_disp.height())
+        #geo_checker = self._wgt_checkerboardCalibration.window().geometry()
 
         ## Setup test stimuli
-        self._wgt_testStimuli = TestStimuli(self)
-        self._wgt_testStimuli.setMinimumSize(300, 100)
-        self._openTestStimuli()
-        self._wgt_testStimuli.move(geo.x(), geo_checker.y() + geo_checker.height())
-        geo_teststim = self._wgt_testStimuli.window().geometry()
+        self._wgt_StimProtocols = StimulationProtocols(self)
+        self._wgt_StimProtocols.setMinimumSize(300, 100)
+        self._openStimProtocols()
+        self._wgt_StimProtocols.move(geo.x(), geo_disp.y() + geo_disp.height())
+        geo_teststim = self._wgt_StimProtocols.window().geometry()
 
     def _openDisplaySettings(self):
         self._wgt_dispSettings.showNormal()
@@ -93,17 +93,17 @@ class Main(QtWidgets.QMainWindow):
         self._wgt_checkerboardCalibration.showNormal()
         self._wgt_checkerboardCalibration.show()
 
-    def _openTestStimuli(self):
-        self._wgt_testStimuli.showNormal()
-        self._wgt_testStimuli.show()
+    def _openStimProtocols(self):
+        self._wgt_StimProtocols.showNormal()
+        self._wgt_StimProtocols.show()
 
     def closeEvent(self, QCloseEvent):
         # Terminate controller instance
         self.ctrl.terminate()
         # Close widgets
         self._wgt_dispSettings.close()
-        self._wgt_checkerboardCalibration.close()
-        self._wgt_testStimuli.close()
+        #self._wgt_checkerboardCalibration.close()
+        self._wgt_StimProtocols.close()
         # Close MainWindow
         QCloseEvent.accept()
 

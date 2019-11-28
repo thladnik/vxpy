@@ -1,3 +1,5 @@
+import importlib
+import os
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.Qt import Qt
 
@@ -5,6 +7,7 @@ import MappApp_Communication as macom
 import MappApp_Definition as madef
 import MappApp_Helper as mahlp
 import MappApp_Stimulus as stim
+import MappApp_Stimulation_Protocol as maprot
 
 class DisplaySettings(QtWidgets.QWidget):
 
@@ -254,7 +257,8 @@ class Calibration(QtWidgets.QWidget):
                                                   )])
 
 
-class TestStimuli(QtWidgets.QWidget):
+
+class StimulationProtocols(QtWidgets.QWidget):
 
     def __init__(self, main):
         super().__init__(parent=main, flags=Qt.Window)
@@ -265,15 +269,34 @@ class TestStimuli(QtWidgets.QWidget):
 
         ## Setup widget
         self.setLayout(QtWidgets.QVBoxLayout())
-        self.setWindowTitle('Test stimuli')
+        self.setWindowTitle('Stimulation Protocols')
 
-        # Display moving sinusoid
-        self._btn_display360Movie = QtWidgets.QPushButton('360 movie')
-        self._btn_display360Movie.clicked.connect(self.display360Movie)
-        self.layout().addWidget(self._btn_display360Movie)
+        # Protocol list
+        self._cb_protocols = QtWidgets.QComboBox()
+        self._compileProtocolList()
+        self.layout().addWidget(self._cb_protocols)
 
-    def display360Movie(self):
+        # Start button
+        self._btn_startProtocol = QtWidgets.QPushButton('Start protocol')
+        self._btn_startProtocol.clicked.connect(self.startStimulationProtocol)
+        self.layout().addWidget(self._btn_startProtocol)
+
+    def _compileProtocolList(self):
+        self._cb_protocols.clear()
+
+        for file in os.listdir(madef.Paths.Protocol):
+            file = file.replace('.py', '')
+            protocol_file = importlib.import_module('%s.%s' % (madef.Paths.Protocol, file))
+            for key, data in protocol_file.__dict__.items():
+                if not(key.startswith('_')) and data.mro()[1] == maprot.StimulationProtocol:
+                    self._cb_protocols.addItem('%s>%s' % (file, key))
+
+
+    def startStimulationProtocol(self):
+        protocol_name = self._cb_protocols.currentText().split('>')
+
+        protocol = getattr(importlib.import_module('%s.%s' % (madef.Paths.Protocol, protocol_name[0])), protocol_name[1])
+
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulationProtocol, stim.Checkerboard,
-                                         ['media/Rotation.mp4'], dict()])
+                                        [macom.Display.Code.SetNewStimulationProtocol, protocol])
 

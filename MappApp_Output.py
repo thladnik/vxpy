@@ -13,7 +13,11 @@ app.use('qt5')
 
 class Display:
 
-    def __init__(self):
+    def __init__(self, settings):
+        self.protocol = None
+
+        self._displaySettings = settings
+        self._updateDisplaySettings()
 
         ## Load client connections
         ipc = macom.IPC()
@@ -21,32 +25,20 @@ class Display:
         self.clientToCtrl = ipc.getClientConnection(madef.Processes.CONTROL, madef.Processes.DISPLAY)
 
         ## Setup window
-        self.window = app.Window(width=800, height=600, color=(1, 1, 1, 1))
-
-        self.protocol = None
+        self._glWindow = app.Window(width=800, height=600, color=(1, 1, 1, 1))
 
         # Apply event wrapper
-        self.on_draw = self.window.event(self.on_draw)
-        self.on_resize = self.window.event(self.on_resize)
-        self.on_init = self.window.event(self.on_init)
-
-        # Wait to receive display settings
-        obj = self.clientToCtrl.recv()
-        if not(obj[0] == macom.Display.Code.NewDisplaySettings):
-            print('ERROR: display requires initial message to be the display configuration.')
-            self.window.close()
-        self.displaySettings = obj[1]
+        self.on_draw = self._glWindow.event(self.on_draw)
+        self.on_resize = self._glWindow.event(self.on_resize)
+        self.on_init = self._glWindow.event(self.on_init)
 
         # Check fullscreen state and change if necessary
         self.checkFullscreen()
 
-    def startNewProtocol(self, protocol_cls, *args, **kwargs):
-
+    def _startNewProtocol(self, protocol_cls):
         ## Initialize new stimulus
-        self.protocol = protocol_cls(*args, **kwargs)
+        self.protocol = protocol_cls(self)
 
-        ## Attach viewport
-        self.window.attach(self.protocol.program['viewport'])
 
     def _handleCommunication(self, dt):
 
@@ -60,36 +52,34 @@ class Display:
         ## App close event
         if obj[0] == macom.Display.Code.Close:
             print('Closing display')
-            self.window.close()
+            self._glWindow.close()
 
         ## New display settings
         elif obj[0] == macom.Display.Code.NewDisplaySettings:
 
+            if not(isinstance(obj[1], dict)):
+                print('WARNING: Invalid display settings')
+                return
+
             # Update display settings
-            self.displaySettings = obj[1]
+            self._displaySettings.update(obj[1])
+            self._updateDisplaySettings()
 
             # Check fullscreen state and change if necessary
             self.checkFullscreen()
 
             # Dispatch resize event
-            self.window.dispatch_event('on_resize', self.window.width, self.window.height)
+            self._glWindow.dispatch_event('on_resize', self._glWindow.width, self._glWindow.height)
 
         ## Start new stimulation protocol
         elif obj[0] == macom.Display.Code.SetNewStimulationProtocol:
             protocol = obj[1]
 
-            args = []
-            kwargs = dict()
-            if len(obj) > 2:
-                args = obj[2]
-            if len(obj) > 3:
-                kwargs = obj[3]
-
             # Setup new program
-            self.startNewProtocol(protocol, *args, **kwargs)
+            self._startNewProtocol(protocol)
 
             # Dispatch resize event
-            self.window.dispatch_event('on_resize', self.window.width, self.window.height)
+            self._glWindow.dispatch_event('on_draw', 0.0)
 
         ## New stimulus parameters
         elif obj[0] == macom.Display.Code.UpdateStimulusParams:
@@ -102,20 +92,19 @@ class Display:
             if len(obj) > 2:
                 kwargs = obj[2]
 
-            self.protocol.update(**kwargs)
+            #self.protocol.updateDisplay(**kwargs)
 
     def checkFullscreen(self):
-        if self.window.get_fullscreen() != self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
-            self.window.set_fullscreen(self.displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
-                                       screen=self.displaySettings[madef.DisplaySettings.int_disp_screen_id])
+        if self._glWindow.get_fullscreen() != self._displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
+            self._glWindow.set_fullscreen(self._displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
+                                          screen=self._displaySettings[madef.DisplaySettings.int_disp_screen_id])
 
     def on_draw(self, dt):
-        ## Only draw a frame if stimulus is set
         if self.protocol is None:
             return
 
         ## Clear window
-        self.window.clear(color=(0.0, 0.0, 0.0, 1.0))  # black
+        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))  # black
 
         self.protocol.draw(dt)
 
@@ -137,9 +126,11 @@ class Display:
         self.protocol.program['viewport']['local'] = (x_offset, y_offset, length, length)
 
         # Draw
-        self.window.dispatch_event('on_draw', 0.0)
+        #self._glWindow.dispatch_event('on_draw', 0.0)
 
-    def update(self):
+    def _updateDisplaySettings(self):
+        if self.protocol is None:
+            return
 
         ## Set default image channel parameters
         std_trans_distance = -10.
@@ -218,15 +209,12 @@ class Display:
         self.protocol.program['u_radial_offset_nw'] = std_radial_offset
         self.protocol.program['u_tangent_offset_nw'] = std_tangent_offset
 
-        # Draw
-        self.window.dispatch_event('on_draw', 0.0)
-
     def on_init(self):
         pass
 
-def runDisplay(fps, *args, **kwargs):
+def runDisplay(fps, settings):
 
-    display = Display(*args, **kwargs)
+    display = Display(settings=settings)
 
     # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
     app.clock.schedule_interval(display._handleCommunication, 0.1)

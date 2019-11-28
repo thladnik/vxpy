@@ -5,7 +5,7 @@ class Checkerboard(Stimulus):
     _sphere_model = 'UVSphere>UVSphere_80thetas_40phis'
     _fragment_shader = 'f_checkerboard.shader'
 
-    def __init__(self, protocol, rows=16, cols=16):
+    def __init__(self, protocol, rows, cols):
         super().__init__(protocol)
 
         self.protocol.program['u_checker_rows'] = rows

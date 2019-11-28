@@ -5,7 +5,16 @@ class Grating(Stimulus):
     _sphere_model = 'UVSphere>UVSphere_80thetas_40phis'
     _fragment_shader = 'f_grating.shader'
 
-    def __init__(self, protocol, orientation='vertical', shape='rectangular', velocity=0.0, num=20):
+    def __init__(self, protocol, orientation, shape, velocity, num):
+        """
+
+        :param protocol: protocol of which stimulus is currently part of
+
+        :param orientation: orientation of grating; either 'vertical' or 'horizontal'
+        :param shape: shape of underlying function; either 'rectangular' or 'sinusoidal'
+        :param velocity:
+        :param num:
+        """
         super().__init__(protocol)
 
         self.setShape(shape)
