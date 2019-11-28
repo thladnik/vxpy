@@ -4,6 +4,7 @@ class Processes:
     """
     CONTROL = 'control'
     DISPLAY = 'display'
+    STIMINSPECT = 'stimulus_inspector'
     IO = 'io'
 
 class DisplaySettings:
@@ -20,3 +21,8 @@ class DisplaySettings:
 
     int_disp_screen_id           = 'int_disp_screen_id'
     bool_disp_fullscreen         = 'bool_disp_fullscreen'
+
+class Paths:
+
+    Shader = 'shaders'
+    Model = 'models'

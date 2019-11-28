@@ -17,7 +17,7 @@ class Display:
 
     class Code:
         NewDisplaySettings = 10
-        SetNewStimulus = 20
+        SetNewStimulationProtocol = 20
         UpdateStimulusParams = 30
         Close = 99
 

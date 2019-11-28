@@ -217,7 +217,7 @@ class Calibration(QtWidgets.QWidget):
 
     def displayCheckerboard(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                                 [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
+                                                 [macom.Display.Code.SetNewStimulationProtocol, stim.Checkerboard,
                                                   [],
                                                   dict(
                                                       rows=self._spn_checker_rows.value(),
@@ -234,7 +234,7 @@ class Calibration(QtWidgets.QWidget):
 
     def displayGrating(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                                 [macom.Display.Code.SetNewStimulus, stim.Grating,
+                                                 [macom.Display.Code.SetNewStimulationProtocol, stim.Grating,
                                                   [],
                                                   dict(
                                                       orientation=self._cb_grating_orient.currentText(),
@@ -274,6 +274,6 @@ class TestStimuli(QtWidgets.QWidget):
 
     def display360Movie(self):
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulus, stim.Checkerboard,
-                                        ['media/Rotation.mp4'], dict()])
+                                        [macom.Display.Code.SetNewStimulationProtocol, stim.Checkerboard,
+                                         ['media/Rotation.mp4'], dict()])
 

@@ -1,11 +1,12 @@
 import configparser
-from multiprocessing import Process
+from multiprocessing import Process, freeze_support
 
 import MappApp_Communication as macom
 import MappApp_Definition as madef
 import MappApp_Helper as mahlp
 import MappApp_Output as maout
 
+freeze_support()
 
 class Controller:
 
@@ -27,8 +28,13 @@ class Controller:
                                kwargs=dict(fps=30))
         self.display.start()
 
+        ## Setup stimulus inspector
+        #print('Starting stimulus inspector...')
+        #self.stimspector = Process(name=madef.Processes.STIMINSPECT, target=maout.runStimulusInspector)
+        #self.stimspector.start()
+
         ## Setup input/output
-        print('Starting IO...')
+        #print('Starting IO...')
         #self.io = Process(name=madef.Processes.IO, target=maout.runIO)
         #self.io.start()
 
