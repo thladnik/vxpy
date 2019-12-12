@@ -67,6 +67,23 @@ class Sessiondata:
             self.data.write(fobj)
             fobj.close()
 
+
+def rpc(obj, data):
+    fun = data[0]
+    if hasattr(obj, fun) and callable(getattr(obj, fun)):
+        # Retrieve call arguments
+        args = list()
+        if len(data) > 1:
+            args = data[1]
+        kwargs = dict()
+        if len(data) > 2:
+            kwargs = data[2]
+
+        # Make call
+        print('%s calling method %s' % (obj._name, data[0]))
+        return getattr(obj, fun)(*args, **kwargs)
+
+
 class Conversion:
 
     @staticmethod

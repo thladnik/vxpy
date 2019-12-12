@@ -1,11 +1,42 @@
-class Processes:
-    """
-    Process names have to be exclusively LOWER CASE
-    """
-    CONTROL = 'control'
-    DISPLAY = 'display'
-    STIMINSPECT = 'stimulus_inspector'
-    IO = 'io'
+
+class Path:
+    config = 'config'
+
+class Process:
+
+    # Default signals
+    class Signal:
+        rpc = '_rpc'
+        query = '_query'
+
+        setProperty = 'set_property'
+
+        shutdown = '_start_shutdown'
+        confirm_shutdown = '_confirm_shutdown'
+
+    # Default states
+    class State:
+        stopped = 99
+
+    # Processes
+    class Controller:
+        name = 'controller'
+    class Display:
+        name = 'display'
+    class IO:
+        name = 'io'
+    class DataCruncher:
+        name = 'data_cruncher'
+    class GUI:
+        name = 'gui'
+    class FrameGrabber:
+        name = 'video_grabber'
+
+        toggleVideoRecording = '_toggleVideoRecording'
+        startVideoRecording = '_startVideoRecording'
+        stopVideoRecording = '_stopVideoRecording'
+        updateBufferEvalParams = '_updateBufferEvalParams'
+
 
 class DisplaySettings:
     _name = 'DisplaySettings'

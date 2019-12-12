@@ -1,4 +1,4 @@
-from MappApp_Stimulation_Protocol import StimulationProtocol
+from MappApp_Protocol import StimulationProtocol
 
 from stimuli.Checkerboard import Checkerboard
 from stimuli.Grating import Grating

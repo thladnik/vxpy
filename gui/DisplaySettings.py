@@ -1,25 +1,19 @@
-import importlib
-import os
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.Qt import Qt
+from PyQt5 import QtCore, QtWidgets
 
-import MappApp_Communication as macom
-import MappApp_Definition as madef
-import MappApp_Helper as mahlp
-import MappApp_Stimulus as stim
-import MappApp_Stimulation_Protocol as maprot
 
 class DisplaySettings(QtWidgets.QWidget):
 
     def __init__(self, main):
-        super().__init__(parent=main, flags=Qt.Window)
+        super().__init__(parent=main, flags=QtCore.Qt.Window)
 
         self._setupUi()
 
     def _setupUi(self):
 
+        self.setMinimumSize(400, 400)
+
         ## Fetch default display settings from controller
-        init_settings = self.parent().ctrl.config.displaySettings()
+        #init_settings = self.parent().ctrl.config.displaySettings()
 
         ## Setup widget
         self.setWindowTitle('Display settings')
@@ -32,7 +26,7 @@ class DisplaySettings(QtWidgets.QWidget):
         # X Position
         self._dspn_x_pos = QtWidgets.QDoubleSpinBox()
         self._dspn_x_pos.setDecimals(3)
-        self._dspn_x_pos.setValue(init_settings[madef.DisplaySettings.float_pos_glob_x_pos])
+        #self._dspn_x_pos.setValue(init_settings[madef.DisplaySettings.float_pos_glob_x_pos])
         self._dspn_x_pos.setMinimum(-1.0)
         self._dspn_x_pos.setMaximum(1.0)
         self._dspn_x_pos.setSingleStep(.001)
@@ -44,7 +38,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_y_pos.setMinimum(-1.0)
         self._dspn_y_pos.setMaximum(1.0)
         self._dspn_y_pos.setSingleStep(.001)
-        self._dspn_y_pos.setValue(init_settings[madef.DisplaySettings.float_pos_glob_y_pos])
+        #self._dspn_y_pos.setValue(init_settings[madef.DisplaySettings.float_pos_glob_y_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
         self._grp_position.layout().addWidget(self._dspn_y_pos, 1, 1)
         # Distance from center
@@ -53,7 +47,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_vp_center_offset.setMinimum(-1.0)
         self._dspn_vp_center_offset.setMaximum(1.0)
         self._dspn_vp_center_offset.setSingleStep(.001)
-        self._dspn_vp_center_offset.setValue(init_settings[madef.DisplaySettings.float_pos_glob_center_offset])
+        #self._dspn_vp_center_offset.setValue(init_settings[madef.DisplaySettings.float_pos_glob_center_offset])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('VP center offset'), 2, 0)
         self._grp_position.layout().addWidget(self._dspn_vp_center_offset, 2, 1)
 
@@ -67,7 +61,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_elev_angle.setMinimum(-90.0)
         self._dspn_elev_angle.setMaximum(90.0)
         self._dspn_elev_angle.setSingleStep(0.1)
-        self._dspn_elev_angle.setValue(init_settings[madef.DisplaySettings.float_view_elev_angle])
+        #self._dspn_elev_angle.setValue(init_settings[madef.DisplaySettings.float_view_elev_angle])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Elevation [deg]'), 0, 0)
         self._grp_view.layout().addWidget(self._dspn_elev_angle, 0, 1)
         # Offset of view from axis towards origin of sphere
@@ -76,7 +70,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_view_axis_offset.setMinimum(-1.0)
         self._dspn_view_axis_offset.setMaximum(1.0)
         self._dspn_view_axis_offset.setSingleStep(.001)
-        self._dspn_view_axis_offset.setValue(init_settings[madef.DisplaySettings.float_view_axis_offset])
+        #self._dspn_view_axis_offset.setValue(init_settings[madef.DisplaySettings.float_view_axis_offset])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Origin offset'), 1, 0)
         self._grp_view.layout().addWidget(self._dspn_view_axis_offset, 1, 1)
         # Distance from origin of sphere
@@ -85,7 +79,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_view_origin_distance.setMinimum(1.5)
         self._dspn_view_origin_distance.setMaximum(10.)
         self._dspn_view_origin_distance.setSingleStep(.1)
-        self._dspn_view_origin_distance.setValue(init_settings[madef.DisplaySettings.float_view_origin_distance])
+        #self._dspn_view_origin_distance.setValue(init_settings[madef.DisplaySettings.float_view_origin_distance])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Origin distance'), 2, 0)
         self._grp_view.layout().addWidget(self._dspn_view_origin_distance, 2, 1)
         # Field of view
@@ -94,7 +88,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_fov.setMinimum(1.0)
         self._dspn_fov.setMaximum(180.0)
         self._dspn_fov.setSingleStep(0.5)
-        self._dspn_fov.setValue(init_settings[madef.DisplaySettings.float_view_fov])
+        #self._dspn_fov.setValue(init_settings[madef.DisplaySettings.float_view_fov])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('FOV'), 3, 0)
         self._grp_view.layout().addWidget(self._dspn_fov, 3, 1)
 
@@ -104,14 +98,13 @@ class DisplaySettings(QtWidgets.QWidget):
         self.layout().addWidget(self._grp_disp)
         # Screen ID
         self._spn_screen_id = QtWidgets.QSpinBox()
-        self._spn_screen_id.setValue(init_settings[madef.DisplaySettings.int_disp_screen_id])
+        #self._spn_screen_id.setValue(init_settings[madef.DisplaySettings.int_disp_screen_id])
         self._grp_disp.layout().addWidget(QtWidgets.QLabel('Screen'), 0, 0)
         self._grp_disp.layout().addWidget(self._spn_screen_id, 0, 1)
         # Use fullscreen
         self._check_fullscreen = QtWidgets.QCheckBox('Fullscreen')
         self._check_fullscreen.setTristate(False)
-        self._check_fullscreen.setCheckState(
-            mahlp.Conversion.boolToQtCheckstate(init_settings[madef.DisplaySettings.bool_disp_fullscreen]))
+        #self._check_fullscreen.setCheckState(mahlp.Conversion.boolToQtCheckstate(init_settings[madef.DisplaySettings.bool_disp_fullscreen]))
         self._grp_disp.layout().addWidget(self._check_fullscreen, 0, 2)
 
         ## Connect change events to a timer
@@ -132,6 +125,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_fov.valueChanged.connect(lambda: self.timer_param_update.start(td))
 
     def settingsChanged(self):
+        return
         self.parent().ctrl.updateDisplaySettings(**{
             madef.DisplaySettings.float_pos_glob_x_pos           : self._dspn_x_pos.value(),
             madef.DisplaySettings.float_pos_glob_y_pos           : self._dspn_y_pos.value(),
@@ -145,80 +139,11 @@ class DisplaySettings(QtWidgets.QWidget):
                 self._check_fullscreen.checkState())
         })
 
-class Calibration(QtWidgets.QWidget):
-
-    def __init__(self, main):
-        super().__init__(parent=main, flags=Qt.Window)
-
-        self.setupUi()
-
-    def setupUi(self):
-
-        ## Setup widget
-        self.setLayout(QtWidgets.QGridLayout())
-        self.setWindowTitle('Calibration')
-
-        ## Checkerboard
-        self._grp_checker = QtWidgets.QGroupBox('Checkerboard')
-        self._grp_checker.setLayout(QtWidgets.QGridLayout())
-        self.layout().addWidget(self._grp_checker)
-        # Rows
-        self._spn_checker_rows = QtWidgets.QSpinBox()
-        self._spn_checker_rows.setValue(16)
-        self._spn_checker_rows.valueChanged.connect(self.updateCheckerboard)
-        self._grp_checker.layout().addWidget(QtWidgets.QLabel('Rows'), 0, 0)
-        self._grp_checker.layout().addWidget(self._spn_checker_rows, 0, 1)
-        # Cols
-        self._spn_checker_cols = QtWidgets.QSpinBox()
-        self._spn_checker_cols.setValue(16)
-        self._spn_checker_cols.valueChanged.connect(self.updateCheckerboard)
-        self._grp_checker.layout().addWidget(QtWidgets.QLabel('Columns'), 1, 0)
-        self._grp_checker.layout().addWidget(self._spn_checker_cols, 1, 1)
-        # Set checkerboard
-        self._btn_disp_checkerboard = QtWidgets.QPushButton('Display checkerboard')
-        self._btn_disp_checkerboard.clicked.connect(self.displayCheckerboard)
-        self._grp_checker.layout().addWidget(self._btn_disp_checkerboard, 2, 0, 1, 2)
-
-        ## Static stripes
-        self._grp_grating = QtWidgets.QGroupBox('Grating')
-        self._grp_grating.setLayout(QtWidgets.QGridLayout())
-        self.layout().addWidget(self._grp_grating)
-        # Rectangular or sinusoidal
-        self._cb_grating_shape = QtWidgets.QComboBox()
-        self._cb_grating_shape.addItem('rectangular')
-        self._cb_grating_shape.addItem('sinusoidal')
-        self._cb_grating_shape.currentTextChanged.connect(self.updateGrating)
-        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Shape'), 0, 0)
-        self._grp_grating.layout().addWidget(self._cb_grating_shape, 0, 1)
-        # Vertical or horizontal
-        self._cb_grating_orient = QtWidgets.QComboBox()
-        self._cb_grating_orient.addItem('vertical')
-        self._cb_grating_orient.addItem('horizontal')
-        self._cb_grating_orient.currentTextChanged.connect(self.updateGrating)
-        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Orientation'), 1, 0)
-        self._grp_grating.layout().addWidget(self._cb_grating_orient, 1, 1)
-        # Velocity
-        self._dspn_grating_v = QtWidgets.QDoubleSpinBox()
-        self._dspn_grating_v.setMinimum(-99.9)
-        self._dspn_grating_v.setMaximum(99.9)
-        self._dspn_grating_v.setValue(0.0)
-        self._dspn_grating_v.valueChanged.connect(self.updateGrating)
-        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Velocity'), 2, 0)
-        self._grp_grating.layout().addWidget(self._dspn_grating_v, 2, 1)
-        # Number of stripes
-        self._spn_grating_num = QtWidgets.QSpinBox()
-        self._spn_grating_num.setValue(20)
-        self._spn_grating_num.valueChanged.connect(self.updateGrating)
-        self._grp_grating.layout().addWidget(QtWidgets.QLabel('Number'), 3, 0)
-        self._grp_grating.layout().addWidget(self._spn_grating_num, 3, 1)
-        # Set static stripes
-        self._btn_disp_grating = QtWidgets.QPushButton('Display grating')
-        self._btn_disp_grating.clicked.connect(self.displayGrating)
-        self._grp_grating.layout().addWidget(self._btn_disp_grating, 4, 0, 1, 2)
-
 
 
     def displayCheckerboard(self):
+        pass
+        """
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                                  [macom.Display.Code.SetNewStimulationProtocol, stim.Checkerboard,
                                                   [],
@@ -226,16 +151,22 @@ class Calibration(QtWidgets.QWidget):
                                                       rows=self._spn_checker_rows.value(),
                                                       cols=self._spn_checker_cols.value()
                                                   )])
+                                                  """
 
     def updateCheckerboard(self):
+        pass
+        """
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                                  [macom.Display.Code.UpdateStimulusParams, stim.Checkerboard,
                                                   dict(
                                                       rows=self._spn_checker_rows.value(),
                                                       cols=self._spn_checker_cols.value()
                                                   )])
+                                                  """
 
     def displayGrating(self):
+        pass
+        """
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                                  [macom.Display.Code.SetNewStimulationProtocol, stim.Grating,
                                                   [],
@@ -245,8 +176,11 @@ class Calibration(QtWidgets.QWidget):
                                                       num=self._spn_grating_num.value(),
                                                       velocity=self._dspn_grating_v.value()
                                                  )])
+                                                 """
 
     def updateGrating(self):
+        pass
+        """
         self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
                                                  [macom.Display.Code.UpdateStimulusParams, stim.Grating,
                                                   dict(
@@ -255,48 +189,5 @@ class Calibration(QtWidgets.QWidget):
                                                       num=self._spn_grating_num.value(),
                                                       velocity=self._dspn_grating_v.value()
                                                   )])
-
-
-
-class StimulationProtocols(QtWidgets.QWidget):
-
-    def __init__(self, main):
-        super().__init__(parent=main, flags=Qt.Window)
-
-        self.setupUi()
-
-    def setupUi(self):
-
-        ## Setup widget
-        self.setLayout(QtWidgets.QVBoxLayout())
-        self.setWindowTitle('Stimulation Protocols')
-
-        # Protocol list
-        self._cb_protocols = QtWidgets.QComboBox()
-        self._compileProtocolList()
-        self.layout().addWidget(self._cb_protocols)
-
-        # Start button
-        self._btn_startProtocol = QtWidgets.QPushButton('Start protocol')
-        self._btn_startProtocol.clicked.connect(self.startStimulationProtocol)
-        self.layout().addWidget(self._btn_startProtocol)
-
-    def _compileProtocolList(self):
-        self._cb_protocols.clear()
-
-        for file in os.listdir(madef.Paths.Protocol):
-            file = file.replace('.py', '')
-            protocol_file = importlib.import_module('%s.%s' % (madef.Paths.Protocol, file))
-            for key, data in protocol_file.__dict__.items():
-                if not(key.startswith('_')) and data.mro()[1] == maprot.StimulationProtocol:
-                    self._cb_protocols.addItem('%s>%s' % (file, key))
-
-
-    def startStimulationProtocol(self):
-        protocol_name = self._cb_protocols.currentText().split('>')
-
-        protocol = getattr(importlib.import_module('%s.%s' % (madef.Paths.Protocol, protocol_name[0])), protocol_name[1])
-
-        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulationProtocol, protocol])
+                                                  """
 

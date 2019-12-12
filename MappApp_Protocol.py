@@ -59,6 +59,7 @@ class StimulationProtocol:
         else:
             self._advanceTime = None
 
+        # FINALLY: dispatch resize event
         self.display._glWindow.dispatch_event('on_resize', self.display._glWindow.width, self.display._glWindow.height)
 
     def draw(self, dt):
