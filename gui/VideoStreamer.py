@@ -6,15 +6,18 @@ from time import perf_counter
 class VideoStreamer(QtWidgets.QWidget):
 
     def __init__(self, main, *args, **kwargs):
-        QtWidgets.QWidget.__init__(self, *args, parent=main, **kwargs)
         self.main = main
+        QtWidgets.QWidget.__init__(self, *args, parent=None, **kwargs)
 
         self.fps = 60.
 
-        self._aspect = self.main._cameraBO.frameDims[0] / (2 * self.main._cameraBO.frameDims[1])
+        self._setupUI()
 
+    def _setupUI(self):
+        self.setWindowTitle('Video Streamer')
+
+        self._aspect = self.main._cameraBO.frameDims[0] / (2 * self.main._cameraBO.frameDims[1])
         self.setMinimumSize(2 * self.main._cameraBO.frameDims[1], self.main._cameraBO.frameDims[0])
-        self.hasHeightForWidth()
         self.setLayout(QtWidgets.QVBoxLayout())
 
         self._wdgt_plot = pg.PlotWidget(parent=self)

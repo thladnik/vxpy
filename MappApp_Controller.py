@@ -1,11 +1,11 @@
 from configparser import ConfigParser
+import multiprocessing as mp
 import os
-import sys
-sys.coinit_flags = 2
 
+import MappApp_Definition as madef
 from MappApp_GUI import runGUI
+from MappApp_Helper import rpc
 from MappApp_ImageProcessing import CameraBO
-from MappApp_Processes import *
 
 class Controller:
 
@@ -37,8 +37,9 @@ class Controller:
             self._initializeProcess(madef.Process.GUI, runGUI, _cameraBO=self._cameraBO)
 
         # Initialize processes
+        from process.Display import Display
         self._initializeProcess(madef.Process.Display, Display)
-        self._initializeProcess(madef.Process.DataCruncher, DataCruncher)
+        from process.FrameGrabber import FrameGrabber
         self._initializeProcess(madef.Process.FrameGrabber, FrameGrabber, _cameraBO=self._cameraBO)
 
         self.run()

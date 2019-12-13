@@ -2,7 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
 import MappApp_Definition as madef
-from MappApp_Processes import BaseProcess
+from process.Base import BaseProcess
 from gui.Calibration import *
 from gui.DisplaySettings import *
 from gui.StimulationProtocols import *
@@ -61,16 +61,16 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
         self._menu_windows.addAction(self._menu_act_testStimuli)
 
         ## Display Settings
-        self._wgt_dispSettings = DisplaySettings(self)
-        self._wgt_dispSettings.move(50, 400)
+        self._wdgt_dispSettings = DisplaySettings(self)
+        self._wdgt_dispSettings.move(50, 400)
         self._openDisplaySettings()
-        geo_disp = self._wgt_dispSettings.window().geometry()
+        geo_disp = self._wdgt_dispSettings.window().geometry()
 
         ## Stimulus Protocols
-        self._wgt_StimProtocols = StimulationProtocols(self)
-        self._wgt_StimProtocols.move(450, 400)
+        self._wdgt_stimProtocols = StimulationProtocols(self)
+        self._wdgt_stimProtocols.move(450, 400)
         self._openStimProtocols()
-        geo_teststim = self._wgt_StimProtocols.window().geometry()
+        geo_teststim = self._wdgt_stimProtocols.window().geometry()
 
         # Video Streamer
         self._wdgt_videoStreamer = VideoStreamer(self, flags=QtCore.Qt.Window)
@@ -87,16 +87,16 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
             thresh2=self._spn_EdgeDetector_thresh2.value())
 
     def _openDisplaySettings(self):
-        self._wgt_dispSettings.showNormal()
-        self._wgt_dispSettings.show()
+        self._wdgt_dispSettings.showNormal()
+        self._wdgt_dispSettings.show()
 
     def _openCheckerboardCalibration(self):
         self._wgt_checkerboardCalibration.showNormal()
         self._wgt_checkerboardCalibration.show()
 
     def _openStimProtocols(self):
-        self._wgt_StimProtocols.showNormal()
-        self._wgt_StimProtocols.show()
+        self._wdgt_stimProtocols.showNormal()
+        self._wdgt_stimProtocols.show()
 
     def _openVideoStreamer(self):
         self._wdgt_videoStreamer.showNormal()
@@ -104,6 +104,9 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Inform controller of close event
+        self._wdgt_dispSettings.close()
+        self._wdgt_stimProtocols.close()
+        self._wdgt_videoStreamer.close()
         self._sendToCtrl([madef.Process.Signal.rpc, madef.Process.Signal.shutdown])
 
 def runGUI(*args, **kwargs):

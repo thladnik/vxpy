@@ -37,12 +37,12 @@ class StimulationProtocol:
 
         # Second: Create new program (if necessary)
         if self.program is None or self._current.__class__.getShaderHash() != new_stimulus.getShaderHash():
+
             # Create program
             self.program = gloo.Program(vertex=new_stimulus.getVertexShader(), fragment=new_stimulus.getFragmentShader())
 
-            # Set viewport
+            # Set viewport and attach
             self.program['viewport'] = transforms.Viewport()
-            # Attach viewport
             self.display._glWindow.attach(self.program['viewport'])
 
             self.display._updateDisplaySettings()

@@ -3,12 +3,13 @@ import os
 from PyQt5 import QtCore, QtWidgets
 
 import MappApp_Definition as madef
-import MappApp_Protocol as maprot
+import MappApp_StimulationProtocol as maprot
 
 class StimulationProtocols(QtWidgets.QWidget):
 
     def __init__(self, main):
-        super().__init__(parent=main, flags=QtCore.Qt.Window)
+        self.main = main
+        QtWidgets.QWidget.__init__(self, parent=None, flags=QtCore.Qt.Window)
 
         self.setupUi()
 
