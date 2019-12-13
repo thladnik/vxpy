@@ -7,6 +7,10 @@ class DisplaySettings(QtWidgets.QWidget):
         self.main = main
         QtWidgets.QWidget.__init__(self, parent=None, flags=QtCore.Qt.Window)
 
+        self.main._registerCallback('_setConfiguration', self._setConfiguration)
+
+        self.main._queryPropertyFromCtrl('_displayConfiguration', callback='_setConfiguration')
+
         self._setupUi()
 
     def _setupUi(self):
@@ -124,6 +128,12 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_view_origin_distance.valueChanged.connect(lambda: self.timer_param_update.start(td))
         self._check_fullscreen.stateChanged.connect(lambda: self.timer_param_update.start(td))
         self._dspn_fov.valueChanged.connect(lambda: self.timer_param_update.start(td))
+
+    def _setConfiguration(self, *args, **_configuration):
+        import IPython
+        #IPython.embed()
+        print('HELLOOOO')
+        print(_configuration)
 
     def settingsChanged(self):
         return

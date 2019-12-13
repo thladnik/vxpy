@@ -30,6 +30,7 @@ class Process:
 
         # RPC bindings
         startNewStimulationProtocol = '_startNewStimulationProtocol'
+        updateConfiguration         = '_updateConfiguration'
 
     class IO:
         name = 'io'
@@ -59,7 +60,7 @@ class Process:
         updateBufferEvalParams = '_updateBufferEvalParams'
 
 
-class DisplaySettings:
+class DisplayConfiguration:
     _name = 'DisplaySettings'
 
     float_pos_glob_x_pos         = 'float_pos_glob_x_pos'

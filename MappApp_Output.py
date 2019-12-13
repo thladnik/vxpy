@@ -67,9 +67,6 @@ class Display:
             # Check fullscreen state and change if necessary
             self.checkFullscreen()
 
-            # Dispatch resize event
-            self._glWindow.dispatch_event('on_resize', self._glWindow.width, self._glWindow.height)
-
         ## Start new stimulation protocol
         elif obj[0] == macom.Display.Code.SetNewStimulationProtocol:
             protocol = obj[1]
@@ -94,9 +91,9 @@ class Display:
             #self.protocol.updateDisplay(**kwargs)
 
     def checkFullscreen(self):
-        if self._glWindow.get_fullscreen() != self._displaySettings[madef.DisplaySettings.bool_disp_fullscreen]:
-            self._glWindow.set_fullscreen(self._displaySettings[madef.DisplaySettings.bool_disp_fullscreen],
-                                          screen=self._displaySettings[madef.DisplaySettings.int_disp_screen_id])
+        if self._glWindow.get_fullscreen() != self._displaySettings[madef.DisplayConfiguration.bool_disp_fullscreen]:
+            self._glWindow.set_fullscreen(self._displaySettings[madef.DisplayConfiguration.bool_disp_fullscreen],
+                                          screen=self._displaySettings[madef.DisplayConfiguration.int_disp_screen_id])
 
     def on_draw(self, dt):
         if self.protocol is None:

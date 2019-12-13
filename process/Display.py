@@ -31,7 +31,6 @@ class Display(BaseProcess):
         pass
 
     def on_draw(self, dt):
-        print(dt)
         if self.protocol is None:
             return
 
@@ -42,6 +41,10 @@ class Display(BaseProcess):
         self.protocol.draw(dt)
 
     def on_resize(self, width, height):
+        # Fix for qt5 backend:
+        self._glWindow._width = width
+        self._glWindow._height = height
+
         if self.protocol is None:
             return
 
@@ -56,6 +59,11 @@ class Display(BaseProcess):
             y_offset = 0
         self.protocol.program['viewport']['global'] = (0, 0, width, height)
         self.protocol.program['viewport']['local'] = (x_offset, y_offset, length, length)
+
+    def _toggleFullscreen(self):
+        if self._glWindow.get_fullscreen() != self._configuration[madef.DisplayConfiguration.bool_disp_fullscreen]:
+            self._glWindow.set_fullscreen(self._configuration[madef.DisplayConfiguration.bool_disp_fullscreen],
+                                          screen=self._configuration[madef.DisplayConfiguration.int_disp_screen_id])
 
     def _startNewStimulationProtocol(self, protocol_cls):
         ## Initialize new stimulus protocol

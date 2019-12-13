@@ -31,19 +31,19 @@ class Config:
 
     def displaySettings(self, **kwargs):
         # If section does not exist: create it and set to defaults
-        if not(self.data.has_section(madef.DisplaySettings._name)):
-            self.data.add_section(madef.DisplaySettings._name)
+        if not(self.data.has_section(madef.DisplayConfiguration._name)):
+            self.data.add_section(madef.DisplayConfiguration._name)
             for option in madflt.DisplayConfiguration:
-                self.data.set(madef.DisplaySettings._name,
-                              getattr(madef.DisplaySettings, option), str(madflt.DisplayConfiguration[option]))
+                self.data.set(madef.DisplayConfiguration._name,
+                              getattr(madef.DisplayConfiguration, option), str(madflt.DisplayConfiguration[option]))
         # Return display settings
-        return self._parsedSection(madef.DisplaySettings._name)
+        return self._parsedSection(madef.DisplayConfiguration._name)
 
     def updateDisplaySettings(self, **settings):
-        if not(self.data.has_section(madef.DisplaySettings._name)):
+        if not(self.data.has_section(madef.DisplayConfiguration._name)):
             self.displaySettings()
 
-        self.data[madef.DisplaySettings._name].update(**{option : str(settings[option]) for option in settings})
+        self.data[madef.DisplayConfiguration._name].update(**{option : str(settings[option]) for option in settings})
 
     def saveToFile(self):
         with open(self.filepath, 'w') as fobj:
@@ -60,7 +60,7 @@ class Sessiondata:
 
     def rpcSettings(self):
         if not(self.data.has_section('rpc')):
-            self.data.add_section(madef.DisplaySettings._name)
+            self.data.add_section(madef.DisplayConfiguration._name)
 
     def saveToFile(self):
         with open(self.filepath, 'w') as fobj:

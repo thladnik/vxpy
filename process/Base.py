@@ -45,8 +45,8 @@ class BaseProcess:
     def _isRunning(self):
         return self._running and not(self._shutdown)
 
-    def _queryPropertyFromCtrl(self, propName):
-        self._sendToCtrl([madef.Process.Signal.query, propName])
+    def _queryPropertyFromCtrl(self, propName, callback=None):
+        self._sendToCtrl([madef.Process.Signal.query, propName, callback])
 
     def _rpcToCtrl(self, function, *args, **kwargs):
         """

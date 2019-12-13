@@ -86,7 +86,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                 # Display configuration
                 displayConfig = madflt.DisplayConfiguration
                 if self._parser.has_section('display'):
-                    displayConfig = self._parser['display']
+                    displayConfig = dict(self._parser._sections['display'])
                 self._parser['display'] = displayConfig
 
                 self._parser.write(fobj)

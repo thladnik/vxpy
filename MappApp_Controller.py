@@ -24,10 +24,13 @@ class Controller:
         self._ctrlQueue = mp.Queue()
         self._useGUI = _useGUI
 
+        ## Set configurations
         self.configuration = ConfigParser()
         self.configuration.read(os.path.join(madef.Path.config, self._configfile))
+        self._cameraConfiguration = dict(self.configuration._sections['camera'])
+        self._displayConfiguration = dict(self.configuration._sections['display'])
 
-        # Set up components
+        ## Set up components
         self._setupCamera()
 
         # (optional)
@@ -38,7 +41,7 @@ class Controller:
 
         # Initialize processes
         from process.Display import Display
-        self._initializeProcess(madef.Process.Display, Display, _configuration=self.configuration['display'])
+        self._initializeProcess(madef.Process.Display, Display, _configuration=self._displayConfiguration)
         from process.FrameGrabber import FrameGrabber
         self._initializeProcess(madef.Process.FrameGrabber, FrameGrabber, _cameraBO=self._cameraBO)
 
@@ -62,7 +65,7 @@ class Controller:
     def _setupCamera(self):
 
         # Create camera buffer object
-        self._cameraBO = CameraBO(cameraConfig=self.configuration['camera'])
+        self._cameraBO = CameraBO(cameraConfig=self._cameraConfiguration)
         self._cameraBO.addBuffer('frame')
         self._cameraBO.addBuffer('edge_detector')
 
@@ -113,8 +116,20 @@ class Controller:
                     # QUERIES
                     elif data[0] == madef.Process.Signal.query:
                         if hasattr(self, data[1]):
-                            print('Send answer to query')
-                            self.pipe[sender].send([madef.Process.Signal.setProperty, data[1], getattr(self, data[1])])
+
+                            # If data included a callback signature, make RPC call to sender
+                            if data[2] is not None:
+                                print('<%s> send answer to query from <%s> for property <%s>; use callback signature <%s>'
+                                      % (self._name, sender, data[1], data[2]))
+                                import IPython
+                                #IPython.embed()
+                                self.pipe[sender].send([madef.Process.Signal.rpc, data[2], [], getattr(self, data[1])])
+
+                            # Else just let sender set the property passively
+                            else:
+                                print('<%s> send answer to query from <%s> for property <%s>'
+                                      % (self._name, data[1], sender))
+                                self.pipe[sender].send([madef.Process.Signal.setProperty, data[1], getattr(self, data[1])])
 
                 # CALLS TO OTHER PROCESSES (FORWARDING)
                 else:

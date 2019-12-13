@@ -29,7 +29,7 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
         # Set timer for handling the pipe
         self._tmr_handlePipe = QtCore.QTimer()
         self._tmr_handlePipe.timeout.connect(self._handlePipe)
-        #self._tmr_handlePipe.start(10)
+        self._tmr_handlePipe.start(10)
 
         # Run QApplication event loop
         self._app.exec_()
@@ -99,6 +99,10 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
     def _openVideoStreamer(self):
         self._wdgt_videoStreamer.showNormal()
         self._wdgt_videoStreamer.show()
+
+    def _registerCallback(self, signature, fun):
+        setattr(self, signature, fun)
+
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Inform controller of close event
