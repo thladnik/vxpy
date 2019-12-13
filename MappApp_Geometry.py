@@ -1,8 +1,4 @@
 import numpy as np
-from numpy import ndarray
-from scipy.spatial import Delaunay
-from typing import Union
-
 
 class SphereHelper:
 

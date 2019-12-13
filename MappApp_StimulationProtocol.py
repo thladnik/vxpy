@@ -45,7 +45,8 @@ class StimulationProtocol:
             self.program['viewport'] = transforms.Viewport()
             self.display._glWindow.attach(self.program['viewport'])
 
-            self.display._updateDisplaySettings()
+            # Set uniforms on new program
+            self.display._updateUniforms()
 
             # Bind vertex buffer of model to program
             self.program.bind(self.model.vertexBuffer)

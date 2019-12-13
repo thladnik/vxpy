@@ -1,4 +1,4 @@
-DisplaySettings = dict(
+DisplayConfiguration = dict(
     float_pos_glob_x_pos            = 0.0,
     float_pos_glob_y_pos            = 0.0,
     float_pos_glob_center_offset    = 1.0,

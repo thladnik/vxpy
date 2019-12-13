@@ -5,6 +5,7 @@ import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
+import MappApp_Defaults as madflt
 import MappApp_Definition as madef
 
 
@@ -79,7 +80,15 @@ class StartupConfiguration(QtWidgets.QMainWindow):
     def _saveToFile(self):
         if self._parser is not None and self._configfile is not None:
             with open(os.path.join(madef.Path.config, self._configfile), 'w') as fobj:
+                # Camera configuration
                 self._parser['camera'] = self._gb_camera.get()
+
+                # Display configuration
+                displayConfig = madflt.DisplayConfiguration
+                if self._parser.has_section('display'):
+                    displayConfig = self._parser['display']
+                self._parser['display'] = displayConfig
+
                 self._parser.write(fobj)
 
     def _openConfigfile(self):

@@ -33,9 +33,9 @@ class Config:
         # If section does not exist: create it and set to defaults
         if not(self.data.has_section(madef.DisplaySettings._name)):
             self.data.add_section(madef.DisplaySettings._name)
-            for option in madflt.DisplaySettings:
+            for option in madflt.DisplayConfiguration:
                 self.data.set(madef.DisplaySettings._name,
-                              getattr(madef.DisplaySettings, option), str(madflt.DisplaySettings[option]))
+                              getattr(madef.DisplaySettings, option), str(madflt.DisplayConfiguration[option]))
         # Return display settings
         return self._parsedSection(madef.DisplaySettings._name)
 

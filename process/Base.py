@@ -85,13 +85,12 @@ class BaseProcess:
         print('Process <%s>: FAILED to set property <%s> to value <%s>' % (self._name, propName, str(data)))
 
 
-    def _handlePipe(self, wait=False):
+    def _handlePipe(self, *args):  # needs *args for compatibility with glumpy schedule_interval
 
         # Poll pipe and (optionally) wait for a number of iterations
         t = perf_counter()
-        while not(self._inPipe.poll()):
-            if not(wait) or (perf_counter() >= t + 3.0):
-                return
+        if not(self._inPipe.poll()):
+            return
 
         obj = self._inPipe.recv()
 

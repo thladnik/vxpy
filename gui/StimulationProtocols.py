@@ -43,8 +43,6 @@ class StimulationProtocols(QtWidgets.QWidget):
 
     def startStimulationProtocol(self):
         protocol_name = self._cb_protocols.currentText().split('>')
-
         protocol = getattr(importlib.import_module('%s.%s' % (madef.Paths.Protocol, protocol_name[0])), protocol_name[1])
 
-        self.parent().ctrl.listener.sendToClient(madef.Processes.DISPLAY,
-                                        [macom.Display.Code.SetNewStimulationProtocol, protocol])
+        self.main._rpcToProcess(madef.Process.Display, madef.Process.Display.startNewStimulationProtocol, protocol)

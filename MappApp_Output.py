@@ -39,7 +39,6 @@ class Display:
         ## Initialize new stimulus
         self.protocol = protocol_cls(self)
 
-
     def _handleCommunication(self, dt):
 
         # Receive data

@@ -64,13 +64,11 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
         self._wdgt_dispSettings = DisplaySettings(self)
         self._wdgt_dispSettings.move(50, 400)
         self._openDisplaySettings()
-        geo_disp = self._wdgt_dispSettings.window().geometry()
 
         ## Stimulus Protocols
         self._wdgt_stimProtocols = StimulationProtocols(self)
         self._wdgt_stimProtocols.move(450, 400)
         self._openStimProtocols()
-        geo_teststim = self._wdgt_stimProtocols.window().geometry()
 
         # Video Streamer
         self._wdgt_videoStreamer = VideoStreamer(self, flags=QtCore.Qt.Window)

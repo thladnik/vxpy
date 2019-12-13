@@ -21,17 +21,38 @@ class Process:
     # Processes
     class Controller:
         name = 'controller'
+
+        # RPC bindings
+        pass
+
     class Display:
         name = 'display'
+
+        # RPC bindings
+        startNewStimulationProtocol = '_startNewStimulationProtocol'
+
     class IO:
         name = 'io'
+
+        # RPC bindings
+        pass
+
     class DataCruncher:
         name = 'data_cruncher'
+
+        # RPC bindings
+        pass
+
     class GUI:
         name = 'gui'
+
+        # RPC bindings
+        pass
+
     class FrameGrabber:
         name = 'video_grabber'
 
+        # RPC bindings
         toggleVideoRecording = '_toggleVideoRecording'
         startVideoRecording = '_startVideoRecording'
         stopVideoRecording = '_stopVideoRecording'

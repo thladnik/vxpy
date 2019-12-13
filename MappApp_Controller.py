@@ -3,7 +3,6 @@ import multiprocessing as mp
 import os
 
 import MappApp_Definition as madef
-from MappApp_GUI import runGUI
 from MappApp_Helper import rpc
 from MappApp_ImageProcessing import CameraBO
 
@@ -34,11 +33,12 @@ class Controller:
         # (optional)
         # Initialize GUI
         if self._useGUI:
+            from MappApp_GUI import runGUI
             self._initializeProcess(madef.Process.GUI, runGUI, _cameraBO=self._cameraBO)
 
         # Initialize processes
         from process.Display import Display
-        self._initializeProcess(madef.Process.Display, Display)
+        self._initializeProcess(madef.Process.Display, Display, _configuration=self.configuration['display'])
         from process.FrameGrabber import FrameGrabber
         self._initializeProcess(madef.Process.FrameGrabber, FrameGrabber, _cameraBO=self._cameraBO)
 
@@ -82,7 +82,6 @@ class Controller:
             setattr(self, propName, data)
             return
         print('Process <%s>: FAILED to set property <%s> to value <%s>' % (self._name, propName, str(data)))
-
 
     def run(self):
         self._running = True
@@ -140,7 +139,7 @@ class Controller:
         self._running = False
 
 def runController(_configfile, _useGUI):
-    ctrl = Controller(_configfile=_configfile, _useGUI=_useGUI)
+    Controller(_configfile=_configfile, _useGUI=_useGUI)
 
 
 if __name__ == '__main__':
