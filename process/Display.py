@@ -8,15 +8,16 @@ import MappApp_Definition as madef
 # Worker processes
 
 # Set Glumpy to use qt5 backend
-app.use('qt5')
+app.use('pyglet')
 
 class Display(BaseProcess):
 
     _name = madef.Process.Display.name
 
-    def __init__(self, _configuration, **kwargs):
-        self._glWindow = app.Window(width=800, height=600, color=(1, 1, 1, 1), title='Display')
-        self._configuration = _configuration
+    def __init__(self, _displayConfiguration, **kwargs):
+        self._glWindow = app.Window(width=1200, height=700, color=(1, 1, 1, 1), title='Display')
+        self._glWindow.set_position(300, 400)
+        self._displayConfiguration = _displayConfiguration
         BaseProcess.__init__(self, **kwargs)
         self.protocol = None
 
@@ -25,17 +26,19 @@ class Display(BaseProcess):
         self.on_resize = self._glWindow.event(self.on_resize)
         self.on_init = self._glWindow.event(self.on_init)
 
+        # Register display configuration with controller
+        self._rpcToCtrl('_registerPropertyWithProcess', '_displayConfiguration', self._name, '_updateConfiguration')
+
         self.run()
 
     def on_init(self):
-        pass
+        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
     def on_draw(self, dt):
         if self.protocol is None:
             return
 
-        # Clear window
-        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))  # black
+        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
         # Call draw
         self.protocol.draw(dt)
@@ -49,21 +52,23 @@ class Display(BaseProcess):
             return
 
         ## Update viewport (center local viewport with aspect = 1)
+        x_add = int(width * self._displayConfiguration[madef.DisplayConfig.float_pos_glob_x_pos])
+        y_add = int(height * self._displayConfiguration[madef.DisplayConfig.float_pos_glob_y_pos])
         if height > width:
             length = width
-            x_offset = 0
-            y_offset = (height - length) // 2
+            x_offset = x_add
+            y_offset = (height - length) // 2 + y_add
         else:
             length = height
-            x_offset = (width - length) // 2
-            y_offset = 0
+            x_offset = (width - length) // 2 + x_add
+            y_offset = y_add
         self.protocol.program['viewport']['global'] = (0, 0, width, height)
         self.protocol.program['viewport']['local'] = (x_offset, y_offset, length, length)
 
     def _toggleFullscreen(self):
-        if self._glWindow.get_fullscreen() != self._configuration[madef.DisplayConfiguration.bool_disp_fullscreen]:
-            self._glWindow.set_fullscreen(self._configuration[madef.DisplayConfiguration.bool_disp_fullscreen],
-                                          screen=self._configuration[madef.DisplayConfiguration.int_disp_screen_id])
+        if self._glWindow.get_fullscreen() != self._displayConfiguration[madef.DisplayConfig.bool_disp_fullscreen]:
+            self._glWindow.set_fullscreen(self._displayConfiguration[madef.DisplayConfig.bool_disp_fullscreen],
+                                          screen=self._displayConfiguration[madef.DisplayConfig.int_disp_screen_id])
 
     def _startNewStimulationProtocol(self, protocol_cls):
         ## Initialize new stimulus protocol
@@ -76,35 +81,37 @@ class Display(BaseProcess):
             return
 
         for key, value in kwargs.items():
-            if key in self._configuration:
-                self._configuration = value
+            if key in self._displayConfiguration:
+                self._displayConfiguration[key] = value
 
         self._updateUniforms()
+        self._glWindow.dispatch_event('on_resize', self._glWindow._width, self._glWindow._height)
 
     def _updateUniforms(self):
         if self.protocol is None:
             return
 
         ## Set default image channel parameters
-        std_trans_distance = -10.
-        std_fov = 30.
+        std_trans_distance = -self._displayConfiguration[madef.DisplayConfig.float_view_origin_distance]
+        std_fov = self._displayConfiguration[madef.DisplayConfig.float_view_fov]
+        std_azimuth_rot = 180.
         std_elevation_rot = 90.
-        std_radial_offset = 0.5
+        std_radial_offset = self._displayConfiguration[madef.DisplayConfig.float_pos_glob_radial_offset]
         std_tangent_offset = 0.
 
-        elevation_rot_sw = 0.
-        elevation_rot_se = 0.
-        elevation_rot_ne = 0.
-        elevation_rot_nw = 0.
+        elevation_rot_sw = self._displayConfiguration[madef.DisplayConfig.float_view_elev_angle]
+        elevation_rot_se = self._displayConfiguration[madef.DisplayConfig.float_view_elev_angle]
+        elevation_rot_ne = self._displayConfiguration[madef.DisplayConfig.float_view_elev_angle]
+        elevation_rot_nw = self._displayConfiguration[madef.DisplayConfig.float_view_elev_angle]
 
-        azimuth_rot_sw = 0.
-        azimuth_rot_se = 0.
-        azimuth_rot_ne = 0.
-        azimuth_rot_nw = 0.
+        azimuth_rot_sw = std_azimuth_rot + 0.
+        azimuth_rot_se = std_azimuth_rot + 0.
+        azimuth_rot_ne = std_azimuth_rot + 0.
+        azimuth_rot_nw = std_azimuth_rot + 0.
 
         ## SOUTH WEST
         # Non-linear transformations
-        rot_axis_sw = (-1, 1, 0)
+        rot_axis_sw = (1, -1, 0)#(-1, 1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_sw, 0, 0, 1)  # Rotate around equator
@@ -120,7 +127,7 @@ class Display(BaseProcess):
 
         ## SOUTH EAST
         # Non-linear transformations
-        rot_axis_se = (-1, -1, 0)
+        rot_axis_se = (1, 1, 0)#(-1, -1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_se, 0, 0, 1)  # Rotate around equator
@@ -134,7 +141,7 @@ class Display(BaseProcess):
         self.protocol.program['u_radial_offset_se'] = std_radial_offset
         self.protocol.program['u_tangent_offset_se'] = std_tangent_offset
 
-        rot_axis_ne = (1, -1, 0)
+        rot_axis_ne = (-1, 1, 0)#(1, -1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_ne, 0, 0, 1)  # Rotate around equator
@@ -148,7 +155,7 @@ class Display(BaseProcess):
         self.protocol.program['u_radial_offset_ne'] = std_radial_offset
         self.protocol.program['u_tangent_offset_ne'] = std_tangent_offset
 
-        rot_axis_nw = (1, 1, 0)
+        rot_axis_nw = (-1, -1, 0)#(1, 1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_nw, 0, 0, 1)  # Rotate around equator

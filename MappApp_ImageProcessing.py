@@ -4,6 +4,8 @@ import multiprocessing as mp
 import numpy as np
 from time import perf_counter
 
+import MappApp_Definition as madef
+
 ################################
 ## Camera Buffer Object
 
@@ -13,12 +15,15 @@ class CameraBO:
     """
 
     def __init__(self, cameraConfig):
-        self.manufacturer = cameraConfig['manufacturer']
-        self.model = cameraConfig['model']
-        self.videoFormat = cameraConfig['format']
+        self.manufacturer = cameraConfig[madef.CameraConfiguration.str_manufacturer]
+        self.model = cameraConfig[madef.CameraConfiguration.str_model]
+        self.videoFormat = cameraConfig[madef.CameraConfiguration.str_format]
 
-        self.frameDims = (int(cameraConfig['resolution_x']), int(cameraConfig['resolution_y']))
+        self.frameDims = (int(cameraConfig[madef.CameraConfiguration.int_resolution_x]),
+                          int(cameraConfig[madef.CameraConfiguration.int_resolution_y]))
 
+        #import IPython
+        #IPython.embed()
 
         self._buffers = dict()
         self._npBuffers = dict()

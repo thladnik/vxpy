@@ -60,12 +60,12 @@ class Process:
         updateBufferEvalParams = '_updateBufferEvalParams'
 
 
-class DisplayConfiguration:
-    _name = 'DisplaySettings'
+class DisplayConfig:
+    _name = 'display'
 
     float_pos_glob_x_pos         = 'float_pos_glob_x_pos'
     float_pos_glob_y_pos         = 'float_pos_glob_y_pos'
-    float_pos_glob_center_offset = 'float_pos_glob_center_offset'
+    float_pos_glob_radial_offset = 'float_pos_glob_radial_offset'
 
     float_view_elev_angle        = 'float_view_elev_angle'
     float_view_axis_offset       = 'float_view_axis_offset'
@@ -74,6 +74,15 @@ class DisplayConfiguration:
 
     int_disp_screen_id           = 'int_disp_screen_id'
     bool_disp_fullscreen         = 'bool_disp_fullscreen'
+
+class CameraConfiguration:
+    _name = 'camera'
+
+    str_manufacturer = 'str_manufacturer'
+    str_model        = 'str_model'
+    str_format       = 'str_format'
+    int_resolution_x = 'int_resolution_x'
+    int_resolution_y = 'int_resolution_y'
 
 class Paths:
 

@@ -22,6 +22,8 @@ class VideoStreamer(QtWidgets.QWidget):
 
         self._wdgt_plot = pg.PlotWidget(parent=self)
         self._plotItem = pg.ImageItem()
+        self._wdgt_plot.getPlotItem().hideAxis('left')
+        self._wdgt_plot.getPlotItem().hideAxis('bottom')
         self._wdgt_plot.addItem(self._plotItem)
         self.layout().addWidget(self._wdgt_plot)
 

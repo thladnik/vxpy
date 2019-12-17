@@ -7,6 +7,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 import MappApp_Defaults as madflt
 import MappApp_Definition as madef
+import MappApp_Helper as mahelp
 
 
 class StartupConfiguration(QtWidgets.QMainWindow):
@@ -16,8 +17,9 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
         self.setWindowTitle('MappApp - Startup configuration')
 
-        self._parser = None
+        self.configuration = None
         self._configfile = None
+        self._currentConfigChanged = False
 
         self._setupUI()
 
@@ -44,10 +46,14 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self._wdgt_config.setLayout(QtWidgets.QGridLayout())
         self.centralWidget().layout().addWidget(self._wdgt_config, 1, 0, 1, 2)
         # Camera configuration
-        self._gb_camera = CameraConfiguration()
+        self._gb_camera = CameraConfiguration(self)
         self._wdgt_config.layout().addWidget(self._gb_camera, 0, 0)
 
-        self._pb_startApp = QtWidgets.QPushButton('Start')
+        self._pb_saveConfig = QtWidgets.QPushButton('Save changes')
+        self._pb_saveConfig.clicked.connect(self._saveToFile)
+        self.centralWidget().layout().addWidget(self._pb_saveConfig, 1, 2)
+
+        self._pb_startApp = QtWidgets.QPushButton('Save and start')
         self._pb_startApp.clicked.connect(self._startApplication)
         self.centralWidget().layout().addWidget(self._pb_startApp, 2, 2)
 
@@ -78,45 +84,46 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             self._cb_selectConfigfile.setCurrentText(name)
 
     def _saveToFile(self):
-        if self._parser is not None and self._configfile is not None:
-            with open(os.path.join(madef.Path.config, self._configfile), 'w') as fobj:
-                # Camera configuration
-                self._parser['camera'] = self._gb_camera.get()
+        if self.configuration is not None and self._configfile is not None:
+            # Camera configuration
+            self.configuration.updateCameraConfiguration(**self._gb_camera.get())
 
-                # Display configuration
-                displayConfig = madflt.DisplayConfiguration
-                if self._parser.has_section('display'):
-                    displayConfig = dict(self._parser._sections['display'])
-                self._parser['display'] = displayConfig
+            # Display configuration
+            self.configuration.updateDisplayConfiguration()
 
-                self._parser.write(fobj)
+            self.configuration.saveToFile()
+            self._currentConfigChanged = False
+
 
     def _openConfigfile(self):
-
-        if self._parser is not None and self._configfile is not None:
-            self._saveToFile()
 
         name = self._cb_selectConfigfile.currentText()
         if name == '':
             return
 
         self._configfile = '%s.ini' % name
-        self._parser = ConfigParser()
-        self._parser.read(os.path.join(madef.Path.config, self._configfile))
+        self.configuration = mahelp.Config(self._configfile)
 
-        # Set camera
-        _cameraConfig = dict()
-        if self._parser.has_section('camera'):
-            _cameraConfig = {prop : val for (prop, val) in self._parser['camera'].items()}
-        self._gb_camera.set(**_cameraConfig)
+        # Set camera configuration
+        self._gb_camera._loadCameraList()
+        self._gb_camera.set(**self.configuration.cameraConfiguration())
 
         # Set ...
 
     def closeEvent(self, event):
-        self._saveToFile()
+        answer = None
+        if self._currentConfigChanged:
+            answer = QtWidgets.QMessageBox.question(self, 'Unsaved changes', 'Would you like to save the current changes?',
+                                           QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel ,
+                                           QtWidgets.QMessageBox.No)
+            if answer == QtWidgets.QMessageBox.Yes:
+                self._saveToFile()
+
         event.accept()
 
+
     def _startApplication(self):
+        self._saveToFile()
         global _configfile
         _configfile = self._configfile
         self.close()
@@ -125,14 +132,15 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 import devices.cameras.tisgrabber as IC
 class CameraConfiguration(QtWidgets.QGroupBox):
 
-    def __init__(self):
+    def __init__(self, _main):
+        self._main = _main
         QtWidgets.QGroupBox.__init__(self, 'Camera configuration')
 
         self._setupUI()
 
     def _setupUI(self):
 
-        self._type = None
+        self._manufacturer = None
         self._camera = None
 
         self.setFixedSize(400, 150)
@@ -140,11 +148,13 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QGridLayout())
 
         self._cb_selectModel = QtWidgets.QComboBox()
-        self._cb_selectModel.currentTextChanged.connect(self._cameraSelected)
+        self._cb_selectModel.activated.connect(self._cameraSelected)
         self.layout().addWidget(QtWidgets.QLabel('Camera'), 0, 0)
         self.layout().addWidget(self._cb_selectModel, 0, 1)
+
         self._cb_selectFormat = QtWidgets.QComboBox()
         self.layout().addWidget(QtWidgets.QLabel('Format'), 1, 0)
+        self._cb_selectFormat.activated.connect(self._formatSelected)
         self.layout().addWidget(self._cb_selectFormat, 1, 1)
 
     def _loadCameraList(self):
@@ -155,37 +165,49 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         for c in camera.GetDevices():
             self._cb_selectModel.addItem('TIS>>%s' % c.decode())
 
-    def _loadFormatList(self):
-        self._cb_selectFormat.clear()
-        if self._type is not None and self._type == 'TIS':
-            for f in self._camera.GetVideoFormats():
-                self._cb_selectFormat.addItem(f.decode())
-
-    def _cameraSelected(self):
-        selection = self._cb_selectModel.currentText().split('>>')
-
-        self._type = None
-        self._camera = None
-        if selection[0] == 'TIS':
-            self._type = selection[0]
-            self._camera = IC.TIS_CAM()
-            self._camera.open(selection[1])
-
-        if self._camera is None:
-            print('ERROR: problem selecting camera')
-            return
+        # Select current
+        config = self._main.configuration.cameraConfiguration()
+        self._cb_selectModel.setCurrentText(
+            '%s>>%s' % (config[madef.CameraConfiguration.str_manufacturer], config[madef.CameraConfiguration.str_model]))
 
         self._loadFormatList()
 
-    def set(self, model=None, format=None, **kwargs):
+    def _cameraSelected(self, idx):
+        manufacturer, model = self._cb_selectModel.currentText().split('>>')
+
+        self._manufacturer = None
+        self._camera = None
+        if manufacturer == 'TIS':
+            self._manufacturer = manufacturer
+            self._camera = IC.TIS_CAM()
+            self._camera.open(model)
+
+        print('Changed camera to %s' % self._cb_selectModel.currentText())
+
+        self._main._currentConfigChanged = True
+        self._loadFormatList()
+
+
+    def _loadFormatList(self):
+        self._cb_selectFormat.clear()
+        if self._manufacturer is not None and self._manufacturer == 'TIS':
+            for f in self._camera.GetVideoFormats():
+                self._cb_selectFormat.addItem(f.decode())
+
+        self._cb_selectFormat.setCurrentText(self._main.configuration.cameraConfiguration(madef.CameraConfiguration.str_format))
+
+    def _formatSelected(self, idx):
+        self._main._currentConfigChanged = True
+        print('Changed format to %s' % self._cb_selectFormat.currentText())
+
+    def set(self, **settings):
         self._loadCameraList()
 
-        if model is not None:
-            self._cb_selectModel.setCurrentText(model)
+        if madef.CameraConfiguration.str_model in settings:
+            self._cb_selectModel.setCurrentText(settings[madef.CameraConfiguration.str_model])
 
-        if format is not None:
-            self._cb_selectFormat.setCurrentText(format)
-
+        if madef.CameraConfiguration.str_format in settings:
+            self._cb_selectModel.setCurrentText(settings[madef.CameraConfiguration.str_format])
 
     def get(self):
         format = self._cb_selectFormat.currentText()
@@ -195,13 +217,13 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         manufacturer = camera[0]
         model = camera[1]
 
-        return dict(
-            manufacturer=manufacturer,
-            model=model,
-            format=format,
-            resolution_x=int(format1[1][:-1]),
-            resolution_y=int(format1[0][1:])
-        )
+        return {
+            madef.CameraConfiguration.str_manufacturer : manufacturer,
+            madef.CameraConfiguration.str_model        : model,
+            madef.CameraConfiguration.str_format       : format,
+            madef.CameraConfiguration.int_resolution_x : int(format1[1][:-1]),
+            madef.CameraConfiguration.int_resolution_y : int(format1[0][1:])
+        }
 
 
 if __name__ == '__main__':
@@ -213,8 +235,6 @@ if __name__ == '__main__':
 
     if _configfile is not None:
 
-        import IPython
-        #IPython.embed()
         from MappApp_Controller import runController
         _useGUI = True
         runController(_configfile, _useGUI)

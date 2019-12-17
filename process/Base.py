@@ -1,5 +1,6 @@
 import multiprocessing as mp
 import multiprocessing.connection as mpconn
+import pprint
 import signal
 import sys
 from time import perf_counter
@@ -39,6 +40,9 @@ class BaseProcess:
         """
         pass
 
+    def _registerPropWithCtrl(self):
+        pass
+
     def _start_shutdown(self):
         self._shutdown = True
 
@@ -48,24 +52,16 @@ class BaseProcess:
     def _queryPropertyFromCtrl(self, propName, callback=None):
         self._sendToCtrl([madef.Process.Signal.query, propName, callback])
 
+    def _rpcToProcess(self, process, function, *args, **kwargs):
+        self._sendToProcess(process, [madef.Process.Signal.rpc, function, args, kwargs])
+
     def _rpcToCtrl(self, function, *args, **kwargs):
         """
         Convenience function to handle queueing of messages to Controller
         :param data: message to be put in queue
         :return: None
         """
-        self._rpcToProcess(madef.Process.Controller, function, args, kwargs)
-
-    def _sendToCtrl(self, data):
-        """
-        Convenience function to handle queueing of messages to Controller
-        :param data: message to be put in queue
-        :return: None
-        """
-        self._sendToProcess(madef.Process.Controller, data)
-
-    def _rpcToProcess(self, process, function, *args, **kwargs):
-        self._sendToProcess(process, [madef.Process.Signal.rpc, function, args, kwargs])
+        self._rpcToProcess(madef.Process.Controller, function, *args, **kwargs)
 
     def _sendToProcess(self, process, data):
         """
@@ -77,12 +73,23 @@ class BaseProcess:
         """
         self._ctrlQueue.put([self._name, process.name, data])
 
+    def _sendToCtrl(self, data):
+        """
+        Convenience function to handle queueing of messages to Controller
+        :param data: message to be put in queue
+        :return: None
+        """
+        self._sendToProcess(madef.Process.Controller, data)
+
     def _setProperty(self, propName, data):
         if hasattr(self, propName):
-            print('Process <%s>: set property <%s> to value <%s>' % (self._name, propName, str(data)))
             setattr(self, propName, data)
+            print('> Process <%s> set property <%s>:' % (self._name, propName))
+            pprint.pprint(data)
             return
-        print('Process <%s>: FAILED to set property <%s> to value <%s>' % (self._name, propName, str(data)))
+        print('> Process <%s> FAIL to set property <%s>:' % (self._name, propName))
+        pprint.pprint(data)
+
 
 
     def _handlePipe(self, *args):  # needs *args for compatibility with glumpy schedule_interval
@@ -104,5 +111,5 @@ class BaseProcess:
 
 
     def _handleSIGINT(self, sig, frame):
-        print('SIGINT event handled in  %s' % self.__class__)
+        print('> SIGINT event handled in  %s' % self.__class__)
         sys.exit(0)

@@ -91,9 +91,9 @@ class Display:
             #self.protocol.updateDisplay(**kwargs)
 
     def checkFullscreen(self):
-        if self._glWindow.get_fullscreen() != self._displaySettings[madef.DisplayConfiguration.bool_disp_fullscreen]:
-            self._glWindow.set_fullscreen(self._displaySettings[madef.DisplayConfiguration.bool_disp_fullscreen],
-                                          screen=self._displaySettings[madef.DisplayConfiguration.int_disp_screen_id])
+        if self._glWindow.get_fullscreen() != self._displaySettings[madef.DisplayConfig.bool_disp_fullscreen]:
+            self._glWindow.set_fullscreen(self._displaySettings[madef.DisplayConfig.bool_disp_fullscreen],
+                                          screen=self._displaySettings[madef.DisplayConfig.int_disp_screen_id])
 
     def on_draw(self, dt):
         if self.protocol is None:

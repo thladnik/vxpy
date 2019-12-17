@@ -44,6 +44,7 @@ class Stimulus:
         self.protocol.program['u_time'] = self.time
 
         # GL commands
+        self.protocol.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
         gl.glEnable(gl.GL_DEPTH_TEST)
 
         # Draw

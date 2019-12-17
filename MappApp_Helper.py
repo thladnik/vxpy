@@ -1,4 +1,5 @@
 import configparser
+import os
 from PyQt5 import QtCore
 
 import MappApp_Defaults as madflt
@@ -7,11 +8,10 @@ import MappApp_Definition as madef
 
 class Config:
 
-    filepath = 'config.ini'
-
-    def __init__(self):
+    def __init__(self, _configfile):
+        self._configfile = _configfile
         self.data = configparser.ConfigParser()
-        self.data.read(self.filepath)
+        self.data.read(os.path.join(madef.Path.config, self._configfile))
 
     def _parsedSection(self, section):
         parsed = dict()
@@ -29,41 +29,48 @@ class Config:
 
         return parsed
 
-    def displaySettings(self, **kwargs):
+    def displayConfiguration(self, name=None):
         # If section does not exist: create it and set to defaults
-        if not(self.data.has_section(madef.DisplayConfiguration._name)):
-            self.data.add_section(madef.DisplayConfiguration._name)
+        if not(self.data.has_section(madef.DisplayConfig._name)):
+            self.data.add_section(madef.DisplayConfig._name)
             for option in madflt.DisplayConfiguration:
-                self.data.set(madef.DisplayConfiguration._name,
-                              getattr(madef.DisplayConfiguration, option), str(madflt.DisplayConfiguration[option]))
+                self.data.set(madef.DisplayConfig._name,
+                              getattr(madef.DisplayConfig, option), str(madflt.DisplayConfiguration[option]))
+
         # Return display settings
-        return self._parsedSection(madef.DisplayConfiguration._name)
+        if name is not None:
+            return self._parsedSection(madef.DisplayConfig._name)[name]
+        return self._parsedSection(madef.DisplayConfig._name)
 
-    def updateDisplaySettings(self, **settings):
-        if not(self.data.has_section(madef.DisplayConfiguration._name)):
-            self.displaySettings()
+    def updateDisplayConfiguration(self, **settings):
+        if not(self.data.has_section(madef.DisplayConfig._name)):
+            self.displayConfiguration()
 
-        self.data[madef.DisplayConfiguration._name].update(**{option : str(settings[option]) for option in settings})
+        self.data[madef.DisplayConfig._name].update(**{option : str(settings[option]) for option in settings})
+
+
+    def cameraConfiguration(self, name=None):
+        # If section does not exist: create it and set to defaults
+        if not(self.data.has_section(madef.CameraConfiguration._name)):
+            self.data.add_section(madef.CameraConfiguration._name)
+            for option in madflt.CameraConfiguration:
+                self.data.set(madef.CameraConfiguration._name,
+                              getattr(madef.CameraConfiguration, option), str(madflt.CameraConfiguration[option]))
+        # Return display settings
+        if name is not None:
+            return self._parsedSection(madef.CameraConfiguration._name)[name]
+        return self._parsedSection(madef.CameraConfiguration._name)
+
+    def updateCameraConfiguration(self, **settings):
+        if not(self.data.has_section(madef.CameraConfiguration._name)):
+            self.cameraConfiguration()
+
+        self.data[madef.CameraConfiguration._name].update(**{option : str(settings[option]) for option in settings})
+
 
     def saveToFile(self):
-        with open(self.filepath, 'w') as fobj:
-            self.data.write(fobj)
-            fobj.close()
-
-class Sessiondata:
-
-    filepath = 'sessiondata.ini'
-
-    def __init__(self):
-        self.data = configparser.ConfigParser()
-        self.data.read(self.filepath)
-
-    def rpcSettings(self):
-        if not(self.data.has_section('rpc')):
-            self.data.add_section(madef.DisplayConfiguration._name)
-
-    def saveToFile(self):
-        with open(self.filepath, 'w') as fobj:
+        print('Save configuration to file %s' % self._configfile)
+        with open(os.path.join(madef.Path.config, self._configfile), 'w') as fobj:
             self.data.write(fobj)
             fobj.close()
 
