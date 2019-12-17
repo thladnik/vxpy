@@ -1,4 +1,4 @@
-DisplaySettings = dict(
+DisplayConfiguration = dict(
     float_pos_glob_x_pos            = 0.0,
     float_pos_glob_y_pos            = 0.0,
     float_pos_glob_center_offset    = 1.0,
@@ -10,4 +10,12 @@ DisplaySettings = dict(
 
     int_disp_screen_id              = 0,
     bool_disp_fullscreen            = False
+)
+
+CameraConfiguration = dict(
+    str_manufacturer = 'simulation',
+    str_model        = 'cam01',
+    str_format       = 'str_format',
+    int_resolution_x = 600,
+    int_resolution_y = 400
 )
