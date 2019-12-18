@@ -33,7 +33,7 @@ class StimulationProtocol:
         # First: Create new sphere model (if necessary)
         if self.model is None or self._current.__class__._sphere_model != new_stimulus._sphere_model:
             new_model = new_stimulus._sphere_model.split('>')
-            self.model = getattr(importlib.import_module('%s.%s' % (madef.Paths.Model, new_model[0])), new_model[1])()
+            self.model = getattr(importlib.import_module('%s.%s' % (madef.Path.Model, new_model[0])), new_model[1])()
 
         # Second: Create new program (if necessary)
         if self.program is None or self._current.__class__.getShaderHash() != new_stimulus.getShaderHash():

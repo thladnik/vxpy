@@ -1,6 +1,10 @@
 
 class Path:
-    config = 'config'
+    Config   = 'configs'
+    Log      = 'logs'
+    Model    = 'models'
+    Protocol = 'protocols'
+    Shader   = 'shaders'
 
 class Process:
 
@@ -21,44 +25,42 @@ class Process:
     # Processes
     class Controller:
         name = 'controller'
-
-        # RPC bindings
-        pass
-
-    class Display:
-        name = 'display'
-
-        # RPC bindings
-        startNewStimulationProtocol = '_startNewStimulationProtocol'
-        updateConfiguration         = '_updateConfiguration'
-
-    class IO:
-        name = 'io'
-
         # RPC bindings
         pass
 
     class DataCruncher:
         name = 'data_cruncher'
-
         # RPC bindings
         pass
 
+    class Display:
+        name = 'display'
+        # RPC bindings
+        startNewStimulationProtocol = '_startNewStimulationProtocol'
+        updateConfiguration         = '_updateConfiguration'
+
     class GUI:
         name = 'gui'
+        # RPC bindings
+        pass
 
+    class IO:
+        name = 'io'
+        # RPC bindings
+        pass
+
+    class Logger:
+        name = 'logger'
         # RPC bindings
         pass
 
     class FrameGrabber:
-        name = 'video_grabber'
-
+        name = 'frame_grabber'
         # RPC bindings
-        toggleVideoRecording = '_toggleVideoRecording'
-        startVideoRecording = '_startVideoRecording'
-        stopVideoRecording = '_stopVideoRecording'
+        toggleVideoRecording   = '_toggleVideoRecording'
+        startVideoRecording    = '_startVideoRecording'
+        stopVideoRecording     = '_stopVideoRecording'
         updateBufferEvalParams = '_updateBufferEvalParams'
-
 
 class DisplayConfig:
     _name = 'display'
@@ -83,9 +85,3 @@ class CameraConfiguration:
     str_format       = 'str_format'
     int_resolution_x = 'int_resolution_x'
     int_resolution_y = 'int_resolution_y'
-
-class Paths:
-
-    Shader = 'shaders'
-    Model = 'models'
-    Protocol = 'protocols'

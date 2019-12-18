@@ -1,6 +1,6 @@
 import os
 
-from MappApp_Definition import Paths
+from MappApp_Definition import Path
 
 class Shader:
 
@@ -16,13 +16,13 @@ class Shader:
         self.shader = ''
 
         # Load base shader
-        with open(os.path.join(Paths.Shader, base), 'r') as fobj:
+        with open(os.path.join(Path.Shader, base), 'r') as fobj:
             self.shader += fobj.read()
             fobj.close()
         self.shader += '\n'
 
         # Load shader containing void main()
-        with open(os.path.join(Paths.Shader, main), 'r') as fobj:
+        with open(os.path.join(Path.Shader, main), 'r') as fobj:
             self.shader += fobj.read()
             fobj.close()
 

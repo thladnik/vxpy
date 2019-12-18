@@ -1,4 +1,6 @@
 import cv2
+import logging
+import numpy as np
 from time import perf_counter, strftime
 
 from process.Base import BaseProcess
@@ -89,26 +91,15 @@ class FrameGrabber(BaseProcess):
         self._cameraBO.updateBufferEvalParams(name, **kwargs)
 
     def main(self):
+        # Fetch current frame and update camera buffers
+        frame = self.camera.GetImage()[:,:,0]
+        self._cameraBO.update(frame)
+        # Write to file
+        self._writeFrame()
 
-        self.t = perf_counter()
-        while self._isRunning():
-            # Look in pipe for new data
-            action = self._handlePipe()
-
-            if action is not None:
-                # Take further actions
-                pass
-
-            # Fetch current frame and update camera buffers
-            frame = self.camera.GetImage()[:,:,0]
-            self._cameraBO.update(frame)
-            # Write to file
-            self._writeFrame()
-
-            # Wait until next frame
-            while perf_counter() < self.t + 1./self.fps:
-                pass
-            self.t = perf_counter()
+        # Wait until next frame
+        while perf_counter() < self.t + 1./self.fps:
+            pass
 
     def _start_shutdown(self):
         if self._recordingVideo:

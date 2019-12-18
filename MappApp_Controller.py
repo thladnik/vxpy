@@ -1,3 +1,4 @@
+import logging
 import multiprocessing as mp
 import pprint
 
@@ -22,6 +23,7 @@ class Controller:
     def __init__(self, _configfile, _useGUI):
         self._configfile = _configfile
         self._ctrlQueue = mp.Queue()
+        self._logQueue = mp.Queue()
         self._useGUI = _useGUI
 
         ## Set configurations
@@ -43,6 +45,17 @@ class Controller:
         self._initializeProcess(madef.Process.Display, Display, _displayConfiguration=self._displayConfiguration)
         from process.FrameGrabber import FrameGrabber
         self._initializeProcess(madef.Process.FrameGrabber, FrameGrabber, _cameraBO=self._cameraBO)
+        from process.Logger import Logger
+        self._initializeProcess(madef.Process.Logger, Logger)
+
+        # Set up logging
+        h = logging.handlers.QueueHandler(self._logQueue)  # Just the one handler needed
+        root = logging.getLogger(self._name)
+        root.addHandler(h)
+        # send all messages, for demo; no other level or filter logic applied.
+        root.setLevel(logging.DEBUG)
+        self.logger = logging.getLogger(self._name)
+
 
         # Run the event loop
         self.run()
@@ -58,7 +71,12 @@ class Controller:
         name = processHandle.name
         self.process_cls[name] = target
         self.pipe[name], self.outPipe[name] = mp.Pipe()
-        self.process[name] = mp.Process(target=target, kwargs=dict(_ctrlQueue=self._ctrlQueue, _inPipe=self.outPipe[name], **optKwargs))
+        self.process[name] = mp.Process(target=target,
+                                        name=name,
+                                        kwargs=dict(_ctrlQueue=self._ctrlQueue,
+                                                    _logQueue=self._logQueue,
+                                                    _inPipe=self.outPipe[name],
+                                                    **optKwargs))
         self.process[name].start()
 
     def _setupCamera(self):
@@ -72,13 +90,13 @@ class Controller:
         return self._running and not(self._shutdown)
 
     def _start_shutdown(self):
-        print('> Controller shutting down processes')
+        self.logger.log(logging.DEBUG, 'Controller shutting down processes')
         self._shutdown = True
         for name in self.process:
             self.pipe[name].send([madef.Process.Signal.rpc, madef.Process.Signal.shutdown])
 
     def _registerPropertyWithProcess(self, propName, process, callback=None):
-        print('Process <%s> registered property <%s> with <%s>' % (process, propName, self._name))
+        self.logger.log(logging.DEBUG, 'Process <%s> registered property <%s> with <%s>' % (process, propName, self._name))
         if not(propName in self._propertyConnections):
             self._propertyConnections[propName] = list()
         self._propertyConnections[propName].append([process, callback])
@@ -88,8 +106,7 @@ class Controller:
 
             # Set property
             setattr(self, propName, data)
-            print('>> Process <%s> set property <%s>:' % (self._name, propName))
-            pprint.pprint(data)
+            self.logger.log(logging.DEBUG, 'Process <%s> set property <%s>: %s' % (self._name, propName, str(data)))
 
             # Inform all registered processes of change to property
             if propName in self._propertyConnections:
@@ -97,8 +114,7 @@ class Controller:
                     self._setPropertyOnProcess(processName, propName, callback)
 
             return
-        print('>> Process <%s> FAIL to set property <%s>' % (self._name, propName))
-        pprint.pprint(data)
+        self.logger.log(logging.DEBUG, 'Process <%s> FAIL to set property <%s>: %s' % (self._name, propName, str(data)))
 
     def _setPropertyOnProcess(self, processName, propName, callback=None):
 
@@ -106,23 +122,23 @@ class Controller:
 
             # If data included a callback signature, make RPC call to sender
             if callback is not None:
-                print('>> Process <%s> send property <%s> to process <%s> >> use callback signature <%s>'
+                self.logger.log(logging.DEBUG, 'Process <%s> send property <%s> to process <%s> >> used callback signature <%s>'
                       % (self._name, propName, processName, callback))
                 self.pipe[processName].send([madef.Process.Signal.rpc, callback, [], getattr(self, propName)])
 
             # Else just let sender set the property passively
             else:
-                print('>> <%s> send property <%s> to process <%s>'
+                self.logger.log(logging.DEBUG, '<%s> send property <%s> to process <%s>'
                       % (self._name, processName, propName))
                 self.pipe[processName].send([madef.Process.Signal.setProperty, propName, getattr(self, propName)])
         else:
-            print('>> ERROR: property <%s> not set on process <%s>' % (propName, self._name))
+            self.logger.log(logging.WARNING, 'property <%s> not set on process <%s>' % (propName, self._name))
 
     def run(self):
         self._running = True
         self._shutdown = False
 
-        print('>> Run controller')
+        self.logger.log(logging.DEBUG, 'Run controller')
         while self._isRunning():
 
             # Evaluate queued messages
@@ -131,8 +147,7 @@ class Controller:
 
                 sender, receiver, data = obj
 
-                print('>> Message from <%s> to <%s>:' % (sender, receiver))
-                pprint.pprint(data)
+                self.logger.log(logging.DEBUG, 'Message from <%s> to <%s>: %s' % (sender, receiver, str(data)))
 
                 ## CALLS TO CONTROLLER
                 # TODO: logging
@@ -152,8 +167,7 @@ class Controller:
 
                 # CALLS TO OTHER PROCESSES (FORWARDING)
                 else:
-                    print('>> Controller forwarded data from <%s> to <%s>:' % (sender, receiver))
-                    pprint.pprint(data)
+                    self.logger.log(logging.DEBUG, 'Controller forwarded data from <%s> to <%s>: %s' % (sender, receiver, str(data)))
                     if receiver in self.pipe:
                         self.pipe[receiver].send(data)
 
@@ -163,19 +177,19 @@ class Controller:
         self.configuration.saveToFile()
 
         # Shutdown procedure
-        print('>> Waiting for processes to terminate...', sep='\n')
+        self.logger.log(logging.DEBUG, 'Waiting for processes to terminate...')
         wait = True
         while wait:
             if not(self._ctrlQueue.empty()):
                 obj = self._ctrlQueue.get()
                 name = obj[0]
                 if obj[2] == madef.Process.State.stopped:
-                    print('>> <%s> confirmed termination' % name)
+                    self.logger.log(logging.DEBUG, 'Process <%s> confirmed termination' % name)
                     del self.process[name]
                     del self.pipe[name]
                 if not(bool(self.process)) and not(bool(self.pipe)):
                     wait = False
-        print('>> <%s> confirmed complete shutdown' % self._name)
+        self.logger.log(logging.DEBUG, 'Process <%s> confirmed complete shutdown' % self._name)
         self._running = False
 
 def runController(_configfile, _useGUI):

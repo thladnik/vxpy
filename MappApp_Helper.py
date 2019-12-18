@@ -11,7 +11,7 @@ class Config:
     def __init__(self, _configfile):
         self._configfile = _configfile
         self.data = configparser.ConfigParser()
-        self.data.read(os.path.join(madef.Path.config, self._configfile))
+        self.data.read(os.path.join(madef.Path.Config, self._configfile))
 
     def _parsedSection(self, section):
         parsed = dict()
@@ -70,7 +70,7 @@ class Config:
 
     def saveToFile(self):
         print('Save configuration to file %s' % self._configfile)
-        with open(os.path.join(madef.Path.config, self._configfile), 'w') as fobj:
+        with open(os.path.join(madef.Path.Config, self._configfile), 'w') as fobj:
             self.data.write(fobj)
             fobj.close()
 

@@ -34,11 +34,11 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self._cb_selectConfigfile = QtWidgets.QComboBox()
         self._cb_selectConfigfile.currentTextChanged.connect(self._openConfigfile)
         self.centralWidget().layout().addWidget(self._cb_selectConfigfile, 0, 1)
-        self._pb_addConfigfile = QtWidgets.QPushButton('Add new config file...')
+        self._pb_addConfigfile = QtWidgets.QPushButton('Add new configs file...')
         self._pb_addConfigfile.clicked.connect(self._addConfigfile)
         self.centralWidget().layout().addWidget(self._pb_addConfigfile, 0, 2)
 
-        ## Set config widget
+        ## Set configs widget
         self._wdgt_config = QtWidgets.QWidget(self)
         self._wdgt_config.setLayout(QtWidgets.QGridLayout())
         self.centralWidget().layout().addWidget(self._wdgt_config, 1, 0, 1, 2)
@@ -60,11 +60,11 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
     def _updateConfigfileList(self):
         self._cb_selectConfigfile.clear()
-        for fname in os.listdir(madef.Path.config):
+        for fname in os.listdir(madef.Path.Config):
             self._cb_selectConfigfile.addItem(fname[:-4])
 
     def _addConfigfile(self):
-        name, confirmed = QtWidgets.QInputDialog.getText(self, 'Create new config file', 'Config name', QtWidgets.QLineEdit.Normal, '')
+        name, confirmed = QtWidgets.QInputDialog.getText(self, 'Create new configs file', 'Config name', QtWidgets.QLineEdit.Normal, '')
 
         if confirmed and name != '':
             if name[-4:] != '.ini':
@@ -73,8 +73,8 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                 fname = name
                 name = name[:-4]
 
-            if fname not in os.listdir(madef.Path.config):
-                with open(os.path.join(madef.Path.config, fname), 'w') as fobj:
+            if fname not in os.listdir(madef.Path.Config):
+                with open(os.path.join(madef.Path.Config, fname), 'w') as fobj:
                     parser = ConfigParser()
                     parser.write(fobj)
             self._updateConfigfileList()

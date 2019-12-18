@@ -1,3 +1,5 @@
+import logging
+import logging.handlers
 import multiprocessing as mp
 import multiprocessing.connection as mpconn
 import pprint
@@ -15,21 +17,32 @@ class BaseProcess:
     _running = None
     _shutdown = None
 
-    def __init__(self, _ctrlQueue: mp.Queue=None, _inPipe: mpconn.PipeConnection = None):
+    def __init__(self, _ctrlQueue: mp.Queue=None, _logQueue: mp.Queue = None, _inPipe: mpconn.PipeConnection = None):
         self._ctrlQueue = _ctrlQueue
+        self._logQueue = _logQueue
         self._inPipe = _inPipe
+
+        # Set up logging
+        h = logging.handlers.QueueHandler(self._logQueue)  # Just the one handler needed
+        root = logging.getLogger(self._name)
+        root.addHandler(h)
+        # send all messages, for demo; no other level or filter logic applied.
+        root.setLevel(logging.DEBUG)
+        self.logger = logging.getLogger(self._name)
 
         # Bind signals
         signal.signal(signal.SIGINT, self._handleSIGINT)
 
-
     def run(self):
-        print('> Run %s' % self._name)
         self._running = True
         self._shutdown = False
 
         # Run event loop
-        self.main()
+        self.t = perf_counter()
+        while self._isRunning():
+            self._handlePipe()
+            self.main()
+            self.t = perf_counter()
 
         self._sendToCtrl(madef.Process.State.stopped)
 
@@ -84,10 +97,10 @@ class BaseProcess:
     def _setProperty(self, propName, data):
         if hasattr(self, propName):
             setattr(self, propName, data)
-            print('> Process <%s> set property <%s>:' % (self._name, propName))
+            self.logger.log(logging.DEBUG, '> Process <%s> set property <%s>:' % (self._name, propName))
             pprint.pprint(data)
             return
-        print('> Process <%s> FAIL to set property <%s>:' % (self._name, propName))
+        self.logger.log(logging.DEBUG, '> Process <%s> FAIL to set property <%s>:' % (self._name, propName))
         pprint.pprint(data)
 
 

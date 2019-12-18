@@ -33,9 +33,9 @@ class StimulationProtocols(QtWidgets.QWidget):
     def _compileProtocolList(self):
         self._cb_protocols.clear()
 
-        for file in os.listdir(madef.Paths.Protocol):
+        for file in os.listdir(madef.Path.Protocol):
             file = file.replace('.py', '')
-            protocol_file = importlib.import_module('%s.%s' % (madef.Paths.Protocol, file))
+            protocol_file = importlib.import_module('%s.%s' % (madef.Path.Protocol, file))
             for key, data in protocol_file.__dict__.items():
                 if not(key.startswith('_')) and data.mro()[1] == maprot.StimulationProtocol:
                     self._cb_protocols.addItem('%s>%s' % (file, key))
@@ -43,6 +43,6 @@ class StimulationProtocols(QtWidgets.QWidget):
 
     def startStimulationProtocol(self):
         protocol_name = self._cb_protocols.currentText().split('>')
-        protocol = getattr(importlib.import_module('%s.%s' % (madef.Paths.Protocol, protocol_name[0])), protocol_name[1])
+        protocol = getattr(importlib.import_module('%s.%s' % (madef.Path.Protocol, protocol_name[0])), protocol_name[1])
 
         self.main._rpcToProcess(madef.Process.Display, madef.Process.Display.startNewStimulationProtocol, protocol)

@@ -1,3 +1,4 @@
+import logging
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
@@ -12,11 +13,11 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
 
     _name = madef.Process.GUI.name
 
-    def __init__(self, _app, _ctrlQueue, _inPipe, _cameraBO=None):
-        self._cameraBO = _cameraBO
+    def __init__(self, _app, _ctrlQueue, _inPipe, _logQueue, _cameraBO=None):
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
-        BaseProcess.__init__(self, _ctrlQueue=_ctrlQueue, _inPipe=_inPipe)
+        BaseProcess.__init__(self, _ctrlQueue=_ctrlQueue, _inPipe=_inPipe, _logQueue=_logQueue)
         self._app = _app
+        self._cameraBO = _cameraBO
 
         print('Set up GUI')
         self._setupUI()
