@@ -1,7 +1,6 @@
 import cv2
 from time import perf_counter, strftime
 
-
 from process.Base import BaseProcess
 import MappApp_Definition as madef
 

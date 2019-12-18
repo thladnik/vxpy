@@ -22,9 +22,6 @@ class CameraBO:
         self.frameDims = (int(cameraConfig[madef.CameraConfiguration.int_resolution_x]),
                           int(cameraConfig[madef.CameraConfiguration.int_resolution_y]))
 
-        #import IPython
-        #IPython.embed()
-
         self._buffers = dict()
         self._npBuffers = dict()
 
@@ -109,7 +106,7 @@ class FrameBuffer:
         """
         pass
 
-    def _formatFrame(self, frame):
+    def _format(self, frame):
         return np.rot90(frame, 2)
 
     def _out(self, newframe):
@@ -135,14 +132,15 @@ class FrameBuffer:
         self.t = perf_counter()
         # Add FPS
         fps = 1. / np.mean(self.frametimes[-20:])
-        #newframe = np.rot90(frame, 2)
-        newframe = cv2.putText(frame, 'FPS %.2f' % fps, (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2).get()
+        newframe = frame.copy()
+        newframe[:40,:200] = 0.
+        newframe = cv2.putText(newframe, 'FPS %.2f' % fps, (0, 25), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2)#.get()
         #print('Frametime: %.10f' % self.frametimes[-1])
 
         return newframe
 
     def update(self, frame):
-        """Method to be called from producer (FramGrabber, etc...).
+        """Method to be called by producer (FramGrabber).
         Automatically calls the _compute method and passes the result to _out.
 
         Ususally this method will be called implicitly by calling the Camera Buffer Object's update method.
@@ -150,7 +148,7 @@ class FrameBuffer:
         :param frame: new frame to be processed and written to buffer
         :return: None
         """
-        self._out(self._compute(self._formatFrame(frame)))
+        self._out(self._compute(self._format(frame)))
 
 
 ################
@@ -278,6 +276,9 @@ class ObjectBuffer:
         buffer = rawBuffer
         return buffer
 
+    def _format(self, frame):
+        return frame
+
     def _compute(self, frame):
         """Re-implement in subclass
         :param frame: AxB frame image data
@@ -295,7 +296,7 @@ class ObjectBuffer:
         :param frame: new frame to be processed and written to buffer
         :return: None
         """
-        self._out(self._compute(frame))
+        self._out(self._compute(self._format(frame)))
 
     def readBuffer(self):
         if self._lock is not None:
@@ -315,6 +316,7 @@ class EllipseFit(ObjectBuffer):
     This is an example of a BETTER IMPLEMENTATION of the EllipseFitter(FrameBuffer) class.
     Parameters for ellipses ARE written directly to the buffer.
     """
+
     def __init__(self, *args, **kwargs):
         ObjectBuffer.__init__(self, 100, 5, ctypes.c_float, np.float, *args, **kwargs)
 
@@ -337,7 +339,7 @@ class EllipseFit(ObjectBuffer):
 
         ellipses = list()
         for cnt in contours:
-            if len(cnt) >= 100:  # at least 5 points for ellipse
+            if len(cnt) >= 100:  # at least 100 points for ellipse
                 ellipses.append(cv2.fitEllipse(cnt))
 
         return ellipses

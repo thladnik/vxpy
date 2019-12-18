@@ -1,11 +1,8 @@
 from configparser import ConfigParser
 import os
 
-import sys
+from PyQt5 import QtWidgets
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
-import MappApp_Defaults as madflt
 import MappApp_Definition as madef
 import MappApp_Helper as mahelp
 

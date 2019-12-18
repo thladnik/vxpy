@@ -8,11 +8,9 @@ from gui.DisplaySettings import *
 from gui.StimulationProtocols import *
 from gui.VideoStreamer import *
 
-
 class GUI(QtWidgets.QMainWindow, BaseProcess):
 
     _name = madef.Process.GUI.name
-
 
     def __init__(self, _app, _ctrlQueue, _inPipe, _cameraBO=None):
         self._cameraBO = _cameraBO

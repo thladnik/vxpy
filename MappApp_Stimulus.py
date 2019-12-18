@@ -1,9 +1,4 @@
-from glumpy import app, gl, glm, gloo, transforms
-import numpy as np
-import os
-from scipy.spatial import Delaunay
-
-import MappApp_Geometry as mageo
+from glumpy import gl
 from MappApp_Shader import Shader
 
 class Stimulus:

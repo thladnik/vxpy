@@ -3,13 +3,17 @@
 Created on Mon Nov 21 09:44:40 2016
 
 @author: Daniel Vassmer, Stefan_Geissler
+
+Edit 2019-12-18 Tim Hladnik:
+  Add DLL directory to system path for compatibility with MappApp;
+  tisgrabber.py and corresponding DLLs were downloaded from the official repository at
+  https://github.com/TheImagingSource/IC-Imaging-Control-Samples
 """
 from enum import Enum
 
 import ctypes as C
 import os
-#print(os.path.join(os.getcwd(), 'dlls'))
-os.environ['PATH'] += ';%s' % os.path.join(os.getcwd(), 'dlls') #os.path.curdir #os.path.abspath(os.path.join('.', 'dlls')) #';D:\\Nextcloud\\Python\\Testing\\TIS_Camera'
+os.environ['PATH'] += ';%s' % os.path.join(os.getcwd(), 'dlls')
 import sys
 import numpy as np
 

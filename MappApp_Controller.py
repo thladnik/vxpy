@@ -157,6 +157,11 @@ class Controller:
                     if receiver in self.pipe:
                         self.pipe[receiver].send(data)
 
+        # Update configurations that should persist here
+        self.configuration.updateDisplayConfiguration(**self._displayConfiguration)
+        # Save
+        self.configuration.saveToFile()
+
         # Shutdown procedure
         print('>> Waiting for processes to terminate...', sep='\n')
         wait = True
