@@ -1,10 +1,10 @@
 import configparser
+import logging
 import os
 from PyQt5 import QtCore
 
 import MappApp_Defaults as madflt
 import MappApp_Definition as madef
-
 
 class Config:
 
@@ -67,9 +67,7 @@ class Config:
 
         self.data[madef.CameraConfiguration._name].update(**{option : str(settings[option]) for option in settings})
 
-
     def saveToFile(self):
-        print('Save configuration to file %s' % self._configfile)
         with open(os.path.join(madef.Path.Config, self._configfile), 'w') as fobj:
             self.data.write(fobj)
             fobj.close()
@@ -87,7 +85,6 @@ def rpc(obj, data):
             kwargs = data[2]
 
         # Make call
-        print('%s calling method %s' % (obj._name, data[0]))
         return getattr(obj, fun)(*args, **kwargs)
 
 

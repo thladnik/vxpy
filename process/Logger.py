@@ -12,11 +12,12 @@ class Logger(BaseProcess):
 
     def __init__(self, **kwargs):
         BaseProcess.__init__(self, **kwargs)
+        self._logQueue = kwargs['_logQueue']
 
         root = logging.getLogger()
         filename = '%s.log' % strftime('%Y-%m-%d')
         h = logging.handlers.TimedRotatingFileHandler(os.path.join(madef.Path.Log, filename), 'd')
-        f = logging.Formatter('%(asctime)s %(processName)-20s %(name)-20s %(levelname)-8s %(message)s')
+        f = logging.Formatter('%(asctime)s %(name)-20s %(levelname)-8s %(message)s')
         h.setFormatter(f)
         root.addHandler(h)
 

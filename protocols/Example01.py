@@ -5,6 +5,8 @@ from stimuli.Grating import Grating
 
 class Example01(StimulationProtocol):
 
+    _name = 'Example01'
+
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 

@@ -1,10 +1,10 @@
 import logging
 import multiprocessing as mp
-import pprint
 
 import MappApp_Definition as madef
 import MappApp_Helper as mahelp
 from MappApp_ImageProcessing import CameraBO
+import MappApp_Logging as malog
 
 class Controller:
 
@@ -26,6 +26,9 @@ class Controller:
         self._logQueue = mp.Queue()
         self._useGUI = _useGUI
 
+        # Setup logger
+        malog.setupLogger(self._logQueue, self._name)
+
         ## Set configurations
         self.configuration = mahelp.Config(self._configfile)
         self._cameraConfiguration = self.configuration.cameraConfiguration()
@@ -33,12 +36,6 @@ class Controller:
 
         ## Set up components
         self._setupCamera()
-
-        # (optional)
-        # Initialize GUI
-        if self._useGUI:
-            from MappApp_GUI import runGUI
-            self._initializeProcess(madef.Process.GUI, runGUI, _cameraBO=self._cameraBO)
 
         # Initialize processes
         from process.Display import Display
@@ -48,14 +45,11 @@ class Controller:
         from process.Logger import Logger
         self._initializeProcess(madef.Process.Logger, Logger)
 
-        # Set up logging
-        h = logging.handlers.QueueHandler(self._logQueue)  # Just the one handler needed
-        root = logging.getLogger(self._name)
-        root.addHandler(h)
-        # send all messages, for demo; no other level or filter logic applied.
-        root.setLevel(logging.DEBUG)
-        self.logger = logging.getLogger(self._name)
-
+        # (optional)
+        # Initialize GUI
+        if self._useGUI:
+            from MappApp_GUI import runGUI
+            self._initializeProcess(madef.Process.GUI, runGUI, _cameraBO=self._cameraBO)
 
         # Run the event loop
         self.run()
@@ -90,13 +84,13 @@ class Controller:
         return self._running and not(self._shutdown)
 
     def _start_shutdown(self):
-        self.logger.log(logging.DEBUG, 'Controller shutting down processes')
+        malog.logger.log(logging.DEBUG, 'Controller shutting down processes')
         self._shutdown = True
         for name in self.process:
             self.pipe[name].send([madef.Process.Signal.rpc, madef.Process.Signal.shutdown])
 
     def _registerPropertyWithProcess(self, propName, process, callback=None):
-        self.logger.log(logging.DEBUG, 'Process <%s> registered property <%s> with <%s>' % (process, propName, self._name))
+        malog.logger.log(logging.DEBUG, 'Process <%s> registered property <%s> with <%s>' % (process, propName, self._name))
         if not(propName in self._propertyConnections):
             self._propertyConnections[propName] = list()
         self._propertyConnections[propName].append([process, callback])
@@ -106,7 +100,7 @@ class Controller:
 
             # Set property
             setattr(self, propName, data)
-            self.logger.log(logging.DEBUG, 'Process <%s> set property <%s>: %s' % (self._name, propName, str(data)))
+            malog.logger.log(logging.DEBUG, 'Process <%s> set property <%s>: %s' % (self._name, propName, str(data)))
 
             # Inform all registered processes of change to property
             if propName in self._propertyConnections:
@@ -114,7 +108,7 @@ class Controller:
                     self._setPropertyOnProcess(processName, propName, callback)
 
             return
-        self.logger.log(logging.DEBUG, 'Process <%s> FAIL to set property <%s>: %s' % (self._name, propName, str(data)))
+        malog.logger.log(logging.DEBUG, 'Process <%s> FAIL to set property <%s>: %s' % (self._name, propName, str(data)))
 
     def _setPropertyOnProcess(self, processName, propName, callback=None):
 
@@ -122,23 +116,23 @@ class Controller:
 
             # If data included a callback signature, make RPC call to sender
             if callback is not None:
-                self.logger.log(logging.DEBUG, 'Process <%s> send property <%s> to process <%s> >> used callback signature <%s>'
+                malog.logger.log(logging.DEBUG, 'Process <%s> send property <%s> to process <%s> >> used callback signature <%s>'
                       % (self._name, propName, processName, callback))
                 self.pipe[processName].send([madef.Process.Signal.rpc, callback, [], getattr(self, propName)])
 
             # Else just let sender set the property passively
             else:
-                self.logger.log(logging.DEBUG, '<%s> send property <%s> to process <%s>'
+                malog.logger.log(logging.DEBUG, '<%s> send property <%s> to process <%s>'
                       % (self._name, processName, propName))
                 self.pipe[processName].send([madef.Process.Signal.setProperty, propName, getattr(self, propName)])
         else:
-            self.logger.log(logging.WARNING, 'property <%s> not set on process <%s>' % (propName, self._name))
+            malog.logger.log(logging.WARNING, 'property <%s> not set on process <%s>' % (propName, self._name))
 
     def run(self):
         self._running = True
         self._shutdown = False
 
-        self.logger.log(logging.DEBUG, 'Run controller')
+        malog.logger.log(logging.DEBUG, 'Run controller')
         while self._isRunning():
 
             # Evaluate queued messages
@@ -147,7 +141,8 @@ class Controller:
 
                 sender, receiver, data = obj
 
-                self.logger.log(logging.DEBUG, 'Message from <%s> to <%s>: %s' % (sender, receiver, str(data)))
+                malog.logger.log(logging.DEBUG, 'Message from <{}> to <{}>: {}'.
+                                 format(sender, receiver, str(data)))
 
                 ## CALLS TO CONTROLLER
                 # TODO: logging
@@ -167,29 +162,31 @@ class Controller:
 
                 # CALLS TO OTHER PROCESSES (FORWARDING)
                 else:
-                    self.logger.log(logging.DEBUG, 'Controller forwarded data from <%s> to <%s>: %s' % (sender, receiver, str(data)))
+                    malog.logger.log(logging.DEBUG, 'Forwarded data from <{}> to <{}>: {}'.
+                                     format(sender, receiver, str(data)))
                     if receiver in self.pipe:
                         self.pipe[receiver].send(data)
 
         # Update configurations that should persist here
         self.configuration.updateDisplayConfiguration(**self._displayConfiguration)
         # Save
+        malog.logger.log(logging.INFO, 'Save configuration to file {}' .format(self._configfile))
         self.configuration.saveToFile()
 
         # Shutdown procedure
-        self.logger.log(logging.DEBUG, 'Waiting for processes to terminate...')
+        malog.logger.log(logging.DEBUG, 'Waiting for processes to terminate...')
         wait = True
         while wait:
             if not(self._ctrlQueue.empty()):
                 obj = self._ctrlQueue.get()
                 name = obj[0]
                 if obj[2] == madef.Process.State.stopped:
-                    self.logger.log(logging.DEBUG, 'Process <%s> confirmed termination' % name)
+                    malog.logger.log(logging.DEBUG, 'Process <%s> confirmed termination' % name)
                     del self.process[name]
                     del self.pipe[name]
                 if not(bool(self.process)) and not(bool(self.pipe)):
                     wait = False
-        self.logger.log(logging.DEBUG, 'Process <%s> confirmed complete shutdown' % self._name)
+        malog.logger.log(logging.DEBUG, 'Process <%s> confirmed complete shutdown' % self._name)
         self._running = False
 
 def runController(_configfile, _useGUI):

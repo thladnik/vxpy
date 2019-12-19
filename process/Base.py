@@ -2,13 +2,13 @@ import logging
 import logging.handlers
 import multiprocessing as mp
 import multiprocessing.connection as mpconn
-import pprint
 import signal
 import sys
 from time import perf_counter
 
 import MappApp_Definition as madef
-from MappApp_Helper import rpc
+import MappApp_Helper as mahelp
+import MappApp_Logging as malog
 
 class BaseProcess:
 
@@ -17,18 +17,17 @@ class BaseProcess:
     _running = None
     _shutdown = None
 
-    def __init__(self, _ctrlQueue: mp.Queue=None, _logQueue: mp.Queue = None, _inPipe: mpconn.PipeConnection = None):
+    def __init__(self,
+                 _ctrlQueue: mp.Queue=None,
+                 _logQueue: mp.Queue = None,
+                 _inPipe: mpconn.PipeConnection = None,
+                 **kwargs):
         self._ctrlQueue = _ctrlQueue
         self._logQueue = _logQueue
         self._inPipe = _inPipe
 
-        # Set up logging
-        h = logging.handlers.QueueHandler(self._logQueue)  # Just the one handler needed
-        root = logging.getLogger(self._name)
-        root.addHandler(h)
-        # send all messages, for demo; no other level or filter logic applied.
-        root.setLevel(logging.DEBUG)
-        self.logger = logging.getLogger(self._name)
+        # Setup logging
+        malog.setupLogger(self._logQueue, self._name)
 
         # Bind signals
         signal.signal(signal.SIGINT, self._handleSIGINT)
@@ -96,12 +95,17 @@ class BaseProcess:
 
     def _setProperty(self, propName, data):
         if hasattr(self, propName):
-            setattr(self, propName, data)
-            self.logger.log(logging.DEBUG, '> Process <%s> set property <%s>:' % (self._name, propName))
-            pprint.pprint(data)
-            return
-        self.logger.log(logging.DEBUG, '> Process <%s> FAIL to set property <%s>:' % (self._name, propName))
-        pprint.pprint(data)
+            try:
+                setattr(self, propName, data)
+            except:
+                pass
+                #malog.logger.log(logging.WARNING, 'FAILED to set property <{}> to {}'.format(propName, data))
+            else:
+                pass
+                #malog.logger.log(logging.DEBUG, 'Set property <{}> to {}'.format(propName, data))
+            finally:
+                return
+        #malog.logger.log(logging.WARNING, 'Property <{}> does not exist.'.format(propName))
 
 
 
@@ -112,15 +116,16 @@ class BaseProcess:
         if not(self._inPipe.poll()):
             return
 
-        obj = self._inPipe.recv()
+        msg = self._inPipe.recv()
 
         # RPC calls
-        if obj[0] == madef.Process.Signal.rpc:
-            rpc(self, obj[1:])
+        if msg[0] == madef.Process.Signal.rpc:
+            #malog.logger.log(logging.DEBUG, 'Calling method {}'.format(msg[1]))
+            mahelp.rpc(self, msg[1:])
 
         # Set property
-        elif obj[0] == madef.Process.Signal.setProperty:
-            self._setProperty(*obj[1:])
+        elif msg[0] == madef.Process.Signal.setProperty:
+            self._setProperty(*msg[1:])
 
 
     def _handleSIGINT(self, sig, frame):

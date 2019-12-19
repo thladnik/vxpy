@@ -1,23 +1,22 @@
-import logging
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
 import MappApp_Definition as madef
 from process.Base import BaseProcess
-from gui.Calibration import *
-from gui.DisplaySettings import *
-from gui.StimulationProtocols import *
-from gui.VideoStreamer import *
+from gui.Calibration import Calibration
+from gui.DisplaySettings import DisplaySettings
+from gui.StimulationProtocols import StimulationProtocols
+from gui.VideoStreamer import VideoStreamer
 
 class GUI(QtWidgets.QMainWindow, BaseProcess):
 
     _name = madef.Process.GUI.name
 
-    def __init__(self, _app, _ctrlQueue, _inPipe, _logQueue, _cameraBO=None):
+    def __init__(self, _app, **kwargs):
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
-        BaseProcess.__init__(self, _ctrlQueue=_ctrlQueue, _inPipe=_inPipe, _logQueue=_logQueue)
+        BaseProcess.__init__(self, **kwargs)
         self._app = _app
-        self._cameraBO = _cameraBO
+        self._cameraBO = kwargs['_cameraBO']
 
         print('Set up GUI')
         self._setupUI()
@@ -110,7 +109,7 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
         self._wdgt_videoStreamer.close()
         self._sendToCtrl([madef.Process.Signal.rpc, madef.Process.Signal.shutdown])
 
-def runGUI(*args, **kwargs):
+def runGUI(**kwargs):
     app = QtWidgets.QApplication(sys.argv)
-    GUI(app, *args, **kwargs)
+    GUI(app, **kwargs)
 

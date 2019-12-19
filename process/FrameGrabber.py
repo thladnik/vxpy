@@ -5,6 +5,7 @@ from time import perf_counter, strftime
 
 from process.Base import BaseProcess
 import MappApp_Definition as madef
+import MappApp_Logging as malog
 
 class FrameGrabber(BaseProcess):
 
@@ -35,6 +36,7 @@ class FrameGrabber(BaseProcess):
         self.camera.SetContinuousMode(0)
         self.camera.StartLive(0)
 
+        malog.logger.log(logging.DEBUG, 'Start image aquisition')
         self.run()
 
     def _startVideoRecording(self):
@@ -50,7 +52,7 @@ class FrameGrabber(BaseProcess):
                 if self._cameraBO.buffers()[name]._recordBuffer: self.outFileFrameNum += 1
 
             startt = strftime('%Y-%m-%d-%H-%M-%S')
-            print('Start video recording at time %s' % startt)
+            malog.logger.log(logging.INFO, 'Start video recording at time {}'.format(startt))
             # Define codec and create VideoWriter object
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
             self.videoRecord = cv2.VideoWriter(
@@ -59,7 +61,7 @@ class FrameGrabber(BaseProcess):
             self._recordingVideo = True
 
             return
-        print('ERROR: could not start recording, because video is already being recorded. Please save last video first')
+        malog.logger.log(logging.WARNING, 'Unable to start recording, video recording is already on')
 
     def _writeFrame(self):
 
@@ -73,12 +75,12 @@ class FrameGrabber(BaseProcess):
     def _stopVideoRecording(self):
 
         if self._recordingVideo:
-            print('Stop video recording')
+            malog.logger.log(logging.INFO, 'Stop video recording')
             self.videoRecord.release()
             self._recordingVideo = False
 
             return
-        print('ERROR: could not stop recording, because there is not active recording. Please start video recording first')
+        malog.logger.log(logging.WARNING, 'Unable to stop recording, because there is no active recording')
 
 
     def _toggleVideoRecording(self):
@@ -96,6 +98,7 @@ class FrameGrabber(BaseProcess):
         self._cameraBO.update(frame)
         # Write to file
         self._writeFrame()
+
 
         # Wait until next frame
         while perf_counter() < self.t + 1./self.fps:

@@ -1,9 +1,13 @@
 from glumpy import gloo, transforms
 import importlib
+import logging
 
 import MappApp_Definition as madef
+import MappApp_Logging as malog
 
 class StimulationProtocol:
+
+    _name = None
 
     def __init__(self, display):
         self.display = display
@@ -26,7 +30,7 @@ class StimulationProtocol:
         if self._stimulus_index >= len(self._stimuli):
             print('End of stimulation protocol')
             return
-        print('Starting protocol phase %i' % self._stimulus_index)
+        malog.logger.log(logging.INFO, 'Start protocol {} phase {}'.format(self._name, self._stimulus_index))
 
         new_stimulus, kwargs, duration = self._stimuli[self._stimulus_index]
 
@@ -46,7 +50,7 @@ class StimulationProtocol:
             self.display._glWindow.attach(self.program['viewport'])
 
             # Set uniforms on new program
-            self.display._updateUniforms()
+            self.display._updateDisplayUniforms()
 
             # Bind vertex buffer of model to program
             self.program.bind(self.model.vertexBuffer)

@@ -1,13 +1,12 @@
 from glumpy import app, glm
+import logging
 import numpy as np
 
 from process.Base import BaseProcess
 import MappApp_Definition as madef
+import MappApp_Logging as malog
 
-######
-# Worker processes
-
-# Set Glumpy to use qt5 backend
+# Set Glumpy to use pyglet backend
 app.use('pyglet')
 
 class Display(BaseProcess):
@@ -44,7 +43,7 @@ class Display(BaseProcess):
         self.protocol.draw(dt)
 
     def on_resize(self, width, height):
-        # Fix for qt5 backend:
+        # Fix for (many?) backends:
         self._glWindow._width = width
         self._glWindow._height = height
 
@@ -72,22 +71,20 @@ class Display(BaseProcess):
 
     def _startNewStimulationProtocol(self, protocol_cls):
         ## Initialize new stimulus protocol
-        print('Start new procotol %s' % str(protocol_cls))
+        malog.logger.log(logging.INFO, 'Start new stimulation procotol {}'.format(str(protocol_cls)))
         self.protocol = protocol_cls(self)
 
-
     def _updateConfiguration(self, **kwargs):
-        if self.protocol is None:
-            return
 
+        malog.logger.log(logging.DEBUG, 'Update display configuration to {}'.format(kwargs))
         for key, value in kwargs.items():
             if key in self._displayConfiguration:
                 self._displayConfiguration[key] = value
 
-        self._updateUniforms()
+        self._updateDisplayUniforms()
         self._glWindow.dispatch_event('on_resize', self._glWindow._width, self._glWindow._height)
 
-    def _updateUniforms(self):
+    def _updateDisplayUniforms(self):
         if self.protocol is None:
             return
 
@@ -111,7 +108,7 @@ class Display(BaseProcess):
 
         ## SOUTH WEST
         # Non-linear transformations
-        rot_axis_sw = (1, -1, 0)#(-1, 1, 0)
+        rot_axis_sw = (1, -1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_sw, 0, 0, 1)  # Rotate around equator
@@ -127,7 +124,7 @@ class Display(BaseProcess):
 
         ## SOUTH EAST
         # Non-linear transformations
-        rot_axis_se = (1, 1, 0)#(-1, -1, 0)
+        rot_axis_se = (1, 1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_se, 0, 0, 1)  # Rotate around equator
@@ -141,7 +138,7 @@ class Display(BaseProcess):
         self.protocol.program['u_radial_offset_se'] = std_radial_offset
         self.protocol.program['u_tangent_offset_se'] = std_tangent_offset
 
-        rot_axis_ne = (-1, 1, 0)#(1, -1, 0)
+        rot_axis_ne = (-1, 1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_ne, 0, 0, 1)  # Rotate around equator
@@ -155,7 +152,7 @@ class Display(BaseProcess):
         self.protocol.program['u_radial_offset_ne'] = std_radial_offset
         self.protocol.program['u_tangent_offset_ne'] = std_tangent_offset
 
-        rot_axis_nw = (-1, -1, 0)#(1, 1, 0)
+        rot_axis_nw = (-1, -1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
         u_rot = np.eye(4, dtype=np.float32)
         glm.rotate(u_rot, azimuth_rot_nw, 0, 0, 1)  # Rotate around equator
@@ -169,12 +166,13 @@ class Display(BaseProcess):
         self.protocol.program['u_radial_offset_nw'] = std_radial_offset
         self.protocol.program['u_tangent_offset_nw'] = std_tangent_offset
 
+
     def _start_shutdown(self):
         self._glWindow.close()
         BaseProcess._start_shutdown(self)
 
     def main(self):
-        self._updateUniforms()
+        self._updateDisplayUniforms()
 
         # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
         app.clock.schedule_interval(self._handlePipe, 0.01)
