@@ -3,7 +3,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from time import perf_counter
 
-class VideoStreamer(QtWidgets.QWidget):
+class Camera(QtWidgets.QWidget):
 
     def __init__(self, main, *args, **kwargs):
         self.main = main

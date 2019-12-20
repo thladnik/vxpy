@@ -1,4 +1,4 @@
-from MappApp_Stimulus import Stimulus
+from Stimulus import Stimulus
 
 class Checkerboard(Stimulus):
 

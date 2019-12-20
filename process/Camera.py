@@ -3,20 +3,20 @@ import logging
 import numpy as np
 from time import perf_counter, strftime
 
-from process.Base import BaseProcess
-import MappApp_Definition as madef
-import MappApp_Logging as malog
+import Definition
+import Process
+import Logging
 
-class FrameGrabber(BaseProcess):
+class Camera(Process.BaseProcess):
 
-    _name = madef.Process.FrameGrabber.name
+    name = Definition.Process.Camera
 
     _recordingVideo = False
 
     def __init__(self, _cameraBO, **kwargs):
         self._cameraBO = _cameraBO
         self._cameraBO.constructBuffers()
-        BaseProcess.__init__(self, **kwargs)
+        Process.BaseProcess.__init__(self, **kwargs)
 
         self.frameDims = self._cameraBO.frameDims
         self.fps = 100.
@@ -36,7 +36,7 @@ class FrameGrabber(BaseProcess):
         self.camera.SetContinuousMode(0)
         self.camera.StartLive(0)
 
-        malog.logger.log(logging.DEBUG, 'Start image aquisition')
+        Logging.logger.log(logging.DEBUG, 'Start image aquisition')
         self.run()
 
     def _startVideoRecording(self):
@@ -52,7 +52,7 @@ class FrameGrabber(BaseProcess):
                 if self._cameraBO.buffers()[name]._recordBuffer: self.outFileFrameNum += 1
 
             startt = strftime('%Y-%m-%d-%H-%M-%S')
-            malog.logger.log(logging.INFO, 'Start video recording at time {}'.format(startt))
+            Logging.logger.log(logging.INFO, 'Start video recording at time {}'.format(startt))
             # Define codec and create VideoWriter object
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
             self.videoRecord = cv2.VideoWriter(
@@ -61,7 +61,7 @@ class FrameGrabber(BaseProcess):
             self._recordingVideo = True
 
             return
-        malog.logger.log(logging.WARNING, 'Unable to start recording, video recording is already on')
+        Logging.logger.log(logging.WARNING, 'Unable to start recording, video recording is already on')
 
     def _writeFrame(self):
 
@@ -75,12 +75,12 @@ class FrameGrabber(BaseProcess):
     def _stopVideoRecording(self):
 
         if self._recordingVideo:
-            malog.logger.log(logging.INFO, 'Stop video recording')
+            Logging.logger.log(logging.INFO, 'Stop video recording')
             self.videoRecord.release()
             self._recordingVideo = False
 
             return
-        malog.logger.log(logging.WARNING, 'Unable to stop recording, because there is no active recording')
+        Logging.logger.log(logging.WARNING, 'Unable to stop recording, because there is no active recording')
 
 
     def _toggleVideoRecording(self):
@@ -104,7 +104,7 @@ class FrameGrabber(BaseProcess):
         while perf_counter() < self.t + 1./self.fps:
             pass
 
-    def _start_shutdown(self):
+    def _startShutdown(self):
         if self._recordingVideo:
             self._stopVideoRecording()
-        BaseProcess._start_shutdown(self)
+        Process.BaseProcess._startShutdown(self)

@@ -3,8 +3,8 @@ import os
 
 from PyQt5 import QtWidgets
 
-import MappApp_Definition as madef
-import MappApp_Helper as mahelp
+import Definition
+import Helper
 
 
 class StartupConfiguration(QtWidgets.QMainWindow):
@@ -60,7 +60,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
     def _updateConfigfileList(self):
         self._cb_selectConfigfile.clear()
-        for fname in os.listdir(madef.Path.Config):
+        for fname in os.listdir(Definition.Path.Config):
             self._cb_selectConfigfile.addItem(fname[:-4])
 
     def _addConfigfile(self):
@@ -73,23 +73,28 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                 fname = name
                 name = name[:-4]
 
-            if fname not in os.listdir(madef.Path.Config):
-                with open(os.path.join(madef.Path.Config, fname), 'w') as fobj:
+            if fname not in os.listdir(Definition.Path.Config):
+                with open(os.path.join(Definition.Path.Config, fname), 'w') as fobj:
                     parser = ConfigParser()
                     parser.write(fobj)
             self._updateConfigfileList()
             self._cb_selectConfigfile.setCurrentText(name)
 
     def _saveToFile(self):
-        if self.configuration is not None and self._configfile is not None:
-            # Camera configuration
-            self.configuration.updateCameraConfiguration(**self._gb_camera.get())
+        if self.configuration is None or self._configfile is None:
+            return
+        print('Saving changes to file')
+        # Camera configuration
+        self.configuration.updateConfiguration(Definition.CameraConfig, **self._gb_camera.get())
 
-            # Display configuration
-            self.configuration.updateDisplayConfiguration()
+        # Display configuration
+        self.configuration.updateConfiguration(Definition.DisplayConfig)
 
-            self.configuration.saveToFile()
-            self._currentConfigChanged = False
+        # Gui configuration
+        self.configuration.updateConfiguration(Definition.GuiConfig)
+
+        self.configuration.saveToFile()
+        self._currentConfigChanged = False
 
 
     def _openConfigfile(self):
@@ -99,11 +104,11 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             return
 
         self._configfile = '%s.ini' % name
-        self.configuration = mahelp.Config(self._configfile)
+        self.configuration = Helper.Config(self._configfile)
 
         # Set camera configuration
         self._gb_camera._loadCameraList()
-        self._gb_camera.set(**self.configuration.cameraConfiguration())
+        self._gb_camera.set(**self.configuration.configuration(Definition.CameraConfig))
 
         # Set ...
 
@@ -163,9 +168,9 @@ class CameraConfiguration(QtWidgets.QGroupBox):
             self._cb_selectModel.addItem('TIS>>%s' % c.decode())
 
         # Select current
-        config = self._main.configuration.cameraConfiguration()
+        config = self._main.configuration.configuration(Definition.CameraConfig)
         self._cb_selectModel.setCurrentText(
-            '%s>>%s' % (config[madef.CameraConfiguration.str_manufacturer], config[madef.CameraConfiguration.str_model]))
+            '%s>>%s' % (config[Definition.CameraConfig.str_manufacturer], config[Definition.CameraConfig.str_model]))
 
         self._loadFormatList()
 
@@ -191,7 +196,9 @@ class CameraConfiguration(QtWidgets.QGroupBox):
             for f in self._camera.GetVideoFormats():
                 self._cb_selectFormat.addItem(f.decode())
 
-        self._cb_selectFormat.setCurrentText(self._main.configuration.cameraConfiguration(madef.CameraConfiguration.str_format))
+        self._cb_selectFormat.setCurrentText(self._main.configuration.configuration(
+            Definition.CameraConfig, Definition.CameraConfig.str_format)
+        )
 
     def _formatSelected(self, idx):
         self._main._currentConfigChanged = True
@@ -200,11 +207,11 @@ class CameraConfiguration(QtWidgets.QGroupBox):
     def set(self, **settings):
         self._loadCameraList()
 
-        if madef.CameraConfiguration.str_model in settings:
-            self._cb_selectModel.setCurrentText(settings[madef.CameraConfiguration.str_model])
+        if Definition.CameraConfig.str_model in settings:
+            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.str_model])
 
-        if madef.CameraConfiguration.str_format in settings:
-            self._cb_selectModel.setCurrentText(settings[madef.CameraConfiguration.str_format])
+        if Definition.CameraConfig.str_format in settings:
+            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.str_format])
 
     def get(self):
         format = self._cb_selectFormat.currentText()
@@ -215,11 +222,11 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         model = camera[1]
 
         return {
-            madef.CameraConfiguration.str_manufacturer : manufacturer,
-            madef.CameraConfiguration.str_model        : model,
-            madef.CameraConfiguration.str_format       : format,
-            madef.CameraConfiguration.int_resolution_x : int(format1[1][:-1]),
-            madef.CameraConfiguration.int_resolution_y : int(format1[0][1:])
+            Definition.CameraConfig.str_manufacturer : manufacturer,
+            Definition.CameraConfig.str_model        : model,
+            Definition.CameraConfig.str_format       : format,
+            Definition.CameraConfig.int_resolution_x : int(format1[1][:-1]),
+            Definition.CameraConfig.int_resolution_y : int(format1[0][1:])
         }
 
 
@@ -232,6 +239,6 @@ if __name__ == '__main__':
 
     if _configfile is not None:
 
-        from MappApp_Controller import runController
+        from Controller import runController
         _useGUI = True
         runController(_configfile, _useGUI)

@@ -2,8 +2,8 @@ from glumpy import gloo, transforms
 import importlib
 import logging
 
-import MappApp_Definition as madef
-import MappApp_Logging as malog
+import Definition
+import Logging
 
 class StimulationProtocol:
 
@@ -30,14 +30,14 @@ class StimulationProtocol:
         if self._stimulus_index >= len(self._stimuli):
             print('End of stimulation protocol')
             return
-        malog.logger.log(logging.INFO, 'Start protocol {} phase {}'.format(self._name, self._stimulus_index))
+        Logging.logger.log(logging.INFO, 'Start protocol {} phase {}'.format(self._name, self._stimulus_index))
 
         new_stimulus, kwargs, duration = self._stimuli[self._stimulus_index]
 
         # First: Create new sphere model (if necessary)
         if self.model is None or self._current.__class__._sphere_model != new_stimulus._sphere_model:
             new_model = new_stimulus._sphere_model.split('>')
-            self.model = getattr(importlib.import_module('%s.%s' % (madef.Path.Model, new_model[0])), new_model[1])()
+            self.model = getattr(importlib.import_module('%s.%s' % (Definition.Path.Model, new_model[0])), new_model[1])()
 
         # Second: Create new program (if necessary)
         if self.program is None or self._current.__class__.getShaderHash() != new_stimulus.getShaderHash():

@@ -1,22 +1,23 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
-import MappApp_Definition as madef
-from process.Base import BaseProcess
-from gui.Calibration import Calibration
-from gui.DisplaySettings import DisplaySettings
-from gui.StimulationProtocols import StimulationProtocols
-from gui.VideoStreamer import VideoStreamer
+import Definition as madef
+import Camera
+import Process
+import gui.DisplaySettings
+import gui.Protocols
+import gui.Camera
 
-class GUI(QtWidgets.QMainWindow, BaseProcess):
+class GUI(QtWidgets.QMainWindow, Process.BaseProcess):
 
-    _name = madef.Process.GUI.name
+    name = 'gui'
 
-    def __init__(self, _app, **kwargs):
+    _cameraBO : Camera.CameraBufferObject
+    _app      : QtWidgets.QApplication
+
+    def __init__(self, **kwargs):
+        Process.BaseProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
-        BaseProcess.__init__(self, **kwargs)
-        self._app = _app
-        self._cameraBO = kwargs['_cameraBO']
 
         print('Set up GUI')
         self._setupUI()
@@ -59,28 +60,21 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
         self._menu_windows.addAction(self._menu_act_testStimuli)
 
         ## Display Settings
-        self._wdgt_dispSettings = DisplaySettings(self)
+        self._wdgt_dispSettings = gui.DisplaySettings.DisplaySettings(self)
         self._wdgt_dispSettings.move(50, 400)
         self._openDisplaySettings()
 
         ## Stimulus Protocols
-        self._wdgt_stimProtocols = StimulationProtocols(self)
+        self._wdgt_stimProtocols = gui.Protocols.Protocols(self)
         self._wdgt_stimProtocols.move(450, 400)
         self._openStimProtocols()
 
         # Video Streamer
-        self._wdgt_videoStreamer = VideoStreamer(self, flags=QtCore.Qt.Window)
+        self._wdgt_videoStreamer = gui.Camera.Camera(self, flags=QtCore.Qt.Window)
         self._wdgt_videoStreamer.move(850, 50)
         self._openVideoStreamer()
 
         self.show()
-
-    def _edgeDetectorParamsUpdated(self):
-        self._rpcToProcess(
-            madef.Process.FrameGrabber, madef.Process.FrameGrabber.updateBufferEvalParams,
-            'edge_detector',
-            thresh1=self._spn_EdgeDetector_thresh1.value(),
-            thresh2=self._spn_EdgeDetector_thresh2.value())
 
     def _openDisplaySettings(self):
         self._wdgt_dispSettings.showNormal()
@@ -101,15 +95,14 @@ class GUI(QtWidgets.QMainWindow, BaseProcess):
     def _registerCallback(self, signature, fun):
         setattr(self, signature, fun)
 
-
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Inform controller of close event
         self._wdgt_dispSettings.close()
         self._wdgt_stimProtocols.close()
         self._wdgt_videoStreamer.close()
-        self._sendToCtrl([madef.Process.Signal.rpc, madef.Process.Signal.shutdown])
+        self._sendToCtrl(Process.BaseProcess.Signals.Shutdown)
 
 def runGUI(**kwargs):
     app = QtWidgets.QApplication(sys.argv)
-    GUI(app, **kwargs)
+    GUI(_app=app, **kwargs)
 

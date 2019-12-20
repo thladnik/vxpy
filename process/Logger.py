@@ -3,20 +3,20 @@ import logging.handlers
 import os
 from time import strftime
 
-from process.Base import BaseProcess
-import MappApp_Definition as madef
+import Process
+import Definition
 
-class Logger(BaseProcess):
+class Logger(Process.BaseProcess):
 
-    _name = madef.Process.Logger.name
+    name = Definition.Process.Logger
 
     def __init__(self, **kwargs):
-        BaseProcess.__init__(self, **kwargs)
+        Process.BaseProcess.__init__(self, **kwargs)
         self._logQueue = kwargs['_logQueue']
 
         root = logging.getLogger()
         filename = '%s.log' % strftime('%Y-%m-%d')
-        h = logging.handlers.TimedRotatingFileHandler(os.path.join(madef.Path.Log, filename), 'd')
+        h = logging.handlers.TimedRotatingFileHandler(os.path.join(Definition.Path.Log, filename), 'd')
         f = logging.Formatter('%(asctime)s %(name)-20s %(levelname)-8s %(message)s')
         h.setFormatter(f)
         root.addHandler(h)

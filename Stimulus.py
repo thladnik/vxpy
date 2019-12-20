@@ -1,5 +1,6 @@
 from glumpy import gl
-from MappApp_Shader import Shader
+
+import Shader
 
 class Stimulus:
     _base_vertex_shader = '_v_base.shader'
@@ -15,11 +16,11 @@ class Stimulus:
 
     @classmethod
     def getVertexShader(cls):
-        return Shader(cls._base_vertex_shader, cls._vertex_shader).getString()
+        return Shader.Shader(cls._base_vertex_shader, cls._vertex_shader).getString()
 
     @classmethod
     def getFragmentShader(cls):
-        return Shader(cls._base_fragment_shader, cls._fragment_shader).getString()
+        return Shader.Shader(cls._base_fragment_shader, cls._fragment_shader).getString()
 
     def __init__(self, protocol):
         self.protocol = protocol

@@ -2,7 +2,7 @@ from glumpy import gloo
 import numpy as np
 from scipy.spatial import Delaunay
 
-from MappApp_Geometry import SphereHelper
+from Geometry import SphereHelper
 
 #####
 # UV Sphere base Class

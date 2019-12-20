@@ -1,6 +1,6 @@
 import numpy as np
 
-from MappApp_Geometry import SphereHelper
+from Geometry import SphereHelper
 
 gr = 1.61803398874989484820
 class IcosahedronSphere:
