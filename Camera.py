@@ -12,6 +12,8 @@ import Definition
 class CameraBufferObject:
     """Camera Buffer Object: wrapper for individual buffers between FrameGrabber (producer)
     and any number of consumers.
+
+    Consumers have to initially call constructBuffers() to be able to read data from buffers.
     """
 
     def __init__(self, _config_Camera):
@@ -25,13 +27,8 @@ class CameraBufferObject:
         self._buffers = dict()
         self._npBuffers = dict()
 
-    def addBuffer(self, name, **kwargs):
-        if name == 'frame':
-            self._buffers[name] = FrameBuffer(frameDims=self.frameDims, **kwargs)
-        elif name == 'edge_detector':
-            self._buffers[name] = EdgeDetector(frameDims=self.frameDims, **kwargs)
-        elif name == 'ellipse_fitter':
-            self._buffers[name] = EllipseFit(**kwargs)
+    def addBuffer(self, buffer, **kwargs):
+        self._buffers[buffer.name] = buffer(frameDims=self.frameDims, **kwargs)
 
 
     def constructBuffers(self):
@@ -58,6 +55,8 @@ class CameraBufferObject:
 
 ## Basic Frame Buffer
 class FrameBuffer:
+
+    name = 'frame_buffer'
 
     def __init__(self, frameDims, _useLock = True, _recordBuffer=True):
         self._recordBuffer = _recordBuffer
@@ -161,6 +160,9 @@ class EdgeDetector(FrameBuffer):
     and store edge data, as there is no sensible parametric way of describing the result.
 
     """
+
+    name = 'edge_detector'
+
     def __init__(self, *args, **kwargs):
         FrameBuffer.__init__(self, *args, **kwargs)
 
@@ -191,6 +193,9 @@ class EllipseFitter(FrameBuffer):
     written to an ObjectBuffer instead. This would save memory, potentially save storage and
     make ellipse parameters available in other processes for further evaluation.
     """
+
+    name = 'ellipse_fitter'
+
     def __init__(self, *args, **kwargs):
         FrameBuffer.__init__(self, *args, **kwargs)
 
@@ -211,6 +216,9 @@ class EllipseFitter(FrameBuffer):
 ## Basic Object Buffer
 
 class ObjectBuffer:
+
+    name = 'object_buffer'
+
     def __init__(self, _bufferLength, _objectLength, _object_cType, _object_npType, _useLock = True, _recordBuffer=False):
         self._bufferLength = _bufferLength
         self._objectLength = _objectLength
@@ -316,6 +324,8 @@ class EllipseFit(ObjectBuffer):
     This is an example of a BETTER IMPLEMENTATION of the EllipseFitter(FrameBuffer) class.
     Parameters for ellipses ARE written directly to the buffer.
     """
+
+    name = 'ellipse_fit'
 
     def __init__(self, *args, **kwargs):
         ObjectBuffer.__init__(self, 100, 5, ctypes.c_float, np.float, *args, **kwargs)

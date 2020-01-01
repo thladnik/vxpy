@@ -3,11 +3,11 @@ import logging
 import numpy as np
 from time import perf_counter, strftime
 
+import Controller
 import Definition
-import Process
 import Logging
 
-class Camera(Process.BaseProcess):
+class Camera(Controller.BaseProcess):
 
     name = Definition.Process.Camera
 
@@ -16,7 +16,7 @@ class Camera(Process.BaseProcess):
     def __init__(self, _cameraBO, **kwargs):
         self._cameraBO = _cameraBO
         self._cameraBO.constructBuffers()
-        Process.BaseProcess.__init__(self, **kwargs)
+        Controller.BaseProcess.__init__(self, **kwargs)
 
         self.frameDims = self._cameraBO.frameDims
         self.fps = 100.
@@ -36,7 +36,7 @@ class Camera(Process.BaseProcess):
         self.camera.SetContinuousMode(0)
         self.camera.StartLive(0)
 
-        Logging.logger.log(logging.DEBUG, 'Start image aquisition')
+        Logging.logger.log(logging.DEBUG, 'Run <{}>'.format(self.name))
         self.run()
 
     def _startVideoRecording(self):
@@ -99,7 +99,6 @@ class Camera(Process.BaseProcess):
         # Write to file
         self._writeFrame()
 
-
         # Wait until next frame
         while perf_counter() < self.t + 1./self.fps:
             pass
@@ -107,4 +106,4 @@ class Camera(Process.BaseProcess):
     def _startShutdown(self):
         if self._recordingVideo:
             self._stopVideoRecording()
-        Process.BaseProcess._startShutdown(self)
+        Controller.BaseProcess._startShutdown(self)

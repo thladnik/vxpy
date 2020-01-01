@@ -1,4 +1,11 @@
 
+
+class EnvTypes:
+    Dev        = 'dev'
+    Production = 'production'
+
+Env = EnvTypes.Dev
+
 class Path:
     Config   = 'configs'
     Log      = 'logs'
@@ -7,11 +14,11 @@ class Path:
     Shader   = 'shaders'
 
 class Process:
-    Camera = 'camera'
+    Camera     = 'camera'
     Controller = 'controller'
-    Display = 'display'
-    GUI = 'gui'
-    Logger = 'logger'
+    Display    = 'display'
+    GUI        = 'gui'
+    Logger     = 'logger'
 
 class DisplayConfig:
     name = 'display'

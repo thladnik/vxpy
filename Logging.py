@@ -5,6 +5,8 @@ logQueue = None
 logger = None
 
 def setupLogger(_logQueue, _name):
+    if logQueue is not None:
+        return
     globals()['logQueue'] = _logQueue
 
     # Set up logging

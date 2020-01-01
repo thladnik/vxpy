@@ -3,23 +3,25 @@ import logging
 import numpy as np
 
 import Controller
-import Process
 import Definition
 import Logging
+import StaticProtocol
 
-class Display(Process.BaseProcess):
+if Definition.Env == Definition.EnvTypes.Dev:
+    from IPython import embed
 
+class Display(Controller.BaseProcess):
     name = Definition.Process.Display
 
-    _displayConfig = dict()
+    _config  : dict = dict()
+    protocol : StaticProtocol = None
 
     def __init__(self, **kwargs):
         # Set Glumpy to use pyglet backend
-        app.use('pyglet')
+        app.use('qt5') # TODO: problem with pyglet backend on some systems? Perhaps version issue?
         self._glWindow = app.Window(width=1200, height=700, color=(1, 1, 1, 1), title='Display')
         self._glWindow.set_position(300, 400)
-        Process.BaseProcess.__init__(self, **kwargs)
-        self.protocol = None
+        Controller.BaseProcess.__init__(self, **kwargs)
 
         ## Apply event wrapper
         self.on_draw = self._glWindow.event(self.on_draw)
@@ -27,12 +29,22 @@ class Display(Process.BaseProcess):
         self.on_init = self._glWindow.event(self.on_init)
 
         # Register display configuration with controller
-        #self._rpcToCtrl('_registerPropertyWithProcess', '_displayConfig', self.name, '_updateConfig')
-        self._rpcToCtrl(Controller.Controller.registerPropertyWithProcess, '_displayConfig', self.name, '_updateConfig')
+        self.registerProperty('_config_Display')
         self.run()
 
+    @property
+    def _config_Display(self):
+        return self._config
+
+    @_config_Display.setter
+    def _config_Display(self, config):
+        self._config.update(config)
+
+        self._updateDisplayUniforms()
+
     def on_init(self):
-        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+        pass
+        #self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
     def on_draw(self, dt):
         if self.protocol is None:
@@ -52,8 +64,8 @@ class Display(Process.BaseProcess):
             return
 
         ## Update viewport (center local viewport with aspect = 1)
-        x_add = int(width * self._displayConfig[Definition.DisplayConfig.float_pos_glob_x_pos])
-        y_add = int(height * self._displayConfig[Definition.DisplayConfig.float_pos_glob_y_pos])
+        x_add = int(width * self._config_Display[Definition.DisplayConfig.float_pos_glob_x_pos])
+        y_add = int(height * self._config_Display[Definition.DisplayConfig.float_pos_glob_y_pos])
         if height > width:
             length = width
             x_offset = x_add
@@ -66,19 +78,19 @@ class Display(Process.BaseProcess):
         self.protocol.program['viewport']['local'] = (x_offset, y_offset, length, length)
 
     def _toggleFullscreen(self):
-        if self._glWindow.get_fullscreen() != self._displayConfig[Definition.DisplayConfig.bool_disp_fullscreen]:
-            self._glWindow.set_fullscreen(self._displayConfig[Definition.DisplayConfig.bool_disp_fullscreen],
-                                          screen=self._displayConfig[Definition.DisplayConfig.int_disp_screen_id])
+        if self._glWindow.get_fullscreen() != self._config_Display[Definition.DisplayConfig.bool_disp_fullscreen]:
+            self._glWindow.set_fullscreen(self._config_Display[Definition.DisplayConfig.bool_disp_fullscreen],
+                                          screen=self._config_Display[Definition.DisplayConfig.int_disp_screen_id])
 
-    def _startNewStimulationProtocol(self, protocol_cls):
+    def startNewStimulationProtocol(self, protocol_cls):
         ## Initialize new stimulus protocol
-        Logging.logger.log(logging.INFO, 'Start new stimulation procotol {}'.format(str(protocol_cls)))
+        Logging.logger.log(logging.INFO, 'Start new stimulation procotol {}'.
+                           format(str(protocol_cls)))
         self.protocol = protocol_cls(self)
 
     def _updateConfig(self, **_displayConfig):
-
         Logging.logger.log(logging.DEBUG, 'Update display configuration to {}'.format(_displayConfig))
-        self._displayConfig.update(_displayConfig)
+        self._config_Display.update(_displayConfig)
 
         self._updateDisplayUniforms()
         self._glWindow.dispatch_event('on_resize', self._glWindow._width, self._glWindow._height)
@@ -88,17 +100,17 @@ class Display(Process.BaseProcess):
             return
 
         ## Set default image channel parameters
-        std_trans_distance = -self._displayConfig[Definition.DisplayConfig.float_view_origin_distance]
-        std_fov = self._displayConfig[Definition.DisplayConfig.float_view_fov]
+        std_trans_distance = -self._config_Display[Definition.DisplayConfig.float_view_origin_distance]
+        std_fov = self._config_Display[Definition.DisplayConfig.float_view_fov]
         std_azimuth_rot = 180.
         std_elevation_rot = 90.
-        std_radial_offset = self._displayConfig[Definition.DisplayConfig.float_pos_glob_radial_offset]
+        std_radial_offset = self._config_Display[Definition.DisplayConfig.float_pos_glob_radial_offset]
         std_tangent_offset = 0.
 
-        elevation_rot_sw = self._displayConfig[Definition.DisplayConfig.float_view_elev_angle]
-        elevation_rot_se = self._displayConfig[Definition.DisplayConfig.float_view_elev_angle]
-        elevation_rot_ne = self._displayConfig[Definition.DisplayConfig.float_view_elev_angle]
-        elevation_rot_nw = self._displayConfig[Definition.DisplayConfig.float_view_elev_angle]
+        elevation_rot_sw = self._config_Display[Definition.DisplayConfig.float_view_elev_angle]
+        elevation_rot_se = self._config_Display[Definition.DisplayConfig.float_view_elev_angle]
+        elevation_rot_ne = self._config_Display[Definition.DisplayConfig.float_view_elev_angle]
+        elevation_rot_nw = self._config_Display[Definition.DisplayConfig.float_view_elev_angle]
 
         azimuth_rot_sw = std_azimuth_rot + 0.
         azimuth_rot_se = std_azimuth_rot + 0.
@@ -168,7 +180,7 @@ class Display(Process.BaseProcess):
 
     def _startShutdown(self):
         self._glWindow.close()
-        Process.BaseProcess._startShutdown(self)
+        Controller.BaseProcess._startShutdown(self)
 
     def main(self):
         self._updateDisplayUniforms()

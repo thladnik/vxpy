@@ -3,15 +3,15 @@ import logging.handlers
 import os
 from time import strftime
 
-import Process
+import Controller
 import Definition
 
-class Logger(Process.BaseProcess):
+class Logger(Controller.BaseProcess):
 
     name = Definition.Process.Logger
 
     def __init__(self, **kwargs):
-        Process.BaseProcess.__init__(self, **kwargs)
+        Controller.BaseProcess.__init__(self, **kwargs)
         self._logQueue = kwargs['_logQueue']
 
         root = logging.getLogger()
@@ -25,6 +25,13 @@ class Logger(Process.BaseProcess):
 
     def main(self):
         if not(self._logQueue.empty()):
+            # In development mode just write to console
+            if Definition.Env == Definition.EnvTypes.Dev:
+                record = self._logQueue.get()
+                print('{:10s} {:15s} {}'.format(record.levelname, record.name, record.message))
+                return
+
+            # In production system write to file
             try:
                 record = self._logQueue.get()
                 logger = logging.getLogger(record.name)

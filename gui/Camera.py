@@ -44,7 +44,7 @@ class Camera(QtWidgets.QWidget):
 
     def updateImage(self):
         # Rotate frame because cv2 and pg coords don't match
-        frame = self.main._cameraBO.readBuffer('frame')
+        frame = self.main._cameraBO.readBuffer('frame_buffer')
         edges = self.main._cameraBO.readBuffer('edge_detector')
 
         self._plotItem.setImage(np.vstack((np.rot90(frame, -1), np.rot90(edges, -1))))

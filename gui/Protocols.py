@@ -3,6 +3,7 @@ import os
 from PyQt5 import QtCore, QtWidgets
 
 import Definition
+import process.Display
 import StaticProtocol
 
 class Protocols(QtWidgets.QWidget):
@@ -45,4 +46,4 @@ class Protocols(QtWidgets.QWidget):
         protocol_name = self._cb_protocols.currentText().split('>')
         protocol = getattr(importlib.import_module('%s.%s' % (Definition.Path.Protocol, protocol_name[0])), protocol_name[1])
 
-        self.main._rpcToProcess(Definition.Process.Display, Definition.Process.Display.startNewStimulationProtocol, protocol)
+        self.main.rpc(Definition.Process.Display, process.Display.Display.startNewStimulationProtocol, protocol)

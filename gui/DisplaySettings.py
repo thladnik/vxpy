@@ -2,14 +2,18 @@ from PyQt5 import QtCore, QtWidgets
 
 import Definition
 import Helper
+import GUI
+
+if Definition.Env == Definition.EnvTypes.Dev:
+    from IPython import embed
 
 class DisplaySettings(QtWidgets.QWidget):
 
     def __init__(self, _main):
-        self._main = _main
         QtWidgets.QWidget.__init__(self, parent=None, flags=QtCore.Qt.Window)
+        self._main : GUI.Main = _main
 
-        self._main._registerCallback('_updateConfig', self._updateConfig)
+        self._main.addPropertyCallback('_config_Display', dict, self._updateConfig)
 
         self._setupUi()
 
@@ -117,49 +121,50 @@ class DisplaySettings(QtWidgets.QWidget):
         self._check_fullscreen.stateChanged.connect(lambda: self.timer_param_update.start(td))
         self._dspn_fov.valueChanged.connect(lambda: self.timer_param_update.start(td))
 
-    def _updateConfig(self, **_displayConfig):
+    def _updateConfig(self):
+        _config = getattr(self._main, '_config_Display').value
 
-        if Definition.DisplayConfig.float_pos_glob_x_pos in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_pos_glob_x_pos] != self._dspn_x_pos.value():
-            self._dspn_x_pos.setValue(_displayConfig[Definition.DisplayConfig.float_pos_glob_x_pos])
+        if Definition.DisplayConfig.float_pos_glob_x_pos in _config \
+                and _config[Definition.DisplayConfig.float_pos_glob_x_pos] != self._dspn_x_pos.value():
+            self._dspn_x_pos.setValue(_config[Definition.DisplayConfig.float_pos_glob_x_pos])
 
-        if Definition.DisplayConfig.float_pos_glob_y_pos in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_pos_glob_y_pos] != self._dspn_y_pos.value():
-            self._dspn_y_pos.setValue(_displayConfig[Definition.DisplayConfig.float_pos_glob_y_pos])
+        if Definition.DisplayConfig.float_pos_glob_y_pos in _config \
+                and _config[Definition.DisplayConfig.float_pos_glob_y_pos] != self._dspn_y_pos.value():
+            self._dspn_y_pos.setValue(_config[Definition.DisplayConfig.float_pos_glob_y_pos])
 
-        if Definition.DisplayConfig.float_view_elev_angle in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_view_elev_angle] != self._dspn_elev_angle.value():
-            self._dspn_elev_angle.setValue(_displayConfig[Definition.DisplayConfig.float_view_elev_angle])
+        if Definition.DisplayConfig.float_view_elev_angle in _config \
+                and _config[Definition.DisplayConfig.float_view_elev_angle] != self._dspn_elev_angle.value():
+            self._dspn_elev_angle.setValue(_config[Definition.DisplayConfig.float_view_elev_angle])
 
-        if Definition.DisplayConfig.float_view_axis_offset in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_view_axis_offset] != self._dspn_view_axis_offset.value():
-            self._dspn_view_axis_offset.setValue(_displayConfig[Definition.DisplayConfig.float_view_axis_offset])
+        if Definition.DisplayConfig.float_view_axis_offset in _config \
+                and _config[Definition.DisplayConfig.float_view_axis_offset] != self._dspn_view_axis_offset.value():
+            self._dspn_view_axis_offset.setValue(_config[Definition.DisplayConfig.float_view_axis_offset])
 
-        if Definition.DisplayConfig.float_pos_glob_radial_offset in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_pos_glob_radial_offset] != self._dspn_vp_center_offset.value():
-            self._dspn_vp_center_offset.setValue(_displayConfig[Definition.DisplayConfig.float_pos_glob_radial_offset])
+        if Definition.DisplayConfig.float_pos_glob_radial_offset in _config \
+                and _config[Definition.DisplayConfig.float_pos_glob_radial_offset] != self._dspn_vp_center_offset.value():
+            self._dspn_vp_center_offset.setValue(_config[Definition.DisplayConfig.float_pos_glob_radial_offset])
 
-        if Definition.DisplayConfig.float_view_origin_distance in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_view_origin_distance] != self._dspn_view_origin_distance.value():
-            self._dspn_view_origin_distance.setValue(_displayConfig[Definition.DisplayConfig.float_view_origin_distance])
+        if Definition.DisplayConfig.float_view_origin_distance in _config \
+                and _config[Definition.DisplayConfig.float_view_origin_distance] != self._dspn_view_origin_distance.value():
+            self._dspn_view_origin_distance.setValue(_config[Definition.DisplayConfig.float_view_origin_distance])
 
-        if Definition.DisplayConfig.float_view_fov in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.float_view_fov] != self._dspn_fov.value():
-            self._dspn_fov.setValue(_displayConfig[Definition.DisplayConfig.float_view_fov])
+        if Definition.DisplayConfig.float_view_fov in _config \
+                and _config[Definition.DisplayConfig.float_view_fov] != self._dspn_fov.value():
+            self._dspn_fov.setValue(_config[Definition.DisplayConfig.float_view_fov])
 
-        if Definition.DisplayConfig.int_disp_screen_id in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.int_disp_screen_id] != self._spn_screen_id.value():
-            self._spn_screen_id.setValue(_displayConfig[Definition.DisplayConfig.int_disp_screen_id])
+        if Definition.DisplayConfig.int_disp_screen_id in _config \
+                and _config[Definition.DisplayConfig.int_disp_screen_id] != self._spn_screen_id.value():
+            self._spn_screen_id.setValue(_config[Definition.DisplayConfig.int_disp_screen_id])
 
-        if Definition.DisplayConfig.float_pos_glob_x_pos in _displayConfig \
-                and _displayConfig[Definition.DisplayConfig.bool_disp_fullscreen] != \
+        if Definition.DisplayConfig.float_pos_glob_x_pos in _config \
+                and _config[Definition.DisplayConfig.bool_disp_fullscreen] != \
                 Helper.Conversion.QtCheckstateToBool(self._check_fullscreen.checkState()):
             self._check_fullscreen.setCheckState(
-                Helper.Conversion.boolToQtCheckstate(_displayConfig[Definition.DisplayConfig.bool_disp_fullscreen]))
+                Helper.Conversion.boolToQtCheckstate(_config[Definition.DisplayConfig.bool_disp_fullscreen]))
 
 
     def _settingsChanged(self):
-        self._main._updateProperty('_displayConfig', {
+        self._main._updateProperty('_config_Display', {
             Definition.DisplayConfig.float_pos_glob_x_pos           : self._dspn_x_pos.value(),
             Definition.DisplayConfig.float_pos_glob_y_pos           : self._dspn_y_pos.value(),
             Definition.DisplayConfig.float_view_elev_angle          : self._dspn_elev_angle.value(),

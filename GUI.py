@@ -1,30 +1,34 @@
+import logging
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
-import Definition as madef
+import Definition
 import Camera
-import Process
+import Controller
+import Logging
 import gui.DisplaySettings
 import gui.Protocols
 import gui.Camera
 
-class GUI(QtWidgets.QMainWindow, Process.BaseProcess):
-
-    name = 'gui'
+class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
+    name = Definition.Process.GUI
 
     _cameraBO : Camera.CameraBufferObject
     _app      : QtWidgets.QApplication
 
     def __init__(self, **kwargs):
-        Process.BaseProcess.__init__(self, **kwargs)
+        Controller.BaseProcess.__init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
-        print('Set up GUI')
+
+        Logging.logger.log(logging.DEBUG, 'Run <{}>'
+                           .format(self.name))
+
         self._setupUI()
 
         self.run()
 
-    def main(self):
+    def run(self):
         # Set timer for handling the pipe
         self._tmr_handlePipe = QtCore.QTimer()
         self._tmr_handlePipe.timeout.connect(self._handlePipe)
@@ -92,17 +96,11 @@ class GUI(QtWidgets.QMainWindow, Process.BaseProcess):
         self._wdgt_videoStreamer.showNormal()
         self._wdgt_videoStreamer.show()
 
-    def _registerCallback(self, signature, fun):
-        setattr(self, signature, fun)
-
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Inform controller of close event
         self._wdgt_dispSettings.close()
         self._wdgt_stimProtocols.close()
         self._wdgt_videoStreamer.close()
-        self._sendToCtrl(Process.BaseProcess.Signals.Shutdown)
+        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
 
-def runGUI(**kwargs):
-    app = QtWidgets.QApplication(sys.argv)
-    GUI(_app=app, **kwargs)
 
