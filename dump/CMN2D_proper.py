@@ -7,7 +7,8 @@
 import numpy as np
 from scipy import signal
 from glumpy import app, gl, glm, gloo
-import glSti
+from dump import glSti
+
 
 def cen2square(cen_x = np.array([0]),cen_y = np.array([0]), square_size = np.array([1])):
     square_r    = square_size/2
