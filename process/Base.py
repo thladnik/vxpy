@@ -1,7 +1,7 @@
 import logging
 import logging.handlers
 import multiprocessing as mp
-import multiprocessing.connection as mpconn
+# import multiprocessing.connection as mpconn
 import pprint
 import signal
 import sys
@@ -17,7 +17,7 @@ class BaseProcess:
     _running = None
     _shutdown = None
 
-    def __init__(self, _ctrlQueue: mp.Queue=None, _logQueue: mp.Queue = None, _inPipe: mpconn.PipeConnection = None):
+    def __init__(self, _ctrlQueue: mp.Queue=None, _logQueue: mp.Queue = None, _inPipe= None):
         self._ctrlQueue = _ctrlQueue
         self._logQueue = _logQueue
         self._inPipe = _inPipe
