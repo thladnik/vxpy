@@ -19,7 +19,7 @@ Configuration = {
 
     Definition.CameraConfig.name : {
         Definition.CameraConfig.bool_use                     : True,
-        Definition.CameraConfig.str_manufacturer             : 'simulation',
+        Definition.CameraConfig.str_manufacturer             : 'virtual',
         Definition.CameraConfig.str_model                    : 'cam01',
         Definition.CameraConfig.str_format                   :'str_format',
         Definition.CameraConfig.int_resolution_x             : 600,

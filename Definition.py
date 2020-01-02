@@ -11,6 +11,7 @@ class Path:
     Log      = 'logs'
     Model    = 'models'
     Protocol = 'protocols'
+    Sample   = 'samples'
     Shader   = 'shaders'
 
 class Process:

@@ -1,11 +1,13 @@
 from configparser import ConfigParser
 import os
+from typing import Union
 
 from PyQt5 import QtWidgets
 
 import Definition
 import Helper
 
+from devices.cameras.virtual import VirtualCamera
 
 class StartupConfiguration(QtWidgets.QMainWindow):
 
@@ -162,10 +164,14 @@ class CameraConfiguration(QtWidgets.QGroupBox):
     def _loadCameraList(self):
         self._cb_selectModel.clear()
 
+        # Virtual camera
+        for c in VirtualCamera.getModels():
+            self._cb_selectModel.addItem('virtual>>{}'.format(c))
+
         # The Imaging Source
         camera = IC.TIS_CAM()
         for c in camera.GetDevices():
-            self._cb_selectModel.addItem('TIS>>%s' % c.decode())
+            self._cb_selectModel.addItem('TIS>>{}'.format(c.decode()))
 
         # Select current
         config = self._main.configuration.configuration(Definition.CameraConfig)
@@ -177,10 +183,13 @@ class CameraConfiguration(QtWidgets.QGroupBox):
     def _cameraSelected(self, idx):
         manufacturer, model = self._cb_selectModel.currentText().split('>>')
 
-        self._manufacturer = None
-        self._camera = None
-        if manufacturer == 'TIS':
-            self._manufacturer = manufacturer
+        self._manufacturer = manufacturer
+        self._camera : Union[IC.TIS_CAM, VirtualCamera]
+
+        if manufacturer == 'virtual':
+            self._camera = VirtualCamera()
+
+        elif manufacturer == 'TIS':
             self._camera = IC.TIS_CAM()
             self._camera.open(model)
 
@@ -189,10 +198,14 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         self._main._currentConfigChanged = True
         self._loadFormatList()
 
-
     def _loadFormatList(self):
         self._cb_selectFormat.clear()
-        if self._manufacturer is not None and self._manufacturer == 'TIS':
+        if self._manufacturer is None:
+            return
+        if self._manufacturer == 'virtual':
+            for f in self._camera.getFormats():
+                self._cb_selectFormat.addItem(f)
+        elif self._manufacturer == 'TIS':
             for f in self._camera.GetVideoFormats():
                 self._cb_selectFormat.addItem(f.decode())
 
@@ -239,6 +252,6 @@ if __name__ == '__main__':
 
     if _configfile is not None:
 
-        from Controller import runController
+        import Controller
         _useGUI = True
-        runController(_configfile, _useGUI)
+        Controller.Controller(_configfile, _useGUI)

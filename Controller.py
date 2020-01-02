@@ -10,6 +10,8 @@ import Helper
 import Camera
 import Logging
 
+if Definition.Env == Definition.EnvTypes.Dev:
+    from IPython import embed
 
 class BaseProcess:
 

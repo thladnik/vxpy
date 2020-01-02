@@ -17,10 +17,6 @@ class CameraBufferObject:
     """
 
     def __init__(self, _config_Camera):
-        self.manufacturer = _config_Camera[Definition.CameraConfig.str_manufacturer]
-        self.model = _config_Camera[Definition.CameraConfig.str_model]
-        self.videoFormat = _config_Camera[Definition.CameraConfig.str_format]
-
         self.frameDims = (int(_config_Camera[Definition.CameraConfig.int_resolution_x]),
                           int(_config_Camera[Definition.CameraConfig.int_resolution_y]))
 

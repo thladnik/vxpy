@@ -1,16 +1,20 @@
 import cv2
 import logging
 import numpy as np
-from time import perf_counter, strftime
+from time import perf_counter, strftime, sleep
 
 import Controller
 import Definition
 import Logging
 
+if Definition.Env == Definition.EnvTypes.Dev:
+    from IPython import embed
+
 class Camera(Controller.BaseProcess):
 
     name = Definition.Process.Camera
 
+    _config_Camera : dict = None
     _recordingVideo = False
 
     def __init__(self, _cameraBO, **kwargs):
@@ -21,20 +25,36 @@ class Camera(Controller.BaseProcess):
         self.frameDims = self._cameraBO.frameDims
         self.fps = 100.
 
+        self.registerProperty('_config_Camera')
+
         # Set up camera
         # TODO: in furture check _cameraBO.manufacturer and model
         #  to allow different types of camera. For now, however, this only uses
         #  cameras from TheImagingSource
-        import devices.cameras.tisgrabber as IC
-        self.camera = IC.TIS_CAM()
-        self.camera.open(self._cameraBO.model)
-        self.camera.SetVideoFormat(self._cameraBO.videoFormat)
-        self.camera.SetPropertySwitch("Framerate","Auto",0)
-        self.camera.SetPropertySwitch("Exposure","Auto",0)
-        self.camera.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
-        self.camera.SetFrameRate(self.fps)
-        self.camera.SetContinuousMode(0)
-        self.camera.StartLive(0)
+        while self._config_Camera is None:
+            self._handlePipe()
+            sleep(.01)
+        if self._config_Camera[Definition.CameraConfig.str_manufacturer] == 'TIS':
+            import devices.cameras.tisgrabber as IC
+            self.camera = IC.TIS_CAM()
+            self.camera.open(self._cameraBO.model)
+            self.camera.SetVideoFormat(self._config_Camera[Definition.CameraConfig.str_format])
+            self.camera.SetPropertySwitch("Framerate","Auto",0)
+            self.camera.SetPropertySwitch("Exposure","Auto",0)
+            self.camera.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
+            self.camera.SetFrameRate(self.fps)
+            self.camera.SetContinuousMode(0)
+            self.camera.StartLive(0)
+        elif self._config_Camera[Definition.CameraConfig.str_manufacturer] == 'virtual':
+            import devices.cameras.virtual as VC
+            self.camera = VC.VirtualCamera()
+            self.camera.setVideoFormat(self._config_Camera[Definition.CameraConfig.str_format],
+                                       self._config_Camera[Definition.CameraConfig.int_resolution_x],
+                                       self._config_Camera[Definition.CameraConfig.int_resolution_y])
+
+        Logging.logger.log(logging.DEBUG, 'Using camera {}>>{}'
+                           .format(self._config_Camera[Definition.CameraConfig.str_manufacturer],
+                                   self._config_Camera[Definition.CameraConfig.str_model]))
 
         Logging.logger.log(logging.DEBUG, 'Run <{}>'.format(self.name))
         self.run()
@@ -95,6 +115,7 @@ class Camera(Controller.BaseProcess):
     def main(self):
         # Fetch current frame and update camera buffers
         frame = self.camera.GetImage()[:,:,0]
+        #embed()
         self._cameraBO.update(frame)
         # Write to file
         self._writeFrame()
