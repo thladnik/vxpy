@@ -7,6 +7,7 @@
 import numpy as np
 from scipy import signal
 from glumpy import app, gl, glm, gloo
+import glSti
 
 def cen2square(cen_x = np.array([0]),cen_y = np.array([0]), square_size = np.array([1])):
     square_r    = square_size/2
@@ -77,40 +78,22 @@ void main()
     gl_FragColor = texture2D(texture, v_texcoord);
 }
 """
-app.use("pyglet")
-window = app.Window(width=512, height=512, color=(1,1,1,1))
-window.set_fullscreen(True)
-time = 0
 
-keypressed = 0
-@window.event
 def on_draw(dt):
-    global time,motmat_x_R, motmat_x_G, motmat_x_B, motmat_y_R, motmat_y_G, motmat_y_B, textface,keypressed
-    window.clear()
-
+    self.window.clear()
     gl.glDisable(gl.GL_BLEND)
     gl.glEnable(gl.GL_DEPTH_TEST)
-    tempsize = int(V['texcoord'].shape[0]/6)
-    tidx = np.mod(time,99)
-    motmat_R   = cen2square(motmat_x_R[:,tidx],motmat_y_R[:,tidx],motmat_x_R[:,tidx]*0).reshape([-1,2])
-    V['texcoord'] += motmat_R[textface]/300
-    # V['texcoord_G'] += motmat_G[textface]/200
-    # V['texcoord_B'] += motmat_B[textface]/200
-    patchMat.draw(gl.GL_TRIANGLES, I)
-    time+=1
+    tempsize = int(self.V['texcoord'].shape[0]/6)
+    tidx = np.mod(self.t,99)
+    motmat_R   = cen2square(self.motmat_x_R[:,tidx],self.motmat_y_R[:,tidx],0).reshape([-1,2])
+    self.V['texcoord'] += motmat_R[textface]/300
+    self.patchMat.draw(gl.GL_TRIANGLES, I)
+    self.t+=1
     print(dt)
-    # if np.mod(time,5)==0:
-    # patchMat['view'] = glm.translation(-.5, -.5, ytrans)
 
-@window.event
 def on_resize(width, height):
-    patchMat['projection'] = glm.perspective(45.0, width / float(height), 2.0, 100.0)
+    self.patchMat['projection'] = glm.perspective(45.0, width / float(height), 2.0, 100.0)
 
-@window.event
-def on_init():
-    gl.glEnable(gl.GL_DEPTH_TEST)
-
-print(111)
 patchArray_size = np.array([200,200])
 startpoint = cen2square(np.random.rand(patchArray_size.prod()),
                         np.random.rand(patchArray_size.prod()),
@@ -122,11 +105,9 @@ y = np.linspace(-10,10,50)
 z = np.linspace(-10,10,50)
 xx, yy, zz = np.meshgrid(x,y,z)
 kernel = np.exp(-(xx**2/(2*sigma[0]**2) + yy**2/(2*sigma[1]**2) + zz**2/(2*sigma[2]**2)))
-print(111)
 motmat_angle_R = np.exp(np.random.rand(*patchArray_size,100)*2.j*np.pi)
 motmat_x_R = signal.convolve(motmat_angle_R.real,kernel,mode='same').reshape(patchArray_size.prod(),-1)
 motmat_y_R = signal.convolve(motmat_angle_R.imag,kernel,mode='same').reshape(patchArray_size.prod(),-1)
-print(111)
 V,I,textface = patchArray(patchArray_size,startpoint)
 patchMat = gloo.Program(vertex, fragment)
 patchMat.bind(V)
@@ -134,8 +115,17 @@ patchMat['texture'] = np.uint8(np.round((np.random.rand(100,100,1)>.5)*155+100)*
 patchMat['texture'].wrapping = gl.GL_REPEAT
 patchMat['model'] = np.eye(4, dtype=np.float32)
 patchMat['view'] = glm.translation(*patchArray_size*-.5, -50)
-# ytrans = 0
 
-# phi, theta = 40, 30
-print(111)
-app.run(framerate=60)
+StiProgram = glSti.glSti()
+StiProgram.t = 0
+StiProgram.motmat_x_R = motmat_x_R
+StiProgram.motmat_y_R = motmat_y_R
+StiProgram.patchMat   = patchMat
+StiProgram.V          = V
+StiProgram.set_ondraw(on_draw)
+StiProgram.set_onresize(on_resize)
+StiProgram.backend = app.use("pyglet")
+# StiProgram.window = app.Window(width=512, height=512, color=(0,0,0,1))
+# StiProgram.window.dispatch_event('on_draw')
+# app.run(framerate=60)
+#%%
