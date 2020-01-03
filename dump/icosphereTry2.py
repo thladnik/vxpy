@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 import numpy as np
 from scipy import signal
-from tools.nash_helper import *
+from helper.nash_helper import *
 from glumpy import app, gl, glm, gloo
 
 ## Define vertex and fragment shaders

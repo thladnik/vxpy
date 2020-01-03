@@ -1,6 +1,6 @@
 from glumpy import gloo
 import numpy as np
-from tools.nash_helper import *
+from helper.nash_helper import *
 
 class diviable_icosphere:
 
@@ -71,3 +71,11 @@ class diviable_icosphere:
         self.intertile_distance = tileDist
         self.vertexBuffer = Vout.view(gloo.VertexBuffer)
         self.indexBuffer  = Iout.view(gloo.IndexBuffer)
+
+#####
+# icoSphere subclasses
+
+class diviable_icosphere_sd1(diviable_icosphere):
+
+    def __init__(self):
+        super().__init__(subdivisionTimes=1)
