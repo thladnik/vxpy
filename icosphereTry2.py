@@ -4,10 +4,9 @@
 # CIN,Tuebingen  14.11.2019
 # -----------------------------------------------------------------------------
 import numpy as np
-import sys
 from scipy import signal
-import Q_num as qn
-from glumpy import app, gl, glm, gloo, data
+from tools.nash_helper import *
+from glumpy import app, gl, glm, gloo
 
 ## Define vertex and fragment shaders
 
@@ -210,13 +209,13 @@ tpsmooth_z = signal.convolve(flowvec[:, :, 2], tpkernel[np.newaxis, :], mode='sa
 spsmooth_x = np.dot(spkernel, tpsmooth_x)
 spsmooth_y = np.dot(spkernel, tpsmooth_y)
 spsmooth_z = np.dot(spkernel, tpsmooth_z) # 
-spsmooth_Q = qn.qn(np.array([spsmooth_x, spsmooth_y, spsmooth_z]).transpose([1, 2, 0]))
+spsmooth_Q = qn(np.array([spsmooth_x, spsmooth_y, spsmooth_z]).transpose([1, 2, 0]))
 
-tileCen_Q = qn.qn(tileCen)
-tileOri_Q1 = qn.qn(np.real(tileOri)).normalize[:, None]
-tileOri_Q2 = qn.qn(np.imag(tileOri)).normalize[:, None]
-projected_motmat = qn.projection(tileCen_Q[:, None], spsmooth_Q)
-motmatFull = qn.qdot(tileOri_Q1, projected_motmat) - 1.j * qn.qdot(tileOri_Q2, projected_motmat)
+tileCen_Q = qn(tileCen)
+tileOri_Q1 = qn(np.real(tileOri)).normalize[:, None]
+tileOri_Q2 = qn(np.imag(tileOri)).normalize[:, None]
+projected_motmat = projection(tileCen_Q[:, None], spsmooth_Q)
+motmatFull = qdot(tileOri_Q1, projected_motmat) - 1.j * qdot(tileOri_Q2, projected_motmat)
 
 
 # projected_motmat = qn.ortho_project(tileCen_Q,spsmooth_Q)

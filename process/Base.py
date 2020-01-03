@@ -8,7 +8,7 @@ import sys
 from time import perf_counter
 
 import MappApp_Definition as madef
-from MappApp_Helper import rpc
+from tools.MappApp_Helper import rpc
 
 class BaseProcess:
 

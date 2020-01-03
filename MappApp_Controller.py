@@ -1,9 +1,8 @@
 import logging
 import multiprocessing as mp
-import pprint
 
 import MappApp_Definition as madef
-import MappApp_Helper as mahelp
+from tools import MappApp_Helper as mahelp
 from MappApp_ImageProcessing import CameraBO
 
 class Controller:
@@ -43,7 +42,6 @@ class Controller:
         # Initialize processes
         from process.Display import Display
         self._initializeProcess(madef.Process.Display, Display, _displayConfiguration=self._displayConfiguration)
-        from process.FrameGrabber import FrameGrabber
         # self._initializeProcess(madef.Process.FrameGrabber, FrameGrabber, _cameraBO=self._cameraBO)
         from process.Logger import Logger
         self._initializeProcess(madef.Process.Logger, Logger)

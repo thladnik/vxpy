@@ -1,12 +1,63 @@
-import configparser
-import os
-from PyQt5 import QtCore
-
-import MappApp_Defaults as madflt
-import MappApp_Definition as madef
-
 import numpy as np
 import warnings
+
+def cen2tri(cen_x=np.array([0]), cen_y=np.array([0]), triangle_size=np.array([1])):
+    """
+    :param cen_x: (optional) ndarray; x coordinate of the triangle center; default = 0
+    :param cen_y: (optional)ndarray; y coordinate of the triangle center; default = 0
+    :param triangle_size: (optional) ndarray; size of the triangle defined as the distance from each vertex to the triangle center; default = 1
+    :return: ndarray (shape = [...,2]) of the 3 triangle vertices coordinates for each triangle center entered
+    """
+
+    ct1 = [cen_x - triangle_size / 2 * np.sqrt(3), cen_y - triangle_size / 2]
+    ct2 = [cen_x + triangle_size / 2 * np.sqrt(3), cen_y - triangle_size / 2]
+    ct3 = [cen_x, cen_y + triangle_size / 2 * np.sqrt(3)]
+    squarePoint = np.array([ct1, ct2, ct3])
+    return squarePoint.transpose([2, 0, 1])
+
+
+def subdivide_triangle(vertices, faces, subdivide_order):
+    """
+    :param vertices: N*3 ndarray, vertices of the triangulated sphere
+    :param faces: N*3 ndarray, indices for the sphere vertices
+    :param subdivide_order: number of times of subdivision
+    :return: subdivided vertices and indices
+    """
+    for i in range(subdivide_order):
+        edges = np.vstack([np.hstack([faces[:, 0], faces[:, 1], faces[:, 2]]),
+                           np.hstack([faces[:, 1], faces[:, 2], faces[:, 0]])]).T
+        [edges, inverse_order] = np.unique(np.sort(edges, axis=1), axis=0,
+                                           return_inverse=True)  # Compute all edges linking the vertices
+        inverse_order = np.reshape(inverse_order, [3, len(faces)]) + len(
+            vertices)  # Since some edges are redundant, this and the line above deal with the redundancy
+        midPoints = (vertices[edges[:, 0], :] + vertices[edges[:, 1], :]) / 2  # Find the middle point for all edges
+        midPoints /= np.array([np.sqrt(np.sum(midPoints ** 2, axis=1))]).T / np.sqrt(
+            np.sum(vertices[0, :] ** 2))  # Normalize them to the given sphere radius
+        vertices = np.vstack([vertices, midPoints])  # Combine the old and new vertices
+        faces = np.vstack([faces,
+                           np.array([faces[:, 0], inverse_order[0, :], inverse_order[2, :]]).T,
+                           np.array([faces[:, 1], inverse_order[1, :], inverse_order[0, :]]).T,
+                           np.array([faces[:, 2], inverse_order[2, :], inverse_order[1, :]]).T,
+                           np.array([inverse_order[0, :], inverse_order[1, :], inverse_order[2,
+                                                                               :]]).T])  # Directly compute the subdivided indices without doing another tessellation
+    return vertices, faces
+
+
+def vecNorm(vec, Norm_axis=-1):  # Comput the norm of the vectors or tensors in ndarray
+    return np.sqrt(np.sum(vec ** 2, Norm_axis))
+
+
+def vecNormalize(vec, Norm_axis=-1):  # Normalize the ndarray vectors or tensors to norm = 1
+    return vec / np.expand_dims(np.sqrt(np.sum(vec ** 2, Norm_axis)), Norm_axis)
+
+def sphAngle(vec, r):  # Compute the angle between two spherical coordinates as their distances on a unit sphere
+    return np.arcsin(vecNorm(vec[:, np.newaxis, :] - vec[np.newaxis, :, :], 2) / (2 * r)) * 2
+
+def cart2sph(cx,cy,cz):
+    cxy = cx + cy * 1.j
+    azi = np.angle(cxy)
+    elv = np.angle(np.abs(cxy)+cz * 1.j)
+    return azi, elv
 
 class qn(np.ndarray):
     """
@@ -659,99 +710,3 @@ def projection_matrix(projection_normal, flat_output=True):
             return np.dot(np.squeeze(backrot_mat), projection_mat)
         else:
             return projection_mat
-
-
-class Config:
-
-    def __init__(self, _configfile):
-        self._configfile = _configfile
-        self.data = configparser.ConfigParser()
-        self.data.read(os.path.join(madef.Path.Config, self._configfile))
-
-    def _parsedSection(self, section):
-        parsed = dict()
-        for option in self.data[section]:
-            dtype = option.split('_')[0]
-            if dtype == 'int':
-                value = self.data.getint(section, option)
-            elif dtype == 'float':
-                value = self.data.getfloat(section, option)
-            elif dtype == 'bool':
-                value = self.data.getboolean(section, option)
-            else:
-                value = self.data.get(section, option)
-            parsed[option] = value
-
-        return parsed
-
-    def displayConfiguration(self, name=None):
-        # If section does not exist: create it and set to defaults
-        if not(self.data.has_section(madef.DisplayConfig._name)):
-            self.data.add_section(madef.DisplayConfig._name)
-            for option in madflt.DisplayConfiguration:
-                self.data.set(madef.DisplayConfig._name,
-                              getattr(madef.DisplayConfig, option), str(madflt.DisplayConfiguration[option]))
-
-        # Return display settings
-        if name is not None:
-            return self._parsedSection(madef.DisplayConfig._name)[name]
-        return self._parsedSection(madef.DisplayConfig._name)
-
-    def updateDisplayConfiguration(self, **settings):
-        if not(self.data.has_section(madef.DisplayConfig._name)):
-            self.displayConfiguration()
-
-        self.data[madef.DisplayConfig._name].update(**{option : str(settings[option]) for option in settings})
-
-
-    def cameraConfiguration(self, name=None):
-        # If section does not exist: create it and set to defaults
-        if not(self.data.has_section(madef.CameraConfiguration._name)):
-            self.data.add_section(madef.CameraConfiguration._name)
-            for option in madflt.CameraConfiguration:
-                self.data.set(madef.CameraConfiguration._name,
-                              getattr(madef.CameraConfiguration, option), str(madflt.CameraConfiguration[option]))
-        # Return display settings
-        if name is not None:
-            return self._parsedSection(madef.CameraConfiguration._name)[name]
-        return self._parsedSection(madef.CameraConfiguration._name)
-
-    def updateCameraConfiguration(self, **settings):
-        if not(self.data.has_section(madef.CameraConfiguration._name)):
-            self.cameraConfiguration()
-
-        self.data[madef.CameraConfiguration._name].update(**{option : str(settings[option]) for option in settings})
-
-
-    def saveToFile(self):
-        print('Save configuration to file %s' % self._configfile)
-        with open(os.path.join(madef.Path.Config, self._configfile), 'w') as fobj:
-            self.data.write(fobj)
-            fobj.close()
-
-
-def rpc(obj, data):
-    fun = data[0]
-    if hasattr(obj, fun) and callable(getattr(obj, fun)):
-        # Retrieve call arguments
-        args = list()
-        if len(data) > 1:
-            args = data[1]
-        kwargs = dict()
-        if len(data) > 2:
-            kwargs = data[2]
-
-        # Make call
-        print('%s calling method %s' % (obj._name, data[0]))
-        return getattr(obj, fun)(*args, **kwargs)
-
-
-class Conversion:
-
-    @staticmethod
-    def boolToQtCheckstate(boolean):
-        return QtCore.Qt.Checked if boolean else QtCore.Qt.Unchecked
-
-    @staticmethod
-    def QtCheckstateToBool(checkstate):
-        return True if (checkstate == QtCore.Qt.Checked) else False

@@ -1,7 +1,8 @@
 from PyQt5 import QtCore, QtWidgets
 
 import MappApp_Definition as madef
-import MappApp_Helper as mahelp
+from tools import MappApp_Helper as mahelp
+
 
 class DisplaySettings(QtWidgets.QWidget):
 
