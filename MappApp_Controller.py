@@ -2,7 +2,7 @@ import logging
 import multiprocessing as mp
 
 import MappApp_Definition as madef
-from tools import MappApp_Helper as mahelp
+from helper import MappApp_Helper as mahelp
 from MappApp_ImageProcessing import CameraBO
 
 class Controller:

@@ -4,7 +4,7 @@ import os
 from PyQt5 import QtWidgets
 
 import MappApp_Definition as madef
-from tools import MappApp_Helper as mahelp
+from helper import MappApp_Helper as mahelp
 
 
 class StartupConfiguration(QtWidgets.QMainWindow):
