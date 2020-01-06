@@ -1,9 +1,11 @@
-from MappApp_StimulationProtocol import StimulationProtocol
+from StaticProtocol import StimulationProtocol
 
 from stimuli.Checkerboard import Checkerboard
 from stimuli.Grating import Grating
 
 class Calibration(StimulationProtocol):
+
+    _name = 'Calibration'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)

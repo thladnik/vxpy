@@ -4,7 +4,7 @@ class Calibration(QtWidgets.QWidget):
 
     def __init__(self, main):
         self.main = main
-        QtWidgets.QWidget.__init__(self, parent=None, flags=QtCore.Qt.Window)
+        QtWidgets.QWidget.__init__(self, parent=_main, flags=QtCore.Qt.Window)
 
         self.setupUi()
 

@@ -1,4 +1,7 @@
-from MappApp_Stimulus import Stimulus
+import logging
+
+from Stimulus import Stimulus
+import Logging
 
 class Grating(Stimulus):
 
@@ -15,7 +18,9 @@ class Grating(Stimulus):
         :param velocity:
         :param num:
         """
-        super().__init__(protocol)
+        Stimulus.__init__(self, protocol)
+
+        Logging.logger.log(logging.DEBUG, 'Grating stimulus started with params...')
 
         self.setShape(shape)
         self.setOrientation(orientation)

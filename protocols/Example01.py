@@ -1,25 +1,19 @@
-from MappApp_StimulationProtocol import StimulationProtocol
+from StaticProtocol import StimulationProtocol
 
 from stimuli.Checkerboard import Checkerboard
 from stimuli.Grating import Grating
 
 class Example01(StimulationProtocol):
 
+    _name = 'Example01'
+
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 
-        self.addStimulus(Checkerboard,
-                         dict(cols=16, rows=16),
-                         duration=5)
-        self.addStimulus(Grating,
-                         dict(orientation='vertical', shape='rectangular', num=20, velocity=1.0),
-                         duration=5)
-        self.addStimulus(Grating,
-                         dict(orientation='vertical', shape='rectangular', num=20, velocity=3.0),
-                         duration=5)
-        self.addStimulus(Grating,
-                         dict(orientation='vertical', shape='rectangular', num=10, velocity=-1.0),
-                         duration=5)
-        self.addStimulus(Checkerboard,
-                         dict(cols=16, rows=16),
-                         duration=None)
+        for num in range(4):
+
+            for v in range(5):
+
+                self.addStimulus(Grating,
+                                 dict(orientation='vertical', shape='rectangular', num=10+num*4, velocity=v+1),
+                                 duration=5)

@@ -2,9 +2,14 @@
 
 ## TODO
 
-### Basic logging
+### Logging
+Basic logging is implemented. But logging in modules outside the process class is not possible yet.
+Needs to be revisited again later.
+
 
 ### Saving of experimental data to file (across all processes)
+
+
 
 ### Enable StimulationProtocol class to handle protocol specific batches of data
 Some data (e.g. a multidimensional array of random numbers) may be required by multiple stimuli in a protocol, which differ in
