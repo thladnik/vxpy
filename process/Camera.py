@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from time import perf_counter, strftime, sleep
 
+import Camera
 import Controller
 import Definition
 import Logging
@@ -10,30 +11,34 @@ import Logging
 if Definition.Env == Definition.EnvTypes.Dev:
     from IPython import embed
 
-class Camera(Controller.BaseProcess):
-
+class Main(Controller.BaseProcess):
     name = Definition.Process.Camera
 
-    _config_Camera : dict = None
-    _recordingVideo = False
+    _cameraBO       : Camera.CameraBufferObject = None
+    _config_Camera  : dict                      = None
+    _recordingVideo : bool                      = False
 
     def __init__(self, _cameraBO, **kwargs):
-        self._cameraBO = _cameraBO
-        self._cameraBO.constructBuffers()
         Controller.BaseProcess.__init__(self, **kwargs)
 
+        ### Set camera buffer object
+        self._cameraBO = _cameraBO
+        self._cameraBO.constructBuffers()
+
+        ### Set recording parameters
         self.frameDims = self._cameraBO.frameDims
         self.fps = 100.
 
-        self.registerProperty('_config_Camera')
+        ### Register camera configuration with controller
+        self.registerPropertyWithController('_config_Camera')
 
-        # Set up camera
-        # TODO: in furture check _cameraBO.manufacturer and model
-        #  to allow different types of camera. For now, however, this only uses
-        #  cameras from TheImagingSource
+        ### Wait for configuration
         while self._config_Camera is None:
-            self._handlePipe()
+            self._handleCommunication()
             sleep(.01)
+
+        ### Set up camera
+        ## The Imaging Source cameras
         if self._config_Camera[Definition.CameraConfig.str_manufacturer] == 'TIS':
             import devices.cameras.tisgrabber as IC
             self.camera = IC.TIS_CAM()
@@ -45,6 +50,8 @@ class Camera(Controller.BaseProcess):
             self.camera.SetFrameRate(self.fps)
             self.camera.SetContinuousMode(0)
             self.camera.StartLive(0)
+
+        ## Virtual camera
         elif self._config_Camera[Definition.CameraConfig.str_manufacturer] == 'virtual':
             import devices.cameras.virtual as VC
             self.camera = VC.VirtualCamera()
@@ -56,7 +63,7 @@ class Camera(Controller.BaseProcess):
                            .format(self._config_Camera[Definition.CameraConfig.str_manufacturer],
                                    self._config_Camera[Definition.CameraConfig.str_model]))
 
-        Logging.logger.log(logging.DEBUG, 'Run <{}>'.format(self.name))
+        ### Run event loop
         self.run()
 
     def _startVideoRecording(self):
@@ -64,7 +71,7 @@ class Camera(Controller.BaseProcess):
         if not(self._recordingVideo):
 
             # TODO: start an encoder-process which gets passed the _cameraBO object
-            #   to avoid performance drain on frame acquisition
+            #   to avoid performance drain during frame acquisition
 
             # Count how many frame buffers should be written to file
             self.outFileFrameNum = 0

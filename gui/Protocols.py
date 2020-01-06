@@ -8,9 +8,9 @@ import StaticProtocol
 
 class Protocols(QtWidgets.QWidget):
 
-    def __init__(self, main):
-        self.main = main
-        QtWidgets.QWidget.__init__(self, parent=None, flags=QtCore.Qt.Window)
+    def __init__(self, _main):
+        self._main = _main
+        QtWidgets.QWidget.__init__(self, parent=_main, flags=QtCore.Qt.Window)
 
         self.setupUi()
 
@@ -46,4 +46,4 @@ class Protocols(QtWidgets.QWidget):
         protocol_name = self._cb_protocols.currentText().split('>')
         protocol = getattr(importlib.import_module('%s.%s' % (Definition.Path.Protocol, protocol_name[0])), protocol_name[1])
 
-        self.main.rpc(Definition.Process.Display, process.Display.Display.startNewStimulationProtocol, protocol)
+        self._main.rpc(Definition.Process.Display, process.Display.Main.startNewStimulationProtocol, protocol)

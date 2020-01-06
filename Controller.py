@@ -11,7 +11,10 @@ import Camera
 import Logging
 
 if Definition.Env == Definition.EnvTypes.Dev:
-    from IPython import embed
+    pass
+
+##################################
+## Process BASE class
 
 class BaseProcess:
 
@@ -22,7 +25,7 @@ class BaseProcess:
         Shutdown        = 99
         ConfirmShutdown = 100
 
-    name      : str
+    name       : str
 
     _running   : bool
     _shutdown  : bool
@@ -31,8 +34,10 @@ class BaseProcess:
     _logQueue  : mp.Queue
     _inPipe    : mp.connection.PipeConnection
 
-    _pipes     : dict = dict()
-    _processes : dict = dict()
+    ## Controller exclusives
+    _pipes               : dict = dict()
+    _processes           : dict = dict()
+    _propertyConnections : dict = dict()
 
     def __init__(self, **kwargs):
         """
@@ -56,35 +61,38 @@ class BaseProcess:
         signal.signal(signal.SIGINT, self._handleSIGINT)
 
     def run(self):
+        Logging.logger.log(logging.INFO, 'Run {}'.format(self.name))
+        ### Set state to running
         self._running = True
         self._shutdown = False
 
-        # Run event loop
+        ### Run event loop
         self.t = perf_counter()
         while self._isRunning():
-            self._handlePipe()
+            self._handleCommunication()
             self.main()
             self.t = perf_counter()
 
-        # Inform controller that process has terminated
+        ### Inform controller that process has terminated
         self.send(Definition.Process.Controller, BaseProcess.Signals.ConfirmShutdown)
 
     def main(self):
+        """Event loop to be re-implemented in subclass
         """
-        Event loop to be re-implemented in subclass
-        :return:
-        """
-        pass
+        NotImplementedError('Event loop of base process class is not implemented.')
 
     def _startShutdown(self):
         # Handle all pipe messages before shutdown
         while self._inPipe.poll():
-            self._handlePipe()
+            self._handleCommunication()
 
         self._shutdown = True
 
     def _isRunning(self):
         return self._running and not(self._shutdown)
+
+    ################################
+    ### Inter process communication
 
     def send(self, processName, signal, *args, **kwargs):
         """
@@ -97,9 +105,10 @@ class BaseProcess:
             self._ctrlQueue.put([self.name, processName, [signal, args, kwargs]])
 
     def rpc(self, processName, function, *args, **kwargs):
-        self.send(processName, BaseProcess.Signals.RPC, function, *args, **kwargs)
 
-    def registerProperty(self, propName):
+        self.send(processName, BaseProcess.Signals.RPC, function.__name__, *args, **kwargs)
+
+    def registerPropertyWithController(self, propName):
         """Register a property with the controller. This will cause any changes to the property in the controller
         to be automatically propagated to this process.
 
@@ -108,7 +117,30 @@ class BaseProcess:
         """
         self.rpc(Controller.name, Controller.connectProperty, propName, self.name)
 
-    def _updateProperty(self, propName, propData):
+    ################################
+    ### Private functions
+
+    def _sendProperty(self, processName: str, propName: str):
+        """Send local property to process
+        """
+
+        if not (hasattr(self, propName)):
+            Logging.logger.log(logging.WARNING, 'Property <{}> not set on process <{}>'.
+                               format(propName, processName))
+            return
+
+        Logging.logger.log(logging.DEBUG, 'Send property <{}> to process <{}>'.
+                           format(propName, processName))
+
+        self.send(processName, BaseProcess.Signals.UpdateProperty, propName, getattr(self, propName))
+
+    def _updateProperty(self, propName: str, propData):
+        """Update local property
+
+        :param propName:
+        :param propData:
+        :return:
+        """
 
         try:
             Logging.logger.log(logging.DEBUG, 'Set property <{}> to {}'.
@@ -119,39 +151,52 @@ class BaseProcess:
             Logging.logger.log(logging.WARNING, 'FAILED to set property <{}> to {}'.
                                format(propName, propData))
 
-    def _executeRPC(self, fun, *args, **kwargs):
+    def _executeRPC(self, fun: str, *args, **kwargs):
+        """Execute a remote call to the specified function and pass *args, **kwargs
+
+        :param fun: function name
+        :param args: list of arguments
+        :param kwargs: dictionary of keyword arguments
+        :return:
+        """
         try:
             Logging.logger.log(logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'.
-                               format(fun.__name__, args, kwargs))
-            fun(self, *args, **kwargs)
+                               format(fun, args, kwargs))
+            getattr(self, fun)(*args, **kwargs)
         except Exception as exc:
             Logging.logger.log(logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
                                                 '// Exception: {}'.
-                                                format(fun.__name__, args, kwargs, exc))
+                                                format(fun, args, kwargs, exc))
 
-    def _handlePipe(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
+    def _handleCommunication(self, *args, msg=None):  # needs *args for compatibility with Glumpy's schedule_interval
 
-        # Poll pipe
-        if not(self._inPipe.poll()):
-            return
+        ### Msg should only be set if this is the controller process
+        if msg is None:
+            # Poll pipe
+            if not(self._inPipe.poll()):
+                return
 
-        msg = self._inPipe.recv()
+            msg = self._inPipe.recv()
+
         Logging.logger.log(logging.DEBUG, 'Received message: {}'.
                            format(msg))
-        signal, args, kwargs = (msg[0], list(msg[1]), msg[2])
+
+        ### Unpack message
+        signal, args, kwargs = msg
 
         if signal == BaseProcess.Signals.Shutdown:
             self._startShutdown()
 
-        # RPC calls
+        ### RPC calls
         elif signal == BaseProcess.Signals.RPC:
             self._executeRPC(*args, **kwargs)
 
-        # Set property
+        ### Set property
         elif signal == BaseProcess.Signals.UpdateProperty:
             propName = args[0]
             propData = args[1]
 
+            ## Set property
             try:
                 Logging.logger.log(logging.DEBUG,
                                    'Set property <{}> to {}'
@@ -162,29 +207,39 @@ class BaseProcess:
                                    'Failed to set property <{}> to {} // Exception: {}'
                                    .format(propName, str(propData), exc))
 
+            ## Inform all registered processes of change to property
+            # (This should normally only happen in the controller)
+            if propName in self._propertyConnections:
+                for processName in self._propertyConnections[propName]:
+                    self._sendProperty(processName, propName)
 
-    def addPropertyCallback(self, propName, propDtype, callback):
+
+    def addPropertyCallback(self, propName: str, propDtype: type, callback: callable):
         """Add a callback function for the specified property.
 
         ---- IMPORTANT NOTICE:
         New properties HAVE to be set on the class and NOT on the instance first
-        in order for this to work!
+        in order for this to work! Why? I dont' know.
+
+        So it is setattr(self.__class__, propName, ...)
+        and NOT setattr(self, propName, ...)
         ----
 
-        :param propName:
-        :param propDtype:
+        :param propName: name of the property
+        :param propDtype: data type of the property
         :param callback:
         :return:
         """
+
+        ### Set new shared property if it doesn't already exist
         if not(hasattr(self.__class__, propName)):
-            # Set new shared property if it doesn't exist
             setattr(self.__class__, propName, Helper.SharedProperty(propName, propDtype))
             Logging.logger.log(logging.DEBUG, 'Created <{}>'.format(getattr(self, propName)))
-            # Automatically register property with controller.
-            # This will cause the controller to automatically propagate any changes to the property.
-            self.registerProperty(propName)
+            ### Register property with controller
+            # (This will cause the controller to automatically propagate any changes to the property)
+            self.registerPropertyWithController(propName)
 
-        # Add the callback function to be executed when property value is set.
+        ### Add the callback function to be executed when property value is set.
         Logging.logger.log(logging.DEBUG, 'Add callback <{}> for <{}>'
                            .format(callback.__name__, getattr(self, propName)))
         getattr(self, propName).addSetterCallback(callback)
@@ -194,13 +249,12 @@ class BaseProcess:
         sys.exit(0)
 
 
-if Definition.Env == Definition.EnvTypes.Dev:
-    from IPython import embed
+##################################
+### CONTROLLER class
 
 class Controller(BaseProcess):
     name = Definition.Process.Controller
 
-    _propertyConnections = dict()
     _cameraBO: Camera.CameraBufferObject = None
 
     def __init__(self, _configfile, _useGUI):
@@ -214,35 +268,35 @@ class Controller(BaseProcess):
         self._config_Display = self.configuration.configuration(Definition.DisplayConfig)
         self._config_Gui = self.configuration.configuration(Definition.GuiConfig)
 
-        ## Set up components
+        ### Set up components
         self._setupCamera()
 
-        # (optional)
-        # Initialize GUI
+        ### Set up processes
+        ## GUI
         if self._useGUI:
-            import GUI
-            self._initializeProcess(Definition.Process.GUI, GUI.Main,
+            import process.GUI
+            self._initializeProcess(Definition.Process.GUI, process.GUI.Main,
                                     _cameraBO=self._cameraBO)
-        # Initialize processes
+        ## Display
         import process.Display
-        self._initializeProcess(Definition.Process.Display, process.Display.Display,
-                                _config_Display=self._config_Display)
+        self._initializeProcess(Definition.Process.Display, process.Display.Main)
+        ## Camera
         import process.Camera
-        self._initializeProcess(Definition.Process.Camera, process.Camera.Camera,
+        self._initializeProcess(Definition.Process.Camera, process.Camera.Main,
                                 _cameraBO=self._cameraBO)
+        ## Logger
         import process.Logger
-        self._initializeProcess(Definition.Process.Logger, process.Logger.Logger)
+        self._initializeProcess(Definition.Process.Logger, process.Logger.Main)
 
-        # Run the event loop
+        ### Run event loop
         self.run()
 
     def _initializeProcess(self, processName, target, **optKwargs):
         """Spawn a new process with a dedicated pipe connection.
 
         :param processHandle: MappApp_Defintion.<Process> class
-        :param target: Process class
+        :param target: process class
         :param optKwargs: optional keyword arguments
-        :return: None
         """
         self._pipes[processName] = mp.Pipe()
         self._processes[processName] = mp.Process(target=target,
@@ -254,30 +308,27 @@ class Controller(BaseProcess):
         self._processes[processName].start()
 
     def _setupCamera(self):
-        if self._config_Camera[Definition.CameraConfig.bool_use]:
-            # Create camera buffer object
-            self._cameraBO = Camera.CameraBufferObject(_config_Camera=self._config_Camera)
-            self._cameraBO.addBuffer(Camera.FrameBuffer)
-            self._cameraBO.addBuffer(Camera.EdgeDetector)
+        if not(self._config_Camera[Definition.CameraConfig.bool_use]):
+            return
 
-    def connectProperty(self, propName, processName):
+        ### Create camera buffer object
+        self._cameraBO = Camera.CameraBufferObject(_config_Camera=self._config_Camera)
+        self._cameraBO.addBuffer(Camera.FrameBuffer)
+        self._cameraBO.addBuffer(Camera.EdgeDetector)
+
+    def connectProperty(self, propName: str, processName: str):
+        """Connect a property to a process.
+        Any updates to the local property will be propagated to the connected process.
+
+        :param propName: name of the property
+        :param processName: name of the process
+        :return:
+        """
         Logging.logger.log(logging.DEBUG, 'Process <%s> registered property <%s>' % (processName, propName))
         if not(propName in self._propertyConnections):
             self._propertyConnections[propName] = list()
         self._propertyConnections[propName].append(processName)
-        self._propagatePropertyUpdate(processName, propName)
-
-    def _propagatePropertyUpdate(self, processName, propName):
-        """Update property on sub process
-        """
-
-        if hasattr(self, propName):
-            Logging.logger.log(logging.DEBUG, 'Send property <{}> to process <{}>'.
-                               format(propName, processName))
-            self.send(processName, BaseProcess.Signals.UpdateProperty, propName, getattr(self, propName))
-        else:
-            Logging.logger.log(logging.WARNING, 'Property <{}> not set on process <{}>'.
-                               format(propName, processName))
+        self._sendProperty(processName, propName)
 
     def run(self):
 
@@ -300,39 +351,7 @@ class Controller(BaseProcess):
             ########
             ## CALLS TO CONTROLLER
             if receiver == self.name:
-
-                ########
-                # Shutdown
-                if signal == BaseProcess.Signals.Shutdown:
-                    self._startShutdown()
-
-                ########
-                # RPC
-                if signal == BaseProcess.Signals.RPC:
-                    self._executeRPC(*args, **kwargs)
-
-                ########
-                # Update property
-                elif signal == BaseProcess.Signals.UpdateProperty:
-                    propName = args[0]
-                    propData = args[1]
-
-                    try:
-                        Logging.logger.log(logging.DEBUG,
-                                           'Set property <{}> to {}'
-                                           .format(propName, str(propData)))
-                        setattr(self, propName, propData)
-                    except Exception as exc:
-                        Logging.logger.log(logging.WARNING,
-                                           'Failed to set property <{}> to {} // Exception: {}'
-                                           .format(propName, str(propData), exc))
-                    else:
-                        Logging.logger.log(logging.DEBUG, 'Inform registered processes of change in property <{}>'
-                                           .format(propName))
-                        # Inform all registered processes of change to property
-                        if propName in self._propertyConnections:
-                            for processName in self._propertyConnections[propName]:
-                                self._propagatePropertyUpdate(processName, propName)
+                self._handleCommunication(msg=[signal, args, kwargs])
 
             ########
             # CALLS TO OTHER PROCESSES (FORWARDING)

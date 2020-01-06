@@ -2,7 +2,7 @@ from PyQt5 import QtCore, QtWidgets
 
 import Definition
 import Helper
-import GUI
+from process import GUI
 
 if Definition.Env == Definition.EnvTypes.Dev:
     from IPython import embed
@@ -10,7 +10,7 @@ if Definition.Env == Definition.EnvTypes.Dev:
 class DisplaySettings(QtWidgets.QWidget):
 
     def __init__(self, _main):
-        QtWidgets.QWidget.__init__(self, parent=None, flags=QtCore.Qt.Window)
+        QtWidgets.QWidget.__init__(self, parent=_main, flags=QtCore.Qt.Window)
         self._main : GUI.Main = _main
 
         self._main.addPropertyCallback('_config_Display', dict, self._updateConfig)
@@ -120,6 +120,9 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_view_origin_distance.valueChanged.connect(lambda: self.timer_param_update.start(td))
         self._check_fullscreen.stateChanged.connect(lambda: self.timer_param_update.start(td))
         self._dspn_fov.valueChanged.connect(lambda: self.timer_param_update.start(td))
+
+    def key(self, QKeyEvent):
+        print(QKeyEvent)
 
     def _updateConfig(self):
         _config = getattr(self._main, '_config_Display').value

@@ -1,5 +1,3 @@
-
-
 void main() {
   v_cart_pos = a_cart_pos;
   v_sph_pos = a_sph_pos;

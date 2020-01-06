@@ -6,7 +6,6 @@ from Geometry import SphereHelper
 
 #####
 # UV Sphere base Class
-
 class UVSphere:
 
     def __init__(self, theta_lvls: int, phi_lvls: int, upper_phi: float = np.pi/4, radius: float = 1.0):
@@ -59,13 +58,14 @@ class UVSphere:
         v = np.concatenate([verts[orient] for orient in orientations], axis=0)
         # Vertex buffer
         self.vertexBuffer = np.zeros(v.shape[0],
-                                     [('a_cart_pos', np.float32, 3),
+                            [('a_cart_pos', np.float32, 3),
                              ('a_sph_pos', np.float32, 2),
                              ('a_channel', np.float32, 2)])
         self.vertexBuffer['a_cart_pos'] = v.astype(np.float32)
         self.vertexBuffer['a_sph_pos'] = np.concatenate([sph_pos[orient] for orient in orientations], axis=0).astype(np.float32)
         self.vertexBuffer['a_channel'] = np.concatenate([channel[orient] for orient in orientations], axis=0).astype(np.float32)
         self.vertexBuffer = self.vertexBuffer.view(gloo.VertexBuffer)
+
         # Index buffer
         self.indexBuffer = np.zeros((0, 3))
         startidx = 0

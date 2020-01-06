@@ -4,7 +4,7 @@ class EnvTypes:
     Dev        = 'dev'
     Production = 'production'
 
-Env = EnvTypes.Dev
+Env = EnvTypes.Production
 
 class Path:
     Config   = 'configs'
