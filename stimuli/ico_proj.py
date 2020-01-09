@@ -3,7 +3,9 @@ from MappApp_Stimulus import Stimulus
 class icoCMN(Stimulus):
 
     _sphere_model = 'dividable_icosphere>diviable_icosphere_sd1'
-    _base_vertex_shader = "VS_mask_1511.glsl"
+    _base_vertex_shader = "_v_mono_base.shader"
+    _base_fragment_shader = "_f_empty.shader"
+    _vertex_shader = "v_mono"
     _fragment_shader = 'f_grating.shader'
 
     def __init__(self, protocol, orientation, shape, velocity, num):

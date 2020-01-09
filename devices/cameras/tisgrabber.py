@@ -44,7 +44,7 @@ class TIS_GrabberDLL(object):
 
     GrabberHandlePtr = C.POINTER(GrabberHandle)
     
-#     Initialize the ICImagingControl class library. This function must be called
+#     Initialize the ICImagingControl class library. This func must be called
 #	only once before any other functions of this library are called.
 #	@param szLicenseKey IC Imaging Control license key or NULL if only a trial version is available.
 #	@retval IC_SUCCESS on success.
@@ -52,9 +52,9 @@ class TIS_GrabberDLL(object):
 #	@sa IC_CloseLibrary
     InitLibrary = __tisgrabber.IC_InitLibrary(None)
     
-#     Get the number of the currently available devices. This function creates an
+#     Get the number of the currently available devices. This func creates an
 #	internal array of all connected video capture devices. With each call to this 
-#	function, this array is rebuild. The name and the unique name can be retrieved 
+#	func, this array is rebuild. The name and the unique name can be retrieved
 #	from the internal array using the functions IC_GetDevice() and IC_GetUniqueNamefromList.
 #	They are usefull for retrieving device names for opening devices.
 #	
@@ -70,7 +70,7 @@ class TIS_GrabberDLL(object):
 #     Get unique device name of a device specified by iIndex. The unique device name
 #	consist from the device name and its serial number. It allows to differ between 
 #	more then one device of the same type connected to the computer. The unique device name
-#	is passed to the function IC_OpenDevByUniqueName
+#	is passed to the func IC_OpenDevByUniqueName
 #
 #	@param iIndex The number of the device whose name is to be returned. It must be
 #				in the range from 0 to IC_GetDeviceCount(),
@@ -144,7 +144,7 @@ class TIS_GrabberDLL(object):
 
 #     Get a string representation of the video format specified by iIndex. 
 #	iIndex must be between 0 and IC_GetVideoFormatCount().
-#	IC_GetVideoFormatCount() must have been called before this function,
+#	IC_GetVideoFormatCount() must have been called before this func,
 #	otherwise it will always fail.	
 #
 #	@param hGrabber The handle to the grabber object.
@@ -174,7 +174,7 @@ class TIS_GrabberDLL(object):
     
 #     Get a string representation of the input channel specified by iIndex. 
 #	iIndex must be between 0 and IC_GetInputChannelCount().
-#	IC_GetInputChannelCount() must have been called before this function,
+#	IC_GetInputChannelCount() must have been called before this func,
 #	otherwise it will always fail.		
 #	@param hGrabber The handle to the grabber object.
 #	@param iIndex Number of the input channel to be used..
@@ -205,7 +205,7 @@ class TIS_GrabberDLL(object):
     
 #     Get a string representation of the video norm specified by iIndex. 
 #	iIndex must be between 0 and IC_GetVideoNormCount().
-#	IC_GetVideoNormCount() must have been called before this function,
+#	IC_GetVideoNormCount() must have been called before this func,
 #	otherwise it will always fail.		
 #	
 #	@param hGrabber The handle to the grabber object.
@@ -402,7 +402,7 @@ class TIS_GrabberDLL(object):
     # definition of the frameready callback
     FRAMEREADYCALLBACK = C.CFUNCTYPE(C.c_void_p,C.c_int, C.POINTER(C.c_ubyte), C.c_ulong,  C.py_object )
 
-    # set callback function
+    # set callback func
     SetFrameReadyCallback = __tisgrabber.IC_SetFrameReadyCallback
     SetFrameReadyCallback.restype = C.c_int
     SetFrameReadyCallback.argtypes = [GrabberHandlePtr, FRAMEREADYCALLBACK, C.py_object]
@@ -441,9 +441,9 @@ class TIS_CAM(object):
             return strin.encode("utf-8")
 
         def SetFrameReadyCallback(self, CallbackFunction, data):
-            """ Set a callback function, which is called, when a new frame arrives. 
+            """ Set a callback func, which is called, when a new frame arrives.
 
-            CallbackFunction : The callback function
+            CallbackFunction : The callback func
 
             data : a self defined class with user data.
             """

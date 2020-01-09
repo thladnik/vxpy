@@ -27,7 +27,7 @@ class SphereHelper:
             theta, phi, _ = SphereHelper.cart2sph(verts[:, 0], verts[:, 1], verts[:, 2])
         else:
             if theta is None or phi is None:
-                raise Exception('If <verts> is undefined, function requires <theta> and <phi> to be specified')
+                raise Exception('If <verts> is undefined, func requires <theta> and <phi> to be specified')
 
         mask = np.zeros(verts.shape[0]).astype(bool)
         mask[(theta_low <= theta) & (theta <= theta_high)

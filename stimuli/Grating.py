@@ -34,7 +34,7 @@ class BlackWhiteGrating(SphericalStimulus):
         :param protocol: protocol of which stimulus is currently part of
 
         :param orientation: orientation of grating; either 'vertical' or 'horizontal'
-        :param shape: shape of underlying function; either 'rectangular' or 'sinusoidal'
+        :param shape: shape of underlying func; either 'rectangular' or 'sinusoidal'
         :param velocity:
         :param num:
         """
