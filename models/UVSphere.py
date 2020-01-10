@@ -1,23 +1,43 @@
+"""
+MappApp ./models/UVSphere.py - Sphere based on a UV azimuth-elevation map.
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
 from glumpy import gloo
 import numpy as np
 from scipy.spatial import Delaunay
 
 from Geometry import SphereHelper
+import Model
 
 #####
 # UV Sphere base Class
-class UVSphere:
+class UVSphere(Model.SphereModel):
+
+    def __repr__(self):
+        return 'UVSphere(theta_lvls={}, phi_lvls={}, upper_phi={}, radius={})'\
+            .format(self.theta_lvls, self.phi_lvls, self.upper_phi, self.radius)
 
     def __init__(self, theta_lvls: int, phi_lvls: int, upper_phi: float = np.pi/4, radius: float = 1.0):
-        # Set attributes
+        Model.SphereModel.__init__(self)
+        ### Set attributes
         self.theta_lvls = theta_lvls
         self.phi_lvls = phi_lvls
         self.upper_phi = upper_phi
         self.radius = radius
-
-        # Construct sphere and prepare for projection
-        self._construct()
-        self._prepareChannels()
 
     def _construct(self):
         # Calculate coordinates in azimuth and elevation
@@ -33,7 +53,6 @@ class UVSphere:
         This step is crucial for the actual projection and MappApp requires each vertex to be assigned
         a channel ID between 1 nad 4 (1: SW, 2: SE, 3: NE, 4: NW). Vertices that do NOT have a channel ID
         will be disregarded during rendering.
-
         """
 
         all_verts = self.getVertices()
@@ -56,23 +75,25 @@ class UVSphere:
 
         ## CREATE BUFFERS
         v = np.concatenate([verts[orient] for orient in orientations], axis=0)
-        # Vertex buffer
-        self.vertexBuffer = np.zeros(v.shape[0],
+        ## Vertex buffer
+        vBuffer = np.zeros(v.shape[0],
                             [('a_cart_pos', np.float32, 3),
                              ('a_sph_pos', np.float32, 2),
+                             ('a_color', np.float32, 3),
                              ('a_channel', np.float32, 2)])
-        self.vertexBuffer['a_cart_pos'] = v.astype(np.float32)
-        self.vertexBuffer['a_sph_pos'] = np.concatenate([sph_pos[orient] for orient in orientations], axis=0).astype(np.float32)
-        self.vertexBuffer['a_channel'] = np.concatenate([channel[orient] for orient in orientations], axis=0).astype(np.float32)
-        self.vertexBuffer = self.vertexBuffer.view(gloo.VertexBuffer)
+        vBuffer['a_cart_pos'] = v.astype(np.float32)
+        vBuffer['a_sph_pos'] = np.concatenate([sph_pos[orient] for orient in orientations], axis=0).astype(np.float32)
+        vBuffer['a_color'] = np.zeros((v.shape[0], 3)).astype(np.float32)
+        vBuffer['a_channel'] = np.concatenate([channel[orient] for orient in orientations], axis=0).astype(np.float32)
+        self.vertexBuffer = vBuffer.view(gloo.VertexBuffer)
 
-        # Index buffer
-        self.indexBuffer = np.zeros((0, 3))
+        ## Index buffer
+        iBuffer = np.zeros((0, 3))
         startidx = 0
         for orient in orientations:
-            self.indexBuffer = np.concatenate([self.indexBuffer, startidx + faces[orient]], axis=0)
+            iBuffer = np.concatenate([iBuffer, startidx + faces[orient]], axis=0)
             startidx += verts[orient].shape[0]
-        self.indexBuffer = self.indexBuffer.astype(np.uint32).view(gloo.IndexBuffer)
+        self.indexBuffer = iBuffer.astype(np.uint32).view(gloo.IndexBuffer)
 
     def getSphericalCoords(self):
         return np.array([self.thetas, self.phis]).T
@@ -92,11 +113,3 @@ class UVSphere:
             faceIdcs = delaunay.simplices
 
         return faceIdcs
-
-#####
-# UV Sphere subclasses
-
-class UVSphere_80thetas_40phis(UVSphere):
-
-    def __init__(self):
-        super().__init__(theta_lvls=80, phi_lvls=40)

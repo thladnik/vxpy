@@ -1,3 +1,21 @@
+"""
+MappApp ./Controller.py - Main process class called to start program. Spawns all sub processes.
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import logging
 import multiprocessing as mp
 import multiprocessing.connection
@@ -7,7 +25,7 @@ from time import perf_counter
 
 import Definition
 import Helper
-import Camera
+import Buffers
 import Logging
 
 if Definition.Env == Definition.EnvTypes.Dev:
@@ -255,7 +273,7 @@ class BaseProcess:
 class Controller(BaseProcess):
     name = Definition.Process.Controller
 
-    _cameraBO: Camera.CameraBufferObject = None
+    _cameraBO: Buffers.CameraBufferObject = None
 
     def __init__(self, _configfile, _useGUI):
         BaseProcess.__init__(self, _ctrlQueue=mp.Queue(), _logQueue=mp.Queue())
@@ -312,9 +330,9 @@ class Controller(BaseProcess):
             return
 
         ### Create camera buffer object
-        self._cameraBO = Camera.CameraBufferObject(_config_Camera=self._config_Camera)
-        self._cameraBO.addBuffer(Camera.FrameBuffer)
-        self._cameraBO.addBuffer(Camera.EdgeDetector)
+        self._cameraBO = Buffers.CameraBufferObject(_config_Camera=self._config_Camera)
+        self._cameraBO.addBuffer(Buffers.FrameBuffer)
+        self._cameraBO.addBuffer(Buffers.EdgeDetector)
 
     def connectProperty(self, propName: str, processName: str):
         """Connect a property to a process.

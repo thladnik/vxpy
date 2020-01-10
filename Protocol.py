@@ -1,3 +1,22 @@
+"""
+MappApp ./Protocol.py - Collection of stimulation protocol classes which
+are be used to concatenate and present successive stimuli.
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
 from glumpy import gloo, transforms
 import importlib
 import logging
@@ -5,20 +24,18 @@ import logging
 import Definition
 import Logging
 
-class StimulationProtocol:
+class StaticStimulationProtocol:
 
     _name = None
 
-    def __init__(self, display):
-        self.display = display
+    def __init__(self, _display):
+        self.display = _display
 
         self._stimuli = list()
         self._stimulus_index = -1
         self._time = 0.0
         self._advanceTime = 0.0
 
-        self.program = None
-        self.model = None
         self._current = None
 
     def addStimulus(self, stimulus, kwargs, duration=None):
@@ -36,29 +53,12 @@ class StimulationProtocol:
                                          '// Stimulus {} with parameters {} (duration {})'
                            .format(self._name, self._stimulus_index, new_stimulus, kwargs, duration))
 
-        # First: Create new sphere model (if necessary)
-        if self.model is None or self._current.__class__._sphere_model != new_stimulus._sphere_model:
-            new_model = new_stimulus._sphere_model.split('>')
-            self.model = getattr(importlib.import_module('%s.%s' % (Definition.Path.Model, new_model[0])), new_model[1])()
 
-        # Second: Create new program (if necessary)
-        if self.program is None or self._current.__class__.getShaderHash() != new_stimulus.getShaderHash():
+        ### Set new stimulus
+        self._current = new_stimulus(protocol=self, display=self.display, **kwargs)
 
-            # Create program
-            self.program = gloo.Program(vertex=new_stimulus.getVertexShader(), fragment=new_stimulus.getFragmentShader())
-
-            # Set viewport and attach
-            self.program['viewport'] = transforms.Viewport()
-            self.display._glWindow.attach(self.program['viewport'])
-
-            # Set uniforms on new program
-            self.display._updateDisplayUniforms()
-
-            # Bind vertex buffer of model to program
-            self.program.bind(self.model.vertexBuffer)
-
-        # Set new stimulus
-        self._current = new_stimulus(self, **kwargs)
+        ### Set uniforms on new program
+        self.display._updateDisplayUniforms()
 
         # Set new time when protocol should advance
         if duration is not None:

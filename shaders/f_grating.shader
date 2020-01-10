@@ -1,3 +1,7 @@
+
+
+// f_grating.shader
+
 uniform int u_shape;
 uniform int u_stripes_num;
 uniform float u_velocity;

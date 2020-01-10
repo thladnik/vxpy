@@ -1,3 +1,5 @@
+// f_checkerboard.shader
+
 uniform int u_checker_rows;
 uniform int u_checker_cols;
 

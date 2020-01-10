@@ -1,19 +1,33 @@
-from StaticProtocol import StimulationProtocol
+"""
+MappApp ./protocols/Calibration.py - Protocols for calibration of spherical visual stimulation setup.
+Copyright (C) 2020 Tim Hladnik
 
-from stimuli.Checkerboard import Checkerboard
-from stimuli.Grating import Grating
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-class Calibration(StimulationProtocol):
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
+from Protocol import StaticStimulationProtocol
+
+from stimuli.Checkerboard import BlackWhiteCheckerboard
+from stimuli.Grating import BlackWhiteGrating
+
+class Calibration(StaticStimulationProtocol):
 
     _name = 'Calibration'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 
-        self.addStimulus(Checkerboard,
+        self.addStimulus(BlackWhiteCheckerboard,
                          dict(cols=16, rows=16),
                          duration=5)
-        self.addStimulus(Grating,
-                         dict(orientation='vertical', shape='rectangular', num=20, velocity=2.0),
-                         duration=None)
-        self.addStimulus(Checkerboard, dict(), duration=None)

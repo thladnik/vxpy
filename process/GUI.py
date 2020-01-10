@@ -1,3 +1,21 @@
+"""
+MappApp .process/GUI.py - Graphical user interface for easier UX.
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import logging
 import os
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -5,7 +23,7 @@ import sys
 from time import strftime
 
 import Definition
-import Camera
+import Buffers
 import Controller
 import Logging
 import gui.DisplaySettings
@@ -15,7 +33,7 @@ import gui.Camera
 class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
     name = Definition.Process.GUI
 
-    _cameraBO    : Camera.CameraBufferObject
+    _cameraBO    : Buffers.CameraBufferObject
     _app         : QtWidgets.QApplication
     _logFilename : str = None
 

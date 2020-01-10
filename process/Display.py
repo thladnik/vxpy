@@ -1,3 +1,21 @@
+"""
+MappApp ./process/Display.py - Process which handles rendering of visual stimuli.
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+
 from glumpy import app, glm
 import logging
 import numpy as np
@@ -5,7 +23,7 @@ import numpy as np
 import Controller
 import Definition
 import Logging
-import StaticProtocol
+import Protocol
 
 if Definition.Env == Definition.EnvTypes.Dev:
     from IPython import embed
@@ -15,13 +33,14 @@ class Main(Controller.BaseProcess):
 
     _config   : dict              = dict()
     _glWindow : app.window.Window = None
-    protocol  : StaticProtocol    = None
+    protocol  : Protocol          = None
 
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set Glumpy to use pyglet backend
-        app.use('pyglet') # TODO: problem with pyglet backend on some systems? Perhaps version issue?
+        # (If pylget throws an exception when moving/resizing the window -> update pyglet)
+        app.use('pyglet')
 
         ### Open OpenGL window
         self._glWindow = app.Window(width=1200, height=700, color=(1, 1, 1, 1), title='Display')
@@ -59,14 +78,12 @@ class Main(Controller.BaseProcess):
         pass
 
     def on_draw(self, dt):
-        """Glumpy on_draw event
+        """Glumpy on_draw event.
+        This method is just a pass-through to the currently set protocol.
 
         :param dt: elapsed time since last call in [s]
         :return:
         """
-
-        ### Clear window
-        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
         ### Check if protocol is set yet
         if self.protocol is None:
@@ -102,8 +119,8 @@ class Main(Controller.BaseProcess):
             length = height
             x_offset = (width - length) // 2 + x_add
             y_offset = y_add
-        self.protocol.program['viewport']['global'] = (0, 0, width, height)
-        self.protocol.program['viewport']['local'] = (x_offset, y_offset, length, length)
+        self.protocol._current.program['viewport']['global'] = (0, 0, width, height)
+        self.protocol._current.program['viewport']['local'] = (x_offset, y_offset, length, length)
 
     def _toggleFullscreen(self):
         """Toggle the fullscreen state of the OpenGL window
@@ -156,12 +173,12 @@ class Main(Controller.BaseProcess):
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_sw,
                    *rot_axis_sw)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.protocol.program['u_trans_sw'] = u_trans
-        self.protocol.program['u_rot_sw'] = u_rot
-        self.protocol.program['u_projection_sw'] = u_projection
+        self.protocol._current.program['u_trans_sw'] = u_trans
+        self.protocol._current.program['u_rot_sw'] = u_rot
+        self.protocol._current.program['u_projection_sw'] = u_projection
         # Linear image plane transformations
-        self.protocol.program['u_radial_offset_sw'] = std_radial_offset
-        self.protocol.program['u_tangent_offset_sw'] = std_tangent_offset
+        self.protocol._current.program['u_radial_offset_sw'] = std_radial_offset
+        self.protocol._current.program['u_tangent_offset_sw'] = std_tangent_offset
 
         ## SOUTH EAST
         # Non-linear transformations
@@ -172,12 +189,12 @@ class Main(Controller.BaseProcess):
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_se,
                    *rot_axis_se)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.protocol.program['u_trans_se'] = u_trans
-        self.protocol.program['u_rot_se'] = u_rot
-        self.protocol.program['u_projection_se'] = u_projection
+        self.protocol._current.program['u_trans_se'] = u_trans
+        self.protocol._current.program['u_rot_se'] = u_rot
+        self.protocol._current.program['u_projection_se'] = u_projection
         # Linear image plane transformations
-        self.protocol.program['u_radial_offset_se'] = std_radial_offset
-        self.protocol.program['u_tangent_offset_se'] = std_tangent_offset
+        self.protocol._current.program['u_radial_offset_se'] = std_radial_offset
+        self.protocol._current.program['u_tangent_offset_se'] = std_tangent_offset
 
         rot_axis_ne = (-1, 1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
@@ -186,12 +203,12 @@ class Main(Controller.BaseProcess):
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_ne,
                    *rot_axis_ne)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.protocol.program['u_trans_ne'] = u_trans
-        self.protocol.program['u_rot_ne'] = u_rot
-        self.protocol.program['u_projection_ne'] = u_projection
+        self.protocol._current.program['u_trans_ne'] = u_trans
+        self.protocol._current.program['u_rot_ne'] = u_rot
+        self.protocol._current.program['u_projection_ne'] = u_projection
         # Linear image plane transformations
-        self.protocol.program['u_radial_offset_ne'] = std_radial_offset
-        self.protocol.program['u_tangent_offset_ne'] = std_tangent_offset
+        self.protocol._current.program['u_radial_offset_ne'] = std_radial_offset
+        self.protocol._current.program['u_tangent_offset_ne'] = std_tangent_offset
 
         rot_axis_nw = (-1, -1, 0)
         u_projection = glm.perspective(std_fov, 1.0, 0.01, 1000.0)
@@ -200,12 +217,12 @@ class Main(Controller.BaseProcess):
         glm.rotate(u_rot, std_elevation_rot - elevation_rot_nw,
                    *rot_axis_nw)  # Rotate around current azim. major circle
         u_trans = glm.translation(0., 0., std_trans_distance)
-        self.protocol.program['u_trans_nw'] = u_trans
-        self.protocol.program['u_rot_nw'] = u_rot
-        self.protocol.program['u_projection_nw'] = u_projection
+        self.protocol._current.program['u_trans_nw'] = u_trans
+        self.protocol._current.program['u_rot_nw'] = u_rot
+        self.protocol._current.program['u_projection_nw'] = u_projection
         # Linear image plane transformations
-        self.protocol.program['u_radial_offset_nw'] = std_radial_offset
-        self.protocol.program['u_tangent_offset_nw'] = std_tangent_offset
+        self.protocol._current.program['u_radial_offset_nw'] = std_radial_offset
+        self.protocol._current.program['u_tangent_offset_nw'] = std_tangent_offset
 
     def _startShutdown(self):
         self._glWindow.close()
