@@ -1,11 +1,33 @@
 from glumpy import gloo
 import numpy as np
 from helper.nash_helper import *
+import Model
+class mask_UVsphere(Model.SphereModel):
+    def __init__(self,azi,elv,r,azitile:int = 30,elvtile:int = 30):
+        Model.SphereModel.__init__ (self)
+        self.azi = azi
+        self.elv = elv
+        self.r   = r
+        self.azitile = azitile
+        self.elvtile = elvtile
 
-class diviable_icosphere:
+    def _construct(self) :
+        sphV, sphI = UVsphere (self.azi, self.elv, self.azitile, self.elvtile)
+        mask_V = np.zeros (sphV.shape[0], [("position", np.float32, 3)])
+        mask_V["position"] = sphV * np.mean (self.r)
+        self.vertexBuffer = mask_V.view (gloo.VertexBuffer)
+        mask_I = sphI.astype (np.uint32)
+        self.indexBuffer = mask_I.view (gloo.IndexBuffer)
+
+    def _prepareChannels(self) :
+        pass
+
+
+class diviable_icosphere(Model.SphereModel):
 
     def __init__(self, subdivisionTimes:int =1):
         # Set attributes
+        Model.SphereModel.__init__ (self)
         self.r = (1 + np.sqrt(5)) / 2
         self.init_vertices = np.array([
                     [-1.0, self.r, 0.0],
@@ -46,7 +68,7 @@ class diviable_icosphere:
         self.sdtimes = subdivisionTimes
 
         # Construct sphere and prepare for projection
-        self._construct()
+        # self._construct()
 
     def _construct(self):
         [usV, usF] = subdivide_triangle(self.init_vertices, self.init_faces, self.sdtimes) # Compute the radius of all the vertices
@@ -64,13 +86,16 @@ class diviable_icosphere:
         Vout = np.zeros(len(usF), vtype)  # Create the vertex array for vertex buffer
         Vout['position'] = usV[usF,:]  # Triangles must not share edges/vertices while doing texture mapping, this line duplicate the shared vertices for each triangle
         Iout = np.arange(usF.size, dtype=np.uint32)  # Construct the face indices array
-        Vout['texcoord'] = cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1)
+        Vout['texcoord'] = cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1).reshape([Iout.size,2])
 
         self.tile_orientation = tileOri
         self.tile_center      = tileCen
         self.intertile_distance = tileDist
         self.vertexBuffer = Vout.view(gloo.VertexBuffer)
         self.indexBuffer  = Iout.view(gloo.IndexBuffer)
+
+    def _prepareChannels(self):
+        pass
 
 #####
 # icoSphere subclasses

@@ -63,7 +63,7 @@ class SphericalStimulus(AbstractStimulus):
         self.program['viewport'] = transforms.Viewport()
         self.display._glWindow.attach(self.program['viewport'])
 
-        ### Bind vertex buffer of model to program
+        ### Bind vertex bufer of model to program
         self.program.bind(self._model.vertexBuffer)
 
     def getVertexShader(self):

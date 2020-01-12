@@ -1,6 +1,29 @@
 import numpy as np
 import warnings
 
+def UVsphere(azi, elv, azitile: int = 30, elvtile: int = 30):
+    imgvertice = np.array([np.arange(azitile + 1)]).T + \
+                 np.array([np.arange(elvtile + 1) * 1.j])
+    sph_azi = np.exp(1.j * np.linspace(-azi / 2, azi / 2, azitile + 1))
+    sph_elv = np.linspace(-elv / 2, elv / 2, elvtile + 1)
+    sph_xz, sph_yz = np.meshgrid(sph_azi, sph_elv)
+    sph_xz = sph_xz * np.sqrt(1 - sph_yz ** 2)
+    adding_idx = np.arange(imgvertice.size).reshape(imgvertice.shape)
+
+    # Vertices positions
+    p3 = np.stack((np.real(sph_xz.flatten()), np.imag(sph_xz.flatten()), np.real(sph_yz.flatten())), axis=-1)
+    p3[np.isnan(p3)] = 0
+    p3 = vecNormalize(p3)
+    imgV_conn = np.array([np.arange(azitile) + 1, np.arange(azitile), np.arange(azitile + 1, azitile * 2 + 1, 1),
+                          np.arange(azitile + 1, azitile * 2 + 1, 1) + 1, np.arange(azitile + 1, azitile * 2 + 1, 1),
+                          np.arange(azitile) + 1]
+                         , dtype=np.uint32).T.flatten() + np.array([np.arange(0, elvtile + 1, 1)]).T * (azitile + 1)
+
+    return p3, imgV_conn.reshape(-1, 3)
+
+def rotation2D(theta):
+    return np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
 def cen2tri(cen_x=np.array([0]), cen_y=np.array([0]), triangle_size=np.array([1])):
     """
     :param cen_x: (optional) ndarray; x coordinate of the triangle center; default = 0

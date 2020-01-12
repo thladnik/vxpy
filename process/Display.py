@@ -119,8 +119,8 @@ class Main(Controller.BaseProcess):
             length = height
             x_offset = (width - length) // 2 + x_add
             y_offset = y_add
-        self.protocol._current.program['viewport']['global'] = (0, 0, width, height)
-        self.protocol._current.program['viewport']['local'] = (x_offset, y_offset, length, length)
+        # self.protocol._current.program['viewport']['global'] = (0, 0, width, height) # Nash 11012020: I use a completely different shaders and methods in ico_cmn for rendering so have to comment this
+        # self.protocol._current.program['viewport']['local'] = (x_offset, y_offset, length, length) # Nash 11012020: I use a completely different shaders and methods in ico_cmn  for rendering so have to comment this
 
     def _toggleFullscreen(self):
         """Toggle the fullscreen state of the OpenGL window
