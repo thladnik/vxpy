@@ -22,31 +22,20 @@ import os
 import Definition
 class Shader:
 
-    _glumpy_placeholders = {
-        '//<viewport.transform>;': '<viewport.transform>;',
-        '//<viewport.clipping>;': '<viewport.clipping>;'
-    }
+    def __init__(self):
+        self._flist = list()
 
-    def __init__(self, base, main):
-        self._compile(base, main)
+    def addShaderFile(self, fname):
+        self._flist.append(fname)
 
-    def _compile(self, base, main):
-        self.shader = ''
+        return self
 
-        # Load base shader
-        with open(os.path.join(Definition.Path.Shader, base), 'r') as fobj:
-            self.shader += fobj.read()
-            fobj.close()
-        self.shader += '\n'
+    def read(self):
+        code = ''
 
-        # Load shader containing void main()
-        with open(os.path.join(Definition.Path.Shader, main), 'r') as fobj:
-            self.shader += fobj.read()
-            fobj.close()
+        for fname in self._flist:
+            with open(os.path.join(Definition.Path.Shader, fname), 'r') as fobj:
+                code += fobj.read()
+            code += '\n'
 
-            # Substitute Glumpy-specific placeholders
-        for key, str in self._glumpy_placeholders.items():
-            self.shader = self.shader.replace(key, str)
-
-    def getString(self):
-            return self.shader
+        return code

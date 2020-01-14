@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticStimulationProtocol
 
-from stimuli.ico_proj import icoCMN
+from stimuli.IcoProj import IcoCMN
 
 class ico_cmn(StaticStimulationProtocol):
 
@@ -26,4 +26,4 @@ class ico_cmn(StaticStimulationProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-        self.addStimulus(icoCMN,{},duration=150)
+        self.addStimulus(IcoCMN, {}, duration=150)

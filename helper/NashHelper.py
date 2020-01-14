@@ -1,7 +1,7 @@
 import numpy as np
 import warnings
 
-def UVsphere(azi, elv, azitile: int = 30, elvtile: int = 30):
+def createUVSphere(azi, elv, azitile = 30, elvtile = 30):
     imgvertice = np.array([np.arange(azitile + 1)]).T + \
                  np.array([np.arange(elvtile + 1) * 1.j])
     sph_azi = np.exp(1.j * np.linspace(-azi / 2, azi / 2, azitile + 1))

@@ -61,19 +61,19 @@ class BlackWhiteGrating(SphericalStimulus):
             self._setOrientation(orientation)
 
         if velocity is not None:
-            self.program['u_velocity'] = velocity
+            self._programs['u_velocity'] = velocity
 
         if num is not None and num > 0:
-            self.program['u_stripes_num'] = num
+            self._programs['u_stripes_num'] = num
 
     def _setShape(self, shape):
         if shape == 'rectangular':
-            self.program['u_shape'] = 1
+            self._programs['u_shape'] = 1
         elif shape == 'sinusoidal':
-            self.program['u_shape'] = 2
+            self._programs['u_shape'] = 2
 
     def _setOrientation(self, orientation):
         if orientation == 'vertical':
-            self.program['u_orientation'] = 1
+            self._programs['u_orientation'] = 1
         elif orientation == 'horizontal':
-            self.program['u_orientation'] = 2
+            self._programs['u_orientation'] = 2

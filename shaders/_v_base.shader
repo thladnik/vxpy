@@ -1,5 +1,8 @@
 const float pi = 3.14159265359;
 
+uniform vec2 u_global_shift;
+uniform mat2 u_global_scale;
+
 // Transforms SOUTH WEST
 uniform mat4   u_rot_sw;
 uniform mat4   u_trans_sw;
@@ -54,6 +57,8 @@ vec4 channelTransform() {
         // Rangential offset
         pos.x += u_tangent_offset_sw * pos.w;
         pos.y -= u_tangent_offset_sw * pos.w;
+        pos.xy = pos.xy * u_global_scale;
+        pos.xy += u_global_shift;
         // Last: return position for vertex
     }
     // SOUTH EAST
@@ -66,6 +71,8 @@ vec4 channelTransform() {
         pos.y -= u_radial_offset_se * pos.w;
         // Tangential offset
         pos.xy += u_tangent_offset_se * pos.w;
+        pos.xy = pos.xy * u_global_scale;
+        pos.xy += u_global_shift;
         // Last: return position for vertex
     }
     // NORTH EAST
@@ -78,6 +85,8 @@ vec4 channelTransform() {
         // Tangential offset
         pos.x -= u_tangent_offset_ne * pos.w;
         pos.y += u_tangent_offset_ne * pos.w;
+        pos.xy = pos.xy * u_global_scale;
+        pos.xy += u_global_shift;
         // Last: return position for vertex
     }
     // NORTH WEST
@@ -90,6 +99,8 @@ vec4 channelTransform() {
         pos.y += u_radial_offset_nw * pos.w;
         // Tangential offset
         pos.xy -= u_tangent_offset_nw * pos.w;
+        pos.xy = pos.xy * u_global_scale;
+        pos.xy += u_global_shift;
         // Last: return position for vertex
     }
 
