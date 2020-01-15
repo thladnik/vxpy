@@ -41,9 +41,10 @@ class Main(Controller.BaseProcess):
         ### Set Glumpy to use pyglet backend
         # (If pylget throws an exception when moving/resizing the window -> update pyglet)
         app.use('pyglet')
-
+        config = app.configuration.Configuration()
+        config.stencil_size = 8
         ### Open OpenGL window
-        self._glWindow = app.Window(width=1200, height=700, color=(1, 1, 1, 1), title='Display')
+        self._glWindow = app.Window(width=1200, height=700, color=(1, 1, 1, 1), title='Display',config = config)
         self._glWindow.set_position(400, 400)
 
         ### Apply event wrapper

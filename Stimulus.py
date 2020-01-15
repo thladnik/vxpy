@@ -146,9 +146,10 @@ class SphericalStimulus(AbstractStimulus):
             gl.glStencilFunc (gl.GL_ALWAYS, 1, 0xFF)
             gl.glStencilMask (0xFF)
             gl.glDisable(gl.GL_DEPTH_TEST)
+            gl.glColorMask(gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE)
             self._mask_program.draw (gl.GL_TRIANGLES, self._mask_model.indexBuffer)
-
             gl.glEnable (gl.GL_DEPTH_TEST)
+            gl.glColorMask(gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE)
             gl.glStencilFunc (gl.GL_EQUAL, 1, 0xFF)
             gl.glStencilMask (0x00)
             # self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
@@ -157,17 +158,12 @@ class SphericalStimulus(AbstractStimulus):
 
             for pname, p in self._programs[self.__class__].items():
                 if pname == '_mask_program':
-                    p['u_rotate'] = NashHelper.rotation2D(np.pi / 4 + np.pi / 2 * i)
-                    p['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
-                    p['u_map_scale'] = .5 * np.array([1, 1])
+                    p['u_map_scale'] = np.array([1, 1])
                 else:
-                    # pass
                     p['u_transformation'] = self.transformation# rotateMat @ self.translateMat @ self.projectMat
-                    p['u_rotate'] = NashHelper.rotation2D(np.pi / 4 + np.pi / 2 * i)
-                    p['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
-                    p['u_map_scale'] = .5 * np.array([1, 1])
+                    p['u_map_scale'] = .5*np.array([1, 1])
+                p['u_rotate'] = NashHelper.rotation2D(np.pi / 4 + np.pi / 2 * i)
+                p['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
+
 
             self.custom_draw()
-
-            # self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
-
