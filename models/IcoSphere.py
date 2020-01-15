@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-from Geometry import SphereHelper
+from helper.Geometry import SphereHelper
 
 gr = 1.61803398874989484820
 class IcosahedronSphere:

@@ -20,7 +20,7 @@ from glumpy import gloo
 import numpy as np
 from scipy.spatial import Delaunay
 
-from Geometry import SphereHelper
+from helper.Geometry import SphereHelper
 import Model
 
 #####

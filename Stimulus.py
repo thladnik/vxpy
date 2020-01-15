@@ -81,8 +81,8 @@ class AbstractStimulus:
 
 
 from Shader import Shader
-from models import NashCMNSpheres
-from helper import NashHelper
+from models import CMNSpheres
+from helper import Geometry
 from glumpy import glm
 class SphericalStimulus(AbstractStimulus):
 
@@ -95,8 +95,8 @@ class SphericalStimulus(AbstractStimulus):
 
         ### Create mask model
         self._mask_model = self.addModel('_mask_model',
-                                        NashCMNSpheres.UVSphere,
-                                        azi=np.pi/2, elv=np.pi, r=1, azitile=20, elvtile=80)
+                                         CMNSpheres.UVSphere,
+                                         azi=np.pi/2, elv=np.pi, r=1, azitile=20, elvtile=80)
         ### Create mask program
         self._mask_program = self.addProgram('_mask_program',
                                             Shader().addShaderFile('v_ucolor.shader').read(),
@@ -112,7 +112,7 @@ class SphericalStimulus(AbstractStimulus):
         ### Setup mask program
         for pname, p in self._programs[self.__class__].items():
             p['u_transformation'] = self.transformation
-            p['u_rotate'] = NashHelper.rotation2D (np.pi / 4)
+            p['u_rotate'] = Geometry.rotation2D (np.pi / 4)
             p['u_shift'] = np.array ([0.5, 0.5])
             p['u_map_scale'] = .5 * np.array ([1, 1])
             p['u_color'] = np.array ([0, 0, 0, 1])
@@ -136,7 +136,7 @@ class SphericalStimulus(AbstractStimulus):
         self.display._glWindow.clear (color=(0.0, 0.0, 0.0, 1.0))
         for i in range(4):
             # Rotate mask around center of screen
-            u_rotate2d = NashHelper.rotation2D(np.pi / 4 + np.pi / 2 * i)
+            u_rotate2d = Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i)
             self._mask_program['u_rotate'] = u_rotate2d
             self._mask_program['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
                 ### Apply mask
@@ -162,7 +162,7 @@ class SphericalStimulus(AbstractStimulus):
                 else:
                     p['u_transformation'] = self.transformation# rotateMat @ self.translateMat @ self.projectMat
                     p['u_map_scale'] = .5*np.array([1, 1])
-                p['u_rotate'] = NashHelper.rotation2D(np.pi / 4 + np.pi / 2 * i)
+                p['u_rotate'] = Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i)
                 p['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
 
 

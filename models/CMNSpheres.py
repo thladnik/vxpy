@@ -1,6 +1,6 @@
 from glumpy import gloo
 import numpy as np
-from helper import NashHelper
+from helper import Geometry
 import Model
 
 
@@ -15,11 +15,10 @@ class UVSphere(Model.SphereModel):
         self.azitile = azitile
         self.elvtile = elvtile
 
-        sphV, sphI = NashHelper.createUVSphere(self.azi, self.elv, self.azitile, self.elvtile)
+        sphV, sphI = Geometry.createUVSphere(self.azi, self.elv, self.azitile, self.elvtile)
 
         ### Set position shader attribute (for vertex buffer)
         self.a_position = sphV * np.mean(self.r)
-
 
         ### Create the vertex buffer and initialize with current values
         self.createVertexBuffer()
@@ -76,8 +75,8 @@ class IcoSphere(Model.SphereModel):
                     [9, 8, 1]
                 ])
         self.sdtimes = subdivisionTimes
-        [usV, usF] = NashHelper.subdivide_triangle(self.init_vertices, self.init_faces, self.sdtimes) # Compute the radius of all the vertices
-        sphereR = NashHelper.vecNorm(usV[0, :])  # Compute the radius of all the vertices
+        [usV, usF] = Geometry.subdivide_triangle(self.init_vertices, self.init_faces, self.sdtimes) # Compute the radius of all the vertices
+        sphereR = Geometry.vecNorm(usV[0, :])  # Compute the radius of all the vertices
         tileCen = np.mean(usV[usF, :], axis=1)  # Compute the center of each triangle tiles
 
         ### Create index buffer
@@ -87,13 +86,13 @@ class IcoSphere(Model.SphereModel):
         ### Create vertex buffer
         # The orientation of each triangle tile is defined as the direction perpendicular to the first edge of the triangle;
         # Here each orientation vector is represented by a complex number for the convenience of later computation
-        tileOri = NashHelper.vecNormalize(np.cross(tileCen, usV[usF[:, 1], :] - usV[usF[:, 0], :])) \
-                  + 1.j * NashHelper.vecNormalize(usV[usF[:, 1], :] - usV[usF[:, 0], :])
-        tileDist = NashHelper.sphAngle(tileCen, sphereR)  # Spherical distance for each tile pair
+        tileOri = Geometry.vecNormalize(np.cross(tileCen, usV[usF[:, 1], :] - usV[usF[:, 0], :])) \
+                  + 1.j * Geometry.vecNormalize(usV[usF[:, 1], :] - usV[usF[:, 0], :])
+        tileDist = Geometry.sphAngle(tileCen, sphereR)  # Spherical distance for each tile pair
         usF = np.uint32(usF.flatten())
         # Triangles must not share edges/vertices while doing texture mapping, this line duplicate the shared vertices for each triangle
         self.a_position = usV[usF,:]
-        self.a_texcoord = NashHelper.cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1).reshape([Iout.size,2])
+        self.a_texcoord = Geometry.cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1).reshape([Iout.size, 2])
 
         self.createVertexBuffer()
 

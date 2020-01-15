@@ -19,11 +19,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PyQt5 import QtCore, QtWidgets
 
 import Definition
-import Helper
+from helper import Basic
 from process import GUI
 
 if Definition.Env == Definition.EnvTypes.Dev:
-    from IPython import embed
+    pass
 
 class DisplaySettings(QtWidgets.QWidget):
 
@@ -179,9 +179,9 @@ class DisplaySettings(QtWidgets.QWidget):
 
         if Definition.DisplayConfig.float_pos_glob_x_pos in _config \
                 and _config[Definition.DisplayConfig.bool_disp_fullscreen] != \
-                Helper.Conversion.QtCheckstateToBool(self._check_fullscreen.checkState()):
+                Basic.Conversion.QtCheckstateToBool(self._check_fullscreen.checkState()):
             self._check_fullscreen.setCheckState(
-                Helper.Conversion.boolToQtCheckstate(_config[Definition.DisplayConfig.bool_disp_fullscreen]))
+                Basic.Conversion.boolToQtCheckstate(_config[Definition.DisplayConfig.bool_disp_fullscreen]))
 
 
     def _settingsChanged(self):
@@ -194,7 +194,7 @@ class DisplaySettings(QtWidgets.QWidget):
             Definition.DisplayConfig.float_view_origin_distance     : self._dspn_view_origin_distance.value(),
             Definition.DisplayConfig.float_view_fov                 : self._dspn_fov.value(),
             Definition.DisplayConfig.int_disp_screen_id             : self._spn_screen_id.value(),
-            Definition.DisplayConfig.bool_disp_fullscreen           : Helper.Conversion.QtCheckstateToBool(
+            Definition.DisplayConfig.bool_disp_fullscreen           : Basic.Conversion.QtCheckstateToBool(
                 self._check_fullscreen.checkState())
         })
 

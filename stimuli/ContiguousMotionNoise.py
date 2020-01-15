@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/IcoProj.py - icoCMN stimuli
+MappApp ./stimuli/ContiguousMotionNoise.py - icoCMN stimuli
 Copyright (C) 2020 Yue Zhang
 
 This program is free software: you can redistribute it and/or modify
@@ -23,30 +23,28 @@ from glumpy import gl, gloo,glm
 
 import Logging
 from Shader import Shader
-from helper import NashHelper
+from helper import Geometry
 from Stimulus import SphericalStimulus
-from models import NashCMNSpheres
+from models import CMNSpheres
 
 # TODO: Fix shader compatibility, write stimulus, test if stimulus class allows multiple program
 class IcoCMN(SphericalStimulus):
 
 
-    def __init__(self, protocol,display):
-        """
-        """
+    def __init__(self, protocol, display):
         SphericalStimulus.__init__(self, protocol, display)
 
-        ### Define models
-
+        ### Define model
         self.sphere_model = self.addModel('sphere',
-                                          NashCMNSpheres.IcoSphere,
+                                          CMNSpheres.IcoSphere,
                                           subdivisionTimes=1)
 
-        ### Define programs
+        ### Define program
         self.sphere_program = self.addProgram('main',
                                               Shader().addShaderFile('v_tex.shader').read(),
                                               Shader().addShaderFile('f_tex.shader').read())
 
+        ### Bind vertex buffer
         self.sphere_program.bind(self.sphere_model.vertexBuffer)
 
         Isize = self.sphere_model.indexBuffer.size
@@ -60,26 +58,25 @@ class IcoCMN(SphericalStimulus):
         tpkernel *= tpkernel > .001
 
         flowvec = np.random.normal (size=[np.int (Isize / 3), 500, 3])  # Random white noise motion vector
-        flowvec /= NashHelper.vecNorm (flowvec)[:, :, None]
+        flowvec /= Geometry.vecNorm (flowvec)[:, :, None]
         tpsmooth_x = signal.convolve (flowvec[:, :, 0], tpkernel[np.newaxis, :], mode='same')
         tpsmooth_y = signal.convolve (flowvec[:, :, 1], tpkernel[np.newaxis, :], mode='same')
         tpsmooth_z = signal.convolve (flowvec[:, :, 2], tpkernel[np.newaxis, :], mode='same')
         spsmooth_x = np.dot (spkernel, tpsmooth_x)
         spsmooth_y = np.dot (spkernel, tpsmooth_y)
         spsmooth_z = np.dot (spkernel, tpsmooth_z)  #
-        spsmooth_Q = NashHelper.qn(np.array ([spsmooth_x, spsmooth_y, spsmooth_z]).transpose ([1, 2, 0]))
+        spsmooth_Q = Geometry.qn(np.array ([spsmooth_x, spsmooth_y, spsmooth_z]).transpose ([1, 2, 0]))
 
-        tileCen_Q = NashHelper.qn (self.sphere_model.tile_center)
-        tileOri_Q1 = NashHelper.qn (np.real (self.sphere_model.tile_orientation)).normalize[:, None]
-        tileOri_Q2 = NashHelper.qn (np.imag (self.sphere_model.tile_orientation)).normalize[:, None]
-        projected_motmat = NashHelper.projection (tileCen_Q[:, None], spsmooth_Q)
-        self.motmatFull = NashHelper.qdot (tileOri_Q1, projected_motmat) - 1.j * NashHelper.qdot (tileOri_Q2, projected_motmat)
-        startpoint = NashHelper.cen2tri (np.random.rand (np.int (Isize / 3)), np.random.rand (np.int (Isize / 3)), .1)
+        tileCen_Q = Geometry.qn (self.sphere_model.tile_center)
+        tileOri_Q1 = Geometry.qn (np.real (self.sphere_model.tile_orientation)).normalize[:, None]
+        tileOri_Q2 = Geometry.qn (np.imag (self.sphere_model.tile_orientation)).normalize[:, None]
+        projected_motmat = Geometry.projection (tileCen_Q[:, None], spsmooth_Q)
+        self.motmatFull = Geometry.qdot (tileOri_Q1, projected_motmat) - 1.j * Geometry.qdot (tileOri_Q2, projected_motmat)
+        startpoint = Geometry.cen2tri (np.random.rand (np.int (Isize / 3)), np.random.rand (np.int (Isize / 3)), .1)
         self.sphere_model.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2])
 
         self.sphere_program['texture']= np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
         self.sphere_program['texture'].wrapping = gl.GL_REPEAT
-
 
         self.i = 0
 

@@ -24,7 +24,7 @@ from typing import Union
 from PyQt5 import QtWidgets
 
 import Definition
-import Helper
+from helper import Basic
 
 from devices.cameras.virtual import VirtualCamera
 
@@ -125,7 +125,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             return
 
         self._configfile = '%s.ini' % name
-        self.configuration = Helper.Config(self._configfile)
+        self.configuration = Basic.Config(self._configfile)
 
         # Set camera configuration
         self._gb_camera._loadCameraList()

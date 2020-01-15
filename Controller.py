@@ -24,7 +24,7 @@ import sys
 from time import perf_counter
 
 import Definition
-import Helper
+from helper import Basic
 import Buffers
 import Logging
 
@@ -251,7 +251,7 @@ class BaseProcess:
 
         ### Set new shared property if it doesn't already exist
         if not(hasattr(self.__class__, propName)):
-            setattr(self.__class__, propName, Helper.SharedProperty(propName, propDtype))
+            setattr(self.__class__, propName, Basic.SharedProperty(propName, propDtype))
             Logging.logger.log(logging.DEBUG, 'Created <{}>'.format(getattr(self, propName)))
             ### Register property with controller
             # (This will cause the controller to automatically propagate any changes to the property)
@@ -281,7 +281,7 @@ class Controller(BaseProcess):
 
         ## Set configurations
         self._configfile = _configfile
-        self.configuration = Helper.Config(self._configfile)
+        self.configuration = Basic.Config(self._configfile)
         self._config_Camera = self.configuration.configuration(Definition.CameraConfig)
         self._config_Display = self.configuration.configuration(Definition.DisplayConfig)
         self._config_Gui = self.configuration.configuration(Definition.GuiConfig)

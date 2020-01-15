@@ -18,9 +18,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticStimulationProtocol
 
-from stimuli.IcoProj import IcoCMN
+from stimuli.ContiguousMotionNoise import IcoCMN
 
-class ico_cmn(StaticStimulationProtocol):
+class IcoCMNProtocol(StaticStimulationProtocol):
 
     _name = 'ico_cmn'
 
