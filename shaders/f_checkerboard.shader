@@ -3,12 +3,13 @@
 uniform int u_checker_rows;
 uniform int u_checker_cols;
 
+varying float v_azimuth;
+varying float v_elevation;
+
 void main()
 {
-    //<viewport.clipping>;
-
     // Construct checkerboard
-    float c = sin(float(u_checker_cols) * v_sph_pos.x) * sin(float(u_checker_rows) * v_sph_pos.y);
+    float c = sin(float(u_checker_cols) * v_azimuth) * sin(float(u_checker_rows) * v_elevation);
     if (c > 0) {
        c = 1.0;
     } else {

@@ -43,6 +43,15 @@ class DisplayConfig:
 
     bool_use                     = 'bool_use'
 
+    # Window settings
+    int_window_screen_id         = 'int_window_screen_id'
+    bool_window_fullscreen       = 'bool_window_fullscreen'
+    int_window_width             = 'int_window_width'
+    int_window_height            = 'int_window_height'
+    int_window_pos_x             = 'int_window_pos_x'
+    int_window_pos_y             = 'int_window_pos_y'
+
+    # Calibration settings
     float_pos_glob_x_pos         = 'float_pos_glob_x_pos'
     float_pos_glob_y_pos         = 'float_pos_glob_y_pos'
     float_pos_glob_radial_offset = 'float_pos_glob_radial_offset'
@@ -51,9 +60,6 @@ class DisplayConfig:
     float_view_axis_offset       = 'float_view_axis_offset'
     float_view_origin_distance   = 'float_view_origin_distance'
     float_view_fov               = 'float_view_fov'
-
-    int_disp_screen_id           = 'int_disp_screen_id'
-    bool_disp_fullscreen         = 'bool_disp_fullscreen'
 
 class CameraConfig:
     name = 'camera'
@@ -69,4 +75,4 @@ class CameraConfig:
 class GuiConfig:
     name = 'gui'
 
-    bool_use         = True
+    bool_use         = 'bool_use'

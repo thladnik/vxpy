@@ -21,7 +21,7 @@ import multiprocessing as mp
 import multiprocessing.connection
 import signal
 import sys
-from time import perf_counter
+import time
 
 import Definition
 from helper import Basic
@@ -57,6 +57,9 @@ class BaseProcess:
     _processes           : dict = dict()
     _propertyConnections : dict = dict()
 
+    ## Known properties
+    config_Display : dict = None
+
     def __init__(self, **kwargs):
         """
         Kwargs should contain at least
@@ -85,11 +88,11 @@ class BaseProcess:
         self._shutdown = False
 
         ### Run event loop
-        self.t = perf_counter()
+        self.t = time.perf_counter()
         while self._isRunning():
             self._handleCommunication()
             self.main()
-            self.t = perf_counter()
+            self.t = time.perf_counter()
 
         ### Inform controller that process has terminated
         self.send(Definition.Process.Controller, BaseProcess.Signals.ConfirmShutdown)
@@ -143,7 +146,7 @@ class BaseProcess:
         """
 
         if not (hasattr(self, propName)):
-            Logging.logger.log(logging.WARNING, 'Property <{}> not set on process <{}>'.
+            Logging.logger.log(logging.WARNING, 'Property <{}> not set'.
                                format(propName, processName))
             return
 
@@ -209,7 +212,7 @@ class BaseProcess:
         elif signal == BaseProcess.Signals.RPC:
             self._executeRPC(*args, **kwargs)
 
-        ### Set property
+        ### Update property
         elif signal == BaseProcess.Signals.UpdateProperty:
             propName = args[0]
             propData = args[1]
@@ -279,12 +282,18 @@ class Controller(BaseProcess):
         BaseProcess.__init__(self, _ctrlQueue=mp.Queue(), _logQueue=mp.Queue())
         self._useGUI = _useGUI
 
+        self.manager = mp.Manager()
+
+
         ## Set configurations
         self._configfile = _configfile
         self.configuration = Basic.Config(self._configfile)
         self._config_Camera = self.configuration.configuration(Definition.CameraConfig)
-        self._config_Display = self.configuration.configuration(Definition.DisplayConfig)
+        self.config_Display = self.manager.dict()
+        self.config_Display.update(self.configuration.configuration(Definition.DisplayConfig))
+        #self._config_Display = self.configuration.configuration(Definition.DisplayConfig)
         self._config_Gui = self.configuration.configuration(Definition.GuiConfig)
+
 
         ### Set up components
         self._setupCamera()
@@ -294,10 +303,9 @@ class Controller(BaseProcess):
         if self._useGUI:
             import process.GUI
             self._initializeProcess(Definition.Process.GUI, process.GUI.Main,
-                                    _cameraBO=self._cameraBO)
+                                    _cameraBO=self._cameraBO, config_Display=self.config_Display)
         ## Display
-        import process.Display
-        self._initializeProcess(Definition.Process.Display, process.Display.Main)
+        self.initializeDisplay()
         ## Camera
         import process.Camera
         self._initializeProcess(Definition.Process.Camera, process.Camera.Main,
@@ -316,6 +324,12 @@ class Controller(BaseProcess):
         :param target: process class
         :param optKwargs: optional keyword arguments
         """
+        if processName in self._processes:
+            Logging.write(logging.INFO, 'Restart process {}'.format(processName))
+            self._processes[processName].terminate()
+            del self._processes[processName]
+            del self._pipes[processName]
+
         self._pipes[processName] = mp.Pipe()
         self._processes[processName] = mp.Process(target=target,
                                         name=processName,
@@ -324,6 +338,10 @@ class Controller(BaseProcess):
                                                     _inPipe=self._pipes[processName][1],
                                                     **optKwargs))
         self._processes[processName].start()
+
+    def initializeDisplay(self):
+        import process.Display
+        self._initializeProcess(Definition.Process.Display, process.Display.Main, config_Display=self.config_Display)
 
     def _setupCamera(self):
         if not(self._config_Camera[Definition.CameraConfig.bool_use]):
@@ -404,6 +422,7 @@ class Controller(BaseProcess):
                 # Check if all processes have shut down
                 if not(bool(self._processes)) and not(bool(self._pipes)):
                     break
+            time.sleep(0.1)
 
         Logging.logger.log(logging.DEBUG, 'Confirmed complete shutdown')
         self._running = False

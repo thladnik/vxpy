@@ -55,6 +55,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         ### Run event loop
         self.run()
 
+
     def run(self):
         ### Set timer for handling of communication
         self._tmr_handlePipe = QtCore.QTimer()
@@ -101,6 +102,15 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_act_testStimuli = QtWidgets.QAction('Stimulation protocols')
         #self._menu_act_testStimuli.triggered.connect(self._openStimProtocols)
         self._menu_windows.addAction(self._menu_act_testStimuli)
+        # Menu processes
+        self._menu_process = QtWidgets.QMenu('Processes')
+        self.menuBar().addMenu(self._menu_process)
+        self.menuBar().addMenu(self._menu_windows)
+        self._menu_process_redisp = QtWidgets.QAction('Restart display')
+        self._menu_process_redisp.setShortcut('Ctrl+d')
+        self._menu_process_redisp.triggered.connect(
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeDisplay))
+        self._menu_process.addAction(self._menu_process_redisp)
 
         ## Display Settings
         self._wdgt_dispSettings = gui.DisplaySettings.DisplaySettings(self)
@@ -125,9 +135,14 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
             for line in lines[self.logccount:]:
                 if len(line) == 0:
                     continue
-                record = line.split('<<>>')
+                record = line.split(' <<>> ')
                 if record[2].find('INFO') > -1 or record[2].find('WARN') > -1:
-                    self._txe_log.append(line)
+                    #self._txe_log.append(line)
+                    self._txe_log.append('{} :: {:10} :: {:8} :: {} '
+                                         .format(record[0],
+                                                 record[1].replace(' ', ''),
+                                                 record[2].replace(' ', ''),
+                                                 record[3]))
                 self.logccount += 1
 
     def _openDisplaySettings(self):
@@ -152,5 +167,6 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_stimProtocols.close()
         self._wdgt_camera.close()
         self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
+        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.ConfirmShutdown)
 
 

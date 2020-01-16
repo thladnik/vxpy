@@ -1,7 +1,7 @@
 """
 MappApp ./Stimulus.py - Base stimulus classes which is inherited by
 all stimulus implementations in ./stimulus/.
-Copyright (C) 2020 Tim Hladnik
+Copyright (C) 2020 Tim Hladnik, Yue Zhang
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -25,11 +25,16 @@ import Logging
 import Shader
 import Model
 
+################################
+### Abstract stimulus class
+
 class AbstractStimulus:
 
     _texture : np.ndarray = None
     _programs    = dict()
     _models   = dict()
+
+    _warns = list()
 
     ########
     # Texture property
@@ -52,14 +57,20 @@ class AbstractStimulus:
             if name in p._uniforms:
                 p[name] = val
             else:
-                Logging.logger.log(logging.WARNING, 'Trying to set undefined uniform {} on program {}'
-                                   .format(name, pname))
-
+                # Display warning once if uniform does not exist in program
+                sign = '{}>{}>{}'.format(self.__class__, pname, name)
+                if sign in self._warns:
+                    continue
+                self._warns.append(sign)
+                Logging.logger.log(logging.WARNING, 'Trying to set undefined uniform {} on program {} in class {}'
+                                   .format(name, pname, self.__class__))
 
     def addProgram(self, pname, vertex_shader, fragment_shader, geometry_shader=None) -> gloo.Program:
         if self.__class__ not in self._programs:
             self._programs[self.__class__] = dict()
         if pname not in self._programs[self.__class__]:
+            Logging.write(logging.DEBUG, 'Create program {} in class {}'
+                          .format(pname, self.__class__))
             self._programs[self.__class__][pname] = gloo.Program(vertex_shader, fragment_shader, geometry_shader)
         return self.program(pname)
 
@@ -67,6 +78,8 @@ class AbstractStimulus:
         if self.__class__ not in self._models:
             self._models[self.__class__] = dict()
         if mname not in self._models[self.__class__]:
+            Logging.write(logging.DEBUG, 'Create model {} in class {}'
+                          .format(mname, self.__class__))
             self._models[self.__class__][mname] = model_class(**kwargs)
         return self.model(mname)
 
@@ -77,14 +90,20 @@ class AbstractStimulus:
         Has to be re-implemented in child class if stimulus contains
         uniforms which can be manipulated externally.
         """
-        NotImplementedError('update method not implemented for in {}'.format(self.__class__.__name__))
+        Logging.write(logging.WARNING, 'Update method called but not implemented for stimulus {}'.format(self.__class__))
 
+
+################################
+### Spherical stimulus class
 
 from Shader import Shader
 from models import CMNSpheres
 from helper import Geometry
 from glumpy import glm
+import Definition
 class SphericalStimulus(AbstractStimulus):
+
+    _mask_name = '_mask'
 
     def __init__(self, protocol, display):
         self.protocol = protocol
@@ -94,52 +113,58 @@ class SphericalStimulus(AbstractStimulus):
         self.time = 0.0
 
         ### Create mask model
-        self._mask_model = self.addModel('_mask_model',
+        self._mask_model = self.addModel(self._mask_name,
                                          CMNSpheres.UVSphere,
                                          azi=np.pi/2, elv=np.pi, r=1, azitile=20, elvtile=80)
         ### Create mask program
-        self._mask_program = self.addProgram('_mask_program',
+        self._mask_program = self.addProgram(self._mask_name,
                                             Shader().addShaderFile('v_ucolor.shader').read(),
-                                            Shader().addShaderFile('f_ucolor.shader').read())
+                                            'void main() { gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0); }')
         self._mask_program.bind(self._mask_model.vertexBuffer)
 
-        ### Setup basic transformation
-        self.rotateMat = glm.rotate(np.eye(4), 90, 0, 0, 1) @ glm.rotate(np.eye(4), 90, 1, 0, 0)
-        self.translateMat = glm.translation (0, 0, -6)
-        self.projectMat = glm.perspective (45.0, 1, 2.0, 100.0)
-        self.transformation = self.rotateMat @ self.translateMat @ self.projectMat
 
-        ### Setup mask program
-        for pname, p in self._programs[self.__class__].items():
-            p['u_transformation'] = self.transformation
-            p['u_rotate'] = Geometry.rotation2D (np.pi / 4)
-            p['u_shift'] = np.array ([0.5, 0.5])
-            p['u_map_scale'] = .5 * np.array ([1, 1])
-            p['u_color'] = np.array ([0, 0, 0, 1])
-
-
-    def custom_draw(self):
+    def render(self):
         pass
 
     def draw(self, dt):
-        """
-        METHOD CAN BE RE-IMPLEMENTED.
-
-        By default this method uses the indexBuffer object to draw GL_TRIANGLES.
-
-        :param dt: time since last call
-        :return:
-        """
         self.time += dt
-        #self._programs['u_time'] = self.time
+        self.setUniform('u_stime', self.time)
+        self.setUniform('u_ptime', self.protocol._time)
+
+
+        ### Set 2d translation in window
+        u_global_shift = np.array([
+            self.display.config_Display[Definition.DisplayConfig.float_pos_glob_x_pos],
+            self.display.config_Display[Definition.DisplayConfig.float_pos_glob_y_pos]
+        ])
+        #self.protocol._current.program['u_global_shift'] = u_global_shift
+
+        #### Set scaling for aspect 1:1
+        width = self.display.config_Display[Definition.DisplayConfig.int_window_width]
+        height = self.display.config_Display[Definition.DisplayConfig.int_window_height]
+        if height > width:
+            u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
+        else:
+            u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
+
+        translate3d = glm.translation (0, 0, -6)
+        project3d = glm.perspective (45.0, 1, 2.0, 100.0)
+
+        ### Set uniforms
+        self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
+        self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
+        self.setUniform('u_mapcalib_scale', 1.0 * np.array ([1, 1]))
 
         self.display._glWindow.clear (color=(0.0, 0.0, 0.0, 1.0))
         for i in range(4):
-            # Rotate mask around center of screen
-            u_rotate2d = Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i)
-            self._mask_program['u_rotate'] = u_rotate2d
-            self._mask_program['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
-                ### Apply mask
+            ### Rotate 3d model
+            self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90, 0, 0, 1) @ glm.rotate(np.eye(4), 90, 1, 0, 0))
+            ### Rotate around center of screen
+            self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i))
+            ### Translate radially
+            self.setUniform('u_mapcalib_translate2d', np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * 0.8)
+
+            ### Write stencil buffer from mask sphere
             gl.glEnable (gl.GL_STENCIL_TEST)
             gl.glStencilOp (gl.GL_KEEP, gl.GL_KEEP, gl.GL_REPLACE)
             # gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
@@ -147,23 +172,15 @@ class SphericalStimulus(AbstractStimulus):
             gl.glStencilMask (0xFF)
             gl.glDisable(gl.GL_DEPTH_TEST)
             gl.glColorMask(gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE)
-            self._mask_program.draw (gl.GL_TRIANGLES, self._mask_model.indexBuffer)
+            self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
             gl.glEnable (gl.GL_DEPTH_TEST)
             gl.glColorMask(gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE)
-            gl.glStencilFunc (gl.GL_EQUAL, 1, 0xFF)
-            gl.glStencilMask (0x00)
-            # self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
-            ### Update all mapping related uniforms for all attached programs
-            rotateMat = glm.rotate (np.eye (4), 90*i, 0, 0, 1) @ glm.rotate (np.eye (4), 90, 1, 0,0)
+            gl.glStencilFunc(gl.GL_EQUAL, 1, 0xFF)
+            gl.glStencilMask(0x00)
+            #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
-            for pname, p in self._programs[self.__class__].items():
-                if pname == '_mask_program':
-                    p['u_map_scale'] = np.array([1, 1])
-                else:
-                    p['u_transformation'] = self.transformation# rotateMat @ self.translateMat @ self.projectMat
-                    p['u_map_scale'] = .5*np.array([1, 1])
-                p['u_rotate'] = Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i)
-                p['u_shift'] = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * .7
+            ### Apply 90*i degree rotation for rendering different parts of actual sphere
+            self.setUniform('u_mapcalib_rotate3d', glm.rotate (np.eye (4), 90*i, 0, 0, 1) @ glm.rotate (np.eye (4), 90, 1, 0,0))
 
-
-            self.custom_draw()
+            ### Call the
+            self.render()

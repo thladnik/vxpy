@@ -20,7 +20,14 @@ import Definition
 
 Configuration = {
     Definition.DisplayConfig.name : {
-        Definition.DisplayConfig.bool_use  : True,
+        Definition.DisplayConfig.bool_use                     : True,
+
+        Definition.DisplayConfig.int_window_screen_id         : 0,
+        Definition.DisplayConfig.bool_window_fullscreen       : False,
+        Definition.DisplayConfig.int_window_width            : 900,
+        Definition.DisplayConfig.int_window_height            : 600,
+        Definition.DisplayConfig.int_window_pos_x             : 400,
+        Definition.DisplayConfig.int_window_pos_y             : 400,
 
         Definition.DisplayConfig.float_pos_glob_x_pos         : 0.0,
         Definition.DisplayConfig.float_pos_glob_y_pos         : 0.0,
@@ -30,16 +37,13 @@ Configuration = {
         Definition.DisplayConfig.float_view_axis_offset       : 0.0,
         Definition.DisplayConfig.float_view_origin_distance   : 5.0,
         Definition.DisplayConfig.float_view_fov               : 25.0,
-
-        Definition.DisplayConfig.int_disp_screen_id           : 0,
-        Definition.DisplayConfig.bool_disp_fullscreen         : False
     },
 
     Definition.CameraConfig.name : {
         Definition.CameraConfig.bool_use                     : True,
         Definition.CameraConfig.str_manufacturer             : 'virtual',
         Definition.CameraConfig.str_model                    : 'cam01',
-        Definition.CameraConfig.str_format                   :'str_format',
+        Definition.CameraConfig.str_format                   : 'RGB (600, 400)',
         Definition.CameraConfig.int_resolution_x             : 600,
         Definition.CameraConfig.int_resolution_y             : 400
     },

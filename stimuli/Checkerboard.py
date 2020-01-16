@@ -21,11 +21,9 @@ import numpy as np
 
 from Stimulus import SphericalStimulus
 from models import UVSphere
+from Shader import Shader
 
 class BlackWhiteCheckerboard(SphericalStimulus):
-
-    _model = UVSphere.UVSphere(theta_lvls=60, phi_lvls=30)
-    _fragment_shader = 'f_checkerboard.shader'
 
     def __init__(self, protocol, display, rows, cols):
         """Black-and-white checkerboard for calibration.
@@ -34,20 +32,30 @@ class BlackWhiteCheckerboard(SphericalStimulus):
         :param rows: number of rows on checkerboard
         :param cols: number of columns on checkerboard
         """
-        super().__init__(protocol=protocol, display=display)
+        SphericalStimulus.__init__(self, protocol, display)
 
-        self._model.build()
-        self._createProgram()
+        self.model = self.addModel('sphere',
+                      UVSphere.UVSphere,
+                      theta_lvls=60, phi_lvls=30)
+
+        self.program = self.addProgram('sphere',
+                        Shader().addShaderFile('v_checkerboard.shader').read(),
+                        Shader().addShaderFile('f_checkerboard.shader').read())
+        self.program.bind(self.model.vertexBuffer)
+
 
         self.update(cols=cols, rows=rows)
+
+    def render(self):
+        self.program.draw(gl.GL_TRIANGLES, self.model.indexBuffer)
 
     def update(self, cols=None, rows=None):
 
         if cols is not None and cols > 0:
-            self.protocol.program['u_checker_cols'] = cols
+            self.setUniform('u_checker_cols', cols)
 
         if rows is not None and rows > 0:
-            self.protocol.program['u_checker_rows'] = rows
+            self.setUniform('u_checker_rows', rows)
 
 
 ####

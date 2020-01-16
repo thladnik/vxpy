@@ -1,24 +1,22 @@
-uniform mat2 u_map_aspect;
+uniform mat2 u_mapcalib_aspectscale;
+uniform vec2 u_mapcalib_scale;
+uniform mat4 u_mapcalib_transform3d;
+uniform mat4 u_mapcalib_rotate3d;
+uniform vec2 u_mapcalib_translate2d;
+uniform mat2 u_mapcalib_rotate2d;
 
-uniform mat4 u_transformation;// Model matrix
-uniform vec2 u_map_scale;         // scale factor
-uniform vec2 u_shift;       // 2D translation vector
-uniform mat2 u_rotate;         // scale factor
+uniform float u_stime;
+uniform float u_ptime;
 
 attribute vec3 a_position;   // Vertex position
 attribute vec2 a_texcoord;   // texture coordinate
 varying   vec2 v_texcoord;  // output
 
-void main()
-{
-    // Assign varying variables v_color     = vec4(a_color,1.0);
-    v_texcoord  = a_texcoord;
-
+void main() {
     // Final position
-    vec4 t_pos  = u_transformation * vec4(a_position,1.0);
-    vec2 pregl_pos_xy = u_rotate * t_pos.xy;
-    gl_Position = vec4(pregl_pos_xy, t_pos.z, t_pos.w);
-    gl_Position.xy *= u_map_scale;
-    gl_Position.xy += u_shift*gl_Position.w;
-    gl_Position.xy = gl_Position.xy * u_map_aspect;
+    vec4 pos  = u_mapcalib_transform3d * u_mapcalib_rotate3d * vec4(a_position, 1.0);
+    gl_Position = vec4(((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, pos.z, pos.w);
+
+    // Assign varying variables
+    v_texcoord  = a_texcoord;
 }

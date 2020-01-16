@@ -40,7 +40,7 @@ class IcoCMN(SphericalStimulus):
                                           subdivisionTimes=1)
 
         ### Define program
-        self.sphere_program = self.addProgram('main',
+        self.sphere_program = self.addProgram('sphere',
                                               Shader().addShaderFile('v_tex.shader').read(),
                                               Shader().addShaderFile('f_tex.shader').read())
 
@@ -55,7 +55,7 @@ class IcoCMN(SphericalStimulus):
         tp_min_length = np.int (np.ceil (np.sqrt (-2 * tp_sigma ** 2 * np.log (.01 * tp_sigma * np.sqrt (2 * np.pi)))))
         tpkernel = np.linspace (-tp_min_length, tp_min_length, num=2 * tp_min_length + 1)
         tpkernel = 1 / (tp_sigma * np.sqrt (2 * np.pi)) * np.exp (-tpkernel ** 2 / (2 * tp_sigma ** 2))
-        tpkernel *= tpkernel > .001
+        tpkernel *= tpkernel > .01
 
         flowvec = np.random.normal (size=[np.int (Isize / 3), 500, 3])  # Random white noise motion vector
         flowvec /= Geometry.vecNorm (flowvec)[:, :, None]
@@ -65,7 +65,7 @@ class IcoCMN(SphericalStimulus):
         spsmooth_x = np.dot (spkernel, tpsmooth_x)
         spsmooth_y = np.dot (spkernel, tpsmooth_y)
         spsmooth_z = np.dot (spkernel, tpsmooth_z)  #
-        spsmooth_Q = Geometry.qn(np.array ([spsmooth_x, spsmooth_y, spsmooth_z]).transpose ([1, 2, 0]))
+        spsmooth_Q = Geometry.qn(np.array([spsmooth_x, spsmooth_y, spsmooth_z]).transpose ([1, 2, 0]))
 
         tileCen_Q = Geometry.qn (self.sphere_model.tile_center)
         tileOri_Q1 = Geometry.qn (np.real (self.sphere_model.tile_orientation)).normalize[:, None]
@@ -73,14 +73,14 @@ class IcoCMN(SphericalStimulus):
         projected_motmat = Geometry.projection (tileCen_Q[:, None], spsmooth_Q)
         self.motmatFull = Geometry.qdot (tileOri_Q1, projected_motmat) - 1.j * Geometry.qdot (tileOri_Q2, projected_motmat)
         startpoint = Geometry.cen2tri (np.random.rand (np.int (Isize / 3)), np.random.rand (np.int (Isize / 3)), .1)
-        self.sphere_model.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2])
 
-        self.sphere_program['texture']= np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
-        self.sphere_program['texture'].wrapping = gl.GL_REPEAT
+        self.sphere_model.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2])
+        self.sphere_program['u_texture']= np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
+        self.sphere_program['u_texture'].wrapping = gl.GL_REPEAT
 
         self.i = 0
 
-    def custom_draw(self) :
+    def render(self) :
 
         ### Update texture coordinates
         tidx = np.mod(self.i,499)
@@ -88,6 +88,5 @@ class IcoCMN(SphericalStimulus):
         self.sphere_model.vertexBuffer['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 80
 
         ## Call draw of main program
-        # self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
         self.sphere_program.draw (gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
         self.i += 1

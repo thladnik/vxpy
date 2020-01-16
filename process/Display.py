@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from glumpy import app, glm
 import logging
-import numpy as np
+import time
 
 import Controller
 import Definition
@@ -45,7 +45,8 @@ class Main(Controller.BaseProcess):
         self._window_config.stencil_size = 8
 
         ### Open OpenGL window
-        self._glWindow = app.Window(width=900, height=600,
+        self._glWindow = app.Window(width=self.config_Display[Definition.DisplayConfig.int_window_width],
+                                    height=self.config_Display[Definition.DisplayConfig.int_window_height],
                                     color=(1, 1, 1, 1),
                                     title='Display',
                                     config=self._window_config,
@@ -57,24 +58,12 @@ class Main(Controller.BaseProcess):
         self.on_resize = self._glWindow.event(self.on_resize)
         self.on_init = self._glWindow.event(self.on_init)
 
-        ### Register display configuration with controller
-        self.registerPropertyWithController('_config_Display')
 
         ### Run event loop
         self.run()
 
     ################
     ### Properties
-
-    @property
-    def _config_Display(self):
-        return self._config
-    @_config_Display.setter
-    def _config_Display(self, config):
-        self._config.update(config)
-
-        if self._glWindow is not None:
-            self._glWindow.dispatch_event('on_resize', self._glWindow._width, self._glWindow._height)
 
     def on_init(self):
         """Glumpy on_init event
@@ -88,6 +77,8 @@ class Main(Controller.BaseProcess):
         :param dt: elapsed time since last call in [s]
         :return:
         """
+
+        #print(self.config_Display[Definition.DisplayConfig.float_pos_glob_x_pos])
 
         ### Check if protocol is set yet
         if self.protocol is None:
@@ -112,20 +103,8 @@ class Main(Controller.BaseProcess):
         if self.protocol is None:
             return
 
-        # Set global shift
-        u_global_shift = np.array([
-            self._config_Display[Definition.DisplayConfig.float_pos_glob_x_pos],
-            self._config_Display[Definition.DisplayConfig.float_pos_glob_y_pos]
-        ])
-        #self.protocol._current.program['u_global_shift'] = u_global_shift
-
-        # Set scaling for aspect 1:1
-        if height > width:
-            u_global_scale = np.eye(2) * np.array([1, width/height])
-        else:
-            u_global_scale = np.eye(2) * np.array([height/width, 1])
-
-        self.protocol._current.setUniform('u_map_aspect', u_global_scale)
+        self.config_Display[Definition.DisplayConfig.int_window_width] = width
+        self.config_Display[Definition.DisplayConfig.int_window_height] = height
 
     def startNewStimulationProtocol(self, protocol_cls):
         """Start the presentation of a new stimulation protocol

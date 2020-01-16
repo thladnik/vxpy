@@ -8,24 +8,24 @@ class UVSphere(Model.SphereModel):
     def __init__(self, azi, elv, r, azitile : int = 30, elvtile : int = 30, **kwargs):
         Model.SphereModel.__init__ (self, **kwargs)
 
-        ## Set parameters
+        ### Set parameters
         self.azi = azi
         self.elv = elv
         self.r   = r
         self.azitile = azitile
         self.elvtile = elvtile
 
+        ### Create Sphere
         sphV, sphI = Geometry.createUVSphere(self.azi, self.elv, self.azitile, self.elvtile)
 
         ### Set position shader attribute (for vertex buffer)
         self.a_position = sphV * np.mean(self.r)
 
-        ### Create the vertex buffer and initialize with current values
-        self.createVertexBuffer()
-
         ### Set index buffer
-        mask_I = sphI.astype(np.uint32)
-        self.indexBuffer = mask_I.view(gloo.IndexBuffer)
+        self.indices = sphI.astype(np.uint32)
+
+        ### Create buffers
+        self.createBuffers()
 
 
 class IcoSphere(Model.SphereModel):
@@ -81,7 +81,7 @@ class IcoSphere(Model.SphereModel):
 
         ### Create index buffer
         Iout = np.arange(usF.size, dtype=np.uint32)
-        self.indexBuffer = Iout.view(gloo.IndexBuffer)
+        self.indices = Iout
 
         ### Create vertex buffer
         # The orientation of each triangle tile is defined as the direction perpendicular to the first edge of the triangle;
@@ -94,17 +94,9 @@ class IcoSphere(Model.SphereModel):
         self.a_position = usV[usF,:]
         self.a_texcoord = Geometry.cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1).reshape([Iout.size, 2])
 
-        self.createVertexBuffer()
+        self.createBuffers()
 
         self.tile_orientation = tileOri
         self.tile_center      = tileCen
         self.intertile_distance = tileDist
 
-
-#####
-# icoSphere subclasses
-
-class diviable_icosphere_sd1(IcoSphere):
-
-    def __init__(self):
-        super().__init__(subdivisionTimes=1)

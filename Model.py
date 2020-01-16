@@ -26,6 +26,7 @@ class AbstractModel:
     def __init__(self, shader_attributes : list = None):
         self.vertexBuffer : gloo.VertexBuffer = None
         self.indexBuffer  : gloo.IndexBuffer  = None
+        self.indices      : np.ndarray        = None
 
         ### Set shader attributes
         self.activeAttributes = [('a_position', np.float32, 3)]
@@ -34,7 +35,7 @@ class AbstractModel:
 
     @staticmethod
     def reshapeArray(ar):
-        if ar.shape[0] > ar.shape[1]:
+        if len(ar.shape) == 2 and ar.shape[0] > ar.shape[1]:
             return ar
         return ar.T
 
@@ -45,6 +46,8 @@ class AbstractModel:
     def setAttribute(self, attribute_name, data=None):
         if data is None:
             data = getattr(self, attribute_name)
+        else:
+            setattr(self, attribute_name, data)
         self.vertexBuffer[attribute_name] = AbstractModel.reshapeArray(data)
 
     def initVertexAttributes(self):
@@ -55,7 +58,7 @@ class AbstractModel:
                 return
             self.setAttribute(attribute[0])
 
-    def createVertexBuffer(self):
+    def createBuffers(self):
         if not(hasattr(self, 'a_position')):
             Logging.logger.log(logging.WARNING,
                                'Creation of vertex buffer failed in model {}. '
@@ -63,7 +66,7 @@ class AbstractModel:
             return
 
         ### Create vertex array
-        vArray = np.zeros(getattr(self, 'a_position').shape[0],
+        vArray = np.zeros(AbstractModel.reshapeArray(getattr(self, 'a_position')).shape[0],
                           self.activeAttributes)
 
         ### Create vertex buffer
@@ -71,6 +74,10 @@ class AbstractModel:
 
         ### Set attribute data
         self.initVertexAttributes()
+
+        ### Create index buffer
+        if self.indices is not None:
+            self.indexBuffer = np.uint32(self.indices).view(gloo.IndexBuffer)
 
 class SphereModel(AbstractModel):
     """Sphere model base class.

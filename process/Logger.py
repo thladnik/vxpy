@@ -35,7 +35,7 @@ class Main(Controller.BaseProcess):
         self.logger = logging.getLogger('mylog')
         filename = '%s.log' % strftime('%Y-%m-%d-%H-%M-%S')
         h = logging.handlers.TimedRotatingFileHandler(os.path.join(Definition.Path.Log, filename), 'd')
-        f = logging.Formatter('%(asctime)s <<>> %(name)-20s <<>> %(levelname)-8s <<>> %(message)s <<')
+        f = logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<')
         h.setFormatter(f)
         self.logger.addHandler(h)
 
@@ -65,3 +65,9 @@ class Main(Controller.BaseProcess):
             traceback.print_exc(file=sys.stderr)
 
         sleep(0.05)
+
+    def _startShutdown(self):
+        sleep(.5)
+        while not(self._logQueue.empty()):
+            self.logger.handle(self._logQueue.get())
+        Controller.BaseProcess._startShutdown(self)
