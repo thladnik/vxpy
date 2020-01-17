@@ -19,11 +19,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from Protocol import StaticStimulationProtocol
 
 from stimuli.ContiguousMotionNoise import IcoCMN
+from stimuli.Insta360OneX import Calibrated
 
-class IcoCMNProtocol(StaticStimulationProtocol):
+class Insta360Protocol(StaticStimulationProtocol):
 
-    _name = 'ico_cmn'
+    _name = 'insta360'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-        self.addStimulus(IcoCMN, {}, duration=150)
+        self.addStimulus(Calibrated, dict(filename='insta1_virtMapsConverted'), duration=9)

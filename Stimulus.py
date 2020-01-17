@@ -153,16 +153,17 @@ class SphericalStimulus(AbstractStimulus):
         ### Set uniforms
         self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
-        self.setUniform('u_mapcalib_scale', 1.0 * np.array ([1, 1]))
+        self.setUniform('u_mapcalib_scale', 1.2 * np.array ([1, 1]))
 
-        self.display._glWindow.clear (color=(0.0, 0.0, 0.0, 1.0))
+        self.display._glWindow.clear (color=(1.0, 0.0, 0.0, 1.0))
         for i in range(4):
             ### Rotate 3d model
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90, 0, 0, 1) @ glm.rotate(np.eye(4), 90, 1, 0, 0))
             ### Rotate around center of screen
-            self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i))
+            #self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i))
+            self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i))
             ### Translate radially
-            self.setUniform('u_mapcalib_translate2d', np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * 0.8)
+            self.setUniform('u_mapcalib_translate2d', np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * 0.7)
 
             ### Write stencil buffer from mask sphere
             gl.glEnable (gl.GL_STENCIL_TEST)
@@ -173,14 +174,14 @@ class SphericalStimulus(AbstractStimulus):
             gl.glDisable(gl.GL_DEPTH_TEST)
             gl.glColorMask(gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE)
             self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
-            gl.glEnable (gl.GL_DEPTH_TEST)
             gl.glColorMask(gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE)
             gl.glStencilFunc(gl.GL_EQUAL, 1, 0xFF)
             gl.glStencilMask(0x00)
             #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
+            gl.glEnable (gl.GL_DEPTH_TEST)
             ### Apply 90*i degree rotation for rendering different parts of actual sphere
-            self.setUniform('u_mapcalib_rotate3d', glm.rotate (np.eye (4), 90*i, 0, 0, 1) @ glm.rotate (np.eye (4), 90, 1, 0,0))
+            self.setUniform('u_mapcalib_rotate3d', glm.rotate (np.eye (4), -90*i, 0, 0, 1) @ glm.rotate (np.eye (4), 90, 1, 0,0))
 
             ### Call the
             self.render()
