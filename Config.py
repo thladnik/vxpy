@@ -1,5 +1,6 @@
 """
-MappApp ./protocols/Example01.py - Example protocol for demonstration.
+MappApp ./Config.py - Handle process-wide configurations
+all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,15 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticStimulationProtocol
 
-from stimuli.ContiguousMotionNoise import IcoCMN
-from stimuli.Insta360OneX import Calibrated
-
-class Insta360Protocol(StaticStimulationProtocol):
-
-    _name = 'insta360'
-
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
-        self.addStimulus(Calibrated, dict(filename='insta1_virtMapsConverted'), duration=None)
+## Known configuration properties
+Display : dict = None
+Camera  : dict = None
+Gui     : dict = None
+Logfile : str  = None

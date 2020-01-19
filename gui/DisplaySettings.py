@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from PyQt5 import QtCore, QtWidgets
 
+import Config
 import Definition
 from Definition import DisplayConfig
 from helper.Basic import Conversion
@@ -52,7 +53,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_x_pos.setMinimum(-1.0)
         self._dspn_x_pos.setMaximum(1.0)
         self._dspn_x_pos.setSingleStep(.001)
-        self._dspn_x_pos.setValue(self._main.config_Display[DisplayConfig.float_pos_glob_x_pos])
+        self._dspn_x_pos.setValue(Config.Display[DisplayConfig.float_pos_glob_x_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
         self._grp_position.layout().addWidget(self._dspn_x_pos, 0, 1)
         # Y position
@@ -61,7 +62,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_y_pos.setMinimum(-1.0)
         self._dspn_y_pos.setMaximum(1.0)
         self._dspn_y_pos.setSingleStep(.001)
-        self._dspn_y_pos.setValue(self._main.config_Display[DisplayConfig.float_pos_glob_y_pos])
+        self._dspn_y_pos.setValue(Config.Display[DisplayConfig.float_pos_glob_y_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
         self._grp_position.layout().addWidget(self._dspn_y_pos, 1, 1)
         # Distance from center
@@ -70,7 +71,7 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_vp_center_offset.setMinimum(-1.0)
         self._dspn_vp_center_offset.setMaximum(1.0)
         self._dspn_vp_center_offset.setSingleStep(.001)
-        self._dspn_vp_center_offset.setValue(self._main.config_Display[DisplayConfig.float_pos_glob_radial_offset])
+        self._dspn_vp_center_offset.setValue(Config.Display[DisplayConfig.float_pos_glob_radial_offset])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Radial offset'), 2, 0)
         self._grp_position.layout().addWidget(self._dspn_vp_center_offset, 2, 1)
 
@@ -84,25 +85,25 @@ class DisplaySettings(QtWidgets.QWidget):
         self._dspn_elev_angle.setMinimum(-90.0)
         self._dspn_elev_angle.setMaximum(90.0)
         self._dspn_elev_angle.setSingleStep(0.1)
-        self._dspn_elev_angle.setValue(self._main.config_Display[DisplayConfig.float_view_elev_angle])
+        self._dspn_elev_angle.setValue(Config.Display[DisplayConfig.float_view_elev_angle])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Elevation [deg]'), 0, 0)
         self._grp_view.layout().addWidget(self._dspn_elev_angle, 0, 1)
         # Offset of view from axis towards origin of sphere
         self._dspn_view_axis_offset = QtWidgets.QDoubleSpinBox()
         self._dspn_view_axis_offset.setSingleStep(.001)
-        self._dspn_view_axis_offset.setValue(self._main.config_Display[DisplayConfig.float_view_axis_offset])
+        self._dspn_view_axis_offset.setValue(Config.Display[DisplayConfig.float_view_axis_offset])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Origin offset'), 1, 0)
         self._grp_view.layout().addWidget(self._dspn_view_axis_offset, 1, 1)
         # Distance from origin of sphere
         self._dspn_view_origin_distance = QtWidgets.QDoubleSpinBox()
         self._dspn_view_origin_distance.setSingleStep(.01)
-        self._dspn_view_origin_distance.setValue(self._main.config_Display[DisplayConfig.float_view_origin_distance])
+        self._dspn_view_origin_distance.setValue(Config.Display[DisplayConfig.float_view_origin_distance])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Origin distance'), 2, 0)
         self._grp_view.layout().addWidget(self._dspn_view_origin_distance, 2, 1)
         # Field of view
         self._dspn_fov = QtWidgets.QDoubleSpinBox()
         self._dspn_fov.setSingleStep(0.01)
-        self._dspn_fov.setValue(self._main.config_Display[DisplayConfig.float_view_fov])
+        self._dspn_fov.setValue(Config.Display[DisplayConfig.float_view_fov])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('FOV [deg]'), 3, 0)
         self._grp_view.layout().addWidget(self._dspn_fov, 3, 1)
         ## Setup display
@@ -143,10 +144,10 @@ class DisplaySettings(QtWidgets.QWidget):
             lambda: self.setConfig(DisplayConfig.float_view_fov, self._dspn_fov.value()))
 
     def setConfig(self, name, val):
-        self._main.config_Display[name] = val
+        Config.Display[name] = val
 
     def updateGUI(self):
-        _config = self._main.config_Display
+        _config = Config.Display
 
         if DisplayConfig.float_pos_glob_x_pos in _config \
                 and _config[DisplayConfig.float_pos_glob_x_pos] != self._dspn_x_pos.value():

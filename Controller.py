@@ -1,5 +1,5 @@
 """
-MappApp ./Controller.py - Main process class called to start program. Spawns all sub processes.
+MappApp ./Controller.py - Base process and controller class called to start program. Spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+import ctypes
 import logging
 import multiprocessing as mp
 import multiprocessing.connection
@@ -23,6 +24,7 @@ import signal
 import sys
 import time
 
+import Config
 import Definition
 from helper import Basic
 import Buffers
@@ -55,10 +57,7 @@ class BaseProcess:
     ## Controller exclusives
     _pipes               : dict = dict()
     _processes           : dict = dict()
-    _propertyConnections : dict = dict()
 
-    ## Known properties
-    config_Display : dict = None
 
     def __init__(self, **kwargs):
         """
@@ -73,7 +72,16 @@ class BaseProcess:
           _app (GUI)
         """
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            # Set configuration dictionaries (managed dictionaries)
+            if key == '_configuration':
+                Config.Camera = value['camera']
+                Config.Display = value['display']
+                Config.Gui = value['gui']
+                Config.Logfile = value['logfile']
+
+            # Set attributes
+            else:
+                setattr(self, key, value)
 
         # Setup logging
         Logging.setupLogger(self._logQueue, self.name)
@@ -113,7 +121,7 @@ class BaseProcess:
         return self._running and not(self._shutdown)
 
     ################################
-    ### Inter process communication
+    ### Inter0 process communication
 
     def send(self, processName, signal, *args, **kwargs):
         """
@@ -129,48 +137,9 @@ class BaseProcess:
 
         self.send(processName, BaseProcess.Signals.RPC, function.__name__, *args, **kwargs)
 
-    def registerPropertyWithController(self, propName):
-        """Register a property with the controller. This will cause any changes to the property in the controller
-        to be automatically propagated to this process.
-
-        :param propName:
-        :return:
-        """
-        self.rpc(Controller.name, Controller.connectProperty, propName, self.name)
 
     ################################
     ### Private functions
-
-    def _sendProperty(self, processName: str, propName: str):
-        """Send local property to process
-        """
-
-        if not (hasattr(self, propName)):
-            Logging.logger.log(logging.WARNING, 'Property <{}> not set'.
-                               format(propName, processName))
-            return
-
-        Logging.logger.log(logging.DEBUG, 'Send property <{}> to process <{}>'.
-                           format(propName, processName))
-
-        self.send(processName, BaseProcess.Signals.UpdateProperty, propName, getattr(self, propName))
-
-    def _updateProperty(self, propName: str, propData):
-        """Update local property
-
-        :param propName:
-        :param propData:
-        :return:
-        """
-
-        try:
-            Logging.logger.log(logging.DEBUG, 'Set property <{}> to {}'.
-                               format(propName, propData))
-            setattr(self, propName, propData)
-            self.send(Definition.Process.Controller, BaseProcess.Signals.UpdateProperty, propName, propData)
-        except:
-            Logging.logger.log(logging.WARNING, 'FAILED to set property <{}> to {}'.
-                               format(propName, propData))
 
     def _executeRPC(self, fun: str, *args, **kwargs):
         """Execute a remote call to the specified function and pass *args, **kwargs
@@ -212,59 +181,6 @@ class BaseProcess:
         elif signal == BaseProcess.Signals.RPC:
             self._executeRPC(*args, **kwargs)
 
-        ### Update property
-        elif signal == BaseProcess.Signals.UpdateProperty:
-            propName = args[0]
-            propData = args[1]
-
-            ## Set property
-            try:
-                Logging.logger.log(logging.DEBUG,
-                                   'Set property <{}> to {}'
-                                   .format(propName, str(propData)))
-                setattr(self, propName, propData)
-            except Exception as exc:
-                Logging.logger.log(logging.WARNING,
-                                   'Failed to set property <{}> to {} // Exception: {}'
-                                   .format(propName, str(propData), exc))
-
-            ## Inform all registered processes of change to property
-            # (This should normally only happen in the controller)
-            if propName in self._propertyConnections:
-                for processName in self._propertyConnections[propName]:
-                    self._sendProperty(processName, propName)
-
-
-    def addPropertyCallback(self, propName: str, propDtype: type, callback: callable):
-        """Add a callback function for the specified property.
-
-        ---- IMPORTANT NOTICE:
-        New properties HAVE to be set on the class and NOT on the instance first
-        in order for this to work! Why? I dont' know.
-
-        So it is setattr(self.__class__, propName, ...)
-        and NOT setattr(self, propName, ...)
-        ----
-
-        :param propName: name of the property
-        :param propDtype: data type of the property
-        :param callback:
-        :return:
-        """
-
-        ### Set new shared property if it doesn't already exist
-        if not(hasattr(self.__class__, propName)):
-            setattr(self.__class__, propName, Basic.SharedProperty(propName, propDtype))
-            Logging.logger.log(logging.DEBUG, 'Created <{}>'.format(getattr(self, propName)))
-            ### Register property with controller
-            # (This will cause the controller to automatically propagate any changes to the property)
-            self.registerPropertyWithController(propName)
-
-        ### Add the callback function to be executed when property value is set.
-        Logging.logger.log(logging.DEBUG, 'Add callback <{}> for <{}>'
-                           .format(callback.__name__, getattr(self, propName)))
-        getattr(self, propName).addSetterCallback(callback)
-
     def _handleSIGINT(self, sig, frame):
         print('> SIGINT event handled in  %s' % self.__class__)
         sys.exit(0)
@@ -282,18 +198,22 @@ class Controller(BaseProcess):
         BaseProcess.__init__(self, _ctrlQueue=mp.Queue(), _logQueue=mp.Queue())
         self._useGUI = _useGUI
 
+        ### Set up manager
         self.manager = mp.Manager()
 
-
-        ## Set configurations
+        ### Set configurations
         self._configfile = _configfile
         self.configuration = Basic.Config(self._configfile)
-        self._config_Camera = self.configuration.configuration(Definition.CameraConfig)
-        self.config_Display = self.manager.dict()
-        self.config_Display.update(self.configuration.configuration(Definition.DisplayConfig))
-        #self._config_Display = self.configuration.configuration(Definition.DisplayConfig)
-        self._config_Gui = self.configuration.configuration(Definition.GuiConfig)
 
+        Config.Camera = self.manager.dict()
+        Config.Camera.update(self.configuration.configuration(Definition.CameraConfig))
+
+        Config.Display = self.manager.dict()
+        Config.Display.update(self.configuration.configuration(Definition.DisplayConfig))
+
+        Config.Gui = self.configuration.configuration(Definition.GuiConfig)
+
+        Config.Logfile = self.manager.Value(ctypes.c_char_p, '')
 
         ### Set up components
         self._setupCamera()
@@ -303,7 +223,7 @@ class Controller(BaseProcess):
         if self._useGUI:
             import process.GUI
             self._initializeProcess(Definition.Process.GUI, process.GUI.Main,
-                                    _cameraBO=self._cameraBO, config_Display=self.config_Display)
+                                    _cameraBO=self._cameraBO)
         ## Display
         self.initializeDisplay()
         ## Camera
@@ -336,35 +256,27 @@ class Controller(BaseProcess):
                                         kwargs=dict(_ctrlQueue=self._ctrlQueue,
                                                     _logQueue=self._logQueue,
                                                     _inPipe=self._pipes[processName][1],
+                                                    _configuration = dict(
+                                                        camera  = Config.Camera,
+                                                        display = Config.Display,
+                                                        gui     = Config.Gui,
+                                                        logfile = Config.Logfile
+                                                    ),
                                                     **optKwargs))
         self._processes[processName].start()
 
     def initializeDisplay(self):
         import process.Display
-        self._initializeProcess(Definition.Process.Display, process.Display.Main, config_Display=self.config_Display)
+        self._initializeProcess(Definition.Process.Display, process.Display.Main)
 
     def _setupCamera(self):
-        if not(self._config_Camera[Definition.CameraConfig.bool_use]):
+        if not(Config.Camera[Definition.CameraConfig.bool_use]):
             return
 
         ### Create camera buffer object
-        self._cameraBO = Buffers.CameraBufferObject(_config_Camera=self._config_Camera)
+        self._cameraBO = Buffers.CameraBufferObject()
         self._cameraBO.addBuffer(Buffers.FrameBuffer)
         self._cameraBO.addBuffer(Buffers.EdgeDetector)
-
-    def connectProperty(self, propName: str, processName: str):
-        """Connect a property to a process.
-        Any updates to the local property will be propagated to the connected process.
-
-        :param propName: name of the property
-        :param processName: name of the process
-        :return:
-        """
-        Logging.logger.log(logging.DEBUG, 'Process <%s> registered property <%s>' % (processName, propName))
-        if not(propName in self._propertyConnections):
-            self._propertyConnections[propName] = list()
-        self._propertyConnections[propName].append(processName)
-        self._sendProperty(processName, propName)
 
     def run(self):
 
@@ -402,7 +314,7 @@ class Controller(BaseProcess):
 
         ################
         # Update configurations that should persist here
-        self.configuration.updateConfiguration(Definition.DisplayConfig, **self._config_Display)
+        self.configuration.updateConfiguration(Definition.DisplayConfig, **Config.Display)
         # Save to file
         Logging.logger.log(logging.INFO, 'Save configuration to file {}'
                            .format(self._configfile))

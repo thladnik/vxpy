@@ -27,4 +27,4 @@ class IcoCMNProtocol(StaticStimulationProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-        self.addStimulus(IcoCMN, {}, duration=150)
+        self.addStimulus(IcoCMN, {}, duration=None)

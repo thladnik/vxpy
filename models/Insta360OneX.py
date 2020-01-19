@@ -34,7 +34,7 @@ class Calibrated(Model.SphereModel):
         vertices = Geometry.qn(vertices)
 
         vertices = Geometry.rotate(Geometry.qn([1, 0, 0]), vertices, np.pi / 2)
-        #vertices = Geometry.rotate(Geometry.qn([0, 1, 0]), vertices, -np.pi / 2)
+        #vertices = Geometry.rotate(Geometry.qn([0, 0, 1]), vertices, -np.pi / 4)
         #vertices = Geometry.rotate(Geometry.qn([0, 1, 0]), vertices, np.pi / 2)
 
         vertices = vertices.matrixform[:,1:]

@@ -100,7 +100,10 @@ from Shader import Shader
 from models import CMNSpheres
 from helper import Geometry
 from glumpy import glm
+
+import Config
 import Definition
+
 class SphericalStimulus(AbstractStimulus):
 
     _mask_name = '_mask'
@@ -134,14 +137,14 @@ class SphericalStimulus(AbstractStimulus):
 
         ### Set 2d translation in window
         u_global_shift = np.array([
-            self.display.config_Display[Definition.DisplayConfig.float_pos_glob_x_pos],
-            self.display.config_Display[Definition.DisplayConfig.float_pos_glob_y_pos]
+            Config.Display[Definition.DisplayConfig.float_pos_glob_x_pos],
+            Config.Display[Definition.DisplayConfig.float_pos_glob_y_pos]
         ])
         #self.protocol._current.program['u_global_shift'] = u_global_shift
 
         #### Set scaling for aspect 1:1
-        width = self.display.config_Display[Definition.DisplayConfig.int_window_width]
-        height = self.display.config_Display[Definition.DisplayConfig.int_window_height]
+        width = Config.Display[Definition.DisplayConfig.int_window_width]
+        height = Config.Display[Definition.DisplayConfig.int_window_height]
         if height > width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
         else:
@@ -155,7 +158,7 @@ class SphericalStimulus(AbstractStimulus):
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
         self.setUniform('u_mapcalib_scale', 1.2 * np.array ([1, 1]))
 
-        self.display._glWindow.clear (color=(1.0, 0.0, 0.0, 1.0))
+        self.display._glWindow.clear (color=(0.0, 0.0, 0.5, 1.0))
         for i in range(4):
             ### Rotate 3d model
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90, 0, 0, 1) @ glm.rotate(np.eye(4), 90, 1, 0, 0))
@@ -165,19 +168,20 @@ class SphericalStimulus(AbstractStimulus):
             ### Translate radially
             self.setUniform('u_mapcalib_translate2d', np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * 0.7)
 
-            ### Write stencil buffer from mask sphere
-            gl.glEnable (gl.GL_STENCIL_TEST)
-            gl.glStencilOp (gl.GL_KEEP, gl.GL_KEEP, gl.GL_REPLACE)
-            # gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
-            gl.glStencilFunc (gl.GL_ALWAYS, 1, 0xFF)
-            gl.glStencilMask (0xFF)
-            gl.glDisable(gl.GL_DEPTH_TEST)
-            gl.glColorMask(gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE)
-            self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
-            gl.glColorMask(gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE)
-            gl.glStencilFunc(gl.GL_EQUAL, 1, 0xFF)
-            gl.glStencilMask(0x00)
-            #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
+            if True:
+                ### Write stencil buffer from mask sphere
+                gl.glEnable (gl.GL_STENCIL_TEST)
+                gl.glStencilOp (gl.GL_KEEP, gl.GL_KEEP, gl.GL_REPLACE)
+                # gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
+                gl.glStencilFunc (gl.GL_ALWAYS, 1, 0xFF)
+                gl.glStencilMask (0xFF)
+                gl.glDisable(gl.GL_DEPTH_TEST)
+                gl.glColorMask(gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE)
+                self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
+                gl.glColorMask(gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE, gl.GL_TRUE)
+                gl.glStencilFunc(gl.GL_EQUAL, 1, 0xFF)
+                gl.glStencilMask(0x00)
+                #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
             gl.glEnable (gl.GL_DEPTH_TEST)
             ### Apply 90*i degree rotation for rendering different parts of actual sphere

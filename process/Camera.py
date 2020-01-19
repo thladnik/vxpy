@@ -22,6 +22,7 @@ import numpy as np
 from time import perf_counter, strftime, sleep
 
 import Buffers
+import Config
 import Controller
 import Definition
 import Logging
@@ -32,9 +33,8 @@ if Definition.Env == Definition.EnvTypes.Dev:
 class Main(Controller.BaseProcess):
     name = Definition.Process.Camera
 
-    _cameraBO       : Buffers.CameraBufferObject = None
-    _config_Camera  : dict                      = None
-    _recordingVideo : bool                      = False
+    _cameraBO  : Buffers.CameraBufferObject = None
+    _recording : bool                       = False
 
     def __init__(self, _cameraBO, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
@@ -47,21 +47,13 @@ class Main(Controller.BaseProcess):
         self.frameDims = self._cameraBO.frameDims
         self.fps = 100.
 
-        ### Register camera configuration with controller
-        self.registerPropertyWithController('_config_Camera')
-
-        ### Wait for configuration
-        while self._config_Camera is None:
-            self._handleCommunication()
-            sleep(.01)
-
         ### Set up camera
         ## The Imaging Source cameras
-        if self._config_Camera[Definition.CameraConfig.str_manufacturer] == 'TIS':
+        if Config.Camera[Definition.CameraConfig.str_manufacturer] == 'TIS':
             import devices.cameras.tisgrabber as IC
             self.camera = IC.TIS_CAM()
             self.camera.open(self._cameraBO.model)
-            self.camera.SetVideoFormat(self._config_Camera[Definition.CameraConfig.str_format])
+            self.camera.SetVideoFormat(Config.Camera[Definition.CameraConfig.str_format])
             self.camera.SetPropertySwitch("Framerate","Auto",0)
             self.camera.SetPropertySwitch("Exposure","Auto",0)
             self.camera.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
@@ -70,23 +62,23 @@ class Main(Controller.BaseProcess):
             self.camera.StartLive(0)
 
         ## Virtual camera
-        elif self._config_Camera[Definition.CameraConfig.str_manufacturer] == 'virtual':
+        elif Config.Camera[Definition.CameraConfig.str_manufacturer] == 'virtual':
             import devices.cameras.virtual as VC
             self.camera = VC.VirtualCamera()
-            self.camera.setVideoFormat(self._config_Camera[Definition.CameraConfig.str_format],
-                                       self._config_Camera[Definition.CameraConfig.int_resolution_x],
-                                       self._config_Camera[Definition.CameraConfig.int_resolution_y])
+            self.camera.setVideoFormat(Config.Camera[Definition.CameraConfig.str_format],
+                                       Config.Camera[Definition.CameraConfig.int_resolution_x],
+                                       Config.Camera[Definition.CameraConfig.int_resolution_y])
 
         Logging.logger.log(logging.DEBUG, 'Using camera {}>>{}'
-                           .format(self._config_Camera[Definition.CameraConfig.str_manufacturer],
-                                   self._config_Camera[Definition.CameraConfig.str_model]))
+                           .format(Config.Camera[Definition.CameraConfig.str_manufacturer],
+                                   Config.Camera[Definition.CameraConfig.str_model]))
 
         ### Run event loop
         self.run()
 
     def _startVideoRecording(self):
 
-        if not(self._recordingVideo):
+        if not(self._recording):
 
             # TODO: start an encoder-process which gets passed the _cameraBO object
             #   to avoid performance drain during frame acquisition
@@ -103,14 +95,14 @@ class Main(Controller.BaseProcess):
             self.videoRecord = cv2.VideoWriter(
                 'output_%s.avi' % startt, fourcc, self.fps,
                 (self.frameDims[1] * self.outFileFrameNum, self.frameDims[0]), isColor=0)
-            self._recordingVideo = True
+            self._recording = True
 
             return
         Logging.logger.log(logging.WARNING, 'Unable to start recording, video recording is already on')
 
     def _writeFrame(self):
 
-        if self._recordingVideo:
+        if self._recording:
             frames = list()
             for i, name in enumerate(self._cameraBO.buffers()):
                 if self._cameraBO.buffers()[name]._recordBuffer:
@@ -119,17 +111,17 @@ class Main(Controller.BaseProcess):
 
     def _stopVideoRecording(self):
 
-        if self._recordingVideo:
+        if self._recording:
             Logging.logger.log(logging.INFO, 'Stop video recording')
             self.videoRecord.release()
-            self._recordingVideo = False
+            self._recording = False
 
             return
         Logging.logger.log(logging.WARNING, 'Unable to stop recording, because there is no active recording')
 
 
     def _toggleVideoRecording(self):
-        if self._recordingVideo:
+        if self._recording:
             self._stopVideoRecording()
         else:
             self._startVideoRecording()
@@ -140,7 +132,6 @@ class Main(Controller.BaseProcess):
     def main(self):
         # Fetch current frame and update camera buffers
         frame = self.camera.GetImage()[:,:,0]
-        #embed()
         self._cameraBO.update(frame)
         # Write to file
         self._writeFrame()
@@ -150,6 +141,6 @@ class Main(Controller.BaseProcess):
             pass
 
     def _startShutdown(self):
-        if self._recordingVideo:
+        if self._recording:
             self._stopVideoRecording()
         Controller.BaseProcess._startShutdown(self)

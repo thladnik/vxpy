@@ -37,7 +37,7 @@ class IcoSphere(Model.SphereModel):
         self.addVertexAttribute(('a_texcoord', np.float32, 2))
 
         ### Create sphere
-        self.r = (1 + np.sqrt(5)) / 2
+        self.r = 1#(1 + np.sqrt(5)) / 2
         self.init_vertices = np.array([
                     [-1.0, self.r, 0.0],
                     [1.0, self.r, 0.0],
@@ -91,7 +91,7 @@ class IcoSphere(Model.SphereModel):
         tileDist = Geometry.sphAngle(tileCen, sphereR)  # Spherical distance for each tile pair
         usF = np.uint32(usF.flatten())
         # Triangles must not share edges/vertices while doing texture mapping, this line duplicate the shared vertices for each triangle
-        self.a_position = usV[usF,:]
+        self.a_position = Geometry.vecNormalize(usV[usF,:])
         self.a_texcoord = Geometry.cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1).reshape([Iout.size, 2])
 
         self.createBuffers()

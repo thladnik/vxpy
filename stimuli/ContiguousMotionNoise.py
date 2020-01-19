@@ -37,7 +37,7 @@ class IcoCMN(SphericalStimulus):
         ### Define model
         self.sphere_model = self.addModel('sphere',
                                           CMNSpheres.IcoSphere,
-                                          subdivisionTimes=1)
+                                          subdivisionTimes=2)
 
         ### Define program
         self.sphere_program = self.addProgram('sphere',
@@ -48,14 +48,14 @@ class IcoCMN(SphericalStimulus):
         self.sphere_program.bind(self.sphere_model.vertexBuffer)
 
         Isize = self.sphere_model.indexBuffer.size
-        sp_sigma = .8  # spatial CR
-        tp_sigma = 15  # temporal CR
+        sp_sigma = 1  # spatial CR
+        tp_sigma = 20  # temporal CR
         spkernel = np.exp (-(self.sphere_model.intertile_distance ** 2) / (2 * sp_sigma ** 2))
         spkernel *= spkernel > .001
         tp_min_length = np.int (np.ceil (np.sqrt (-2 * tp_sigma ** 2 * np.log (.01 * tp_sigma * np.sqrt (2 * np.pi)))))
         tpkernel = np.linspace (-tp_min_length, tp_min_length, num=2 * tp_min_length + 1)
         tpkernel = 1 / (tp_sigma * np.sqrt (2 * np.pi)) * np.exp (-tpkernel ** 2 / (2 * tp_sigma ** 2))
-        tpkernel *= tpkernel > .01
+        tpkernel *= tpkernel > .0001
 
         flowvec = np.random.normal (size=[np.int (Isize / 3), 500, 3])  # Random white noise motion vector
         flowvec /= Geometry.vecNorm (flowvec)[:, :, None]
@@ -74,7 +74,7 @@ class IcoCMN(SphericalStimulus):
         self.motmatFull = Geometry.qdot (tileOri_Q1, projected_motmat) - 1.j * Geometry.qdot (tileOri_Q2, projected_motmat)
         startpoint = Geometry.cen2tri (np.random.rand (np.int (Isize / 3)), np.random.rand (np.int (Isize / 3)), .1)
 
-        self.sphere_model.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2])
+        self.sphere_model.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2])/2
         self.sphere_program['u_texture']= np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
         self.sphere_program['u_texture'].wrapping = gl.GL_REPEAT
 
@@ -85,7 +85,7 @@ class IcoCMN(SphericalStimulus):
         ### Update texture coordinates
         tidx = np.mod(self.i,499)
         motmat = np.repeat(self.motmatFull[:,tidx],3,axis = 0)
-        self.sphere_model.vertexBuffer['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 80
+        self.sphere_model.vertexBuffer['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 1000
 
         ## Call draw of main program
         self.sphere_program.draw (gl.GL_TRIANGLES, self.sphere_model.indexBuffer)

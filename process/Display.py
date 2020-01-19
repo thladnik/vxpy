@@ -21,6 +21,7 @@ import logging
 import time
 
 import Controller
+import Config
 import Definition
 import Logging
 import Protocol
@@ -45,19 +46,19 @@ class Main(Controller.BaseProcess):
         self._window_config.stencil_size = 8
 
         ### Open OpenGL window
-        self._glWindow = app.Window(width=self.config_Display[Definition.DisplayConfig.int_window_width],
-                                    height=self.config_Display[Definition.DisplayConfig.int_window_height],
+        self._glWindow = app.Window(width=Config.Display[Definition.DisplayConfig.int_window_width],
+                                    height=Config.Display[Definition.DisplayConfig.int_window_height],
                                     color=(1, 1, 1, 1),
                                     title='Display',
                                     config=self._window_config,
                                     vsync=True)
-        self._glWindow.set_position(800, 500)
+        self._glWindow.set_position(Config.Display[Definition.DisplayConfig.int_window_pos_x],
+                                    Config.Display[Definition.DisplayConfig.int_window_pos_y])
 
         ### Apply event wrapper
         self.on_draw = self._glWindow.event(self.on_draw)
         self.on_resize = self._glWindow.event(self.on_resize)
         self.on_init = self._glWindow.event(self.on_init)
-
 
         ### Run event loop
         self.run()
@@ -78,14 +79,11 @@ class Main(Controller.BaseProcess):
         :return:
         """
 
-        #print(self.config_Display[Definition.DisplayConfig.float_pos_glob_x_pos])
-
         ### Check if protocol is set yet
-        if self.protocol is None:
-            return
+        if self.protocol is not None:
+            ### Call draw of protocol class
+            self.protocol.draw(dt)
 
-        ### Call draw of protocol class
-        self.protocol.draw(dt)
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event
@@ -98,13 +96,16 @@ class Main(Controller.BaseProcess):
         ### Fix for (many different) glumpy backends:
         self._glWindow._width = width
         self._glWindow._height = height
+        # Update size and position in configuration
+        Config.Display[Definition.DisplayConfig.int_window_width] = width
+        Config.Display[Definition.DisplayConfig.int_window_height] = height
+        Config.Display[Definition.DisplayConfig.int_window_pos_x] = self._glWindow.get_position()[0]
+        Config.Display[Definition.DisplayConfig.int_window_pos_y] = self._glWindow.get_position()[1]
 
         ### Check if protocol is set yet
         if self.protocol is None:
             return
 
-        self.config_Display[Definition.DisplayConfig.int_window_width] = width
-        self.config_Display[Definition.DisplayConfig.int_window_height] = height
 
     def startNewStimulationProtocol(self, protocol_cls):
         """Start the presentation of a new stimulation protocol
