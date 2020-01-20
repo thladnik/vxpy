@@ -180,9 +180,9 @@ class SphericalStimulus(AbstractStimulus):
             if True:
                 ### Write stencil buffer from mask sphere
                 gl.glStencilOp(gl.GL_KEEP, gl.GL_KEEP, gl.GL_REPLACE)
-                gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
                 gl.glStencilFunc (gl.GL_ALWAYS, 1, 0xFF)
                 gl.glStencilMask(0xFF)
+                gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
                 gl.glDisable(gl.GL_DEPTH_TEST)
                 gl.glColorMask(gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE, gl.GL_FALSE)
                 self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
