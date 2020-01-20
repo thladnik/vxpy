@@ -31,7 +31,8 @@ class UVSphere(Model.SphereModel):
         return 'UVSphere(theta_lvls={}, phi_lvls={}, upper_phi={}, radius={})'\
             .format(self.theta_lvls, self.phi_lvls, self.upper_phi, self.radius)
 
-    def __init__(self, theta_lvls: int, phi_lvls: int, upper_phi: float = np.pi/4, radius: float = 1.0, **kwargs):
+    def __init__(self, theta_lvls: int, phi_lvls: int,
+                 theta_range : float = 2 * np.pi, upper_phi: float = np.pi/4, radius: float = 1.0, **kwargs):
         Model.SphereModel.__init__(self, **kwargs)
 
         ### Add vertex attributes for this particular model
@@ -45,7 +46,7 @@ class UVSphere(Model.SphereModel):
         self.radius = radius
 
         ### Calculate coordinates in azimuth and elevation
-        az = np.linspace(-np.pi, np.pi, self.theta_lvls, endpoint=True)
+        az = np.linspace(0, theta_range, self.theta_lvls, endpoint=True)
         el = np.linspace(-np.pi/2, self.upper_phi, self.phi_lvls, endpoint=True)
         self.thetas, self.phis = np.meshgrid(az, el)
         self.thetas = self.thetas.flatten()

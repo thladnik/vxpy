@@ -28,6 +28,10 @@ class Calibration(StaticStimulationProtocol):
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 
+        self.addStimulus(BlackWhiteCheckerboard,
+                         dict(cols=16, rows=16),
+                              duration=None)
+
         for num in range(10):
             self.addStimulus(BlackWhiteCheckerboard,
                              dict(cols=8+num, rows=8+num),

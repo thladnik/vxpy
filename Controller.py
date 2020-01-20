@@ -79,7 +79,7 @@ class BaseProcess:
                 Config.Gui = value['gui']
                 Config.Logfile = value['logfile']
 
-            # Set attributes
+            # Set attribute
             else:
                 setattr(self, key, value)
 
