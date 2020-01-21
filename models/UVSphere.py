@@ -58,15 +58,24 @@ class UVSphere(Model.SphereModel):
         self.a_position = Geometry.SphereHelper.sph2cart(self.thetas, self.phis, self.radius)
 
         ### Set indices
-        # Calculate Delaunay tesselation
-        delaunay = Delaunay(self.a_position.T)
-        if delaunay.simplices.shape[1] > 3:
-            faceIdcs = delaunay.convex_hull
+        if False:
+            # Calculate Delaunay tesselation
+            delaunay = Delaunay(self.a_position.T)
+            if delaunay.simplices.shape[1] > 3:
+                faceIdcs = delaunay.convex_hull
+            else:
+                faceIdcs = delaunay.simplices
+                self.indices = faceIdcs
         else:
-            faceIdcs = delaunay.simplices
-
-        self.indices = faceIdcs
+            self.indices = (np.array(
+                [np.arange(self.theta_lvls) + 1, np.arange(self.theta_lvls), np.arange(self.theta_lvls + 1, self.theta_lvls * 2 + 1, 1),
+                 np.arange(self.theta_lvls + 1, self.theta_lvls * 2 + 1, 1) + 1, np.arange(self.theta_lvls + 1, self.theta_lvls * 2 + 1, 1),
+                 np.arange(self.theta_lvls) + 1]).T.flatten()
+                            + np.array([np.arange(0, self.phi_lvls + 1, 1)]).T * (self.theta_lvls + 1)).flatten().astype(np.uint32)
 
         ### Create buffers
         self.createBuffers()
+
+        import IPython
+        #IPython.embed()
 

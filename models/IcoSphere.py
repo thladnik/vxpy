@@ -18,10 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
+from Model import SphereModel
 from helper.Geometry import SphereHelper
 
 gr = 1.61803398874989484820
-class IcosahedronSphere:
+class IcosahedronSphere(SphereModel):
 
     corners = [
         [-1, gr,  0],
@@ -38,7 +39,7 @@ class IcosahedronSphere:
         [-gr, 0,  1],
     ]
 
-    faces = [
+    _faces = [
 
         [0, 11, 5],
         [0, 5, 1],
@@ -67,14 +68,24 @@ class IcosahedronSphere:
 
     cache = dict()
 
-    def __init__(self, subdiv_lvl):
+    def __init__(self, subdiv_lvl, **kwargs):
+        SphereModel.__init__(self, **kwargs)
+
+        self.faces = self._faces
 
         # Calculate vertices
-        self.vertices = [self.vertex(*v) for v in self.corners]
+        self.a_position = [self.vertex(*v) for v in self.corners]
 
         # Subdivide faces
         self.subdiv_lvl = subdiv_lvl
         self.subdivide()
+
+        self.a_position = np.array(self.a_position)
+        self.indices = np.array(self.faces)
+
+        self.createBuffers()
+        import IPython
+        #IPython.embed()
 
     def vertex(self, x, y, z):
         vlen = np.sqrt(x ** 2 + y ** 2 + z ** 2)
@@ -86,12 +97,12 @@ class IcosahedronSphere:
         if key in self.cache:
             return self.cache[key]
 
-        v1 = self.vertices[p1]
-        v2 = self.vertices[p2]
+        v1 = self.a_position[p1]
+        v2 = self.a_position[p2]
         middle = [sum(i)/2 for i in zip(v1, v2)]
 
-        self.vertices.append(self.vertex(*middle))
-        index = len(self.vertices) - 1
+        self.a_position.append(self.vertex(*middle))
+        index = len(self.a_position) - 1
 
         self.cache[key] = index
 
@@ -113,10 +124,4 @@ class IcosahedronSphere:
             self.faces = new_faces
 
     def getSphericalCoords(self):
-        return np.array(SphereHelper.cart2sph(self.vertices[:,0], self.vertices[:,1], self.vertices[:,2])).T
-
-    def getVertices(self):
-        return np.array(self.vertices)
-
-    def getFaces(self):
-        return np.array(self.faces)
+        return np.array(SphereHelper.cart2sph(self.a_position[:, 0], self.a_position[:, 1], self.a_position[:, 2])).T

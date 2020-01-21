@@ -23,13 +23,10 @@ import numpy as np
 import warnings
 
 def createUVSphere(azi, elv, azitile = 30, elvtile = 30):
-    imgvertice = np.array([np.arange(azitile + 1)]).T + \
-                 np.array([np.arange(elvtile + 1) * 1.j])
     sph_azi = np.exp(1.j * np.linspace(-azi / 2, azi / 2, azitile + 1))
     sph_elv = np.linspace(-elv / 2, elv / 2, elvtile + 1)
     sph_xz, sph_yz = np.meshgrid(sph_azi, sph_elv)
     sph_xz = sph_xz * np.sqrt(1 - sph_yz ** 2)
-    adding_idx = np.arange(imgvertice.size).reshape(imgvertice.shape)
 
     # Vertices positions
     p3 = np.stack((np.real(sph_xz.flatten()), np.imag(sph_xz.flatten()), np.real(sph_yz.flatten())), axis=-1)
