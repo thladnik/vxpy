@@ -36,15 +36,6 @@ class AbstractStimulus:
 
     _warns = list()
 
-    ########
-    # Texture property
-    @property
-    def texture(self):
-        return self._texture
-    @texture.setter
-    def texture(self, tex):
-        self._texture = tex
-        self.setUniform('u_texture', self._texture)
 
     def program(self, pname) -> gloo.Program:
         return self._programs[self.__class__][pname]
@@ -96,13 +87,13 @@ class AbstractStimulus:
 ################################
 ### Spherical stimulus class
 
-from Shader import Shader
-from models import CMNSpheres, UVSphere
+from Shader import BasicFileShader
+from models import CMNSpheres, BasicSphere
 from helper import Geometry
 from glumpy import glm
 
 import Config
-import Definition
+from Definition import DisplayConfig
 
 class SphericalStimulus(AbstractStimulus):
 
@@ -117,13 +108,13 @@ class SphericalStimulus(AbstractStimulus):
 
         ### Create mask model
         self._mask_model = self.addModel(self._mask_name,
-                                         UVSphere.UVSphere,
+                                         BasicSphere.UVSphere,
                                          theta_lvls=50, phi_lvls=50,
                                          theta_range=np.pi/2, upper_phi=np.pi/4, radius=1.0)
 
         ### Create mask program
         self._mask_program = self.addProgram(self._mask_name,
-                                            Shader().addShaderFile('v_ucolor.shader').read(),
+                                             BasicFileShader().addShaderFile('v_sphere_map.glsl', subdir='spherical').read(),
                                             'void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }')
         self._mask_program.bind(self._mask_model.vertexBuffer)
 
@@ -139,28 +130,31 @@ class SphericalStimulus(AbstractStimulus):
 
         ### Set 2d translation in window
         u_global_shift = np.array([
-            Config.Display[Definition.DisplayConfig.float_pos_glob_x_pos],
-            Config.Display[Definition.DisplayConfig.float_pos_glob_y_pos]
+            Config.Display[DisplayConfig.pos_glob_x_pos],
+            Config.Display[DisplayConfig.pos_glob_y_pos]
         ])
         #self.protocol._current.program['u_global_shift'] = u_global_shift
 
         #### Set scaling for aspect 1:1
-        width = Config.Display[Definition.DisplayConfig.int_window_width]
-        height = Config.Display[Definition.DisplayConfig.int_window_height]
+        width = Config.Display[DisplayConfig.window_width]
+        height = Config.Display[DisplayConfig.window_height]
         if height > width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
 
-        translate3d = glm.translation(0, 0, -4)
-        project3d = glm.perspective(55.0, 1, 2.0, 100.0)
+        distance = Config.Display[DisplayConfig.view_distance]
+        translate3d = glm.translation(0, 0, -distance)
+        fov = 240.0/distance
+        project3d = glm.perspective(fov, 1, 2.0, 100.0)
 
         ### Set uniforms
         self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
-        self.setUniform('u_mapcalib_scale', 1.2 * np.array ([1, 1]))
+        scale = Config.Display[DisplayConfig.view_scale]
+        self.setUniform('u_mapcalib_scale', scale * np.array ([1, 1]))
 
-        self.display._glWindow.clear(color=(0.0, 0.0, 0.5, 1.0))
+        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
 
         gl.glEnable(gl.GL_STENCIL_TEST)
@@ -168,16 +162,17 @@ class SphericalStimulus(AbstractStimulus):
 
         for i in range(4):
 
-            elev = Config.Display[Definition.DisplayConfig.float_view_elev_angle]
+            elev = Config.Display[DisplayConfig.view_elev_angle]
             elevRot3d = glm.rotate(np.eye(4), -90 + elev, 1, 0, 0)
             ### Rotate 3d model
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 225, 0, 0, 1) @ elevRot3d)
             ### Rotate around center of screen
-            #self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 + np.pi / 2 * i))
             self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i))
             ### Translate radially
-            radialOffset = Config.Display[Definition.DisplayConfig.float_pos_glob_radial_offset]
-            self.setUniform('u_mapcalib_translate2d', np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * radialOffset)
+            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[DisplayConfig.pos_glob_radial_offset]
+            xyOffset =  np.array([Config.Display[DisplayConfig.pos_glob_x_pos], Config.Display[DisplayConfig.pos_glob_y_pos]])
+            translate2d = radialOffset + xyOffset
+            self.setUniform('u_mapcalib_translate2d', translate2d)
 
             ### Write stencil buffer from mask sphere
             gl.glStencilOp(gl.GL_KEEP, gl.GL_KEEP, gl.GL_REPLACE)
@@ -196,7 +191,8 @@ class SphericalStimulus(AbstractStimulus):
             #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
             ### Apply 90*i degree rotation for rendering different parts of actual sphere
-            self.setUniform('u_mapcalib_rotate3d', glm.rotate (np.eye (4), -90*i, 0, 0, 1) @ elevRot3d)
+            azim_angle = Config.Display[DisplayConfig.view_azim_angle]
+            self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye (4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
             ### Call the
             self.render()

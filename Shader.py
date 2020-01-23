@@ -1,5 +1,5 @@
 """
-MappApp ./Shader.py - Custom shader class used in ./process/Display.py.
+MappApp ./Shader.py - Custom shader classes used in display process (./process/Display.py).
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,16 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-
 import os
 
-import Definition
-class Shader:
+from Definition import Path
+
+class BasicFileShader:
 
     def __init__(self):
         self._flist = list()
 
-    def addShaderFile(self, fname):
+    def addShaderFile(self, fname, subdir=None):
+        if subdir is not None:
+            fname = os.path.join(subdir, fname)
         self._flist.append(fname)
 
         return self
@@ -34,7 +36,7 @@ class Shader:
         code = ''
 
         for fname in self._flist:
-            with open(os.path.join(Definition.Path.Shader, fname), 'r') as fobj:
+            with open(os.path.join(Path.Shader, fname), 'r') as fobj:
                 code += fobj.read()
             code += '\n'
 

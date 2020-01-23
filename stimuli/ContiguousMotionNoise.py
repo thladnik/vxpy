@@ -22,7 +22,7 @@ from scipy import signal
 from glumpy import gl, gloo,glm
 
 import Logging
-from Shader import Shader
+from Shader import BasicFileShader
 from helper import Geometry
 from Stimulus import SphericalStimulus
 from models import CMNSpheres
@@ -41,8 +41,8 @@ class IcoCMN(SphericalStimulus):
 
         ### Define program
         self.sphere_program = self.addProgram('sphere',
-                                              Shader().addShaderFile('v_tex.shader').read(),
-                                              Shader().addShaderFile('f_tex.shader').read())
+                                              BasicFileShader().addShaderFile('v_tex.glsl', subdir='spherical').read(),
+                                              BasicFileShader().addShaderFile('f_tex.glsl').read())
 
         ### Bind vertex buffer
         self.sphere_program.bind(self.sphere_model.vertexBuffer)

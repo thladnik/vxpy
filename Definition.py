@@ -41,38 +41,41 @@ class Process:
 class DisplayConfig:
     name = 'display'
 
-    bool_use                     = 'bool_use'
+    # Use display
+    use                    = 'bool_use'
 
     # Window settings
-    int_window_screen_id         = 'int_window_screen_id'
-    bool_window_fullscreen       = 'bool_window_fullscreen'
-    int_window_width             = 'int_window_width'
-    int_window_height            = 'int_window_height'
-    int_window_pos_x             = 'int_window_pos_x'
-    int_window_pos_y             = 'int_window_pos_y'
+    window_screen_id       = 'int_window_screen_id'
+    window_fullscreen      = 'bool_window_fullscreen'
+    window_width           = 'int_window_width'
+    window_height          = 'int_window_height'
+    window_pos_x           = 'int_window_pos_x'
+    window_pos_y           = 'int_window_pos_y'
 
     # Calibration settings
-    float_pos_glob_x_pos         = 'float_pos_glob_x_pos'
-    float_pos_glob_y_pos         = 'float_pos_glob_y_pos'
-    float_pos_glob_radial_offset = 'float_pos_glob_radial_offset'
+    pos_glob_x_pos         = 'float_pos_glob_x_pos'
+    pos_glob_y_pos         = 'float_pos_glob_y_pos'
+    pos_glob_radial_offset = 'float_pos_glob_radial_offset'
 
-    float_view_elev_angle        = 'float_view_elev_angle'
-    float_view_axis_offset       = 'float_view_axis_offset'
-    float_view_origin_distance   = 'float_view_origin_distance'
-    float_view_fov               = 'float_view_fov'
+    view_elev_angle        = 'float_view_elev_angle'
+    view_azim_angle        = 'float_view_azim_angle'
+    view_distance          = 'float_view_origin_distance'
+    view_scale             = 'float_view_scale'
 
 class CameraConfig:
     name = 'camera'
 
-    bool_use         = 'bool_use'
+    # Use camera
+    use          = 'bool_use'
 
-    str_manufacturer = 'str_manufacturer'
-    str_model        = 'str_model'
-    str_format       = 'str_format'
-    int_resolution_x = 'int_resolution_x'
-    int_resolution_y = 'int_resolution_y'
+    # Camera configuration
+    manufacturer = 'str_manufacturer'
+    model        = 'str_model'
+    format       = 'str_format'
+    resolution_x = 'int_resolution_x'
+    resolution_y = 'int_resolution_y'
 
 class GuiConfig:
     name = 'gui'
 
-    bool_use         = 'bool_use'
+    use         = 'bool_use'

@@ -1,9 +1,12 @@
+// v_checkerboard.glsl
+
 uniform mat2 u_mapcalib_aspectscale;
 uniform vec2 u_mapcalib_scale;
 uniform mat4 u_mapcalib_transform3d;
 uniform mat4 u_mapcalib_rotate3d;
 uniform vec2 u_mapcalib_translate2d;
 uniform mat2 u_mapcalib_rotate2d;
+
 
 attribute vec3 a_position;
 attribute float a_azimuth;

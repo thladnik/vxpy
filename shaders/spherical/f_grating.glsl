@@ -1,24 +1,27 @@
+// f_grating.glsl
 
-
-// f_grating.shader
-
+uniform float u_stime;
 uniform int u_shape;
 uniform int u_stripes_num;
 uniform float u_velocity;
 uniform int u_orientation;
 
+varying float v_azimuth;
+varying float v_elevation;
+
 void main()
 {
-    //<viewport.clipping>;
 
     // Checkerboard
-    float c = 1.0;
+    float c;
+    //
     if (u_orientation == 1) {
-        c = sin(float(u_stripes_num) * v_sph_pos.x + u_time * u_velocity);
+        c = sin(float(u_stripes_num) * v_azimuth + u_stime * u_velocity);
     } else {
-        c = sin(float(u_stripes_num) * v_sph_pos.y + u_time * u_velocity);
+        c = sin(float(u_stripes_num) * v_elevation + u_stime * u_velocity);
     }
 
+    // If shape is rectangular: threshold sine wave
     if (u_shape == 1) {
         if (c > 0) {
            c = 1.0;

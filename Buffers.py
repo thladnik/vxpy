@@ -36,8 +36,8 @@ class CameraBufferObject:
     """
 
     def __init__(self):
-        self.frameDims = (int(Config.Camera[Definition.CameraConfig.int_resolution_x]),
-                          int(Config.Camera[Definition.CameraConfig.int_resolution_y]))
+        self.frameDims = (int(Config.Camera[Definition.CameraConfig.resolution_x]),
+                          int(Config.Camera[Definition.CameraConfig.resolution_y]))
 
         self._buffers = dict()
         self._npBuffers = dict()

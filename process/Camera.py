@@ -49,11 +49,11 @@ class Main(Controller.BaseProcess):
 
         ### Set up camera
         ## The Imaging Source cameras
-        if Config.Camera[Definition.CameraConfig.str_manufacturer] == 'TIS':
+        if Config.Camera[Definition.CameraConfig.manufacturer] == 'TIS':
             import devices.cameras.tisgrabber as IC
             self.camera = IC.TIS_CAM()
             self.camera.open(self._cameraBO.model)
-            self.camera.SetVideoFormat(Config.Camera[Definition.CameraConfig.str_format])
+            self.camera.SetVideoFormat(Config.Camera[Definition.CameraConfig.format])
             self.camera.SetPropertySwitch("Framerate","Auto",0)
             self.camera.SetPropertySwitch("Exposure","Auto",0)
             self.camera.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
@@ -62,16 +62,16 @@ class Main(Controller.BaseProcess):
             self.camera.StartLive(0)
 
         ## Virtual camera
-        elif Config.Camera[Definition.CameraConfig.str_manufacturer] == 'virtual':
+        elif Config.Camera[Definition.CameraConfig.manufacturer] == 'virtual':
             import devices.cameras.virtual as VC
             self.camera = VC.VirtualCamera()
-            self.camera.setVideoFormat(Config.Camera[Definition.CameraConfig.str_format],
-                                       Config.Camera[Definition.CameraConfig.int_resolution_x],
-                                       Config.Camera[Definition.CameraConfig.int_resolution_y])
+            self.camera.setVideoFormat(Config.Camera[Definition.CameraConfig.format],
+                                       Config.Camera[Definition.CameraConfig.resolution_x],
+                                       Config.Camera[Definition.CameraConfig.resolution_y])
 
         Logging.logger.log(logging.DEBUG, 'Using camera {}>>{}'
-                           .format(Config.Camera[Definition.CameraConfig.str_manufacturer],
-                                   Config.Camera[Definition.CameraConfig.str_model]))
+                           .format(Config.Camera[Definition.CameraConfig.manufacturer],
+                                   Config.Camera[Definition.CameraConfig.model]))
 
         ### Run event loop
         self.run()

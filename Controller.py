@@ -194,24 +194,23 @@ class Controller(BaseProcess):
 
     _cameraBO: Buffers.CameraBufferObject = None
 
-    def __init__(self, _configfile, _useGUI):
+    def __init__(self):
         BaseProcess.__init__(self, _ctrlQueue=mp.Queue(), _logQueue=mp.Queue())
-        self._useGUI = _useGUI
 
         ### Set up manager
         self.manager = mp.Manager()
 
         ### Set configurations
-        self._configfile = _configfile
-        self.configuration = Basic.Config(self._configfile)
+        #self._configfile = _configfile
 
         Config.Camera = self.manager.dict()
-        Config.Camera.update(self.configuration.configuration(Definition.CameraConfig))
+        Config.Camera.update(configuration.configuration(Definition.CameraConfig))
 
         Config.Display = self.manager.dict()
-        Config.Display.update(self.configuration.configuration(Definition.DisplayConfig))
+        Config.Display.update(configuration.configuration(Definition.DisplayConfig))
 
-        Config.Gui = self.configuration.configuration(Definition.GuiConfig)
+        Config.Gui = self.manager.dict()
+        Config.Gui.update(configuration.configuration(Definition.GuiConfig))
 
         Config.Logfile = self.manager.Value(ctypes.c_char_p, '')
 
@@ -220,7 +219,7 @@ class Controller(BaseProcess):
 
         ### Set up processes
         ## GUI
-        if self._useGUI:
+        if Config.Gui[Definition.GuiConfig.use]:
             import process.GUI
             self._initializeProcess(Definition.Process.GUI, process.GUI.Main,
                                     _cameraBO=self._cameraBO)
@@ -270,7 +269,7 @@ class Controller(BaseProcess):
         self._initializeProcess(Definition.Process.Display, process.Display.Main)
 
     def _setupCamera(self):
-        if not(Config.Camera[Definition.CameraConfig.bool_use]):
+        if not(Config.Camera[Definition.CameraConfig.use]):
             return
 
         ### Create camera buffer object
@@ -314,11 +313,11 @@ class Controller(BaseProcess):
 
         ################
         # Update configurations that should persist here
-        self.configuration.updateConfiguration(Definition.DisplayConfig, **Config.Display)
+        configuration.updateConfiguration(Definition.DisplayConfig, **Config.Display)
         # Save to file
         Logging.logger.log(logging.INFO, 'Save configuration to file {}'
-                           .format(self._configfile))
-        self.configuration.saveToFile()
+                           .format(_configfile))
+        configuration.saveToFile()
 
         ################
         # Shutdown procedure
@@ -348,6 +347,6 @@ class Controller(BaseProcess):
 
 if __name__ == '__main__':
 
-    _useGUI = True
     _configfile = 'default.ini'
-    ctrl = Controller(_configfile=_configfile, _useGUI=_useGUI)
+    configuration = Basic.Config(_configfile)
+    ctrl = Controller()

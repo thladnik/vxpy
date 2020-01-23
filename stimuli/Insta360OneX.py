@@ -7,7 +7,7 @@ from scipy import io
 from Definition import Path
 from Stimulus import SphericalStimulus
 from models import Insta360OneX
-from Shader import Shader
+from Shader import BasicFileShader
 
 class Calibrated(SphericalStimulus):
 
@@ -22,8 +22,8 @@ class Calibrated(SphericalStimulus):
                                    Insta360OneX.Calibrated,
                                    filename=insta)
         self.program = self.addProgram('program',
-                                       Shader().addShaderFile('v_tex.shader').read(),
-                                       Shader().addShaderFile('f_tex.shader').read())
+                                       BasicFileShader().addShaderFile('v_tex.glsl', subdir='spherical').read(),
+                                       BasicFileShader().addShaderFile('f_tex.glsl').read())
         self.program.bind(self.model.vertexBuffer)
 
         self.file = h5py.File(os.path.join('media', self.filename), 'r')

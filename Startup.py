@@ -195,7 +195,7 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         # Select current
         config = self._main.configuration.configuration(Definition.CameraConfig)
         self._cb_selectModel.setCurrentText(
-            '%s>>%s' % (config[Definition.CameraConfig.str_manufacturer], config[Definition.CameraConfig.str_model]))
+            '%s>>%s' % (config[Definition.CameraConfig.manufacturer], config[Definition.CameraConfig.model]))
 
         self._loadFormatList()
 
@@ -229,7 +229,7 @@ class CameraConfiguration(QtWidgets.QGroupBox):
                 self._cb_selectFormat.addItem(f.decode())
 
         self._cb_selectFormat.setCurrentText(self._main.configuration.configuration(
-            Definition.CameraConfig, Definition.CameraConfig.str_format)
+            Definition.CameraConfig, Definition.CameraConfig.format)
         )
 
     def _formatSelected(self, idx):
@@ -239,11 +239,11 @@ class CameraConfiguration(QtWidgets.QGroupBox):
     def set(self, **settings):
         self._loadCameraList()
 
-        if Definition.CameraConfig.str_model in settings:
-            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.str_model])
+        if Definition.CameraConfig.model in settings:
+            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.model])
 
-        if Definition.CameraConfig.str_format in settings:
-            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.str_format])
+        if Definition.CameraConfig.format in settings:
+            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.format])
 
     def get(self):
         format = self._cb_selectFormat.currentText()
@@ -254,11 +254,11 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         model = camera[1]
 
         return {
-            Definition.CameraConfig.str_manufacturer : manufacturer,
-            Definition.CameraConfig.str_model        : model,
-            Definition.CameraConfig.str_format       : format,
-            Definition.CameraConfig.int_resolution_x : int(format1[1][:-1]),
-            Definition.CameraConfig.int_resolution_y : int(format1[0][1:])
+            Definition.CameraConfig.manufacturer : manufacturer,
+            Definition.CameraConfig.model        : model,
+            Definition.CameraConfig.format       : format,
+            Definition.CameraConfig.resolution_x : int(format1[1][:-1]),
+            Definition.CameraConfig.resolution_y : int(format1[0][1:])
         }
 
 
