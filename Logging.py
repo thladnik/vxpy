@@ -22,6 +22,7 @@ import logging.handlers
 
 logQueue = None
 logger = None
+write = None
 
 def setupLogger(_logQueue, _name):
     if logQueue is not None:
@@ -34,3 +35,4 @@ def setupLogger(_logQueue, _name):
     root.addHandler(h)
     root.setLevel(logging.DEBUG)
     globals()['logger'] = logging.getLogger(_name)
+    globals()['write'] = logging.getLogger(_name).log

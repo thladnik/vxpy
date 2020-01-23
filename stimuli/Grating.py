@@ -16,41 +16,37 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-from time import perf_counter
+from glumpy import gl
 
+from Shader import BasicFileShader
 from Stimulus import SphericalStimulus
-from models import UVSphere
-import Logging
-
+from models import BasicSphere
 
 class BlackWhiteGrating(SphericalStimulus):
-
-    _fragment_shader = 'f_grating.shader'
-    _model = UVSphere.UVSphere(theta_lvls=70, phi_lvls=35)
 
     def __init__(self, protocol, display, orientation, shape, velocity, num):
         """
         :param protocol: protocol of which stimulus is currently part of
 
         :param orientation: orientation of grating; either 'vertical' or 'horizontal'
-        :param shape: shape of underlying function; either 'rectangular' or 'sinusoidal'
+        :param shape: shape of underlying func; either 'rectangular' or 'sinusoidal'
         :param velocity:
         :param num:
         """
-        SphericalStimulus.__init__(self, protocol=protocol, display=display)
+        SphericalStimulus.__init__(self, protocol, display)
 
-        self._model.build()
-        self._createProgram()
+        self.model = self.addModel('sphere',
+                                   BasicSphere.UVSphere,
+                                   theta_lvls=60, phi_lvls=30)
+        self.program = self.addProgram('program',
+                                       BasicFileShader().addShaderFile('v_grating.glsl', subdir='spherical').read(),
+                                       BasicFileShader().addShaderFile('f_grating.glsl', subdir='spherical').read())
+        self.program.bind(self.model.vertexBuffer)
 
         self.update(shape=shape, orientation=orientation, velocity=velocity, num=num)
 
-    def parameters(self):
-        return dict(orientation = self.protocol.program['u_orientation'],
-                    shape = self.protocol.program['u_shape'],
-                    velocity = self.protocol.program['u_velocity'],
-                    num = self.protocol.program['u_stripes_num']
-                    )
+    def render(self):
+        self.program.draw(gl.GL_TRIANGLES, self.model.indexBuffer)
 
     def update(self, shape=None, orientation=None, velocity=None, num=None):
 

@@ -20,10 +20,11 @@ import logging
 import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
-from time import strftime
+from time import strftime, sleep
 
 import Definition
 import Buffers
+import Config
 import Controller
 import Logging
 import gui.DisplaySettings
@@ -35,7 +36,6 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
     _cameraBO    : Buffers.CameraBufferObject
     _app         : QtWidgets.QApplication
-    _logFilename : str = None
 
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs)
@@ -45,12 +45,14 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
 
         ### Fetch log file
-        self.registerPropertyWithController('_logFilename')
-        while self._logFilename is None:
-            self._handleCommunication()
-        self.logccount = 0
+        while Config.Logfile is None:
+            sleep(0.1)
 
+        ### Setup UI
         self._setupUI()
+
+        ### Set initial log line count
+        self.logccount = 0
 
         ### Run event loop
         self.run()
@@ -87,51 +89,82 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._centralwidget.layout().addWidget(QtWidgets.QLabel('Log'), 0, 0)
         self._centralwidget.layout().addWidget(self._txe_log, 1, 0)
 
-        ## Setup menubar
+        ### Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
-        # Menu windows
+
+        ## Menu windows
         self._menu_windows = QtWidgets.QMenu('Windows')
         self.menuBar().addMenu(self._menu_windows)
+        # Display settings
         self._menu_act_dispSettings = QtWidgets.QAction('Display settings')
-        #self._menu_act_dispSettings.triggered.connect(self._openDisplaySettings)
+        self._menu_act_dispSettings.triggered.connect(self._openDisplaySettings)
         self._menu_windows.addAction(self._menu_act_dispSettings)
-        self._menu_act_checkerCalib = QtWidgets.QAction('Checkerboard calibration')
-        #self._menu_act_checkerCalib.triggered.connect(self._openCheckerboardCalibration)
-        self._menu_windows.addAction(self._menu_act_checkerCalib)
-        self._menu_act_testStimuli = QtWidgets.QAction('Stimulation protocols')
-        #self._menu_act_testStimuli.triggered.connect(self._openStimProtocols)
-        self._menu_windows.addAction(self._menu_act_testStimuli)
+        # Stimulation protocols
+        self._menu_act_stimProtocols = QtWidgets.QAction('Stimulation protocols')
+        self._menu_act_stimProtocols.triggered.connect(self._openStimProtocols)
+        self._menu_windows.addAction(self._menu_act_stimProtocols)
+        # Video streamer
+        self._menu_act_vidStream = QtWidgets.QAction('Video streamer')
+        self._menu_act_vidStream.triggered.connect(self._openVideoStreamer)
+        self._menu_windows.addAction(self._menu_act_vidStream)
+
+        ## Menu processes
+        self._menu_process = QtWidgets.QMenu('Processes')
+        self.menuBar().addMenu(self._menu_process)
+        self.menuBar().addMenu(self._menu_windows)
+        # Restart display
+        self._menu_process_redisp = QtWidgets.QAction('Restart display')
+        self._menu_process_redisp.triggered.connect(
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeDisplay))
+        self._menu_process.addAction(self._menu_process_redisp)
+
 
         ## Display Settings
         self._wdgt_dispSettings = gui.DisplaySettings.DisplaySettings(self)
-        self._wdgt_dispSettings.move(1660, 50)
         self._openDisplaySettings()
 
         ## Stimulus Protocols
         self._wdgt_stimProtocols = gui.Protocols.Protocols(self)
-        self._wdgt_stimProtocols.move(1660, 560)
         self._openStimProtocols()
 
         # Video Streamer
         self._wdgt_camera = gui.Camera.Camera(self, flags=QtCore.Qt.Window)
-        self._wdgt_camera.move(50, 800)
         self._openVideoStreamer()
+
+        self._bindShortcuts()
 
         self.show()
 
+    def _bindShortcuts(self):
+        ### Reset Display settings view
+        self._menu_act_dispSettings.setShortcut('Ctrl+s')
+        ### Reset Stimulation protocols view
+        self._menu_act_stimProtocols.setShortcut('Ctrl+p')
+        ### Reset Video streamer view
+        self._menu_act_vidStream.setShortcut('Ctrl+v')
+
+        ### Restart display process
+        self._menu_process_redisp.setShortcut('Ctrl+Shift+d')
+
     def printLog(self):
-        with open(os.path.join(Definition.Path.Log, self._logFilename), 'r') as fobj:
+        with open(os.path.join(Definition.Path.Log, Config.Logfile.value), 'r') as fobj:
             lines = fobj.read().split('<<\n')
             for line in lines[self.logccount:]:
                 if len(line) == 0:
                     continue
-                record = line.split('<<>>')
+                record = line.split(' <<>> ')
                 if record[2].find('INFO') > -1 or record[2].find('WARN') > -1:
-                    self._txe_log.append(line)
+                    #self._txe_log.append(line)
+                    self._txe_log.append('{} :: {:10} :: {:8} :: {} '
+                                         .format(record[0],
+                                                 record[1].replace(' ', ''),
+                                                 record[2].replace(' ', ''),
+                                                 record[3]))
                 self.logccount += 1
 
     def _openDisplaySettings(self):
         self._wdgt_dispSettings.showNormal()
+        self._wdgt_dispSettings.move(1660, 50)
         self._wdgt_dispSettings.show()
 
     def _openCheckerboardCalibration(self):
@@ -140,10 +173,12 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
     def _openStimProtocols(self):
         self._wdgt_stimProtocols.showNormal()
+        self._wdgt_stimProtocols.move(1660, 560)
         self._wdgt_stimProtocols.show()
 
     def _openVideoStreamer(self):
         self._wdgt_camera.showNormal()
+        self._wdgt_camera.move(50, 800)
         self._wdgt_camera.show()
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
@@ -152,5 +187,6 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_stimProtocols.close()
         self._wdgt_camera.close()
         self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
+        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.ConfirmShutdown)
 
 

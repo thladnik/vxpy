@@ -1,5 +1,6 @@
 """
-MappApp ./Shader.py - Custom shader classes used in display process (./process/Display.py).
+MappApp ./Config.py - Handle process-wide configurations
+all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,28 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os
 
-from Definition import Path
-
-class BasicFileShader:
-
-    def __init__(self):
-        self._flist = list()
-
-    def addShaderFile(self, fname, subdir=None):
-        if subdir is not None:
-            fname = os.path.join(subdir, fname)
-        self._flist.append(fname)
-
-        return self
-
-    def read(self):
-        code = ''
-
-        for fname in self._flist:
-            with open(os.path.join(Path.Shader, fname), 'r') as fobj:
-                code += fobj.read()
-            code += '\n'
-
-        return code
+## Known configuration properties
+Display : dict = None
+Camera  : dict = None
+Gui     : dict = None
+Logfile : str  = None

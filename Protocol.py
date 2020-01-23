@@ -55,10 +55,10 @@ class StaticStimulationProtocol:
 
 
         ### Set new stimulus
-        self._current = new_stimulus(protocol=self, display=self.display, **kwargs)
+        self._current = new_stimulus(self, self.display, **kwargs)
 
         ### Set uniforms on new program
-        self.display._updateDisplayUniforms()
+        # self.display._updateDisplayUniforms()     # Nash 11012020: I use a completely different shaders and methods in ico_cmn for rendering so have to comment this
 
         # Set new time when protocol should advance
         if duration is not None:

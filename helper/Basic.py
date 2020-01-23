@@ -1,5 +1,5 @@
 """
-MappApp ./Helper.py - Collections of helper functions and classes.
+MappApp ./Basic.py - Collections of helper functions and classes.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -72,40 +72,6 @@ class Config:
         with open(os.path.join(Definition.Path.Config, self._configfile), 'w') as fobj:
             self.data.write(fobj)
             fobj.close()
-
-class SharedProperty(object):
-    def __init__(self, name, dtype):
-        self.dtype = dtype
-        self._name = name
-        self._value : dtype = dtype()
-        self._callbacks : list = list()
-
-    def __repr__(self):
-        return 'SharedProperty "{}" of type {}'.format(self._name, self.dtype.__name__)
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, value):
-        if not(isinstance(value, self.dtype)):
-            print('WARNING: trying to set SharedProperty with invalid type')
-            return
-
-        if isinstance(self._value, dict):
-            self._value.update(value)
-        else:
-            self._value = value
-
-        for callback in self._callbacks:
-            callback()
-
-    def __set__(self, instance, value):
-        setattr(self, 'value', value)
-
-    def addSetterCallback(self, callback):
-        self._callbacks.append(callback)
 
 
 class Conversion:

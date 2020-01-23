@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/Calibration.py - Protocols for calibration of spherical visual stimulation setup.
+MappApp ./protocols/Example01.py - Example protocol for demonstration.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,21 +18,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticStimulationProtocol
 
-from stimuli.Checkerboard import BlackWhiteCheckerboard
-from stimuli.Grating import BlackWhiteGrating
+from stimuli.ContiguousMotionNoise import IcoCMN
+from stimuli.Insta360OneX import Calibrated
 
-class Calibration(StaticStimulationProtocol):
+class IcoCMNProtocol(StaticStimulationProtocol):
 
-    _name = 'Calibration'
+    _name = 'ico_cmn'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-
-        self.addStimulus(BlackWhiteCheckerboard,
-                         dict(cols=16, rows=16),
-                              duration=None)
-
-        for num in range(10):
-            self.addStimulus(BlackWhiteCheckerboard,
-                             dict(cols=8+num, rows=8+num),
-                             duration=5)
+        self.addStimulus(IcoCMN, {}, duration=None)

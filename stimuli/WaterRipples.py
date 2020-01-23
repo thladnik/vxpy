@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/Checkerboard.py - Checkerboard stimuli
+MappApp ./stimuli/WaterRipples.py - Checkerboard stimuli
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,12 +18,13 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from glumpy import gl
 import numpy as np
+import os
 
 from Stimulus import SphericalStimulus
 from models import BasicSphere
 from Shader import BasicFileShader
 
-class BlackWhiteCheckerboard(SphericalStimulus):
+class SingleRippleStaticBackground(SphericalStimulus):
 
     def __init__(self, protocol, display, rows, cols):
         """Black-and-white checkerboard for calibration.
@@ -36,22 +37,15 @@ class BlackWhiteCheckerboard(SphericalStimulus):
 
         self.model = self.addModel('sphere',
                                    BasicSphere.UVSphere,
-                                   theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
+                                   theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2,
+                                   shader_attributes=[('a_texcoord', np.float32, 2)])
 
         self.program = self.addProgram('sphere',
-                                       BasicFileShader().addShaderFile('v_checkerboard.glsl', subdir='spherical').read(),
-                                       BasicFileShader().addShaderFile('f_checkerboard.glsl', subdir='spherical').read())
+                                       BasicFileShader().addShaderFile('v_single_ripple_on_background.glsl', subdir='spherical').read(),
+                                       BasicFileShader().addShaderFile('f_single_ripple_on_background.glsl', subdir='spherical').read())
         self.program.bind(self.model.vertexBuffer)
 
-        self.update(cols=cols, rows=rows)
+
 
     def render(self):
         self.program.draw(gl.GL_TRIANGLES, self.model.indexBuffer)
-
-    def update(self, cols=None, rows=None):
-
-        if cols is not None and cols > 0:
-            self.setUniform('u_checker_cols', cols)
-
-        if rows is not None and rows > 0:
-            self.setUniform('u_checker_rows', rows)

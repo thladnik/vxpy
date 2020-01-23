@@ -22,6 +22,7 @@ import multiprocessing as mp
 import numpy as np
 from time import perf_counter
 
+import Config
 import Definition
 
 ################################
@@ -34,9 +35,9 @@ class CameraBufferObject:
     Consumers have to initially call constructBuffers() to be able to read data from buffers.
     """
 
-    def __init__(self, _config_Camera):
-        self.frameDims = (int(_config_Camera[Definition.CameraConfig.int_resolution_x]),
-                          int(_config_Camera[Definition.CameraConfig.int_resolution_y]))
+    def __init__(self):
+        self.frameDims = (int(Config.Camera[Definition.CameraConfig.resolution_x]),
+                          int(Config.Camera[Definition.CameraConfig.resolution_y]))
 
         self._buffers = dict()
         self._npBuffers = dict()

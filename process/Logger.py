@@ -21,6 +21,7 @@ import logging.handlers
 import os
 from time import strftime, sleep
 
+import Config
 import Controller
 import Definition
 import Logging
@@ -31,20 +32,22 @@ class Main(Controller.BaseProcess):
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
-        ### Set up logger
+        ### Set up logger, formatte and handler
         self.logger = logging.getLogger('mylog')
         filename = '%s.log' % strftime('%Y-%m-%d-%H-%M-%S')
         h = logging.handlers.TimedRotatingFileHandler(os.path.join(Definition.Path.Log, filename), 'd')
-        f = logging.Formatter('%(asctime)s <<>> %(name)-20s <<>> %(levelname)-8s <<>> %(message)s <<')
+        f = logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<')
         h.setFormatter(f)
         self.logger.addHandler(h)
 
-        self._updateProperty('_logFilename', filename)
+        ### Set logfile name in configuration
+        Config.Logfile.value = filename
 
         ### Run event loop
         self.run()
 
     def main(self):
+        ### Check queue
         if self._logQueue.empty():
             return
 
@@ -64,4 +67,13 @@ class Main(Controller.BaseProcess):
             print('Exception in Logger:', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
+        ### Wait for a bit
         sleep(0.05)
+
+    def _startShutdown(self):
+        ### Wait for other processes to finish first and then clear the log queue
+        sleep(.5)
+        while not(self._logQueue.empty()):
+            self.logger.handle(self._logQueue.get())
+        ### Finally shut down
+        Controller.BaseProcess._startShutdown(self)
