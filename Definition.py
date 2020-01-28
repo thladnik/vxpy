@@ -32,17 +32,27 @@ class Path:
     Shader   = 'shaders'
 
 class Process:
-    Camera     = 'camera'
-    Controller = 'controller'
-    Display    = 'display'
-    GUI        = 'gui'
-    Logger     = 'logger'
+    Camera     = 'Camera'
+    Controller = 'Controller'
+    Display    = 'Display'
+    GUI        = 'Gui'
+    IO         = 'IO'
+    Logger     = 'Logger'
+    Worker     = 'Worker'
+
+class State:
+    stopped  = 99
+    starting = 10
+    idle     = 20
+    busy     = 30
 
 class DisplayConfig:
     name = 'display'
 
     # Use display
     use                    = 'bool_use'
+
+    fps                    = 'int_fps'
 
     # Window settings
     window_screen_id       = 'int_window_screen_id'

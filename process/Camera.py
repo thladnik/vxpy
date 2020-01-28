@@ -36,11 +36,10 @@ class Main(Controller.BaseProcess):
     _cameraBO  : Buffers.CameraBufferObject = None
     _recording : bool                       = False
 
-    def __init__(self, _cameraBO, **kwargs):
+    def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set camera buffer object
-        self._cameraBO = _cameraBO
         self._cameraBO.constructBuffers()
 
         ### Set recording parameters

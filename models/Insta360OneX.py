@@ -18,7 +18,7 @@ class Calibrated(Model.SphereModel):
     def __init__(self, filename, **kwargs):
         Model.SphereModel.__init__(self, **kwargs)
 
-        self.addVertexAttribute(('a_texcoord', np.float32, 2))
+        self.addAttribute(('a_texcoord', np.float32, 2))
 
         self.filename = '{}.mat'.format(filename)
 

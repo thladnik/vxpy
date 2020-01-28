@@ -32,16 +32,16 @@ class Main(Controller.BaseProcess):
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
+        ### Set file to log to
+        if Config.Logfile.value == '':
+            Config.Logfile.value = '%s.log' % strftime('%Y-%m-%d-%H-%M-%S')
+
         ### Set up logger, formatte and handler
         self.logger = logging.getLogger('mylog')
-        filename = '%s.log' % strftime('%Y-%m-%d-%H-%M-%S')
-        h = logging.handlers.TimedRotatingFileHandler(os.path.join(Definition.Path.Log, filename), 'd')
+        h = logging.handlers.TimedRotatingFileHandler(os.path.join(Definition.Path.Log, Config.Logfile.value), 'd')
         f = logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<')
         h.setFormatter(f)
         self.logger.addHandler(h)
-
-        ### Set logfile name in configuration
-        Config.Logfile.value = filename
 
         ### Run event loop
         self.run()
@@ -67,13 +67,16 @@ class Main(Controller.BaseProcess):
             print('Exception in Logger:', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
-        ### Wait for a bit
+        ### Wait for a bit (reduce CPU load)
         sleep(0.05)
 
     def _startShutdown(self):
         ### Wait for other processes to finish first and then clear the log queue
         sleep(.5)
+
+        ### Process queued log messages
         while not(self._logQueue.empty()):
             self.logger.handle(self._logQueue.get())
+
         ### Finally shut down
         Controller.BaseProcess._startShutdown(self)

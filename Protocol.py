@@ -56,9 +56,7 @@ class StaticStimulationProtocol:
 
         ### Set new stimulus
         self._current = new_stimulus(self, self.display, **kwargs)
-
-        ### Set uniforms on new program
-        # self.display._updateDisplayUniforms()     # Nash 11012020: I use a completely different shaders and methods in ico_cmn for rendering so have to comment this
+        self._current.start()
 
         # Set new time when protocol should advance
         if duration is not None:
@@ -67,7 +65,7 @@ class StaticStimulationProtocol:
             self._advanceTime = None
 
         # FINALLY: dispatch resize event
-        self.display._glWindow.dispatch_event('on_resize', self.display._glWindow.width, self.display._glWindow.height)
+        #self.display._glWindow.dispatch_event('on_resize', self.display._glWindow.width, self.display._glWindow.height)
 
     def draw(self, dt):
         self._time += dt

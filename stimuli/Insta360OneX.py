@@ -31,7 +31,7 @@ class Calibrated(SphericalStimulus):
 
         self.i = 0
 
-    def render(self):
+    def render(self, dt):
         if self.i > 1000:
             self.i = 0
         import IPython

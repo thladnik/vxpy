@@ -34,23 +34,22 @@ class IcoCMN(SphericalStimulus):
     def __init__(self, protocol, display):
         SphericalStimulus.__init__(self, protocol, display)
 
-        ### Define model
-        self.sphere_model = self.addModel('sphere',
-                                          CMNSpheres.IcoSphere,
-                                          subdivisionTimes=2)
+        ### Set up model
+        self.sphere = self.addModel('sphere',
+                                    CMNSpheres.IcoSphere,
+                                    subdivisionTimes=2)
+        self.sphere.createBuffers()
 
-        ### Define program
-        self.sphere_program = self.addProgram('sphere',
-                                              BasicFileShader().addShaderFile('v_tex.glsl', subdir='spherical').read(),
-                                              BasicFileShader().addShaderFile('f_tex.glsl').read())
+        ### Set up program and bind buffer
+        self.cmn = self.addProgram('cmn',
+                                   BasicFileShader().addShaderFile('v_tex.glsl', subdir='spherical').read(),
+                                   BasicFileShader().addShaderFile('f_tex.glsl').read())
+        self.cmn.bind(self.sphere.vertexBuffer)
 
-        ### Bind vertex buffer
-        self.sphere_program.bind(self.sphere_model.vertexBuffer)
-
-        Isize = self.sphere_model.indexBuffer.size
+        Isize = self.sphere.indexBuffer.size
         sp_sigma = 1  # spatial CR
         tp_sigma = 20  # temporal CR
-        spkernel = np.exp (-(self.sphere_model.intertile_distance ** 2) / (2 * sp_sigma ** 2))
+        spkernel = np.exp (-(self.sphere.intertile_distance ** 2) / (2 * sp_sigma ** 2))
         spkernel *= spkernel > .001
         tp_min_length = np.int (np.ceil (np.sqrt (-2 * tp_sigma ** 2 * np.log (.01 * tp_sigma * np.sqrt (2 * np.pi)))))
         tpkernel = np.linspace (-tp_min_length, tp_min_length, num=2 * tp_min_length + 1)
@@ -67,26 +66,26 @@ class IcoCMN(SphericalStimulus):
         spsmooth_z = np.dot (spkernel, tpsmooth_z)  #
         spsmooth_Q = Geometry.qn(np.array([spsmooth_x, spsmooth_y, spsmooth_z]).transpose ([1, 2, 0]))
 
-        tileCen_Q = Geometry.qn (self.sphere_model.tile_center)
-        tileOri_Q1 = Geometry.qn (np.real (self.sphere_model.tile_orientation)).normalize[:, None]
-        tileOri_Q2 = Geometry.qn (np.imag (self.sphere_model.tile_orientation)).normalize[:, None]
+        tileCen_Q = Geometry.qn (self.sphere.tile_center)
+        tileOri_Q1 = Geometry.qn (np.real (self.sphere.tile_orientation)).normalize[:, None]
+        tileOri_Q2 = Geometry.qn (np.imag (self.sphere.tile_orientation)).normalize[:, None]
         projected_motmat = Geometry.projection (tileCen_Q[:, None], spsmooth_Q)
         self.motmatFull = Geometry.qdot (tileOri_Q1, projected_motmat) - 1.j * Geometry.qdot (tileOri_Q2, projected_motmat)
         startpoint = Geometry.cen2tri (np.random.rand (np.int (Isize / 3)), np.random.rand (np.int (Isize / 3)), .1)
 
-        self.sphere_model.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2])/2
-        self.sphere_program['u_texture']= np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
-        self.sphere_program['u_texture'].wrapping = gl.GL_REPEAT
+        self.sphere.vertexBuffer['a_texcoord'] = startpoint.reshape([-1, 2]) / 2
+        self.cmn['u_texture']= np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
+        self.cmn['u_texture'].wrapping = gl.GL_REPEAT
 
         self.i = 0
 
-    def render(self) :
+    def render(self, dt) :
 
         ### Update texture coordinates
         tidx = np.mod(self.i,499)
         motmat = np.repeat(self.motmatFull[:,tidx],3,axis = 0)
-        self.sphere_model.vertexBuffer['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 1000
+        self.sphere.vertexBuffer['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 1000
 
         ## Call draw of main program
-        self.sphere_program.draw (gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
+        self.cmn.draw (gl.GL_TRIANGLES, self.sphere.indexBuffer)
         self.i += 1

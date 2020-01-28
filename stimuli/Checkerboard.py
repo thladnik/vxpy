@@ -34,19 +34,19 @@ class BlackWhiteCheckerboard(SphericalStimulus):
         """
         SphericalStimulus.__init__(self, protocol, display)
 
-        self.model = self.addModel('sphere',
-                                   BasicSphere.UVSphere,
-                                   theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
-
-        self.program = self.addProgram('sphere',
+        self.sphere = self.addModel('sphere',
+                                    BasicSphere.UVSphere,
+                                    theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
+        self.sphere.createBuffers()
+        self.checker = self.addProgram('sphere',
                                        BasicFileShader().addShaderFile('v_checkerboard.glsl', subdir='spherical').read(),
                                        BasicFileShader().addShaderFile('f_checkerboard.glsl', subdir='spherical').read())
-        self.program.bind(self.model.vertexBuffer)
+        self.checker.bind(self.sphere.vertexBuffer)
 
         self.update(cols=cols, rows=rows)
 
-    def render(self):
-        self.program.draw(gl.GL_TRIANGLES, self.model.indexBuffer)
+    def render(self, dt):
+        self.checker.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
     def update(self, cols=None, rows=None):
 
