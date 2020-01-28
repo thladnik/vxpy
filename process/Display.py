@@ -49,7 +49,6 @@ class Main(Controller.BaseProcess):
         self._window_config = app.configuration.Configuration()
         self._window_config.stencil_size = 8
 
-
         ### Open OpenGL window
         self._glWindow = app.Window(width=Config.Display[Definition.DisplayConfig.window_width],
                                     height=Config.Display[Definition.DisplayConfig.window_height],
@@ -194,7 +193,7 @@ class Main(Controller.BaseProcess):
 
     def main(self):
         # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
-        app.clock.schedule_interval(self._handleCommunication, 0.05)
+        app.clock.schedule_interval(self._handleInbox, 0.05)
         app.clock.schedule_interval(self._checkScreen, 0.1)
 
         # Run Glumpy event loop

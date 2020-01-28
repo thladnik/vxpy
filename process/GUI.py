@@ -33,6 +33,10 @@ import gui.Protocols
 import gui.Integrated
 import gui.Camera
 
+import process.Camera
+import process.Display
+import process.Logger
+
 class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
     name = Definition.Process.GUI
 
@@ -45,10 +49,6 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
         ### Set icon
         self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
-
-        ### Fetch log file
-        while Config.Logfile is None:
-            sleep(0.1)
 
         ### Setup UI
         self._setupUI()
@@ -63,7 +63,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         IPC.State.Gui.value = Definition.State.idle
         ### Set timer for handling of communication
         self._tmr_handlePipe = QtCore.QTimer()
-        self._tmr_handlePipe.timeout.connect(self._handleCommunication)
+        self._tmr_handlePipe.timeout.connect(self._handleInbox)
         self._tmr_handlePipe.start(10)
 
         ### Set timer for updating of log
@@ -130,17 +130,17 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         # Restart display
         self._menu_process_redisp = QtWidgets.QAction('Restart display')
         self._menu_process_redisp.triggered.connect(
-            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeDisplay))
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeProcess, process.Display.Main))
         self._menu_process.addAction(self._menu_process_redisp)
         # Restart camera
         self._menu_process_recam = QtWidgets.QAction('Restart camera')
         self._menu_process_recam.triggered.connect(
-            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.inializeCamera))
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeProcess, process.Camera.Main))
         self._menu_process.addAction(self._menu_process_recam)
         # Restart IO
         self._menu_process_relog = QtWidgets.QAction('Restart logger')
         self._menu_process_relog.triggered.connect(
-            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeLogger))
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeProcess, process.Logger.Main))
         self._menu_process.addAction(self._menu_process_relog)
 
         ## Display Settings
@@ -163,19 +163,28 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
     def _bindShortcuts(self):
         ### Reset Display settings view
         self._menu_act_dispSettings.setShortcut('Ctrl+s')
+        self._menu_act_dispSettings.setAutoRepeat(False)
         ### Reset Stimulation protocols view
         self._menu_act_stimProtocols.setShortcut('Ctrl+p')
+        self._menu_act_stimProtocols.setAutoRepeat(False)
         ### Reset Video streamer view
         self._menu_act_vidStream.setShortcut('Ctrl+v')
+        self._menu_act_vidStream.setAutoRepeat(False)
 
         ### Restart display process
         self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
+        self._menu_process_redisp.setAutoRepeat(False)
         ### Restart camera process
         self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
+        self._menu_process_recam.setAutoRepeat(False)
         ### Restart display process
         self._menu_process_relog.setShortcut('Ctrl+Alt+Shift+l')
+        self._menu_process_relog.setAutoRepeat(False)
 
     def printLog(self):
+        if Config.Logfile is None:
+            return
+
         with open(os.path.join(Definition.Path.Log, Config.Logfile.value), 'r') as fobj:
             lines = fobj.read().split('<<\n')
             for line in lines[self.logccount:]:
@@ -210,6 +219,5 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_stimProtocols.close()
         self._wdgt_camera.close()
         self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
-        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.ConfirmShutdown)
 
 

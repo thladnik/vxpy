@@ -21,9 +21,9 @@ from Protocol import StaticStimulationProtocol
 
 from stimuli.WaterRipples import RipplesOnStaticBackground
 
-class Test(StaticStimulationProtocol):
+class Example(StaticStimulationProtocol):
 
-    _name = 'WRP_Test'
+    _name = 'WRP_Example'
 
     def __init__(self, _glWindow):
         StaticStimulationProtocol.__init__(self, _glWindow)
@@ -42,3 +42,23 @@ class Test(StaticStimulationProtocol):
                                                      u_mod_width=width,
                                                      u_mod_max_elev=-np.pi/8),
                                                  duration=10)
+
+class ElevationsExample(StaticStimulationProtocol):
+
+    _name = 'WRP_ElevationsExample'
+
+    def __init__(self, _glWindow):
+        StaticStimulationProtocol.__init__(self, _glWindow)
+        import numpy as np
+
+        for depth in [0.7, 0.2]:
+            for sign in [1, -1]:
+                for elev in [np.pi/8, 0.0, -np.pi/8, -np.pi/4]:
+                    self.addStimulus(RipplesOnStaticBackground,
+                                     dict(u_mod_sign=sign,
+                                         u_mod_depth=depth,
+                                         u_mod_shape='normal',
+                                         u_mod_vel=4.0,
+                                         u_mod_width=0.03,
+                                         u_mod_max_elev=elev),
+                                     duration=10)

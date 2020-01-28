@@ -1,5 +1,6 @@
 """
-MappApp ./Controller.py - Base process and controller class called to start program. Spawns all sub processes.
+MappApp ./Controller.py - Base process and controller class called to start program.
+Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -55,8 +56,8 @@ class BaseProcess:
     _inPipe    : mp.connection.PipeConnection
 
     ## Controller exclusives
-    _pipes               : dict = dict()
-    _processes           : dict = dict()
+    _pipes     : dict = dict()
+    _processes : dict = dict()
 
 
     def __init__(self, **kwargs):
@@ -114,12 +115,9 @@ class BaseProcess:
         ### Run event loop
         self.t = time.perf_counter()
         while self._isRunning():
-            self._handleCommunication()
+            self._handleInbox()
             self.main()
             self.t = time.perf_counter()
-
-        ### Inform controller that process has terminated
-        self.send(Definition.Process.Controller, BaseProcess.Signals.ConfirmShutdown)
 
     def main(self):
         """Event loop to be re-implemented in subclass
@@ -128,8 +126,8 @@ class BaseProcess:
 
     def _startShutdown(self):
         # Handle all pipe messages before shutdown
-        while self._inPipe.poll():
-            self._handleCommunication()
+        while self._pipes[self.name][1].poll():
+            self._handleInbox()
 
         ### Set process state
         if getattr(IPC.State, self.name) is not None:
@@ -148,13 +146,9 @@ class BaseProcess:
         Convenience function to send messages to other Processes.
         All messages have the format [Sender, Receiver, Data]
         """
-        if self.name == Definition.Process.Controller:
-            self._pipes[processName][0].send([signal, args, kwargs])
-        else:
-            self._ctrlQueue.put([self.name, processName, [signal, args, kwargs]])
+        self._pipes[processName][0].send([signal, args, kwargs])
 
     def rpc(self, processName, function, *args, **kwargs):
-
         self.send(processName, BaseProcess.Signals.RPC, function.__name__, *args, **kwargs)
 
 
@@ -178,15 +172,13 @@ class BaseProcess:
                                                 '// Exception: {}'.
                                                 format(fun, args, kwargs, exc))
 
-    def _handleCommunication(self, *args, msg=None):  # needs *args for compatibility with Glumpy's schedule_interval
+    def _handleInbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
 
-        ### Msg should only be set if this is the controller process
-        if msg is None:
-            # Poll pipe
-            if not(self._inPipe.poll()):
-                return
+        # Poll pipe
+        if not(self._pipes[self.name][1].poll()):
+            return
 
-            msg = self._inPipe.recv()
+        msg = self._pipes[self.name][1].recv()
 
         Logging.logger.log(logging.DEBUG, 'Received message: {}'.
                            format(msg))
@@ -212,10 +204,14 @@ class BaseProcess:
 class Controller(BaseProcess):
     name = Definition.Process.Controller
 
+    _registeredProcesses = list()
     _cameraBO: Buffers.CameraBufferObject = None
 
     def __init__(self):
-        BaseProcess.__init__(self, _ctrlQueue=mp.Queue(), _logQueue=mp.Queue())
+        BaseProcess.__init__(self, _logQueue=mp.Queue())
+
+        ### Manually set up pipe for controller
+        self._pipes[self.name] = mp.Pipe()
 
         ### Set up manager
         IPC.Manager = mp.Manager()
@@ -248,27 +244,32 @@ class Controller(BaseProcess):
         ### Set up processes
         ## GUI
         if Config.Gui[Definition.GuiConfig.use]:
-            self.initializeGui()
+            import process.GUI
+            self._registerProcess(process.GUI.Main)
         ## Camera
-        self.inializeCamera()
+        import process.Camera
+        self._registerProcess(process.Camera.Main)
         ## Display
-        self.initializeDisplay()
+        import process.Display
+        self._registerProcess(process.Display.Main)
         ## Logger
-        self.initializeLogger()
+        import process.Logger
+        self._registerProcess(process.Logger.Main)
 
         ### Run event loop
-        self.run()
+        self.start()
 
-    def _newStateDict(self):
-        return IPC.Manager.dict()
-
-    def _initializeProcess(self, processName, target, **optKwargs):
+    def _registerProcess(self, target, **kwargs):
         """Spawn a new process with a dedicated pipe connection.
 
-        :param processHandle: MappApp_Defintion.<Process> class
         :param target: process class
-        :param optKwargs: optional keyword arguments
+        :param kwargs: optional keyword arguments for intialization of process class
         """
+        self._registeredProcesses.append((target, kwargs))
+
+    def initializeProcess(self, target, **kwargs):
+        processName = target.name
+
         if processName in self._processes:
             ### Terminate process
             Logging.write(logging.INFO, 'Restart process {}'.format(processName))
@@ -279,16 +280,12 @@ class Controller(BaseProcess):
 
             ### Delete references
             del self._processes[processName]
-            del self._pipes[processName]
 
-
-        self._pipes[processName] = mp.Pipe()
         self._processes[processName] = mp.Process(target=target,
                                                   name=processName,
                                                   kwargs=dict(
-                                                      _ctrlQueue=self._ctrlQueue,
-                                                      _logQueue=self._logQueue,
-                                                      _inPipe=self._pipes[processName][1],
+                                                      _logQueue = self._logQueue,
+                                                      _pipes = self._pipes,
                                                       _configuration = dict(
                                                           Camera  = Config.Camera,
                                                           Display = Config.Display,
@@ -306,25 +303,10 @@ class Controller(BaseProcess):
                                                       ),
                                                       _buffers = dict(
                                                           _cameraBO = self._cameraBO
-                                                      )
+                                                      ),
+                                                      **kwargs
                                                   ))
         self._processes[processName].start()
-
-    def inializeCamera(self):
-        import process.Camera
-        self._initializeProcess(Definition.Process.Camera, process.Camera.Main)
-
-    def initializeDisplay(self):
-        import process.Display
-        self._initializeProcess(Definition.Process.Display, process.Display.Main)
-
-    def initializeGui(self):
-        import process.GUI
-        self._initializeProcess(Definition.Process.GUI, process.GUI.Main)
-
-    def initializeLogger(self):
-        import process.Logger
-        self._initializeProcess(Definition.Process.Logger, process.Logger.Main)
 
     def _setupCamera(self):
         if not(Config.Camera[Definition.CameraConfig.use]):
@@ -335,39 +317,16 @@ class Controller(BaseProcess):
         self._cameraBO.addBuffer(Buffers.FrameBuffer)
         self._cameraBO.addBuffer(Buffers.EdgeDetector)
 
-    def run(self):
+    def start(self):
+        ### Initialze all pipse
+        for target, kwargs in self._registeredProcesses:
+            self._pipes[target.name] = mp.Pipe()
 
-        ################
-        # Startup
-        self._running = True
-        self._shutdown = False
+        for target, kwargs in self._registeredProcesses:
+            self.initializeProcess(target, **kwargs)
 
-        ################
-        # Run main loop
-        Logging.logger.log(logging.DEBUG, 'Run <{}>'
-                           .format(self.name))
-        while self._isRunning():
-
-            # Get new Data from control queue
-            sender, receiver, (signal, args, kwargs) = self._ctrlQueue.get()
-            Logging.logger.log(logging.DEBUG, 'Message from <{}> to <{}>: Signal {}, Args {}, Kwargs {}'
-                               .format(sender, receiver, signal, args, kwargs))
-
-            ########
-            ## CALLS TO CONTROLLER
-            if receiver == self.name:
-                self._handleCommunication(msg=[signal, args, kwargs])
-
-            ########
-            # CALLS TO OTHER PROCESSES (FORWARDING)
-            else:
-                try:
-                    Logging.logger.log(logging.DEBUG, 'Forward message from <{}> to <{}> with signal {}'.
-                                       format(sender, receiver, signal))
-                    self.send(receiver, signal, *args, **kwargs)
-                except:
-                    Logging.logger.log(logging.WARNING, 'Failed to forward message from <{}> to <{}> with signal {}'.
-                                       format(sender, receiver, signal))
+        ### Run controller
+        self.run()
 
         ################
         # Update configurations that should persist here
@@ -392,6 +351,9 @@ class Controller(BaseProcess):
                     del self._processes[processName]
                     del self._pipes[processName]
         self._running = False
+
+    def main(self):
+        pass
 
     def _startShutdown(self):
         Logging.logger.log(logging.DEBUG, 'Shut down processes')
