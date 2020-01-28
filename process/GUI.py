@@ -26,9 +26,11 @@ import Definition
 import Buffers
 import Config
 import Controller
+import IPC
 import Logging
 import gui.DisplaySettings
 import gui.Protocols
+import gui.Integrated
 import gui.Camera
 
 class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
@@ -58,6 +60,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self.run()
 
     def run(self):
+        IPC.State.Gui.value = Definition.State.idle
         ### Set timer for handling of communication
         self._tmr_handlePipe = QtCore.QTimer()
         self._tmr_handlePipe.timeout.connect(self._handleCommunication)
@@ -73,25 +76,38 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
     def _setupUI(self):
 
+        ### Set up main window
         self.setWindowTitle('MappApp')
-        self.move(50, 50)
-        self.setFixedSize(1600, 700)
+        self.move(0, 0)
+        self.screenGeo = self._app.primaryScreen().geometry()
+        self.resize(self.screenGeo.width()-1, self.screenGeo.height()//3)
 
-        ## Setup central widget
+        ### Setup central widget
         self._centralwidget = QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget)
         self._centralwidget.setLayout(QtWidgets.QGridLayout())
         self.setCentralWidget(self._centralwidget)
 
+        ### Add integrated widgets
+        ## Process monitor
+        self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
+        self.centralWidget().layout().addWidget(self._grp_processStatus, 0, 0)
+        spacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.centralWidget().layout().addItem(spacer, 0, 1)
+        self.centralWidget().layout().addItem(spacer, 0, 2)
+
+        ## Logger
+        self._grp_log = QtWidgets.QGroupBox()
+        self._grp_log.setLayout(QtWidgets.QVBoxLayout())
+        self.centralWidget().layout().addWidget(self._grp_log, 1, 0, 1, 3)
         self._txe_log = QtWidgets.QTextEdit()
         self._txe_log.setReadOnly(True)
         self._txe_log.setFontFamily('Courier')
         self._txe_log.setFontPointSize(10)
-        self._centralwidget.layout().addWidget(QtWidgets.QLabel('Log'), 0, 0)
-        self._centralwidget.layout().addWidget(self._txe_log, 1, 0)
+        self._grp_log.layout().addWidget(QtWidgets.QLabel('Log'))
+        self._grp_log.layout().addWidget(self._txe_log)
 
         ### Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
-
         ## Menu windows
         self._menu_windows = QtWidgets.QMenu('Windows')
         self.menuBar().addMenu(self._menu_windows)
@@ -107,7 +123,6 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_act_vidStream = QtWidgets.QAction('Video streamer')
         self._menu_act_vidStream.triggered.connect(self._openVideoStreamer)
         self._menu_windows.addAction(self._menu_act_vidStream)
-
         ## Menu processes
         self._menu_process = QtWidgets.QMenu('Processes')
         self.menuBar().addMenu(self._menu_process)
@@ -117,7 +132,16 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_process_redisp.triggered.connect(
             lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeDisplay))
         self._menu_process.addAction(self._menu_process_redisp)
-
+        # Restart camera
+        self._menu_process_recam = QtWidgets.QAction('Restart camera')
+        self._menu_process_recam.triggered.connect(
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.inializeCamera))
+        self._menu_process.addAction(self._menu_process_recam)
+        # Restart IO
+        self._menu_process_relog = QtWidgets.QAction('Restart logger')
+        self._menu_process_relog.triggered.connect(
+            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeLogger))
+        self._menu_process.addAction(self._menu_process_relog)
 
         ## Display Settings
         self._wdgt_dispSettings = gui.DisplaySettings.DisplaySettings(self)
@@ -131,6 +155,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_camera = gui.Camera.Camera(self, flags=QtCore.Qt.Window)
         self._openVideoStreamer()
 
+        # Bind shortcuts
         self._bindShortcuts()
 
         self.show()
@@ -144,7 +169,11 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_act_vidStream.setShortcut('Ctrl+v')
 
         ### Restart display process
-        self._menu_process_redisp.setShortcut('Ctrl+Shift+d')
+        self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
+        ### Restart camera process
+        self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
+        ### Restart display process
+        self._menu_process_relog.setShortcut('Ctrl+Alt+Shift+l')
 
     def printLog(self):
         with open(os.path.join(Definition.Path.Log, Config.Logfile.value), 'r') as fobj:
@@ -153,32 +182,26 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
                 if len(line) == 0:
                     continue
                 record = line.split(' <<>> ')
-                if record[2].find('INFO') > -1 or record[2].find('WARN') > -1:
-                    #self._txe_log.append(line)
-                    self._txe_log.append('{} :: {:10} :: {:8} :: {} '
-                                         .format(record[0],
-                                                 record[1].replace(' ', ''),
-                                                 record[2].replace(' ', ''),
-                                                 record[3]))
+                if record[2].find('INFO') > -1 or record[2].find('WARN') > -1 or record[2].find('EXE') > -1 :
+                    line = '{} :: {:10} :: {:8} :: {}'\
+                        .format(record[0], record[1].replace(' ', ''), record[2].replace(' ', ''), record[3])
+
+                    self._txe_log.append(line)
                 self.logccount += 1
 
     def _openDisplaySettings(self):
         self._wdgt_dispSettings.showNormal()
-        self._wdgt_dispSettings.move(1660, 50)
+        self._wdgt_dispSettings.move(0, self.screenGeo.height()//3+50)
         self._wdgt_dispSettings.show()
-
-    def _openCheckerboardCalibration(self):
-        self._wgt_checkerboardCalibration.showNormal()
-        self._wgt_checkerboardCalibration.show()
 
     def _openStimProtocols(self):
         self._wdgt_stimProtocols.showNormal()
-        self._wdgt_stimProtocols.move(1660, 560)
+        self._wdgt_stimProtocols.move(400, self.screenGeo.height()//3+50)
         self._wdgt_stimProtocols.show()
 
     def _openVideoStreamer(self):
         self._wdgt_camera.showNormal()
-        self._wdgt_camera.move(50, 800)
+        self._wdgt_camera.move(800, self.screenGeo.height()//3+50)
         self._wdgt_camera.show()
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:

@@ -24,6 +24,7 @@ import time
 import Controller
 import Config
 import Definition
+import IPC
 import Logging
 import Protocol
 
@@ -115,7 +116,6 @@ class Main(Controller.BaseProcess):
                     Config.Display[Definition.DisplayConfig.window_fullscreen] = \
                         not(Config.Display[Definition.DisplayConfig.window_fullscreen])
 
-
             ### X position: Ctrl(+Shift)+X
             elif symbol == key.X:
                 while keyboard.is_pressed('X'):
@@ -166,8 +166,6 @@ class Main(Controller.BaseProcess):
                     Config.Display[Definition.DisplayConfig.view_scale] += sign*0.001
                     time.sleep(continPressDelay)
 
-
-
     def _checkScreen(self, dt):
         screenid = Config.Display[Definition.DisplayConfig.window_screen_id]
         fscreen = Config.Display[Definition.DisplayConfig.window_fullscreen]
@@ -200,4 +198,5 @@ class Main(Controller.BaseProcess):
         app.clock.schedule_interval(self._checkScreen, 0.1)
 
         # Run Glumpy event loop
-        app.run(framerate=60)
+        app.run(framerate=Config.Display[Definition.DisplayConfig.fps])
+

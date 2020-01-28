@@ -20,14 +20,16 @@ import Definition
 
 Configuration = {
     Definition.DisplayConfig.name : {
-        Definition.DisplayConfig.use                     : True,
+        Definition.DisplayConfig.use                    : True,
 
-        Definition.DisplayConfig.window_screen_id         : 0,
-        Definition.DisplayConfig.window_fullscreen       : False,
-        Definition.DisplayConfig.window_width            : 900,
-        Definition.DisplayConfig.window_height            : 600,
-        Definition.DisplayConfig.window_pos_x             : 400,
-        Definition.DisplayConfig.window_pos_y             : 400,
+        Definition.DisplayConfig.fps                    : 60,
+
+        Definition.DisplayConfig.window_screen_id       : 0,
+        Definition.DisplayConfig.window_fullscreen      : False,
+        Definition.DisplayConfig.window_width           : 900,
+        Definition.DisplayConfig.window_height          : 600,
+        Definition.DisplayConfig.window_pos_x           : 400,
+        Definition.DisplayConfig.window_pos_y           : 400,
 
         Definition.DisplayConfig.pos_glob_x_pos         : 0.0,
         Definition.DisplayConfig.pos_glob_y_pos         : 0.0,
@@ -35,17 +37,17 @@ Configuration = {
 
         Definition.DisplayConfig.view_elev_angle        : 0.0,
         Definition.DisplayConfig.view_azim_angle        : 0.0,
-        Definition.DisplayConfig.view_distance   : 5.0,
-        Definition.DisplayConfig.view_scale                   : 1.0,
+        Definition.DisplayConfig.view_distance          : 5.0,
+        Definition.DisplayConfig.view_scale             : 1.0,
     },
 
     Definition.CameraConfig.name : {
         Definition.CameraConfig.use                     : True,
-        Definition.CameraConfig.manufacturer             : 'virtual',
-        Definition.CameraConfig.model                    : 'cam01',
-        Definition.CameraConfig.format                   : 'RGB (600, 400)',
-        Definition.CameraConfig.resolution_x             : 600,
-        Definition.CameraConfig.resolution_y             : 400
+        Definition.CameraConfig.manufacturer            : 'virtual',
+        Definition.CameraConfig.model                   : 'cam01',
+        Definition.CameraConfig.format                  : 'RGB (600, 400)',
+        Definition.CameraConfig.resolution_x            : 600,
+        Definition.CameraConfig.resolution_y            : 400
     },
 
     Definition.GuiConfig.name : {

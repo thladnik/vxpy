@@ -23,15 +23,16 @@ import Logging
 
 class AbstractModel:
 
-    def __init__(self, shader_attributes : list = None):
+    def __init__(self):
         self.vertexBuffer : gloo.VertexBuffer = None
         self.indexBuffer  : gloo.IndexBuffer  = None
         self.indices      : np.ndarray        = None
 
-        ### Set shader attributes
+        self._built = False
+
+        ### Set default a_position attribute
         self.activeAttributes = [('a_position', np.float32, 3)]
-        if shader_attributes is not None:
-            self.activeAttributes.extend(shader_attributes)
+        self.a_position : np.ndarray = None
 
     @staticmethod
     def reshapeArray(ar):
@@ -39,45 +40,43 @@ class AbstractModel:
             return ar
         return ar.T
 
-    def addVertexAttribute(self, attribute):
+    def isBuilt(self):
+        return self._built
+
+    def addAttribute(self, attribute):
+        if self.isBuilt():
+            return
         if isinstance(attribute, tuple) and len(attribute) == 3:
             self.activeAttributes.append(attribute)
 
-    def setAttribute(self, attribute_name, data=None):
-        if data is None:
-            data = getattr(self, attribute_name)
-        else:
-            setattr(self, attribute_name, data)
-        self.vertexBuffer[attribute_name] = AbstractModel.reshapeArray(data)
-
-    def initVertexAttributes(self):
-        for attribute in self.activeAttributes:
-            if not(hasattr(self, attribute[0])):
-                Logging.logger.log(logging.WARNING, 'Attribute {} not set on model {}'
-                                   .format(str(attribute), self.__class__))
-                return
-            self.setAttribute(attribute[0])
-
     def createBuffers(self):
-        if not(hasattr(self, 'a_position')):
+        if self.isBuilt():
+            return
+        if self.a_position is None:
             Logging.logger.log(logging.WARNING,
                                'Creation of vertex buffer failed in model {}. '
                                'a_position is not set on model.'.format(self.__class__))
             return
 
         ### Create vertex array
-        vArray = np.zeros(AbstractModel.reshapeArray(getattr(self, 'a_position')).shape[0],
-                          self.activeAttributes)
+        vArray = np.zeros(AbstractModel.reshapeArray(self.a_position).shape[0], self.activeAttributes)
 
         ### Create vertex buffer
         self.vertexBuffer = vArray.view(gloo.VertexBuffer)
 
         ### Set attribute data
-        self.initVertexAttributes()
+        for attribute in self.activeAttributes:
+            if not(hasattr(self, attribute[0])):
+                Logging.logger.log(logging.WARNING, 'Attribute {} not set on model {}'
+                                   .format(str(attribute), self.__class__))
+                continue
+            self.vertexBuffer[attribute[0]] = AbstractModel.reshapeArray(getattr(self, attribute[0]))
 
         ### Create index buffer
         if self.indices is not None:
             self.indexBuffer = np.uint32(self.indices).view(gloo.IndexBuffer)
+
+        self._built = True
 
 class SphereModel(AbstractModel):
     """Sphere model base class.
@@ -86,3 +85,22 @@ class SphereModel(AbstractModel):
 
     def __init__(self, **kwargs):
         AbstractModel.__init__(self, **kwargs)
+
+    def setTextureCoords(self, type='uv_standard'):
+        if self.isBuilt():
+            return
+
+        texcoord = list()
+
+        poss = AbstractModel.reshapeArray(self.a_position)
+        if type == 'uv_standard':
+            for i in range(poss.shape[0]):
+                pos = poss[i, :]
+                texcoord.append([0.5 + np.arctan2(pos[1], pos[0]) / (2 * np.pi),
+                                 0.5 + np.arcsin(pos[2]) / np.pi])
+        elif type == 'uv_mercator':
+            pass
+
+        if bool(texcoord):
+            self.addAttribute(('a_texcoord', np.float32, 2))
+            self.a_texcoord = np.array(texcoord)

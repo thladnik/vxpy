@@ -35,18 +35,22 @@ class BlackWhiteGrating(SphericalStimulus):
         """
         SphericalStimulus.__init__(self, protocol, display)
 
-        self.model = self.addModel('sphere',
-                                   BasicSphere.UVSphere,
-                                   theta_lvls=60, phi_lvls=30)
-        self.program = self.addProgram('program',
+        ### Set up model
+        self.sphere = self.addModel('sphere',
+                                    BasicSphere.UVSphere,
+                                    theta_lvls=60, phi_lvls=30)
+        self.sphere.createBuffers()
+
+        ### Set up program
+        self.grating = self.addProgram('grating',
                                        BasicFileShader().addShaderFile('v_grating.glsl', subdir='spherical').read(),
                                        BasicFileShader().addShaderFile('f_grating.glsl', subdir='spherical').read())
-        self.program.bind(self.model.vertexBuffer)
+        self.grating.bind(self.sphere.vertexBuffer)
 
         self.update(shape=shape, orientation=orientation, velocity=velocity, num=num)
 
-    def render(self):
-        self.program.draw(gl.GL_TRIANGLES, self.model.indexBuffer)
+    def render(self, dt):
+        self.grating.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
     def update(self, shape=None, orientation=None, velocity=None, num=None):
 
@@ -57,19 +61,19 @@ class BlackWhiteGrating(SphericalStimulus):
             self._setOrientation(orientation)
 
         if velocity is not None:
-            self.program['u_velocity'] = velocity
+            self.grating['u_velocity'] = velocity
 
         if num is not None and num > 0:
-            self.program['u_stripes_num'] = num
+            self.grating['u_stripes_num'] = num
 
     def _setShape(self, shape):
         if shape == 'rectangular':
-            self.program['u_shape'] = 1
+            self.grating['u_shape'] = 1
         elif shape == 'sinusoidal':
-            self.program['u_shape'] = 2
+            self.grating['u_shape'] = 2
 
     def _setOrientation(self, orientation):
         if orientation == 'vertical':
-            self.program['u_orientation'] = 1
+            self.grating['u_orientation'] = 1
         elif orientation == 'horizontal':
-            self.program['u_orientation'] = 2
+            self.grating['u_orientation'] = 2

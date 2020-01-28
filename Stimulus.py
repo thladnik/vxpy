@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import logging
 from glumpy import gl, gloo, transforms
 import numpy as np
-from typing import List, Dict
+from typing import Union
 
 import Logging
 import Shader
@@ -33,6 +33,7 @@ class AbstractStimulus:
     _texture : np.ndarray = None
     _programs    = dict()
     _models   = dict()
+    _stimuli  = list()
 
     _warns = list()
 
@@ -53,7 +54,7 @@ class AbstractStimulus:
                 if sign in self._warns:
                     continue
                 self._warns.append(sign)
-                Logging.logger.log(logging.WARNING, 'Trying to set undefined uniform {} on program {} in class {}'
+                Logging.logger.log(logging.DEBUG, 'Trying to set undefined uniform {} on program {} in class {}'
                                    .format(name, pname, self.__class__))
 
     def addProgram(self, pname, vertex_shader, fragment_shader, geometry_shader=None) -> gloo.Program:
@@ -65,7 +66,16 @@ class AbstractStimulus:
             self._programs[self.__class__][pname] = gloo.Program(vertex_shader, fragment_shader, geometry_shader)
         return self.program(pname)
 
-    def addModel(self, mname, model_class, **kwargs) -> Model.AbstractModel:
+    def deleteProgram(self, pname):
+        if self.__class__ in self._programs and pname in self._programs[self.__class__]:
+            Logging.write(logging.DEBUG, 'Delete program {} in class {}'
+                          .format(pname, self.__class__))
+            del self._programs[self.__class__][pname]
+            if pname in self._warns:
+                self._warns.pop(self._warns.index(pname))
+
+    def addModel(self, mname, model_class, **kwargs) -> Union[Model.AbstractModel,
+                                                              Model.SphereModel]:
         if self.__class__ not in self._models:
             self._models[self.__class__] = dict()
         if mname not in self._models[self.__class__]:
@@ -88,7 +98,7 @@ class AbstractStimulus:
 ### Spherical stimulus class
 
 from Shader import BasicFileShader
-from models import CMNSpheres, BasicSphere
+from models import BasicSphere
 from helper import Geometry
 from glumpy import glm
 
@@ -103,15 +113,17 @@ class SphericalStimulus(AbstractStimulus):
         self.protocol = protocol
         self.display = display
 
-        ### Set start time
-        self.time = 0.0
+        ### Set state
+        self._started = False
+        self._running = False
+        self._stopped = False
 
         ### Create mask model
         self._mask_model = self.addModel(self._mask_name,
                                          BasicSphere.UVSphere,
                                          theta_lvls=50, phi_lvls=50,
                                          theta_range=np.pi/2, upper_phi=np.pi/4, radius=1.0)
-
+        self._mask_model.createBuffers()
         ### Create mask program
         self._mask_program = self.addProgram(self._mask_name,
                                              BasicFileShader().addShaderFile('v_sphere_map.glsl', subdir='spherical').read(),
@@ -119,23 +131,29 @@ class SphericalStimulus(AbstractStimulus):
         self._mask_program.bind(self._mask_model.vertexBuffer)
 
 
-    def render(self):
+    def start(self):
+        self._started = True
+
+    def render(self, dt):
         pass
 
     def draw(self, dt):
-        self.time += dt
+        #print(dt)
+        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+
+        if self._running and not(self._stopped):
+            self.time += dt
+        elif self._started and not(self._running):
+            self.time = 0.0
+            self._running = True
+        elif self._stopped or not(self._started):
+            return
+
+        ### Set time uniforms
         self.setUniform('u_stime', self.time)
         self.setUniform('u_ptime', self.protocol._time)
 
-
-        ### Set 2d translation in window
-        u_global_shift = np.array([
-            Config.Display[DisplayConfig.pos_glob_x_pos],
-            Config.Display[DisplayConfig.pos_glob_y_pos]
-        ])
-        #self.protocol._current.program['u_global_shift'] = u_global_shift
-
-        #### Set scaling for aspect 1:1
+        #### Set 2D scaling for aspect 1:1
         width = Config.Display[DisplayConfig.window_width]
         height = Config.Display[DisplayConfig.window_height]
         if height > width:
@@ -143,6 +161,7 @@ class SphericalStimulus(AbstractStimulus):
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
 
+        ### Set 3D translation and projection
         distance = Config.Display[DisplayConfig.view_distance]
         translate3d = glm.translation(0, 0, -distance)
         fov = 240.0/distance
@@ -151,16 +170,14 @@ class SphericalStimulus(AbstractStimulus):
         ### Set uniforms
         self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
-        scale = Config.Display[DisplayConfig.view_scale]
-        self.setUniform('u_mapcalib_scale', scale * np.array ([1, 1]))
+        self.setUniform('u_mapcalib_scale', Config.Display[DisplayConfig.view_scale] * np.array ([1, 1]))
 
-        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
 
-        gl.glEnable(gl.GL_STENCIL_TEST)
-        gl.glEnable(gl.GL_BLEND)
 
         for i in range(4):
+            gl.glEnable(gl.GL_STENCIL_TEST)
+            gl.glEnable(gl.GL_BLEND)
 
             elev = Config.Display[DisplayConfig.view_elev_angle]
             elevRot3d = glm.rotate(np.eye(4), -90 + elev, 1, 0, 0)
@@ -192,7 +209,7 @@ class SphericalStimulus(AbstractStimulus):
 
             ### Apply 90*i degree rotation for rendering different parts of actual sphere
             azim_angle = Config.Display[DisplayConfig.view_azim_angle]
-            self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye (4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
+            self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
             ### Call the
-            self.render()
+            self.render(dt)

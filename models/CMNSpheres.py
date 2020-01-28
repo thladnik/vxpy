@@ -34,7 +34,7 @@ class IcoSphere(Model.SphereModel):
         Model.SphereModel.__init__ (self, **kwargs)
 
         ### Add a_texcoord to the list of shader attributes
-        self.addVertexAttribute(('a_texcoord', np.float32, 2))
+        self.addAttribute(('a_texcoord', np.float32, 2))
 
         ### Create sphere
         self.r = 1#(1 + np.sqrt(5)) / 2

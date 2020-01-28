@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 ########
 ## !!! BE EXTREMELY CAREFUL WHEN EDITING THESE MODELS !!!
-## Any changes will affect all stimuli associated with these models!
+## Any changes will affect all stimuli associated with the models!
 ####
 ########
 
@@ -31,25 +31,27 @@ from Model import SphereModel
 class UVSphere(SphereModel):
 
     def __repr__(self):
-        return 'UVSphere(theta_lvls={}, phi_lvls={}, upper_phi={}, radius={})'\
-            .format(self.theta_lvls, self.phi_lvls, self.upper_phi, self.radius)
+        return 'UVSphere(theta_lvls={}, phi_lvls={}, theta_range={}, upper_phi={}, radius={})'\
+            .format(self.theta_lvls, self.phi_lvls, self.theta_range, self.upper_phi, self.radius)
 
     def __init__(self, theta_lvls: int, phi_lvls: int,
-                 theta_range : float = 2*np.pi, upper_phi: float = np.pi/4, radius: float = 1.0, **kwargs):
+                 theta_range : float = 2*np.pi, upper_phi: float = np.pi/4,
+                 radius: float = 1.0, **kwargs):
         SphereModel.__init__(self, **kwargs)
 
         ### Add vertex attributes for this particular model
-        self.addVertexAttribute(('a_azimuth', np.float32, 1))
-        self.addVertexAttribute(('a_elevation', np.float32, 1))
+        self.addAttribute(('a_azimuth', np.float32, 1))
+        self.addAttribute(('a_elevation', np.float32, 1))
 
         ### Set parameters
         self.theta_lvls = theta_lvls
         self.phi_lvls = phi_lvls
+        self.theta_range = theta_range
         self.upper_phi = upper_phi
         self.radius = radius
 
         ### Calculate coordinates in azimuth and elevation
-        az = np.linspace(0, theta_range, self.theta_lvls, endpoint=True)
+        az = np.linspace(0, self.theta_range, self.theta_lvls, endpoint=True)
         el = np.linspace(-np.pi/2, self.upper_phi, self.phi_lvls, endpoint=True)
         self.thetas, self.phis = np.meshgrid(az, el)
         self.thetas = self.thetas.flatten()
@@ -69,7 +71,8 @@ class UVSphere(SphereModel):
         self.indices = np.array(idcs).flatten()
 
         ### Create buffers
-        self.createBuffers()
+        #self.createBuffers()
+
 
 
 ################################
@@ -119,29 +122,35 @@ class IcosahedronSphere(SphereModel):
         [9, 8, 1],
     ]
 
+    def __repr__(self):
+        return 'IcosahedronSphere(subdiv_lvl={})'\
+            .format(self.subdiv_lvl)
 
     def __init__(self, subdiv_lvl, **kwargs):
         SphereModel.__init__(self, **kwargs)
 
         ### Add vertex attributes for this particular model
-        self.addVertexAttribute(('a_azimuth', np.float32, 1))
-        self.addVertexAttribute(('a_elevation', np.float32, 1))
+        self.addAttribute(('a_azimuth', np.float32, 1))
+        self.addAttribute(('a_elevation', np.float32, 1))
 
         self.faces = self._faces
         self.cache = dict()
 
-        # Calculate vertices
+        ### Calculate initial vertices
         self.vertices = [self.vertex(*v) for v in self.corners]
 
-        # Subdivide faces
+        ### Subdivide faces
         self.subdiv_lvl = subdiv_lvl
         self.subdivide()
 
+        ### Set vertices
         self.a_position = np.array(self.vertices).T
         self.indices = np.array(self.faces).flatten()
 
+        ### Set spherical coordinates
         self.a_azimuth, self.a_elevation, _ = self.getSphericalCoords()
 
+        ### Initialize buffers
         self.createBuffers()
 
     def vertex(self, x, y, z):

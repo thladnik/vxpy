@@ -20,10 +20,12 @@ import logging
 from time import sleep
 
 import Controller
+import Definition
 from devices import Arduino
 import Logging
 
 class Main(Controller.BaseProcess):
+    name = Definition.Process.IO
 
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(**kwargs)

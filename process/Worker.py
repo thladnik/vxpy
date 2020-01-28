@@ -20,8 +20,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from time import sleep
 
 import Controller
+import Definition
 
 class Main(Controller.BaseProcess):
+    name = Definition.Process.Worker
 
     _functionList : list = list()
 
