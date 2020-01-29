@@ -10,6 +10,7 @@ uniform float u_mod_pos;
 uniform float u_mod_width;
 uniform float u_mod_min_elev;
 uniform float u_mod_max_elev;
+uniform int u_upper_field_flash;
 
 varying float v_azimuth;
 varying float v_elevation;
@@ -49,6 +50,11 @@ void main()
     }
     if(v_elevation > u_mod_max_elev) {
         color.w *= normDistr(v_elevation, u_mod_max_elev, 0.1) / normDistr(0.0, 0.0, 0.1);
+    }
+
+    // Try: flash in upper field
+    if(v_elevation > 0.0 && u_mod_sign > 0.0 && u_upper_field_flash == 1) {
+        color.w += normDistr(u_mod_pos, 0.0, 0.03) * normDistr(v_elevation, c_pi/2.0, 0.45);
     }
 
     //color.w = (v_elevation + c_pi/2) / c_pi ;

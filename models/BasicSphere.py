@@ -70,8 +70,6 @@ class UVSphere(SphereModel):
                 idcs.append([i * theta_lvls + j, (i+1) * theta_lvls + j, (i+1) * theta_lvls + j + 1])
         self.indices = np.array(idcs).flatten()
 
-        ### Create buffers
-        #self.createBuffers()
 
 
 
@@ -149,9 +147,6 @@ class IcosahedronSphere(SphereModel):
 
         ### Set spherical coordinates
         self.a_azimuth, self.a_elevation, _ = self.getSphericalCoords()
-
-        ### Initialize buffers
-        self.createBuffers()
 
     def vertex(self, x, y, z):
         vlen = np.sqrt(x ** 2 + y ** 2 + z ** 2)

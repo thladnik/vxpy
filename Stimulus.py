@@ -84,6 +84,13 @@ class AbstractStimulus:
             self._models[self.__class__][mname] = model_class(**kwargs)
         return self.model(mname)
 
+
+    def draw(self, dt):
+        NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
+
+    def render(self, dt):
+        NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
+
     def update(self, **kwargs):
         """
         Method that is called by default to update stimulus parameters.
@@ -134,11 +141,7 @@ class SphericalStimulus(AbstractStimulus):
     def start(self):
         self._started = True
 
-    def render(self, dt):
-        pass
-
     def draw(self, dt):
-        #print(dt)
         self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
         if self._running and not(self._stopped):
@@ -211,5 +214,38 @@ class SphericalStimulus(AbstractStimulus):
             azim_angle = Config.Display[DisplayConfig.view_azim_angle]
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
-            ### Call the
+            ### Call the rendering function of the subclass
             self.render(dt)
+
+################################
+### Plane stimulus class
+
+class PlaneStimulus(AbstractStimulus):
+
+    def __init__(self, display, protocol):
+        self.display = display
+        self.protocol = protocol
+
+        ### Set state
+        self._started = False
+        self._running = False
+        self._stopped = False
+
+
+    def start(self):
+        self._started = True
+
+
+    def draw(self, dt):
+        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+
+        if self._running and not(self._stopped):
+            self.time += dt
+        elif self._started and not(self._running):
+            self.time = 0.0
+            self._running = True
+        elif self._stopped or not(self._started):
+            return
+
+        ### Call the rendering function of the subclass
+        self.render(dt)

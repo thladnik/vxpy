@@ -62,3 +62,24 @@ class ElevationsExample(StaticStimulationProtocol):
                                          u_mod_width=0.03,
                                          u_mod_max_elev=elev),
                                      duration=10)
+
+class UpperFlashesExample(StaticStimulationProtocol):
+
+    _name = 'WRP_UpperFlashesExample'
+
+    def __init__(self, _glWindow):
+        StaticStimulationProtocol.__init__(self, _glWindow)
+        import numpy as np
+
+
+        for depth in [0.7, 0.2]:
+                for vel in [1.0, 3.0, 5.0, 8.0]:
+                    self.addStimulus(RipplesOnStaticBackground,
+                                     dict(u_mod_sign=1,
+                                         u_mod_depth=depth,
+                                         u_mod_shape='normal',
+                                         u_mod_vel=4.0,
+                                         u_mod_width=0.03,
+                                         u_mod_max_elev=0.0,
+                                         u_upper_field_flash=1),
+                                     duration=10)
