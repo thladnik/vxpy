@@ -152,8 +152,9 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._openStimProtocols()
 
         # Video Streamer
-        self._wdgt_camera = gui.Camera.Camera(self, flags=QtCore.Qt.Window)
-        self._openVideoStreamer()
+        if Config.Camera[Definition.CameraConfig.use]:
+            self._wdgt_camera = gui.Camera.Camera(self, flags=QtCore.Qt.Window)
+            self._openVideoStreamer()
 
         # Bind shortcuts
         self._bindShortcuts()
@@ -168,15 +169,17 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_act_stimProtocols.setShortcut('Ctrl+p')
         self._menu_act_stimProtocols.setAutoRepeat(False)
         ### Reset Video streamer view
-        self._menu_act_vidStream.setShortcut('Ctrl+v')
-        self._menu_act_vidStream.setAutoRepeat(False)
+        if Config.Camera[Definition.CameraConfig.use]:
+            self._menu_act_vidStream.setShortcut('Ctrl+v')
+            self._menu_act_vidStream.setAutoRepeat(False)
 
         ### Restart display process
         self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
         self._menu_process_redisp.setAutoRepeat(False)
         ### Restart camera process
-        self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
-        self._menu_process_recam.setAutoRepeat(False)
+        if Config.Camera[Definition.CameraConfig.use]:
+            self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
+            self._menu_process_recam.setAutoRepeat(False)
         ### Restart display process
         self._menu_process_relog.setShortcut('Ctrl+Alt+Shift+l')
         self._menu_process_relog.setAutoRepeat(False)
@@ -209,6 +212,9 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_stimProtocols.show()
 
     def _openVideoStreamer(self):
+        if not(Config.Camera[Definition.CameraConfig.use]):
+            return
+
         self._wdgt_camera.showNormal()
         self._wdgt_camera.move(800, self.screenGeo.height()//3+50)
         self._wdgt_camera.show()

@@ -257,8 +257,8 @@ class CameraConfiguration(QtWidgets.QGroupBox):
             Definition.CameraConfig.manufacturer : manufacturer,
             Definition.CameraConfig.model        : model,
             Definition.CameraConfig.format       : format,
-            Definition.CameraConfig.resolution_x : int(format1[1][:-1]),
-            Definition.CameraConfig.resolution_y : int(format1[0][1:])
+            Definition.CameraConfig.resolution_y : int(format1[1][:-1]),
+            Definition.CameraConfig.resolution_x : int(format1[0][1:])
         }
 
 

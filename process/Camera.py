@@ -21,10 +21,10 @@ import logging
 import numpy as np
 from time import perf_counter, strftime, sleep
 
-import Buffers
 import Config
 import Controller
 import Definition
+import IPC
 import Logging
 
 if Definition.Env == Definition.EnvTypes.Dev:
@@ -33,25 +33,24 @@ if Definition.Env == Definition.EnvTypes.Dev:
 class Main(Controller.BaseProcess):
     name = Definition.Process.Camera
 
-    _cameraBO  : Buffers.CameraBufferObject = None
     _recording : bool                       = False
 
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set camera buffer object
-        self._cameraBO.constructBuffers()
+        IPC.Buffer.CameraBO.constructBuffers()
 
         ### Set recording parameters
-        self.frameDims = self._cameraBO.frameDims
-        self.fps = 100.
+        self.frameDims = IPC.Buffer.CameraBO.dims
+        self.fps = 100
 
         ### Set up camera
         ## The Imaging Source cameras
         if Config.Camera[Definition.CameraConfig.manufacturer] == 'TIS':
             import devices.cameras.tisgrabber as IC
             self.camera = IC.TIS_CAM()
-            self.camera.open(self._cameraBO.model)
+            self.camera.open(Config.Camera[Definition.CameraConfig.model])
             self.camera.SetVideoFormat(Config.Camera[Definition.CameraConfig.format])
             self.camera.SetPropertySwitch("Framerate","Auto",0)
             self.camera.SetPropertySwitch("Exposure","Auto",0)
@@ -65,8 +64,8 @@ class Main(Controller.BaseProcess):
             import devices.cameras.virtual as VC
             self.camera = VC.VirtualCamera()
             self.camera.setVideoFormat(Config.Camera[Definition.CameraConfig.format],
-                                       Config.Camera[Definition.CameraConfig.resolution_x],
-                                       Config.Camera[Definition.CameraConfig.resolution_y])
+                                       Config.Camera[Definition.CameraConfig.resolution_y],
+                                       Config.Camera[Definition.CameraConfig.resolution_x])
 
         Logging.logger.log(logging.DEBUG, 'Using camera {}>>{}'
                            .format(Config.Camera[Definition.CameraConfig.manufacturer],
@@ -84,8 +83,8 @@ class Main(Controller.BaseProcess):
 
             # Count how many frame buffers should be written to file
             self.outFileFrameNum = 0
-            for name in self._cameraBO.buffers():
-                if self._cameraBO.buffers()[name]._recordBuffer: self.outFileFrameNum += 1
+            for name in IPC.Buffer.CameraBO.buffers():
+                if IPC.Buffer.CameraBO.buffers()[name]._recordBuffer: self.outFileFrameNum += 1
 
             startt = strftime('%Y-%m-%d-%H-%M-%S')
             Logging.logger.log(logging.INFO, 'Start video recording at time {}'.format(startt))
@@ -103,9 +102,9 @@ class Main(Controller.BaseProcess):
 
         if self._recording:
             frames = list()
-            for i, name in enumerate(self._cameraBO.buffers()):
-                if self._cameraBO.buffers()[name]._recordBuffer:
-                    frames.append(self._cameraBO.readBuffer(name))
+            for i, name in enumerate(IPC.Buffer.CameraBO.buffers()):
+                if IPC.Buffer.CameraBO.buffers()[name]._recordBuffer:
+                    frames.append(IPC.Buffer.CameraBO.readBuffer(name))
             self.videoRecord.write(np.hstack(frames))
 
     def _stopVideoRecording(self):
@@ -126,18 +125,21 @@ class Main(Controller.BaseProcess):
             self._startVideoRecording()
 
     def _updateBufferEvalParams(self, name, **kwargs):
-        self._cameraBO.updateBufferEvalParams(name, **kwargs)
+        IPC.Buffer.CameraBO.updateBufferEvalParams(name, **kwargs)
 
     def main(self):
         # Fetch current frame and update camera buffers
-        frame = self.camera.GetImage()[:,:,0]
-        self._cameraBO.update(frame)
+        frame = self.camera.GetImage()
+        IPC.Buffer.CameraBO.update(frame)
         # Write to file
         self._writeFrame()
 
         # Wait until next frame
-        while perf_counter() < self.t + 1./self.fps:
-            pass
+        t = self.t + 1./self.fps - perf_counter()
+        if t > 0.:
+            sleep(t)
+        #while perf_counter() < self.t + 1./self.fps:
+        #    pass
 
     def _startShutdown(self):
         if self._recording:

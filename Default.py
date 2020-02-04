@@ -46,8 +46,8 @@ Configuration = {
         Definition.CameraConfig.manufacturer            : 'virtual',
         Definition.CameraConfig.model                   : 'cam01',
         Definition.CameraConfig.format                  : 'RGB (600, 400)',
-        Definition.CameraConfig.resolution_x            : 600,
-        Definition.CameraConfig.resolution_y            : 400
+        Definition.CameraConfig.resolution_y            : 600,
+        Definition.CameraConfig.resolution_x            : 400
     },
 
     Definition.GuiConfig.name : {

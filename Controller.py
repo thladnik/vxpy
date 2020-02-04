@@ -69,7 +69,6 @@ class BaseProcess:
         for basic communication and logging in sub processes (Controller does not require _inPipe)
 
         Known further kwargs are:
-          _cameraBO (multiple processes)
           _app (GUI)
         """
         for key, value in kwargs.items():
@@ -86,7 +85,7 @@ class BaseProcess:
 
             if key == '_buffers':
                 for bkey, buffer in value.items():
-                    setattr(self, bkey, buffer)
+                    setattr(IPC.Buffer, bkey, buffer)
 
             # Set base process class attribute
             else:
@@ -205,7 +204,6 @@ class Controller(BaseProcess):
     name = Definition.Process.Controller
 
     _registeredProcesses = list()
-    _cameraBO: Buffers.CameraBufferObject = None
 
     def __init__(self):
         BaseProcess.__init__(self, _logQueue=mp.Queue())
@@ -302,7 +300,7 @@ class Controller(BaseProcess):
                                                           Worker     = IPC.State.Worker
                                                       ),
                                                       _buffers = dict(
-                                                          _cameraBO = self._cameraBO
+                                                          CameraBO = IPC.Buffer.CameraBO
                                                       ),
                                                       **kwargs
                                                   ))
@@ -313,9 +311,10 @@ class Controller(BaseProcess):
             return
 
         ### Create camera buffer object
-        self._cameraBO = Buffers.CameraBufferObject()
-        self._cameraBO.addBuffer(Buffers.FrameBuffer)
-        self._cameraBO.addBuffer(Buffers.EdgeDetector)
+        IPC.Buffer.CameraBO = Buffers.CameraBufferObject()
+        IPC.Buffer.CameraBO.addBuffer(Buffers.FrameBuffer)
+        IPC.Buffer.CameraBO.addBuffer(Buffers.EyePositionDetector)
+        #IPC.Buffer.CameraBO.addBuffer(Buffers.EdgeDetector)
 
     def start(self):
         ### Initialze all pipse

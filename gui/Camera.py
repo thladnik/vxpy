@@ -17,9 +17,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import numpy as np
+import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from time import perf_counter
+
+import Config
+from Definition import CameraConfig
+import gui.CameraWidgets
+import IPC
 
 class Camera(QtWidgets.QWidget):
 
@@ -33,39 +39,47 @@ class Camera(QtWidgets.QWidget):
 
     def _setupUI(self):
         self.setWindowTitle('Camera')
+        self.setLayout(QtWidgets.QGridLayout())
 
-        self._aspect = self.main._cameraBO.frameDims[0] / (2 * self.main._cameraBO.frameDims[1])
-        self.setMinimumSize(2 * self.main._cameraBO.frameDims[1], self.main._cameraBO.frameDims[0])
-        self.setLayout(QtWidgets.QVBoxLayout())
-
-        self._wdgt_plot = pg.PlotWidget(parent=self)
-        self._plotItem = pg.ImageItem()
-        self._wdgt_plot.getPlotItem().hideAxis('left')
-        self._wdgt_plot.getPlotItem().hideAxis('bottom')
-        self._wdgt_plot.addItem(self._plotItem)
-        self.layout().addWidget(self._wdgt_plot)
-
-        if self.main._cameraBO is None:
+        if IPC.Buffer.CameraBO is None:
             print('Camera Frame Buffer Object not set in <%s>' % self.main._name)
             return
 
-        self.main._cameraBO.constructBuffers()
+        IPC.Buffer.CameraBO.constructBuffers()
+
+        bufferNum = len(IPC.Buffer.CameraBO._buffers)
+
+        i = 2 if bufferNum > 1 else 1
+        self.setMinimumSize(i * Config.Camera[CameraConfig.resolution_x],
+                            int(np.ceil(bufferNum/2)) * Config.Camera[CameraConfig.resolution_y])
+
+        self._wdgt_plots = dict()
+        self._plotItems = dict()
+        for i, bufferName in enumerate(IPC.Buffer.CameraBO._buffers):
+            if hasattr(gui.CameraWidgets, bufferName):
+                # Use custom PlotWidget
+                self._wdgt_plots[bufferName] = getattr(gui.CameraWidgets, bufferName)(self)
+                self._plotItems[bufferName] = self._wdgt_plots[bufferName].imageItem
+            else:
+                # Use default PlotWidget
+                self._wdgt_plots[bufferName] = pg.PlotWidget(parent=self)
+                self._wdgt_plots[bufferName].getPlotItem().hideAxis('left')
+                self._wdgt_plots[bufferName].getPlotItem().hideAxis('bottom')
+                self._wdgt_plots[bufferName].setAspectLocked(True)
+                self._plotItems[bufferName] = pg.ImageItem()
+                self._wdgt_plots[bufferName].addItem(self._plotItems[bufferName])
+                self._wdgt_plots[bufferName].getPlotItem().vb.setMouseEnabled(x=False, y=False)
+
+            self.layout().addWidget(self._wdgt_plots[bufferName], i // 2, i % 2)
 
         self.timer = QtCore.QTimer()
         self.timer.setInterval(1000//self.fps)
         self.timer.timeout.connect(self.updateImage)
         self.timer.start()
 
-
-    def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
-        self.resize(self.width(), int(self._aspect * self.width()))
-
     def updateImage(self):
         # Rotate frame because cv2 and pg coords don't match
-        frame = self.main._cameraBO.readBuffer('frame_buffer')
-        edges = self.main._cameraBO.readBuffer('edge_detector')
+        for bufferName in IPC.Buffer.CameraBO._buffers:
+            self._plotItems[bufferName].setImage(np.rot90(IPC.Buffer.CameraBO.readBuffer(bufferName), -1))
 
-        self._plotItem.setImage(np.vstack((np.rot90(frame, -1), np.rot90(edges, -1))))
-
-        #print(perf_counter()-self.t)
         self.t = perf_counter()
