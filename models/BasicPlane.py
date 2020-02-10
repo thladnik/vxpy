@@ -30,8 +30,10 @@ class VerticalXYPlane(PlaneModel):
     def __init__(self, sample_rate = 100, **kwargs):
         PlaneModel.__init__(self, **kwargs)
 
-        ### Construct vertices
-        x = y = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)
+        x = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)
+        y = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)
+
+
         coordsX, coordsY = np.meshgrid(x, y)
         coordsX = coordsX.flatten()
         coordsY = coordsY.flatten()

@@ -43,7 +43,7 @@ class Main(Controller.BaseProcess):
 
         ### Set recording parameters
         self.frameDims = IPC.Buffer.CameraBO.dims
-        self.fps = 100
+        self.fps = 200
 
         ### Set up camera
         ## The Imaging Source cameras
@@ -139,7 +139,7 @@ class Main(Controller.BaseProcess):
         if t > 0.:
             sleep(t)
         #while perf_counter() < self.t + 1./self.fps:
-        #    pass
+        #          pass
 
     def _startShutdown(self):
         if self._recording:

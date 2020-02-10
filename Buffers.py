@@ -32,10 +32,10 @@ import IPC
 ## Camera Buffer Object
 
 class CameraBufferObject:
-    """Camera Buffer Object: wrapper for individual buffers between FrameGrabber (producer)
+    """Camera Buffer Object: wrapper for individual buffers between the camera process (producer)
     and any number of consumers.
 
-    Consumers have to initially call constructBuffers() to be able to read data from buffers.
+    Consumers have to initially call constructBuffers() to be able to read data from the buffers.
     """
 
     def __init__(self):
@@ -46,7 +46,7 @@ class CameraBufferObject:
         self._npBuffers = dict()
 
     def addBuffer(self, buffer, **kwargs):
-        self._buffers[buffer.__name__] = buffer(frameDims=self.dims, **kwargs)
+        self._buffers[buffer.__name__] = buffer(self.dims, **kwargs)
 
     def constructBuffers(self):
         for name in self._buffers:
@@ -73,7 +73,7 @@ class CameraBufferObject:
 ## Basic Frame Buffer
 class FrameBuffer:
 
-    def __init__(self, frameDims, _useLock = True, _recordBuffer=True):
+    def __init__(self, dims, _useLock = True, _recordBuffer=True):
         self._recordBuffer = _recordBuffer
 
         # Set up lock
@@ -83,8 +83,8 @@ class FrameBuffer:
             self._lock = mp.Lock()
 
         # Set up shared array (in parent process)
-        self.frameDims = frameDims
-        self._cBuffer = mp.Array(ctypes.c_uint8, frameDims[0] * frameDims[1] * 3, lock=self._useLock)
+        self.frameDims = dims
+        self._cBuffer = mp.Array(ctypes.c_uint8, dims[0] * dims[1] * 3, lock=self._useLock)
         self._npBuffer = None
 
         self.frametimes = list()
@@ -174,7 +174,8 @@ class EyePositionDetector(FrameBuffer):
 
         self.recording = False
 
-        self.eyeMarkerLines = IPC.Manager.dict()
+        self.extractedRects = IPC.Manager.dict()
+        self.eyePositions = IPC.Manager.list()
         self.eyeMarkerRects = IPC.Manager.dict()
         self.segmentationMode = IPC.Manager.Value('s', '')
         self.areaThreshold = IPC.Manager.Value('i', 0)
@@ -192,27 +193,25 @@ class EyePositionDetector(FrameBuffer):
             if cnt.shape[0] > recnt.shape[0]:
                 recnt = cnt.squeeze()
 
+        if recnt.shape[0] < 5:
+            return rect
+
         # TODO: THIS is a pure PERFORMANCE KILLER!
         #       Need to somehow reduce the number of potential contour points for
         #       calculation of Feret diameter
         #       (Restricting to upper/lower distances already helps a lot. Can this be done better?)
+        upperPoints = recnt[recnt[:,1] > rect.shape[0]/2,:]
+        lowerPoints = recnt[recnt[:, 1] < rect.shape[0] / 2, :]
 
-        if True:  # Upper/lower restriction
-            upperPoints = recnt[recnt[:,1] > rect.shape[0]/2,:]
-            lowerPoints = recnt[recnt[:, 1] < rect.shape[0] / 2, :]
-            dists = metrics.pairwise_distances(upperPoints, lowerPoints)
-            maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
-            p1 = upperPoints[maxIdcs[0]]
-            p1[0] += int(rect.shape[1]/2)
-            p2 = lowerPoints[maxIdcs[1]]
-            p2[0] += int(rect.shape[1]/2)
-        else:
-            dists = metrics.pairwise_distances(recnt)
-            maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
-            p1 = recnt[maxIdcs[0]]
-            p1[0] += int(rect.shape[1]/2)
-            p2 = recnt[maxIdcs[1]]
-            p2[0] += int(rect.shape[1]/2)
+        if upperPoints.shape[0] < 2 or lowerPoints.shape[0] < 2:
+            return rect
+
+        dists = metrics.pairwise_distances(upperPoints, lowerPoints)
+        maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
+        p1 = upperPoints[maxIdcs[0]]
+        p1[0] += int(rect.shape[1]/2)
+        p2 = lowerPoints[maxIdcs[1]]
+        p2[0] += int(rect.shape[1]/2)
 
         if p1[1] > p2[1]:
             p0 = p2
@@ -244,18 +243,20 @@ class EyePositionDetector(FrameBuffer):
             if cnt.shape[0] > lecnt.shape[0]:
                 lecnt = cnt.squeeze()
 
-        if True:  # Upper/lower restriction
-            upperPoints = recnt[recnt[:,1] > rect.shape[0]/2,:]
-            lowerPoints = recnt[recnt[:, 1] < rect.shape[0] / 2, :]
-            dists = metrics.pairwise_distances(upperPoints, lowerPoints)
-            maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
-            p1 = upperPoints[maxIdcs[0]]
-            p2 = lowerPoints[maxIdcs[1]]
-        else:
-            dists = metrics.pairwise_distances(lecnt)
-            maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
-            p1 = lecnt[maxIdcs[0]]
-            p2 = lecnt[maxIdcs[1]]
+        if lecnt.shape[0] < 5:
+            return rect
+
+        upperPoints = lecnt[lecnt[:,1] > rect.shape[0]/2,:]
+        lowerPoints = lecnt[lecnt[:, 1] < rect.shape[0] / 2, :]
+
+        if upperPoints.shape[0] < 2 or lowerPoints.shape[0] < 2:
+            return rect
+
+        dists = metrics.pairwise_distances(upperPoints, lowerPoints)
+        maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
+        p1 = upperPoints[maxIdcs[0]]
+        p2 = lowerPoints[maxIdcs[1]]
+
 
         if p1[1] > p2[1]:
             p0 = p2
@@ -275,8 +276,7 @@ class EyePositionDetector(FrameBuffer):
         ### Perpendicular line
         cv2.line(rect, tuple(p2), tuple((p2 + 0.2 * np.linalg.norm(axis) * perpAxis).astype(int)), (0, 255, 0), 1)
 
-
-        #cv2.imwrite('meh/testX.jpg', rect)
+        return rect
 
     def watershed(self, frame):
 
@@ -323,18 +323,18 @@ class EyePositionDetector(FrameBuffer):
     def _compute(self, frame):
 
         newframe = frame.copy()
-        ret, threshed = cv2.threshold(newframe[:, :, 0], 60, 255, cv2.THRESH_BINARY_INV)
+        #ret, threshed = cv2.threshold(newframe[:, :, 0], 60, 255, cv2.THRESH_BINARY_INV)
 
         ### If eyes were marked: iterate over rects and extract eye positions
         if bool(self.eyeMarkerRects):
 
-            for i, rectParams in self.eyeMarkerRects.items():
+            for id, rectParams in self.eyeMarkerRects.items():
 
                 ## Draw contour points of rect
                 rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
                 box = cv2.boxPoints(rect)
                 box = np.int0(box)
-                cv2.drawContours(newframe, [box], 0, (255, 0, 0), 2)
+                cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
 
                 ## Get rect and frame parameters
                 center, size, angle = rect[0], rect[1], rect[2]
@@ -366,36 +366,18 @@ class EyePositionDetector(FrameBuffer):
                 rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
                 ## Apply detection function on cropped rect which contains eyes
-                if self.segmentationMode.value == 'default' or self.segmentationMode.value == '':
-                    self.default(self._grab(rotRect))
 
-                elif self.segmentationMode.value == 'watershed':
-                    self.watershed(self._grab(rotRect))
-
-                elif self.segmentationMode.value == 'blob_detect':
-                    detector = cv2.SimpleBlobDetector()
-                    keypoints = detector.detect(newframe[:, :, 0])
-                    newframe = cv2.drawKeypoints(newframe, keypoints, np.array([]), (0, 0, 255),
-                                                 cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+                if self.segmentationMode.value == 'watershed':
+                    newRect = self.watershed(self._grab(rotRect))
+                else:  # default
+                    newRect = self.default(self._grab(rotRect))
 
                 # Debug: write to file
-                cv2.imwrite('meh/test{}.jpg'.format(i), rotRect)
+                #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
+                self.extractedRects[id] = newRect
         ### Mark filtered particles in red
-        newframe[threshed > 0, :] = [255, 0, 0]
-
-        ### Convert to OpenCV image coordinates
-        lines = dict()
-        for id, line in self.eyeMarkerLines.items():
-            lines[id] = [tuple(self.coordsPg2Cv(line[0], asType=np.int)),
-                        tuple(self.coordsPg2Cv(line[1], asType=np.int))]
-
-        ### Just for illustration: plot lines
-        for id, line in lines.items():
-            newframe = cv2.line(newframe,
-                     line[0],
-                     line[1],
-                     (0, 255, 0), 6)
+        #newframe[threshed > 0, :] = [255, 0, 0]
 
         return newframe
 

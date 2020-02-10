@@ -247,5 +247,15 @@ class PlaneStimulus(AbstractStimulus):
         elif self._stopped or not(self._started):
             return
 
+
+        ### Construct vertices
+        height = Config.Display[DisplayConfig.window_height]
+        width = Config.Display[DisplayConfig.window_width]
+
+        if width > height:
+            self.u_mapcalib_xscale = height/width
+
+        self.setUniform('u_mapcalib_xscale', self.u_mapcalib_xscale)
+
         ### Call the rendering function of the subclass
         self.render(dt)
