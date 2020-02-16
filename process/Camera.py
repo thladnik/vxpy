@@ -39,19 +39,20 @@ class Main(Controller.BaseProcess):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set camera buffer object
-        IPC.Buffer.CameraBO.constructBuffers()
+        IPC.BufferObject.constructBuffers()
 
         ### Set recording parameters
-        self.frameDims = IPC.Buffer.CameraBO.dims
-        self.fps = 200
+        self.frameDims = (int(Config.Camera[Definition.Camera.res_y]),
+                          int(Config.Camera[Definition.Camera.res_x]))
+        self.fps = Config.Camera[Definition.Camera.fps]
 
         ### Set up camera
         ## The Imaging Source cameras
-        if Config.Camera[Definition.CameraConfig.manufacturer] == 'TIS':
+        if Config.Camera[Definition.Camera.manufacturer] == 'TIS':
             import devices.cameras.tisgrabber as IC
             self.camera = IC.TIS_CAM()
-            self.camera.open(Config.Camera[Definition.CameraConfig.model])
-            self.camera.SetVideoFormat(Config.Camera[Definition.CameraConfig.format])
+            self.camera.open(Config.Camera[Definition.Camera.model])
+            self.camera.SetVideoFormat(Config.Camera[Definition.Camera.format])
             self.camera.SetPropertySwitch("Framerate","Auto",0)
             self.camera.SetPropertySwitch("Exposure","Auto",0)
             self.camera.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
@@ -60,39 +61,30 @@ class Main(Controller.BaseProcess):
             self.camera.StartLive(0)
 
         ## Virtual camera
-        elif Config.Camera[Definition.CameraConfig.manufacturer] == 'virtual':
+        elif Config.Camera[Definition.Camera.manufacturer] == 'virtual':
             import devices.cameras.virtual as VC
             self.camera = VC.VirtualCamera()
-            self.camera.setVideoFormat(Config.Camera[Definition.CameraConfig.format],
-                                       Config.Camera[Definition.CameraConfig.resolution_y],
-                                       Config.Camera[Definition.CameraConfig.resolution_x])
+            self.camera.setVideoFormat(Config.Camera[Definition.Camera.format],
+                                       Config.Camera[Definition.Camera.res_y],
+                                       Config.Camera[Definition.Camera.res_x])
 
         Logging.logger.log(logging.DEBUG, 'Using camera {}>>{}'
-                           .format(Config.Camera[Definition.CameraConfig.manufacturer],
-                                   Config.Camera[Definition.CameraConfig.model]))
+                           .format(Config.Camera[Definition.Camera.manufacturer],
+                                   Config.Camera[Definition.Camera.model]))
 
         ### Run event loop
         self.run()
 
-    def _startVideoRecording(self):
+    def startVideoRecording(self):
 
         if not(self._recording):
-
-            # TODO: start an encoder-process which gets passed the _cameraBO object
-            #   to avoid performance drain during frame acquisition
-
-            # Count how many frame buffers should be written to file
-            self.outFileFrameNum = 0
-            for name in IPC.Buffer.CameraBO.buffers():
-                if IPC.Buffer.CameraBO.buffers()[name]._recordBuffer: self.outFileFrameNum += 1
-
             startt = strftime('%Y-%m-%d-%H-%M-%S')
             Logging.logger.log(logging.INFO, 'Start video recording at time {}'.format(startt))
             # Define codec and create VideoWriter object
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
             self.videoRecord = cv2.VideoWriter(
                 'output_%s.avi' % startt, fourcc, self.fps,
-                (self.frameDims[1] * self.outFileFrameNum, self.frameDims[0]), isColor=0)
+                (self.frameDims[1], self.frameDims[0]), isColor=0)
             self._recording = True
 
             return
@@ -102,12 +94,12 @@ class Main(Controller.BaseProcess):
 
         if self._recording:
             frames = list()
-            for i, name in enumerate(IPC.Buffer.CameraBO.buffers()):
-                if IPC.Buffer.CameraBO.buffers()[name]._recordBuffer:
-                    frames.append(IPC.Buffer.CameraBO.readBuffer(name))
+            for i, name in enumerate(IPC.BufferObject.buffers()):
+                if IPC.BufferObject.buffers()[name]._recordBuffer:
+                    frames.append(IPC.BufferObject.readBuffer(name))
             self.videoRecord.write(np.hstack(frames))
 
-    def _stopVideoRecording(self):
+    def stopVideoRecording(self):
 
         if self._recording:
             Logging.logger.log(logging.INFO, 'Stop video recording')
@@ -120,17 +112,17 @@ class Main(Controller.BaseProcess):
 
     def _toggleVideoRecording(self):
         if self._recording:
-            self._stopVideoRecording()
+            self.stopVideoRecording()
         else:
-            self._startVideoRecording()
+            self.startVideoRecording()
 
     def _updateBufferEvalParams(self, name, **kwargs):
-        IPC.Buffer.CameraBO.updateBufferEvalParams(name, **kwargs)
+        IPC.BufferObject.updateBufferEvalParams(name, **kwargs)
 
     def main(self):
         # Fetch current frame and update camera buffers
         frame = self.camera.GetImage()
-        IPC.Buffer.CameraBO.update(frame)
+        IPC.BufferObject.update(frame)
         # Write to file
         self._writeFrame()
 
@@ -138,10 +130,9 @@ class Main(Controller.BaseProcess):
         t = self.t + 1./self.fps - perf_counter()
         if t > 0.:
             sleep(t)
-        #while perf_counter() < self.t + 1./self.fps:
-        #          pass
+
 
     def _startShutdown(self):
         if self._recording:
-            self._stopVideoRecording()
+            self.stopVideoRecording()
         Controller.BaseProcess._startShutdown(self)

@@ -23,7 +23,7 @@ import sys
 from time import strftime, sleep
 
 import Definition
-import Buffers
+import Buffer
 import Config
 import Controller
 import IPC
@@ -31,7 +31,8 @@ import Logging
 import gui.DisplaySettings
 import gui.Protocols
 import gui.Integrated
-import gui.Camera
+import gui.CameraStream
+import gui.addons
 
 import process.Camera
 import process.Display
@@ -40,7 +41,6 @@ import process.Logger
 class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
     name = Definition.Process.GUI
 
-    _cameraBO    : Buffers.CameraBufferObject
     _app         : QtWidgets.QApplication
 
     def __init__(self, **kwargs):
@@ -50,8 +50,11 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         ### Set icon
         self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
 
-        ### Setup UI
+        ### Setup basic UI
         self._setupUI()
+
+        ### Setup addons
+        self._setupAddons()
 
         ### Set initial log line count
         self.logccount = 0
@@ -74,31 +77,48 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         ### Run QApplication event loop
         self._app.exec_()
 
+    def _setupAddons(self):
+        self.addons = dict()
+        for addonName in Config.Gui[Definition.Gui.addons]:
+
+            self.addons[addonName] = getattr(gui.addons, addonName)(self)
+            if not(self.addons[addonName].moduleIsActive):
+                Logging.write(logging.WARNING, 'Addon {} could not be activated'.format(addonName))
+                continue
+            self.addons[addonName].show()
+
     def _setupUI(self):
 
         ### Set up main window
         self.setWindowTitle('MappApp')
         self.move(0, 0)
         self.screenGeo = self._app.primaryScreen().geometry()
-        self.resize(self.screenGeo.width()-1, self.screenGeo.height()//3)
+        self.resize(self.screenGeo.width()-2, self.screenGeo.height()//3)
 
         ### Setup central widget
         self._centralwidget = QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget)
         self._centralwidget.setLayout(QtWidgets.QGridLayout())
         self.setCentralWidget(self._centralwidget)
 
-        ### Add integrated widgets
+        ### Add spacers
+        hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.centralWidget().layout().addItem(hSpacer, 0, 1)
+        self.centralWidget().layout().addItem(hSpacer, 0, 2)
+
+        ### Add integrated addons
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
         self.centralWidget().layout().addWidget(self._grp_processStatus, 0, 0)
-        spacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.centralWidget().layout().addItem(spacer, 0, 1)
-        self.centralWidget().layout().addItem(spacer, 0, 2)
+
+        ## Recordings
+        self._grp_recordings = gui.Integrated.Recording(self)
+        self.centralWidget().layout().addWidget(self._grp_recordings, 1, 0)
+
 
         ## Logger
         self._grp_log = QtWidgets.QGroupBox()
         self._grp_log.setLayout(QtWidgets.QVBoxLayout())
-        self.centralWidget().layout().addWidget(self._grp_log, 1, 0, 1, 3)
+        self.centralWidget().layout().addWidget(self._grp_log, 1, 1, 1, 2)
         self._txe_log = QtWidgets.QTextEdit()
         self._txe_log.setReadOnly(True)
         self._txe_log.setFontFamily('Courier')
@@ -144,7 +164,13 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_process.addAction(self._menu_process_relog)
 
         ## Display Settings
-        self._wdgt_dispSettings = gui.DisplaySettings.DisplaySettings(self)
+        displayType = Config.Display[Definition.Display.type]
+        if displayType == 'spherical':
+            self._wdgt_dispSettings = gui.DisplaySettings.SphericalDisplaySettings(self)
+        elif displayType == 'planar':
+            self._wdgt_dispSettings = gui.DisplaySettings.PlanarDisplaySettings(self)
+        else:
+            Exception('No valid GUI found for current display type "{}"'.format(displayType))
         self._openDisplaySettings()
 
         ## Stimulus Protocols
@@ -152,8 +178,8 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._openStimProtocols()
 
         # Video Streamer
-        if Config.Camera[Definition.CameraConfig.use]:
-            self._wdgt_camera = gui.Camera.Camera(self, flags=QtCore.Qt.Window)
+        if Config.Camera[Definition.Camera.use]:
+            self._wdgt_camera = gui.CameraStream.Camera(self, flags=QtCore.Qt.Window)
             self._openVideoStreamer()
 
         # Bind shortcuts
@@ -169,7 +195,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_act_stimProtocols.setShortcut('Ctrl+p')
         self._menu_act_stimProtocols.setAutoRepeat(False)
         ### Reset Video streamer view
-        if Config.Camera[Definition.CameraConfig.use]:
+        if Config.Camera[Definition.Camera.use]:
             self._menu_act_vidStream.setShortcut('Ctrl+v')
             self._menu_act_vidStream.setAutoRepeat(False)
 
@@ -177,7 +203,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
         self._menu_process_redisp.setAutoRepeat(False)
         ### Restart camera process
-        if Config.Camera[Definition.CameraConfig.use]:
+        if Config.Camera[Definition.Camera.use]:
             self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
             self._menu_process_recam.setAutoRepeat(False)
         ### Restart display process
@@ -212,7 +238,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_stimProtocols.show()
 
     def _openVideoStreamer(self):
-        if not(Config.Camera[Definition.CameraConfig.use]):
+        if not(Config.Camera[Definition.Camera.use]):
             return
 
         self._wdgt_camera.showNormal()
@@ -220,10 +246,13 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_camera.show()
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        # Inform controller of close event
+        ### Inform controller of close event
+        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
+
+        ### Close child widgets
         self._wdgt_dispSettings.close()
         self._wdgt_stimProtocols.close()
-        self._wdgt_camera.close()
-        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
+        if Config.Camera[Definition.Camera.use]:
+            self._wdgt_camera.close()
 
 

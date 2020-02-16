@@ -1,5 +1,5 @@
 """
-MappApp ./Config.py - Handle process-wide configurations
+MappApp ./Config.py - Configuration placeholders
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik
 
@@ -17,9 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-
 ## Known configuration properties
-Display : dict = None
-Camera  : dict = None
-Gui     : dict = None
-Logfile : str  = None
+Display   : dict = None
+Camera    : dict = None
+Gui       : dict = None
+Logfile   : str  = None
+Recording : dict = None

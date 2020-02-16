@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticStimulationProtocol
 
-from stimuli.plane.Calibration import Checkerboard
+from stimuli.planar.Calibration import Checkerboard
 
 class CheckerboardProtocol(StaticStimulationProtocol):
 

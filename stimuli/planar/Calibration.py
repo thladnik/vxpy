@@ -28,13 +28,13 @@ class Checkerboard(PlaneStimulus):
     def __init__(self, protcol, display):
         PlaneStimulus.__init__(self, display=display, protocol=protcol)
 
-        self.plane = self.addModel('plane',
+        self.plane = self.addModel('planar',
                                    BasicPlane.VerticalXYPlane)
         self.plane.createBuffers()
 
         self.checker = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('checker_v.glsl', subdir='plane').read(),
-                                       BasicFileShader().addShaderFile('checker_f.glsl', subdir='plane').read())
+                                       BasicFileShader().addShaderFile('checker_v.glsl', subdir='planar').read(),
+                                       BasicFileShader().addShaderFile('checker_f.glsl', subdir='planar').read())
         self.checker.bind(self.plane.vertexBuffer)
 
 

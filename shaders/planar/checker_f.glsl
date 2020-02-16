@@ -1,4 +1,4 @@
-// plane/f_checkerboard.glsl
+// planar/f_checkerboard.glsl
 
 const float c_pi = 3.14159265359;
 

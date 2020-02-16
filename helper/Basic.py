@@ -40,6 +40,8 @@ class Config:
                 value = self.data.getfloat(section, option)
             elif dtype == 'bool':
                 value = self.data.getboolean(section, option)
+            elif dtype == 'list':
+                value = self.data.get(section, option).split(',')
             else:
                 value = self.data.get(section, option)
             parsed[option] = value
@@ -66,7 +68,12 @@ class Config:
             self.configuration(config)
 
         # Update settings
-        self.data[config.name].update(**{option : str(settings[option]) for option in settings})
+        for option, value in settings.items():
+            #self.data[config.name].update(**{option : str(settings[option]) for option in settings})
+            dtype = option.split('_')[0]
+            if dtype == 'list':
+                value = ','.join(value)
+            self.data[config.name][option] = str(value)
 
     def saveToFile(self):
         with open(os.path.join(Definition.Path.Config, self._configfile), 'w') as fobj:

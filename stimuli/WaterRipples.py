@@ -76,7 +76,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
         self.texture_program.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         ### Second: start new ripple?
-        if np.random.randint(Config.Display[Definition.DisplayConfig.fps] * 3) == 0 \
+        if np.random.randint(Config.Display[Definition.Display.fps] * 3) == 0 \
                 and self.protocol._advanceTime > (self.protocol._time + 20.0 / (2.0 * self.u_mod_vel)):
 
             # Create program

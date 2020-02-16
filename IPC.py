@@ -15,10 +15,9 @@ class State:
     Camera     : int = None
     Controller : int = None
     Display    : int = None
-    Gui        : int  = None
+    Gui        : int = None
     IO         : int = None
     Logger     : int = None
     Worker     : int = None
 
-class Buffer:
-    CameraBO = None
+BufferObject = None

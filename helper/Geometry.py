@@ -721,7 +721,7 @@ def projection_matrix(projection_normal, flat_output=True):
     Calculate the orthogonal projection transformation
     ------------
     :param projection_normal: 1 x 3 ndarray or a quaternion number; the camera's pointing direction
-    :param flat_output: boolean, optional; if True (default), the output transformation quternion number or matrix will project the target point to the xy plane
+    :param flat_output: boolean, optional; if True (default), the output transformation quternion number or matrix will project the target point to the xy planar
     :return: transformation matrix or quaternion number for the corresponding orthogonal projection
     """
     normaltype = type(projection_normal)
@@ -739,12 +739,12 @@ def projection_matrix(projection_normal, flat_output=True):
         projection_mat = (np.eye(4) + np.squeeze(reflect_mat)) / 2
 
         if flat_output:
-            xynorm = qn(np.array([0, 0, 1]))  # The normal quaternion number for x-y plane
+            xynorm = qn(np.array([0, 0, 1]))  # The normal quaternion number for x-y planar
             if all(projection_normal.imagpart.flatten()[:2] == 0):
                 backrot = rotTo(projection_normal, xynorm)
             else:
                 projection_xy = np.copy(projection_normal).view(
-                    qn)  # Intermediate quaternnion for rotate the projected result to the x-y plane
+                    qn)  # Intermediate quaternnion for rotate the projected result to the x-y planar
                 projection_xy['z'] *= 0
                 backrot = rotTo(projection_xy, xynorm) * rotTo(projection_normal, projection_xy)
             backrot_mat = rotation_matrix(backrot)

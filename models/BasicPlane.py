@@ -1,5 +1,5 @@
 """
-MappApp ./models/BasicPlane.py - Basic plane models for re-use.
+MappApp ./models/BasicPlane.py - Basic planar models for re-use.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

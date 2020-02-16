@@ -25,7 +25,8 @@ import signal
 import sys
 import time
 
-import Buffers
+import Buffer
+import buffers.CameraBuffers
 import Config
 import Definition
 from helper import Basic
@@ -51,7 +52,6 @@ class BaseProcess:
     _running   : bool
     _shutdown  : bool
 
-    _ctrlQueue : mp.Queue
     _logQueue  : mp.Queue
     _inPipe    : mp.connection.PipeConnection
 
@@ -63,7 +63,6 @@ class BaseProcess:
     def __init__(self, **kwargs):
         """
         Kwargs should contain at least
-          _ctrlQueue
           _logQueue
           _inPipe
         for basic communication and logging in sub processes (Controller does not require _inPipe)
@@ -83,9 +82,8 @@ class BaseProcess:
                 for skey, state in value.items():
                     setattr(IPC.State, skey, state)
 
-            if key == '_buffers':
-                for bkey, buffer in value.items():
-                    setattr(IPC.Buffer, bkey, buffer)
+            if key == 'BufferObject':
+                IPC.BufferObject = value
 
             # Set base process class attribute
             else:
@@ -122,6 +120,9 @@ class BaseProcess:
         """Event loop to be re-implemented in subclass
         """
         NotImplementedError('Event loop of base process class is not implemented.')
+
+    def setState(self, code):
+        getattr(IPC.State, self.name).value = code
 
     def _startShutdown(self):
         # Handle all pipe messages before shutdown
@@ -217,13 +218,16 @@ class Controller(BaseProcess):
         ### Set configurations
         # Camera
         Config.Camera = IPC.createConfigDict()
-        Config.Camera.update(configuration.configuration(Definition.CameraConfig))
+        Config.Camera.update(configuration.configuration(Definition.Camera))
         # Display
         Config.Display = IPC.createConfigDict()
-        Config.Display.update(configuration.configuration(Definition.DisplayConfig))
+        Config.Display.update(configuration.configuration(Definition.Display))
         # Gui
         Config.Gui = IPC.createConfigDict()
-        Config.Gui.update(configuration.configuration(Definition.GuiConfig))
+        Config.Gui.update(configuration.configuration(Definition.Gui))
+        # Recording
+        Config.Recording = IPC.createConfigDict()
+        Config.Recording.update(configuration.configuration(Definition.Recording))
         # Logfile
         Config.Logfile = IPC.Manager.Value(ctypes.c_char_p, '')
 
@@ -237,19 +241,21 @@ class Controller(BaseProcess):
         IPC.State.Worker     = IPC.createSharedState()
 
         ### Set up components
-        self._setupCamera()
+        self._setupBuffers()
 
         ### Set up processes
         ## GUI
-        if Config.Gui[Definition.GuiConfig.use]:
+        if Config.Gui[Definition.Gui.use]:
             import process.GUI
             self._registerProcess(process.GUI.Main)
         ## Camera
-        import process.Camera
-        self._registerProcess(process.Camera.Main)
+        if Config.Camera[Definition.Camera.use]:
+            import process.Camera
+            self._registerProcess(process.Camera.Main)
         ## Display
-        import process.Display
-        self._registerProcess(process.Display.Main)
+        if Config.Display[Definition.Display.use]:
+            import process.Display
+            self._registerProcess(process.Display.Main)
         ## Logger
         import process.Logger
         self._registerProcess(process.Logger.Main)
@@ -258,7 +264,7 @@ class Controller(BaseProcess):
         self.start()
 
     def _registerProcess(self, target, **kwargs):
-        """Spawn a new process with a dedicated pipe connection.
+        """Register new process to be spawned.
 
         :param target: process class
         :param kwargs: optional keyword arguments for intialization of process class
@@ -266,6 +272,8 @@ class Controller(BaseProcess):
         self._registeredProcesses.append((target, kwargs))
 
     def initializeProcess(self, target, **kwargs):
+        self.setState(Definition.State.busy)
+
         processName = target.name
 
         if processName in self._processes:
@@ -285,10 +293,11 @@ class Controller(BaseProcess):
                                                       _logQueue = self._logQueue,
                                                       _pipes = self._pipes,
                                                       _configuration = dict(
-                                                          Camera  = Config.Camera,
-                                                          Display = Config.Display,
-                                                          Gui     = Config.Gui,
-                                                          Logfile = Config.Logfile
+                                                          Camera    = Config.Camera,
+                                                          Display   = Config.Display,
+                                                          Gui       = Config.Gui,
+                                                          Recording = Config.Recording,
+                                                          Logfile   = Config.Logfile
                                                       ),
                                                       _states = dict(
                                                           Controller = IPC.State.Controller,
@@ -299,57 +308,85 @@ class Controller(BaseProcess):
                                                           Logger     = IPC.State.Logger,
                                                           Worker     = IPC.State.Worker
                                                       ),
-                                                      _buffers = dict(
-                                                          CameraBO = IPC.Buffer.CameraBO
-                                                      ),
+                                                      BufferObject = IPC.BufferObject,
                                                       **kwargs
                                                   ))
         self._processes[processName].start()
 
-    def _setupCamera(self):
-        if not(Config.Camera[Definition.CameraConfig.use]):
-            return
+        self.setState(Definition.State.idle)
 
-        ### Create camera buffer object
-        IPC.Buffer.CameraBO = Buffers.CameraBufferObject()
-        IPC.Buffer.CameraBO.addBuffer(Buffers.FrameBuffer)
-        IPC.Buffer.CameraBO.addBuffer(Buffers.EyePositionDetector)
-        #IPC.Buffer.CameraBO.addBuffer(Buffers.EdgeDetector)
+    def _setupBuffers(self):
+        ### Create buffer object
+        IPC.BufferObject = Buffer.BufferObject()
+
+        ### Add camera buffers if camera is activated
+        if Config.Camera[Definition.Camera.use]:
+            for bufferName in Config.Camera[Definition.Camera.buffers]:
+                IPC.BufferObject.addBuffer(getattr(buffers.CameraBuffers, bufferName))
 
     def start(self):
-        ### Initialze all pipse
+        ### Initialize all pipes
         for target, kwargs in self._registeredProcesses:
             self._pipes[target.name] = mp.Pipe()
 
+        ### Initialize all processes
         for target, kwargs in self._registeredProcesses:
             self.initializeProcess(target, **kwargs)
 
         ### Run controller
         self.run()
 
-        ################
-        # Update configurations that should persist here
-        configuration.updateConfiguration(Definition.DisplayConfig, **Config.Display)
-        # Save to file
+        ### Pre-shutdown
+        ## Update configurations that should persist
+        configuration.updateConfiguration(Definition.Display, **Config.Display)
+        configuration.updateConfiguration(Definition.Recording, **Config.Recording)
         Logging.logger.log(logging.INFO, 'Save configuration to file {}'
                            .format(_configfile))
         configuration.saveToFile()
 
-        ################
-        # Shutdown procedure
+        ### Shutdown procedure
         Logging.logger.log(logging.DEBUG, 'Wait for processes to terminate')
-
         while True:
+            ## Complete shutdown if all processes are deleted
             if not(bool(self._processes)):
                 break
 
+            ## Check process stati
             for processName in list(self._processes):
-                if getattr(IPC.State, processName).value == Definition.State.stopped:
-                    ### Terminate and delete references
-                    self._processes[processName].terminate()
-                    del self._processes[processName]
-                    del self._pipes[processName]
+                if not(getattr(IPC.State, processName).value == Definition.State.stopped):
+                    continue
+                # Termin`ate and delete references
+                self._processes[processName].terminate()
+                del self._processes[processName]
+                del self._pipes[processName]
         self._running = False
+
+    def startRecording(self):
+        if Config.Recording[Definition.Recording.active]:
+            Logging.write(logging.WARNING, 'Tried to start new recording while active')
+            return
+
+        self.setState(Definition.State.recording)
+        Config.Recording[Definition.Recording.active] = True
+
+        if bool(Config.Recording[Definition.Recording.current_folder]):
+            Config.Recording[Definition.Recording.current_folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+
+    def pauseRecording(self):
+        if not(Config.Recording[Definition.Recording.active]):
+            Logging.write(logging.WARNING, 'Tried to pause inactive recording.')
+            return
+
+        self.setState(Definition.State.recording_paused)
+        Config.Recording[Definition.Recording.active] = False
+
+    def stopRecording(self):
+        if Config.Recording[Definition.Recording.active]:
+            Config.Recording[Definition.Recording.active] = False
+
+        self.setState(Definition.State.idle)
+        Config.Recording[Definition.Recording.current_folder] = ''
+
 
     def main(self):
         pass
