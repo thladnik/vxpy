@@ -84,6 +84,13 @@ class AbstractStimulus:
             self._models[self.__class__][mname] = model_class(**kwargs)
         return self.model(mname)
 
+
+    def draw(self, dt):
+        NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
+
+    def render(self, dt):
+        NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
+
     def update(self, **kwargs):
         """
         Method that is called by default to update stimulus parameters.
@@ -103,7 +110,7 @@ from helper import Geometry
 from glumpy import glm
 
 import Config
-from Definition import DisplayConfig
+from Definition import Display
 
 class SphericalStimulus(AbstractStimulus):
 
@@ -134,11 +141,7 @@ class SphericalStimulus(AbstractStimulus):
     def start(self):
         self._started = True
 
-    def render(self, dt):
-        pass
-
     def draw(self, dt):
-        #print(dt)
         self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
         if self._running and not(self._stopped):
@@ -154,15 +157,15 @@ class SphericalStimulus(AbstractStimulus):
         self.setUniform('u_ptime', self.protocol._time)
 
         #### Set 2D scaling for aspect 1:1
-        width = Config.Display[DisplayConfig.window_width]
-        height = Config.Display[DisplayConfig.window_height]
+        width = Config.Display[Display.window_width]
+        height = Config.Display[Display.window_height]
         if height > width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
 
         ### Set 3D translation and projection
-        distance = Config.Display[DisplayConfig.view_distance]
+        distance = Config.Display[Display.view_distance]
         translate3d = glm.translation(0, 0, -distance)
         fov = 240.0/distance
         project3d = glm.perspective(fov, 1, 2.0, 100.0)
@@ -170,7 +173,7 @@ class SphericalStimulus(AbstractStimulus):
         ### Set uniforms
         self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
-        self.setUniform('u_mapcalib_scale', Config.Display[DisplayConfig.view_scale] * np.array ([1, 1]))
+        self.setUniform('u_mapcalib_scale', Config.Display[Display.view_scale] * np.array ([1, 1]))
 
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
 
@@ -179,15 +182,15 @@ class SphericalStimulus(AbstractStimulus):
             gl.glEnable(gl.GL_STENCIL_TEST)
             gl.glEnable(gl.GL_BLEND)
 
-            elev = Config.Display[DisplayConfig.view_elev_angle]
+            elev = Config.Display[Display.view_elev_angle]
             elevRot3d = glm.rotate(np.eye(4), -90 + elev, 1, 0, 0)
             ### Rotate 3d model
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 225, 0, 0, 1) @ elevRot3d)
             ### Rotate around center of screen
             self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i))
             ### Translate radially
-            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[DisplayConfig.pos_glob_radial_offset]
-            xyOffset =  np.array([Config.Display[DisplayConfig.pos_glob_x_pos], Config.Display[DisplayConfig.pos_glob_y_pos]])
+            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[Display.pos_glob_radial_offset]
+            xyOffset =  np.array([Config.Display[Display.pos_glob_x_pos], Config.Display[Display.pos_glob_y_pos]])
             translate2d = radialOffset + xyOffset
             self.setUniform('u_mapcalib_translate2d', translate2d)
 
@@ -208,8 +211,51 @@ class SphericalStimulus(AbstractStimulus):
             #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
             ### Apply 90*i degree rotation for rendering different parts of actual sphere
-            azim_angle = Config.Display[DisplayConfig.view_azim_angle]
+            azim_angle = Config.Display[Display.view_azim_angle]
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
-            ### Call the
+            ### Call the rendering function of the subclass
             self.render(dt)
+
+################################
+### Plane stimulus class
+
+class PlaneStimulus(AbstractStimulus):
+
+    def __init__(self, display, protocol):
+        self.display = display
+        self.protocol = protocol
+
+        ### Set state
+        self._started = False
+        self._running = False
+        self._stopped = False
+
+
+    def start(self):
+        self._started = True
+
+
+    def draw(self, dt):
+        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+
+        if self._running and not(self._stopped):
+            self.time += dt
+        elif self._started and not(self._running):
+            self.time = 0.0
+            self._running = True
+        elif self._stopped or not(self._started):
+            return
+
+
+        ### Construct vertices
+        height = Config.Display[Display.window_height]
+        width = Config.Display[Display.window_width]
+
+        if width > height:
+            self.u_mapcalib_xscale = height/width
+
+        self.setUniform('u_mapcalib_xscale', self.u_mapcalib_xscale)
+
+        ### Call the rendering function of the subclass
+        self.render(dt)

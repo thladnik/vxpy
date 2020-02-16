@@ -23,7 +23,7 @@ import Logging
 
 class AbstractModel:
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.vertexBuffer : gloo.VertexBuffer = None
         self.indexBuffer  : gloo.IndexBuffer  = None
         self.indices      : np.ndarray        = None
@@ -104,3 +104,9 @@ class SphereModel(AbstractModel):
         if bool(texcoord):
             self.addAttribute(('a_texcoord', np.float32, 2))
             self.a_texcoord = np.array(texcoord)
+
+
+class PlaneModel(AbstractModel):
+
+    def __init__(self, **kwargs):
+        AbstractModel.__init__(self, **kwargs)

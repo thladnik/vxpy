@@ -10,7 +10,10 @@ if Definition.Env == Definition.EnvTypes.Dev:
 class VirtualCamera:
 
     def __init__(self):
-        self.vid = cv2.VideoCapture(os.path.join(Definition.Path.Sample, 'Demo_Fish_capture_high_fps.avi'))
+        #self.vid = cv2.VideoCapture(os.path.join(Definition.Path.Sample, 'Demo_Fish_capture_high_fps.avi'))
+        #self.vid = cv2.VideoCapture(os.path.join(Definition.Path.Sample, 'Fish_eyes_spontaneous_saccades_40s.avi'))
+        self.vid = cv2.VideoCapture(os.path.join(Definition.Path.Sample, 'Fish_eyes_multiple_fish_30s.avi'))
+        #self.vid = cv2.VideoCapture(os.path.join(Definition.Path.Sample, 'Fish_eyes_mid_quality_60s.avi'))
 
     @staticmethod
     def getModels():

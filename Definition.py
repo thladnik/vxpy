@@ -41,16 +41,36 @@ class Process:
     Worker     = 'Worker'
 
 class State:
-    stopped  = 99
-    starting = 10
-    idle     = 20
-    busy     = 30
+    stopped          = 99
+    starting         = 10
+    idle             = 20
+    busy             = 30
+    recording        = 50
+    recording_paused = 55
 
-class DisplayConfig:
+class Camera:
+    name = 'camera'
+
+    # Use camera
+    use          = 'bool_use'
+
+    # Camera configuration
+    manufacturer = 'str_manufacturer'
+    model        = 'str_model'
+    format       = 'str_format'
+    res_x        = 'int_resolution_x'
+    res_y        = 'int_resolution_y'
+    fps          = 'int_fps'
+
+    # Buffers
+    buffers      = 'list_buffers'
+
+class Display:
     name = 'display'
 
     # Use display
     use                    = 'bool_use'
+    type                   = 'str_type'
 
     fps                    = 'int_fps'
 
@@ -72,20 +92,20 @@ class DisplayConfig:
     view_distance          = 'float_view_origin_distance'
     view_scale             = 'float_view_scale'
 
-class CameraConfig:
-    name = 'camera'
-
-    # Use camera
-    use          = 'bool_use'
-
-    # Camera configuration
-    manufacturer = 'str_manufacturer'
-    model        = 'str_model'
-    format       = 'str_format'
-    resolution_x = 'int_resolution_x'
-    resolution_y = 'int_resolution_y'
-
-class GuiConfig:
+class Gui:
     name = 'gui'
 
     use         = 'bool_use'
+
+    # Addons
+    addons      = 'list_addons'
+
+class Recording:
+    name = 'recording'
+
+    enabled         = 'bool_enabled'
+    active          = 'bool_active'
+    current_folder  = 'str_current_folder'
+
+    # Active buffers
+    buffers         = 'list_buffers'

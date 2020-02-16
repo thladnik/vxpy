@@ -106,13 +106,13 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             return
         print('Saving changes to file')
         # Camera configuration
-        self.configuration.updateConfiguration(Definition.CameraConfig, **self._gb_camera.get())
+        self.configuration.updateConfiguration(Definition.Camera, **self._gb_camera.get())
 
         # Display configuration
-        self.configuration.updateConfiguration(Definition.DisplayConfig)
+        self.configuration.updateConfiguration(Definition.Display)
 
         # Gui configuration
-        self.configuration.updateConfiguration(Definition.GuiConfig)
+        self.configuration.updateConfiguration(Definition.Gui)
 
         self.configuration.saveToFile()
         self._currentConfigChanged = False
@@ -129,7 +129,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
         # Set camera configuration
         self._gb_camera._loadCameraList()
-        self._gb_camera.set(**self.configuration.configuration(Definition.CameraConfig))
+        self._gb_camera.set(**self.configuration.configuration(Definition.Camera))
 
         # Set ...
 
@@ -193,9 +193,9 @@ class CameraConfiguration(QtWidgets.QGroupBox):
             self._cb_selectModel.addItem('TIS>>{}'.format(c.decode()))
 
         # Select current
-        config = self._main.configuration.configuration(Definition.CameraConfig)
+        config = self._main.configuration.configuration(Definition.Camera)
         self._cb_selectModel.setCurrentText(
-            '%s>>%s' % (config[Definition.CameraConfig.manufacturer], config[Definition.CameraConfig.model]))
+            '%s>>%s' % (config[Definition.Camera.manufacturer], config[Definition.Camera.model]))
 
         self._loadFormatList()
 
@@ -229,7 +229,7 @@ class CameraConfiguration(QtWidgets.QGroupBox):
                 self._cb_selectFormat.addItem(f.decode())
 
         self._cb_selectFormat.setCurrentText(self._main.configuration.configuration(
-            Definition.CameraConfig, Definition.CameraConfig.format)
+            Definition.Camera, Definition.Camera.format)
         )
 
     def _formatSelected(self, idx):
@@ -239,11 +239,11 @@ class CameraConfiguration(QtWidgets.QGroupBox):
     def set(self, **settings):
         self._loadCameraList()
 
-        if Definition.CameraConfig.model in settings:
-            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.model])
+        if Definition.Camera.model in settings:
+            self._cb_selectModel.setCurrentText(settings[Definition.Camera.model])
 
-        if Definition.CameraConfig.format in settings:
-            self._cb_selectModel.setCurrentText(settings[Definition.CameraConfig.format])
+        if Definition.Camera.format in settings:
+            self._cb_selectModel.setCurrentText(settings[Definition.Camera.format])
 
     def get(self):
         format = self._cb_selectFormat.currentText()
@@ -254,11 +254,11 @@ class CameraConfiguration(QtWidgets.QGroupBox):
         model = camera[1]
 
         return {
-            Definition.CameraConfig.manufacturer : manufacturer,
-            Definition.CameraConfig.model        : model,
-            Definition.CameraConfig.format       : format,
-            Definition.CameraConfig.resolution_x : int(format1[1][:-1]),
-            Definition.CameraConfig.resolution_y : int(format1[0][1:])
+            Definition.Camera.manufacturer : manufacturer,
+            Definition.Camera.model        : model,
+            Definition.Camera.format       : format,
+            Definition.Camera.res_y : int(format1[1][:-1]),
+            Definition.Camera.res_x : int(format1[0][1:])
         }
 
 

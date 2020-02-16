@@ -32,7 +32,7 @@ from Shader import BasicFileShader
 class RipplesOnStaticBackground(SphericalStimulus):
 
     def __init__(self, protocol, display, u_mod_sign, u_mod_depth, u_mod_shape, u_mod_vel, u_mod_width,
-                 u_mod_min_elev=-np.pi/2, u_mod_max_elev=+np.pi/2):
+                 u_mod_min_elev=-np.pi/2, u_mod_max_elev=+np.pi/2, u_upper_field_flash=0):
         """
 
         """
@@ -63,7 +63,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
         self.update(u_mod_sign=u_mod_sign, u_mod_depth=u_mod_depth,
                     u_mod_shape=u_mod_shape, u_mod_vel=u_mod_vel,
                     u_mod_width=u_mod_width, u_mod_min_elev=u_mod_min_elev,
-                    u_mod_max_elev=u_mod_max_elev)
+                    u_mod_max_elev=u_mod_max_elev, u_upper_field_flash=u_upper_field_flash)
 
         ### Set ripple program dict/index
         self.ripple_programs = dict()
@@ -76,7 +76,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
         self.texture_program.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         ### Second: start new ripple?
-        if np.random.randint(Config.Display[Definition.DisplayConfig.fps] * 3) == 0 \
+        if np.random.randint(Config.Display[Definition.Display.fps] * 3) == 0 \
                 and self.protocol._advanceTime > (self.protocol._time + 20.0 / (2.0 * self.u_mod_vel)):
 
             # Create program
@@ -93,6 +93,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
             self.ripple_programs[self.progI]['u_mod_width'] = self.u_mod_width
             self.ripple_programs[self.progI]['u_mod_min_elev'] = self.u_mod_min_elev
             self.ripple_programs[self.progI]['u_mod_max_elev'] = self.u_mod_max_elev
+            self.ripple_programs[self.progI]['u_upper_field_flash'] = self.u_upper_field_flash
             # TODO: Note-to-self; this z-layer workaround is stupid, get rid of it
             self.ripple_programs[self.progI]['u_mod_zlayer'] = self.progI
 
@@ -131,7 +132,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
                 self._overflowWarn = True
 
     def update(self, u_mod_sign=None, u_mod_depth=None, u_mod_shape=None, u_mod_vel=None,
-               u_mod_width=None, u_mod_min_elev=None, u_mod_max_elev=None):
+               u_mod_width=None, u_mod_min_elev=None, u_mod_max_elev=None, u_upper_field_flash=None):
 
         self.u_mod_sign = u_mod_sign
         self.u_mod_depth = u_mod_depth
@@ -140,4 +141,5 @@ class RipplesOnStaticBackground(SphericalStimulus):
         self.u_mod_width = u_mod_width
         self.u_mod_min_elev = u_mod_min_elev
         self.u_mod_max_elev = u_mod_max_elev
+        self.u_upper_field_flash = u_upper_field_flash
 

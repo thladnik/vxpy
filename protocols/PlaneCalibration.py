@@ -1,6 +1,5 @@
 """
-MappApp ./Config.py - Configuration placeholders
-all stimulus implementations in ./stimulus/.
+MappApp ./protocols/Calibration.py - Protocols for calibration of spherical visual stimulation setup.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -17,9 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-## Known configuration properties
-Display   : dict = None
-Camera    : dict = None
-Gui       : dict = None
-Logfile   : str  = None
-Recording : dict = None
+from Protocol import StaticStimulationProtocol
+
+from stimuli.planar.Calibration import Checkerboard
+
+class CheckerboardProtocol(StaticStimulationProtocol):
+
+    _name = 'PlaneCalibration'
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+
+        self.addStimulus(Checkerboard, dict())

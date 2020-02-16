@@ -49,17 +49,16 @@ class Main(Controller.BaseProcess):
         self._window_config = app.configuration.Configuration()
         self._window_config.stencil_size = 8
 
-
         ### Open OpenGL window
-        self._glWindow = app.Window(width=Config.Display[Definition.DisplayConfig.window_width],
-                                    height=Config.Display[Definition.DisplayConfig.window_height],
+        self._glWindow = app.Window(width=Config.Display[Definition.Display.window_width],
+                                    height=Config.Display[Definition.Display.window_height],
                                     color=(1, 1, 1, 1),
                                     title='Display',
                                     config=self._window_config,
                                     vsync=True,
                                     fullscreen=False)
-        self._glWindow.set_position(Config.Display[Definition.DisplayConfig.window_pos_x],
-                                    Config.Display[Definition.DisplayConfig.window_pos_y])
+        self._glWindow.set_position(Config.Display[Definition.Display.window_pos_x],
+                                    Config.Display[Definition.Display.window_pos_y])
 
         ### Apply event wrapper
         self.on_draw = self._glWindow.event(self.on_draw)
@@ -102,10 +101,10 @@ class Main(Controller.BaseProcess):
         self._glWindow._width = width
         self._glWindow._height = height
         # Update size and position in configuration
-        Config.Display[Definition.DisplayConfig.window_width] = width
-        Config.Display[Definition.DisplayConfig.window_height] = height
-        Config.Display[Definition.DisplayConfig.window_pos_x] = self._glWindow.get_position()[0]
-        Config.Display[Definition.DisplayConfig.window_pos_y] = self._glWindow.get_position()[1]
+        Config.Display[Definition.Display.window_width] = width
+        Config.Display[Definition.Display.window_height] = height
+        Config.Display[Definition.Display.window_pos_x] = self._glWindow.get_position()[0]
+        Config.Display[Definition.Display.window_pos_y] = self._glWindow.get_position()[1]
 
     def on_key_press(self, symbol, modifiers):
         continPressDelay = 0.02
@@ -113,28 +112,28 @@ class Main(Controller.BaseProcess):
             if modifiers & key.MOD_ALT:
                 ### Fullscreen toggle: Ctrl+Alt+F
                 if symbol == key.F:
-                    Config.Display[Definition.DisplayConfig.window_fullscreen] = \
-                        not(Config.Display[Definition.DisplayConfig.window_fullscreen])
+                    Config.Display[Definition.Display.window_fullscreen] = \
+                        not(Config.Display[Definition.Display.window_fullscreen])
 
             ### X position: Ctrl(+Shift)+X
             elif symbol == key.X:
                 while keyboard.is_pressed('X'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.pos_glob_x_pos] += sign*0.001
+                    Config.Display[Definition.Display.pos_glob_x_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Y position: Ctrl(+Shift)+Y
             elif symbol == key.Y:
                 while keyboard.is_pressed('Y'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.pos_glob_y_pos] += sign*0.001
+                    Config.Display[Definition.Display.pos_glob_y_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Radial offset: Ctrl(+Shift)+R
             elif symbol == key.R:
                 while keyboard.is_pressed('R'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.pos_glob_radial_offset] += sign*0.001
+                    Config.Display[Definition.Display.pos_glob_radial_offset] += sign * 0.001
                     time.sleep(continPressDelay)
 
 
@@ -142,33 +141,33 @@ class Main(Controller.BaseProcess):
             elif symbol == key.E:
                 while keyboard.is_pressed('E'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.view_elev_angle] += sign*0.1
+                    Config.Display[Definition.Display.view_elev_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Azimuth: Ctrl(+Shift)+A
             elif symbol == key.A:
                 while keyboard.is_pressed('A'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.view_azim_angle] += sign*0.1
+                    Config.Display[Definition.Display.view_azim_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Distance: Ctrl(+Shift)+D
             elif symbol == key.D:
                 while keyboard.is_pressed('D'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.view_distance] += sign*0.1
+                    Config.Display[Definition.Display.view_distance] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Scale: Ctrl(+Shift)+S
             elif symbol == key.S:
                 while keyboard.is_pressed('S'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.DisplayConfig.view_scale] += sign*0.001
+                    Config.Display[Definition.Display.view_scale] += sign * 0.001
                     time.sleep(continPressDelay)
 
     def _checkScreen(self, dt):
-        screenid = Config.Display[Definition.DisplayConfig.window_screen_id]
-        fscreen = Config.Display[Definition.DisplayConfig.window_fullscreen]
+        screenid = Config.Display[Definition.Display.window_screen_id]
+        fscreen = Config.Display[Definition.Display.window_fullscreen]
         if self._glWindow.get_fullscreen() != fscreen:
             if fscreen:
                 self._glWindow.set_fullscreen(True, screen=screenid)
@@ -194,9 +193,9 @@ class Main(Controller.BaseProcess):
 
     def main(self):
         # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
-        app.clock.schedule_interval(self._handleCommunication, 0.05)
+        app.clock.schedule_interval(self._handleInbox, 0.05)
         app.clock.schedule_interval(self._checkScreen, 0.1)
 
         # Run Glumpy event loop
-        app.run(framerate=Config.Display[Definition.DisplayConfig.fps])
+        app.run(framerate=Config.Display[Definition.Display.fps])
 

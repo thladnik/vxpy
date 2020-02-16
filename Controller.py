@@ -1,5 +1,6 @@
 """
-MappApp ./Controller.py - Base process and controller class called to start program. Spawns all sub processes.
+MappApp ./Controller.py - Base process and controller class called to start program.
+Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +25,8 @@ import signal
 import sys
 import time
 
-import Buffers
+import Buffer
+import buffers.CameraBuffers
 import Config
 import Definition
 from helper import Basic
@@ -50,25 +52,22 @@ class BaseProcess:
     _running   : bool
     _shutdown  : bool
 
-    _ctrlQueue : mp.Queue
     _logQueue  : mp.Queue
     _inPipe    : mp.connection.PipeConnection
 
     ## Controller exclusives
-    _pipes               : dict = dict()
-    _processes           : dict = dict()
+    _pipes     : dict = dict()
+    _processes : dict = dict()
 
 
     def __init__(self, **kwargs):
         """
         Kwargs should contain at least
-          _ctrlQueue
           _logQueue
           _inPipe
         for basic communication and logging in sub processes (Controller does not require _inPipe)
 
         Known further kwargs are:
-          _cameraBO (multiple processes)
           _app (GUI)
         """
         for key, value in kwargs.items():
@@ -83,9 +82,8 @@ class BaseProcess:
                 for skey, state in value.items():
                     setattr(IPC.State, skey, state)
 
-            if key == '_buffers':
-                for bkey, buffer in value.items():
-                    setattr(self, bkey, buffer)
+            if key == 'BufferObject':
+                IPC.BufferObject = value
 
             # Set base process class attribute
             else:
@@ -114,22 +112,22 @@ class BaseProcess:
         ### Run event loop
         self.t = time.perf_counter()
         while self._isRunning():
-            self._handleCommunication()
+            self._handleInbox()
             self.main()
             self.t = time.perf_counter()
-
-        ### Inform controller that process has terminated
-        self.send(Definition.Process.Controller, BaseProcess.Signals.ConfirmShutdown)
 
     def main(self):
         """Event loop to be re-implemented in subclass
         """
         NotImplementedError('Event loop of base process class is not implemented.')
 
+    def setState(self, code):
+        getattr(IPC.State, self.name).value = code
+
     def _startShutdown(self):
         # Handle all pipe messages before shutdown
-        while self._inPipe.poll():
-            self._handleCommunication()
+        while self._pipes[self.name][1].poll():
+            self._handleInbox()
 
         ### Set process state
         if getattr(IPC.State, self.name) is not None:
@@ -148,13 +146,9 @@ class BaseProcess:
         Convenience function to send messages to other Processes.
         All messages have the format [Sender, Receiver, Data]
         """
-        if self.name == Definition.Process.Controller:
-            self._pipes[processName][0].send([signal, args, kwargs])
-        else:
-            self._ctrlQueue.put([self.name, processName, [signal, args, kwargs]])
+        self._pipes[processName][0].send([signal, args, kwargs])
 
     def rpc(self, processName, function, *args, **kwargs):
-
         self.send(processName, BaseProcess.Signals.RPC, function.__name__, *args, **kwargs)
 
 
@@ -178,15 +172,13 @@ class BaseProcess:
                                                 '// Exception: {}'.
                                                 format(fun, args, kwargs, exc))
 
-    def _handleCommunication(self, *args, msg=None):  # needs *args for compatibility with Glumpy's schedule_interval
+    def _handleInbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
 
-        ### Msg should only be set if this is the controller process
-        if msg is None:
-            # Poll pipe
-            if not(self._inPipe.poll()):
-                return
+        # Poll pipe
+        if not(self._pipes[self.name][1].poll()):
+            return
 
-            msg = self._inPipe.recv()
+        msg = self._pipes[self.name][1].recv()
 
         Logging.logger.log(logging.DEBUG, 'Received message: {}'.
                            format(msg))
@@ -212,10 +204,13 @@ class BaseProcess:
 class Controller(BaseProcess):
     name = Definition.Process.Controller
 
-    _cameraBO: Buffers.CameraBufferObject = None
+    _registeredProcesses = list()
 
     def __init__(self):
-        BaseProcess.__init__(self, _ctrlQueue=mp.Queue(), _logQueue=mp.Queue())
+        BaseProcess.__init__(self, _logQueue=mp.Queue())
+
+        ### Manually set up pipe for controller
+        self._pipes[self.name] = mp.Pipe()
 
         ### Set up manager
         IPC.Manager = mp.Manager()
@@ -223,13 +218,16 @@ class Controller(BaseProcess):
         ### Set configurations
         # Camera
         Config.Camera = IPC.createConfigDict()
-        Config.Camera.update(configuration.configuration(Definition.CameraConfig))
+        Config.Camera.update(configuration.configuration(Definition.Camera))
         # Display
         Config.Display = IPC.createConfigDict()
-        Config.Display.update(configuration.configuration(Definition.DisplayConfig))
+        Config.Display.update(configuration.configuration(Definition.Display))
         # Gui
         Config.Gui = IPC.createConfigDict()
-        Config.Gui.update(configuration.configuration(Definition.GuiConfig))
+        Config.Gui.update(configuration.configuration(Definition.Gui))
+        # Recording
+        Config.Recording = IPC.createConfigDict()
+        Config.Recording.update(configuration.configuration(Definition.Recording))
         # Logfile
         Config.Logfile = IPC.Manager.Value(ctypes.c_char_p, '')
 
@@ -243,32 +241,41 @@ class Controller(BaseProcess):
         IPC.State.Worker     = IPC.createSharedState()
 
         ### Set up components
-        self._setupCamera()
+        self._setupBuffers()
 
         ### Set up processes
         ## GUI
-        if Config.Gui[Definition.GuiConfig.use]:
-            self.initializeGui()
+        if Config.Gui[Definition.Gui.use]:
+            import process.GUI
+            self._registerProcess(process.GUI.Main)
         ## Camera
-        self.inializeCamera()
+        if Config.Camera[Definition.Camera.use]:
+            import process.Camera
+            self._registerProcess(process.Camera.Main)
         ## Display
-        self.initializeDisplay()
+        if Config.Display[Definition.Display.use]:
+            import process.Display
+            self._registerProcess(process.Display.Main)
         ## Logger
-        self.initializeLogger()
+        import process.Logger
+        self._registerProcess(process.Logger.Main)
 
         ### Run event loop
-        self.run()
+        self.start()
 
-    def _newStateDict(self):
-        return IPC.Manager.dict()
+    def _registerProcess(self, target, **kwargs):
+        """Register new process to be spawned.
 
-    def _initializeProcess(self, processName, target, **optKwargs):
-        """Spawn a new process with a dedicated pipe connection.
-
-        :param processHandle: MappApp_Defintion.<Process> class
         :param target: process class
-        :param optKwargs: optional keyword arguments
+        :param kwargs: optional keyword arguments for intialization of process class
         """
+        self._registeredProcesses.append((target, kwargs))
+
+    def initializeProcess(self, target, **kwargs):
+        self.setState(Definition.State.busy)
+
+        processName = target.name
+
         if processName in self._processes:
             ### Terminate process
             Logging.write(logging.INFO, 'Restart process {}'.format(processName))
@@ -279,21 +286,18 @@ class Controller(BaseProcess):
 
             ### Delete references
             del self._processes[processName]
-            del self._pipes[processName]
 
-
-        self._pipes[processName] = mp.Pipe()
         self._processes[processName] = mp.Process(target=target,
                                                   name=processName,
                                                   kwargs=dict(
-                                                      _ctrlQueue=self._ctrlQueue,
-                                                      _logQueue=self._logQueue,
-                                                      _inPipe=self._pipes[processName][1],
+                                                      _logQueue = self._logQueue,
+                                                      _pipes = self._pipes,
                                                       _configuration = dict(
-                                                          Camera  = Config.Camera,
-                                                          Display = Config.Display,
-                                                          Gui     = Config.Gui,
-                                                          Logfile = Config.Logfile
+                                                          Camera    = Config.Camera,
+                                                          Display   = Config.Display,
+                                                          Gui       = Config.Gui,
+                                                          Recording = Config.Recording,
+                                                          Logfile   = Config.Logfile
                                                       ),
                                                       _states = dict(
                                                           Controller = IPC.State.Controller,
@@ -304,94 +308,88 @@ class Controller(BaseProcess):
                                                           Logger     = IPC.State.Logger,
                                                           Worker     = IPC.State.Worker
                                                       ),
-                                                      _buffers = dict(
-                                                          _cameraBO = self._cameraBO
-                                                      )
+                                                      BufferObject = IPC.BufferObject,
+                                                      **kwargs
                                                   ))
         self._processes[processName].start()
 
-    def inializeCamera(self):
-        import process.Camera
-        self._initializeProcess(Definition.Process.Camera, process.Camera.Main)
+        self.setState(Definition.State.idle)
 
-    def initializeDisplay(self):
-        import process.Display
-        self._initializeProcess(Definition.Process.Display, process.Display.Main)
+    def _setupBuffers(self):
+        ### Create buffer object
+        IPC.BufferObject = Buffer.BufferObject()
 
-    def initializeGui(self):
-        import process.GUI
-        self._initializeProcess(Definition.Process.GUI, process.GUI.Main)
+        ### Add camera buffers if camera is activated
+        if Config.Camera[Definition.Camera.use]:
+            for bufferName in Config.Camera[Definition.Camera.buffers]:
+                IPC.BufferObject.addBuffer(getattr(buffers.CameraBuffers, bufferName))
 
-    def initializeLogger(self):
-        import process.Logger
-        self._initializeProcess(Definition.Process.Logger, process.Logger.Main)
+    def start(self):
+        ### Initialize all pipes
+        for target, kwargs in self._registeredProcesses:
+            self._pipes[target.name] = mp.Pipe()
 
-    def _setupCamera(self):
-        if not(Config.Camera[Definition.CameraConfig.use]):
-            return
+        ### Initialize all processes
+        for target, kwargs in self._registeredProcesses:
+            self.initializeProcess(target, **kwargs)
 
-        ### Create camera buffer object
-        self._cameraBO = Buffers.CameraBufferObject()
-        self._cameraBO.addBuffer(Buffers.FrameBuffer)
-        self._cameraBO.addBuffer(Buffers.EdgeDetector)
+        ### Run controller
+        self.run()
 
-    def run(self):
-
-        ################
-        # Startup
-        self._running = True
-        self._shutdown = False
-
-        ################
-        # Run main loop
-        Logging.logger.log(logging.DEBUG, 'Run <{}>'
-                           .format(self.name))
-        while self._isRunning():
-
-            # Get new Data from control queue
-            sender, receiver, (signal, args, kwargs) = self._ctrlQueue.get()
-            Logging.logger.log(logging.DEBUG, 'Message from <{}> to <{}>: Signal {}, Args {}, Kwargs {}'
-                               .format(sender, receiver, signal, args, kwargs))
-
-            ########
-            ## CALLS TO CONTROLLER
-            if receiver == self.name:
-                self._handleCommunication(msg=[signal, args, kwargs])
-
-            ########
-            # CALLS TO OTHER PROCESSES (FORWARDING)
-            else:
-                try:
-                    Logging.logger.log(logging.DEBUG, 'Forward message from <{}> to <{}> with signal {}'.
-                                       format(sender, receiver, signal))
-                    self.send(receiver, signal, *args, **kwargs)
-                except:
-                    Logging.logger.log(logging.WARNING, 'Failed to forward message from <{}> to <{}> with signal {}'.
-                                       format(sender, receiver, signal))
-
-        ################
-        # Update configurations that should persist here
-        configuration.updateConfiguration(Definition.DisplayConfig, **Config.Display)
-        # Save to file
+        ### Pre-shutdown
+        ## Update configurations that should persist
+        configuration.updateConfiguration(Definition.Display, **Config.Display)
+        configuration.updateConfiguration(Definition.Recording, **Config.Recording)
         Logging.logger.log(logging.INFO, 'Save configuration to file {}'
                            .format(_configfile))
         configuration.saveToFile()
 
-        ################
-        # Shutdown procedure
+        ### Shutdown procedure
         Logging.logger.log(logging.DEBUG, 'Wait for processes to terminate')
-
         while True:
+            ## Complete shutdown if all processes are deleted
             if not(bool(self._processes)):
                 break
 
+            ## Check process stati
             for processName in list(self._processes):
-                if getattr(IPC.State, processName).value == Definition.State.stopped:
-                    ### Terminate and delete references
-                    self._processes[processName].terminate()
-                    del self._processes[processName]
-                    del self._pipes[processName]
+                if not(getattr(IPC.State, processName).value == Definition.State.stopped):
+                    continue
+                # Termin`ate and delete references
+                self._processes[processName].terminate()
+                del self._processes[processName]
+                del self._pipes[processName]
         self._running = False
+
+    def startRecording(self):
+        if Config.Recording[Definition.Recording.active]:
+            Logging.write(logging.WARNING, 'Tried to start new recording while active')
+            return
+
+        self.setState(Definition.State.recording)
+        Config.Recording[Definition.Recording.active] = True
+
+        if bool(Config.Recording[Definition.Recording.current_folder]):
+            Config.Recording[Definition.Recording.current_folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+
+    def pauseRecording(self):
+        if not(Config.Recording[Definition.Recording.active]):
+            Logging.write(logging.WARNING, 'Tried to pause inactive recording.')
+            return
+
+        self.setState(Definition.State.recording_paused)
+        Config.Recording[Definition.Recording.active] = False
+
+    def stopRecording(self):
+        if Config.Recording[Definition.Recording.active]:
+            Config.Recording[Definition.Recording.active] = False
+
+        self.setState(Definition.State.idle)
+        Config.Recording[Definition.Recording.current_folder] = ''
+
+
+    def main(self):
+        pass
 
     def _startShutdown(self):
         Logging.logger.log(logging.DEBUG, 'Shut down processes')
