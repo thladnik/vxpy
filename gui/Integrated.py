@@ -23,6 +23,7 @@ from time import strftime
 import Config
 import Controller
 import Definition
+from helper.Basic import Conversion
 import IPC
 import Logging
 from process import GUI
@@ -40,7 +41,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
 
     def _setupUi(self):
 
-        self.setMaximumWidth(6 * 100)
+        self.setMaximumWidth(6 * 130)
 
         ## Setup widget
         self.setWindowTitle('Process monitor')
@@ -107,6 +108,8 @@ class ProcessMonitor(QtWidgets.QGroupBox):
             return 'Starting'
         elif code == Definition.State.recording:
             return 'Recording'
+        elif code == Definition.State.recording_paused:
+            return 'Paused'
 
     def _setProcessState(self, le: QtWidgets.QLineEdit, code):
         if code is None:
@@ -124,6 +127,8 @@ class ProcessMonitor(QtWidgets.QGroupBox):
             elif code == Definition.State.stopped:
                 le.setStyleSheet('color: #d43434; font-weight:bold;')
             elif code == Definition.State.recording:
+                le.setStyleSheet('color: #b6bf34; font-weight:bold; font-style:italic;')
+            elif code == Definition.State.recording_paused:
                 le.setStyleSheet('color: #b6bf34; font-weight:bold; font-style:italic;')
 
     def _updateStates(self):
@@ -172,6 +177,8 @@ class Recording(QtWidgets.QGroupBox):
         self._setupUi()
 
     def _setupUi(self):
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+
         ### Basic properties
         self.setCheckable(True)
         self.setLayout(QtWidgets.QGridLayout())
@@ -181,6 +188,9 @@ class Recording(QtWidgets.QGroupBox):
         self._le_folder.setEnabled(False)
         self.layout().addWidget(QtWidgets.QLabel('Folder'), 0, 0)
         self.layout().addWidget(self._le_folder, 0, 1, 1, 2)
+
+        ### GroupBox
+        self.clicked.connect(self.toggleEnable)
 
         ### Buttons
         ## Start
@@ -196,24 +206,77 @@ class Recording(QtWidgets.QGroupBox):
         self._btn_stop.clicked.connect(lambda: self._main.rpc(Definition.Process.Controller, Controller.Controller.stopRecording))
         self.layout().addWidget(self._btn_stop, 1, 2)
 
+        ### Add buffers
+        self._cb_buffers = dict()
+        ## Camera buffers
+        self._grp_cameraBuffers = QtWidgets.QGroupBox('Camera buffers')
+        self._grp_cameraBuffers.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self._grp_cameraBuffers, 2, 0, 1, 3)
+        for bufferName in Config.Camera[Definition.Camera.buffers]:
+            bufferId = '{}/{}'.format(Definition.Process.Camera, bufferName)
+            self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
+            self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
+            self._cb_buffers[bufferId].setTristate(False)
+            self._grp_cameraBuffers.layout().addWidget(self._cb_buffers[bufferId])
+        ## IO buffers
+        self._grp_ioBuffers = QtWidgets.QGroupBox('I/O buffers')
+        self._grp_ioBuffers.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self._grp_ioBuffers, 3, 0, 1, 3)
+        for bufferName in Config.IO[Definition.IO.buffers]:
+            bufferId = '{}/{}'.format(Definition.Process.IO, bufferName)
+            self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
+            self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
+            self._cb_buffers[bufferId].setTristate(False)
+            self._grp_ioBuffers.layout().addWidget(self._cb_buffers[bufferId])
+
+        self.layout().addItem(vSpacer, 4, 0)
+
         ### Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
         self._tmr_updateGUI.setInterval(100)
         self._tmr_updateGUI.timeout.connect(self.updateGui)
         self._tmr_updateGUI.start()
 
+    def toggleEnable(self, newstate):
+        self._main.rpc(Definition.Process.Controller, Controller.Controller.toggleEnableRecording, newstate)
+
+    def bufferStateChanged(self):
+        """Update shared buffer list for recordings based on UI selection.
+        Because buffer list is shared (managed) list, appending and removing has to be done in weird way (below)"""
+
+        for bufferId, cb in self._cb_buffers.items():
+            # Add bufferId if checkstate == True and bufferId not in buffer list
+            if Conversion.QtCheckstateToBool(cb.checkState()) and bufferId not in Config.Recording[Definition.Recording.buffers]:
+                Config.Recording[Definition.Recording.buffers] = Config.Recording[Definition.Recording.buffers] + [bufferId]
+            # Remove bufferId if checkstate == False and bufferId is in buffer list
+            elif not(Conversion.QtCheckstateToBool(cb.checkState())) and bufferId in Config.Recording[Definition.Recording.buffers]:
+                Config.Recording[Definition.Recording.buffers] = [bi for bi in Config.Recording[Definition.Recording.buffers] if bi != bufferId]
 
     def updateGui(self):
+        """(Periodically) update UI based on shared configuration"""
+
+        active = Config.Recording[Definition.Recording.active]
+        enabled = Config.Recording[Definition.Recording.enabled]
+        current_folder = Config.Recording[Definition.Recording.current_folder]
+
         ### Set enabled
-        self.setChecked(Config.Recording[Definition.Recording.enabled])
+        self.setCheckable(not(active) and not(bool(current_folder)))
+        self.setChecked(enabled)
 
         ### Set current folder
         self._le_folder.setText(Config.Recording[Definition.Recording.current_folder])
 
         ### Set buttons dis-/enabled
-        active = Config.Recording[Definition.Recording.active]
-        enabled = Config.Recording[Definition.Recording.enabled]
         self._btn_start.setEnabled(not(active) and enabled)
+        self._btn_start.setText('Start' if self._main.inState(Definition.State.idle, Definition.Process.Controller) else 'Resume')
         self._btn_pause.setEnabled(active and enabled)
         self._btn_stop.setEnabled(bool(Config.Recording[Definition.Recording.current_folder]) and enabled)
+
+        ### Set buffer check states
+        for bufferId, cb in self._cb_buffers.items():
+            cb.setCheckState(Conversion.boolToQtCheckstate(bufferId in Config.Recording[Definition.Recording.buffers]))
+
+        ### Enable/disable buffer groups during active recording
+        self._grp_cameraBuffers.setDisabled(active or not(enabled))
+        self._grp_ioBuffers.setDisabled(active or not(enabled))
 

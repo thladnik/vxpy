@@ -20,4 +20,5 @@ class State:
     Logger     : int = None
     Worker     : int = None
 
-BufferObject = None
+CameraBufferObject = None
+IoBufferObject     = None

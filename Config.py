@@ -21,5 +21,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 Display   : dict = None
 Camera    : dict = None
 Gui       : dict = None
+IO        : dict = None
 Logfile   : str  = None
 Recording : dict = None

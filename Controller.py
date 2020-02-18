@@ -21,6 +21,7 @@ import ctypes
 import logging
 import multiprocessing as mp
 import multiprocessing.connection
+import os
 import signal
 import sys
 import time
@@ -70,6 +71,7 @@ class BaseProcess:
         Known further kwargs are:
           _app (GUI)
         """
+
         for key, value in kwargs.items():
 
             # Set configuration dictionaries (managed dicts)
@@ -77,15 +79,19 @@ class BaseProcess:
                 for ckey, config in value.items():
                     setattr(Config, ckey, config)
 
-            # Set state dictionaries (managed dicts)
-            if key == '_states':
+            # Set state ints (managed ints)
+            elif key == '_states':
                 for skey, state in value.items():
                     setattr(IPC.State, skey, state)
 
-            if key == 'BufferObject':
-                IPC.BufferObject = value
+            # Set buffer object
+            elif key == 'CameraBufferObject':
+                IPC.CameraBufferObject = value
 
-            # Set base process class attribute
+            elif key == 'IoBufferObject':
+                IPC.IoBufferObject = value
+
+            # Set process attributes
             else:
                 setattr(self, key, value)
 
@@ -117,12 +123,16 @@ class BaseProcess:
             self.t = time.perf_counter()
 
     def main(self):
-        """Event loop to be re-implemented in subclass
-        """
+        """Event loop to be re-implemented in subclass"""
         NotImplementedError('Event loop of base process class is not implemented.')
 
     def setState(self, code):
         getattr(IPC.State, self.name).value = code
+
+    def inState(self, code, process=None):
+        if process is None:
+            process = self.name
+        return getattr(IPC.State, process).value == code
 
     def _startShutdown(self):
         # Handle all pipe messages before shutdown
@@ -225,6 +235,9 @@ class Controller(BaseProcess):
         # Gui
         Config.Gui = IPC.createConfigDict()
         Config.Gui.update(configuration.configuration(Definition.Gui))
+        # IO
+        Config.IO = IPC.createConfigDict()
+        Config.IO.update(configuration.configuration(Definition.IO))
         # Recording
         Config.Recording = IPC.createConfigDict()
         Config.Recording.update(configuration.configuration(Definition.Recording))
@@ -292,23 +305,9 @@ class Controller(BaseProcess):
                                                   kwargs=dict(
                                                       _logQueue = self._logQueue,
                                                       _pipes = self._pipes,
-                                                      _configuration = dict(
-                                                          Camera    = Config.Camera,
-                                                          Display   = Config.Display,
-                                                          Gui       = Config.Gui,
-                                                          Recording = Config.Recording,
-                                                          Logfile   = Config.Logfile
-                                                      ),
-                                                      _states = dict(
-                                                          Controller = IPC.State.Controller,
-                                                          Camera     = IPC.State.Camera,
-                                                          Display    = IPC.State.Display,
-                                                          Gui        = IPC.State.Gui,
-                                                          IO         = IPC.State.IO,
-                                                          Logger     = IPC.State.Logger,
-                                                          Worker     = IPC.State.Worker
-                                                      ),
-                                                      BufferObject = IPC.BufferObject,
+                                                      _configuration = {k:v for k, v in Config.__dict__.items() if not(k.startswith('_'))},
+                                                      _states = {k:v for k, v in IPC.State.__dict__.items() if not(k.startswith('_'))},
+                                                      CameraBufferObject = IPC.CameraBufferObject,
                                                       **kwargs
                                                   ))
         self._processes[processName].start()
@@ -317,12 +316,13 @@ class Controller(BaseProcess):
 
     def _setupBuffers(self):
         ### Create buffer object
-        IPC.BufferObject = Buffer.BufferObject()
+        IPC.CameraBufferObject = Buffer.BufferObject(Definition.Process.Camera)
 
         ### Add camera buffers if camera is activated
         if Config.Camera[Definition.Camera.use]:
             for bufferName in Config.Camera[Definition.Camera.buffers]:
-                IPC.BufferObject.addBuffer(getattr(buffers.CameraBuffers, bufferName))
+                IPC.CameraBufferObject.addBuffer(getattr(buffers.CameraBuffers, bufferName))
+
 
     def start(self):
         ### Initialize all pipes
@@ -361,16 +361,29 @@ class Controller(BaseProcess):
                 del self._pipes[processName]
         self._running = False
 
+    ################
+    # Recording
+
+    def toggleEnableRecording(self, newstate):
+        Config.Recording[Definition.Recording.enabled] = newstate
+
     def startRecording(self):
         if Config.Recording[Definition.Recording.active]:
             Logging.write(logging.WARNING, 'Tried to start new recording while active')
             return
 
+        ### Set current folder if none is given
+        if not(bool(Config.Recording[Definition.Recording.current_folder])):
+            Config.Recording[Definition.Recording.current_folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+
+        ### Create output folder
+        outPath = os.path.join(Definition.Path.Output, Config.Recording[Definition.Recording.current_folder])
+        if not(os.path.exists(outPath)):
+            os.mkdir(outPath)
+
+        ### Set state to recording
         self.setState(Definition.State.recording)
         Config.Recording[Definition.Recording.active] = True
-
-        if bool(Config.Recording[Definition.Recording.current_folder]):
-            Config.Recording[Definition.Recording.current_folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
     def pauseRecording(self):
         if not(Config.Recording[Definition.Recording.active]):

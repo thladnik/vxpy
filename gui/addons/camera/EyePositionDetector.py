@@ -51,17 +51,17 @@ class EyePositionDetector(QtWidgets.QWidget):
         self._tmr_frameUpdate.start()
 
     def updateFrame(self):
-        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.BufferObject.readBuffer('EyePositionDetector'), -1))
+        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.CameraBufferObject.readBuffer('EyePositionDetector'), -1))
 
 class GraphicsWidget(pg.GraphicsLayoutWidget):
     def __init__(self, **kwargs):
         pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
         ### Set synchronized variables
-        self.eyeMarkerRects: dict = IPC.BufferObject._buffers[self.parent().__class__.__name__].eyeMarkerRects
-        self.extractedRects: dict = IPC.BufferObject._buffers[self.parent().__class__.__name__].extractedRects
-        self.segmentationMode = IPC.BufferObject._buffers[self.parent().__class__.__name__].segmentationMode
-        self.areaThreshold = IPC.BufferObject._buffers[self.parent().__class__.__name__].areaThreshold
+        self.eyeMarkerRects: dict = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].eyeMarkerRects
+        self.extractedRects: dict = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].extractedRects
+        self.segmentationMode = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].segmentationMode
+        self.areaThreshold = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].areaThreshold
 
         ### Set up basics
         self.lineSegROIs = dict()

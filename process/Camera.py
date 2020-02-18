@@ -33,13 +33,11 @@ if Definition.Env == Definition.EnvTypes.Dev:
 class Main(Controller.BaseProcess):
     name = Definition.Process.Camera
 
-    _recording : bool                       = False
-
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set camera buffer object
-        IPC.BufferObject.constructBuffers()
+        IPC.CameraBufferObject.constructBuffers()
 
         ### Set recording parameters
         self.frameDims = (int(Config.Camera[Definition.Camera.res_y]),
@@ -75,64 +73,13 @@ class Main(Controller.BaseProcess):
         ### Run event loop
         self.run()
 
-    def startVideoRecording(self):
-
-        if not(self._recording):
-            startt = strftime('%Y-%m-%d-%H-%M-%S')
-            Logging.logger.log(logging.INFO, 'Start video recording at time {}'.format(startt))
-            # Define codec and create VideoWriter object
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            self.videoRecord = cv2.VideoWriter(
-                'output_%s.avi' % startt, fourcc, self.fps,
-                (self.frameDims[1], self.frameDims[0]), isColor=0)
-            self._recording = True
-
-            return
-        Logging.logger.log(logging.WARNING, 'Unable to start recording, video recording is already on')
-
-    def _writeFrame(self):
-
-        if self._recording:
-            frames = list()
-            for i, name in enumerate(IPC.BufferObject.buffers()):
-                if IPC.BufferObject.buffers()[name]._recordBuffer:
-                    frames.append(IPC.BufferObject.readBuffer(name))
-            self.videoRecord.write(np.hstack(frames))
-
-    def stopVideoRecording(self):
-
-        if self._recording:
-            Logging.logger.log(logging.INFO, 'Stop video recording')
-            self.videoRecord.release()
-            self._recording = False
-
-            return
-        Logging.logger.log(logging.WARNING, 'Unable to stop recording, because there is no active recording')
-
-
-    def _toggleVideoRecording(self):
-        if self._recording:
-            self.stopVideoRecording()
-        else:
-            self.startVideoRecording()
-
-    def _updateBufferEvalParams(self, name, **kwargs):
-        IPC.BufferObject.updateBufferEvalParams(name, **kwargs)
-
     def main(self):
-        # Fetch current frame and update camera buffers
+        # Fetch current frame
         frame = self.camera.GetImage()
-        IPC.BufferObject.update(frame)
-        # Write to file
-        self._writeFrame()
+        # Update buffers
+        IPC.CameraBufferObject.update(frame)
 
         # Wait until next frame
         t = self.t + 1./self.fps - perf_counter()
         if t > 0.:
             sleep(t)
-
-
-    def _startShutdown(self):
-        if self._recording:
-            self.stopVideoRecording()
-        Controller.BaseProcess._startShutdown(self)

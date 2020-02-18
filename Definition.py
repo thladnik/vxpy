@@ -27,6 +27,7 @@ class Path:
     Config   = 'configs'
     Log      = 'logs'
     Model    = 'models'
+    Output   = 'output'
     Protocol = 'protocols'
     Sample   = 'samples'
     Shader   = 'shaders'
@@ -99,6 +100,13 @@ class Gui:
 
     # Addons
     addons      = 'list_addons'
+
+class IO:
+    name = 'io'
+
+    use     = 'bool_use'
+
+    buffers = 'list_buffers'
 
 class Recording:
     name = 'recording'

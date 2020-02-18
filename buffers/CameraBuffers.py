@@ -1,4 +1,20 @@
+"""
+MappApp ./CameraBuffer.py - FrameBuffer subclasses.
+Copyright (C) 2020 Tim Hladnik
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
 import cv2
 import numpy as np
 from sklearn import metrics
@@ -14,10 +30,10 @@ class EyePositionDetector(FrameBuffer):
     def __init__(self, *args, **kwargs):
         FrameBuffer.__init__(self, *args, **kwargs)
 
-        self.recording = False
-
         self.extractedRects = IPC.Manager.dict()
-        self.eyePositions = IPC.Manager.list()
+        self.eyePositions = IPC.Manager.dict()
+        for i in range(10):
+            self.eyePositions[i] = IPC.Manager.list()
         self.eyeMarkerRects = IPC.Manager.dict()
         self.segmentationMode = IPC.Manager.Value('s', '')
         self.areaThreshold = IPC.Manager.Value('i', 0)
@@ -40,7 +56,7 @@ class EyePositionDetector(FrameBuffer):
         reCnts, _ = cv2.findContours(reThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         if len(reCnts) == 0:
-            return rect
+            return None, rect
 
         reCnt = None
         if len(reCnts) > 1:
@@ -51,7 +67,7 @@ class EyePositionDetector(FrameBuffer):
                     reCnt = cnt.squeeze()
 
         if reCnt is None:
-            return rect
+            return None, rect
 
         reCntSort = reCnt[reCnt[:, 1].argsort()]
         upperPoints = reCntSort[-reCntSort.shape[0] // 3:, :]
@@ -69,7 +85,7 @@ class EyePositionDetector(FrameBuffer):
             cv2.drawMarker(rect, tuple(p), (0, 0, 255), cv2.MARKER_DIAMOND, 3)
 
         if upperPoints.shape[0] < 2 or lowerPoints.shape[0] < 2:
-            return rect
+            return None, rect
 
         dists = metrics.pairwise_distances(upperPoints, lowerPoints)
         maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
@@ -97,7 +113,7 @@ class EyePositionDetector(FrameBuffer):
         leCnts, _ = cv2.findContours(leThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         if len(leCnts) == 0:
-            return rect
+            return None, rect
 
         leCnt = None
         if len(leCnts) > 1:
@@ -108,7 +124,7 @@ class EyePositionDetector(FrameBuffer):
                     leCnt = cnt.squeeze()
 
         if leCnt is None:
-            return rect
+            return None, rect
 
         leCntSort = leCnt[leCnt[:, 1].argsort()]
         upperPoints = leCntSort[-leCntSort.shape[0] // 3:, :]
@@ -124,7 +140,7 @@ class EyePositionDetector(FrameBuffer):
 
         ## Return if thete are to few contour points
         if upperPoints.shape[0] < 2 or lowerPoints.shape[0] < 2:
-            return rect
+            return None, rect
 
         ### Calculate distances between upper and lower points and find longest axis
         dists = metrics.pairwise_distances(upperPoints, lowerPoints)
@@ -145,18 +161,10 @@ class EyePositionDetector(FrameBuffer):
         ## Display perpendicular axis
         cv2.line(rect, tuple(p2), tuple((p2 + 0.75 * leAngle * np.linalg.norm(axis) * perpAxis).astype(int)), (255, 255, 0), 1)
 
-        ### Append angular eye positions to shared list
-        self.eyePositions.append([leAngle, reAngle])
-
-        return rect
+        return [leAngle, reAngle], rect
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
-
-    def _grab(self, frame):
-        if self.recording:
-            pass
-        return frame
 
     def _compute(self, frame):
 
@@ -205,17 +213,35 @@ class EyePositionDetector(FrameBuffer):
 
                 ## Apply detection function on cropped rect which contains eyes
                 if self.segmentationMode.value == 'something':
-                    newRect = []
-                    #newRect = self.watershed(self._grab(rotRect))
+                    eyePositions, newRect = [], []
                 else:  # default
-                    newRect = self.default(self._grab(rotRect))
+                    eyePositions, newRect = self.default(rotRect)
 
                 # Debug: write to file
                 #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
+                ### Append angular eye positions to shared list
+                if eyePositions is not None:
+                    self.eyePositions[id].append(eyePositions)
+
+                ### Set current rect ROI data
                 self.extractedRects[id] = newRect
 
         return newframe
+
+    def _toFile(self) -> dict:
+        for id, positions in self.eyePositions.items():
+            if len(positions) == 0:
+                continue
+            yield 'ang_eye_pos{}'.format(id), positions[-1]
+
+        for id, rect in self.extractedRects.items():
+            yield 'eye_extracted_rect{}'.format(id), rect
+        #return dict(
+        #    **{'ang_eye_pos{}'.format(id):positions[-1] for id, positions in self.eyePositions.items() if len(positions) > 0},
+        #    **{'eye_extracted_rect{}'.format(id):rect for id, rect in self.extractedRects.items()}
+        #)
+
 
 class TailDeflectionDetector(FrameBuffer):
 
@@ -228,10 +254,6 @@ class TailDeflectionDetector(FrameBuffer):
         self.extractedRects = IPC.Manager.dict()
         self.tailDeflectionAngles = IPC.Manager.list()
 
-    def _grab(self, frame):
-        if self.recording:
-            pass
-        return frame
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
@@ -288,7 +310,7 @@ class TailDeflectionDetector(FrameBuffer):
                 rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
                 ## Apply detection function on cropped rect which contains eyes
-                newRect = self.default(self._grab(rotRect))
+                newRect = self.default(rotRect)
 
                 # Debug: write to file
                 #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
