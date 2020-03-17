@@ -15,28 +15,70 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import ctypes
 import cv2
 import numpy as np
 from sklearn import metrics
+from time import perf_counter, time
 
-from Buffer import FrameBuffer
+from Buffer import AbstractBuffer
 import Config
 import Definition
 from helper import Geometry
 import IPC
 
-class EyePositionDetector(FrameBuffer):
+class FrameBuffer(AbstractBuffer):
 
     def __init__(self, *args, **kwargs):
-        FrameBuffer.__init__(self, *args, **kwargs)
+        AbstractBuffer.__init__(self, *args, **kwargs)
 
-        self.extractedRects = IPC.Manager.dict()
-        self.eyePositions = IPC.Manager.dict()
+        ### Set up shared variables
+        # Note that the self.<attrName> = self.sharedAttribute(<attrName>, ...) convention
+        # is purely for accessibility purposes. The actual attribute name
+        # in the instance object depends entirely on the first positional argument)
+        frameSize = (Config.Camera[Definition.Camera.res_y], Config.Camera[Definition.Camera.res_x], 3)
+        self.frame = self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
+        self.time = self.sharedAttribute('time', 'Value', 'd', 0.0)
+
+        ### Setup frame timing stats
+        self.frametimes = list()
+        self.t = perf_counter()
+
+    def _compute(self, frame):
+        ### Call build function
+        self._build()
+
+        # Add FPS counter
+        self.frametimes.append(perf_counter() - self.t)
+        self.t = perf_counter()
+        fps = 1. / np.mean(self.frametimes[-20:])
+        frame = cv2.putText(frame, 'FPS %.2f' % fps, (0, frame.shape[0]//20), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2)
+
+        ### Update shared attributes
+        self.time = time()
+        self.frame[:,:,:] = frame[:,:,:]
+
+    def _out(self):
+
+        yield 'time', self.time
+        yield 'frame', self.readFrame()
+
+
+    def readFrame(self):
+        return self.read('frame')
+
+class EyePositionDetector(AbstractBuffer):
+
+    def __init__(self, *args, **kwargs):
+        AbstractBuffer.__init__(self, *args, **kwargs)
+        print('UUUUH?')
+
+        ### Set up shared attributes
+        self.extractedRects = self.sharedAttribute('extractedRects', 'dict')
         for i in range(10):
-            self.eyePositions[i] = IPC.Manager.list()
-        self.eyeMarkerRects = IPC.Manager.dict()
-        self.segmentationMode = IPC.Manager.Value('s', '')
-        self.areaThreshold = IPC.Manager.Value('i', 0)
+            self.sharedAttribute('eyePositions{}'.format(i), 'list')
+        self.eyeMarkerRects = self.sharedAttribute('eyeMarkerRects', 'dict')
+        self.segmentationMode = self.sharedAttribute('segmentationMode', 'Value', 's', '')
 
     def default(self, rect):
         """Default function for extracting fish eyes' angular position.
@@ -167,8 +209,8 @@ class EyePositionDetector(FrameBuffer):
         return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
 
     def _compute(self, frame):
-
-        newframe = frame.copy()
+        ### Call build function
+        self._build()
 
         ### If eyes were marked: iterate over rects and extract eye positions
         if bool(self.eyeMarkerRects):
@@ -185,11 +227,11 @@ class EyePositionDetector(FrameBuffer):
                 ## Get rect and frame parameters
                 center, size, angle = rect[0], rect[1], rect[2]
                 center, size = tuple(map(int, center)), tuple(map(int, size))
-                height, width = newframe.shape[0], newframe.shape[1]
+                height, width = frame.shape[0], frame.shape[1]
 
                 ## Rotate
                 M = cv2.getRotationMatrix2D(center, angle, 1)
-                rotFrame = cv2.warpAffine(newframe, M, (width, height))
+                rotFrame = cv2.warpAffine(frame, M, (width, height))
 
                 ## Crop rect from frame
                 cropRect = cv2.getRectSubPix(rotFrame, size, center)
@@ -222,31 +264,31 @@ class EyePositionDetector(FrameBuffer):
 
                 ### Append angular eye positions to shared list
                 if eyePositions is not None:
-                    self.eyePositions[id].append(eyePositions)
+                    getattr(self, 'eyePositions{}'.format(id)).append(eyePositions)
 
                 ### Set current rect ROI data
                 self.extractedRects[id] = newRect
 
-        return newframe
+    def _out(self):
+        ### Call build function
+        self._build()
 
-    def _toFile(self) -> dict:
-        for id, positions in self.eyePositions.items():
-            if len(positions) == 0:
-                continue
-            yield 'ang_eye_pos{}'.format(id), positions[-1]
+        extractedRects = self.read('extractedRects')
+        for id in range(10):
+            eyePositions = self.read('eyePositions{}'.format(id))
 
-        for id, rect in self.extractedRects.items():
-            yield 'eye_extracted_rect{}'.format(id), rect
-        #return dict(
-        #    **{'ang_eye_pos{}'.format(id):positions[-1] for id, positions in self.eyePositions.items() if len(positions) > 0},
-        #    **{'eye_extracted_rect{}'.format(id):rect for id, rect in self.extractedRects.items()}
-        #)
+            if len(eyePositions) > 0:
+                yield 'ang_eye_pos{}'.format(id), eyePositions[-1]
+
+            if id in extractedRects:
+                yield 'eye_extracted_rect{}'.format(id), extractedRects[id]
 
 
-class TailDeflectionDetector(FrameBuffer):
+
+class TailDeflectionDetector(AbstractBuffer):
 
     def __init__(self, *args, **kwargs):
-        FrameBuffer.__init__(self, *args, **kwargs)
+        AbstractBuffer.__init__(self, *args, **kwargs)
 
         self.recording = False
 

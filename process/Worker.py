@@ -30,6 +30,8 @@ class Main(Controller.BaseProcess):
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(**kwargs)
 
+
+
     def addFunction(self, fun):
         self._functionList.append(fun)
 

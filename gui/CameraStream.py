@@ -39,8 +39,6 @@ class Camera(QtWidgets.QWidget):
         self.setWindowTitle('Camera')
         self.setLayout(QtWidgets.QGridLayout())
 
-        ### Construct buffers
-        IPC.CameraBufferObject.constructBuffers()
 
         self._plotItem = dict()
         # Use default PlotWidget
@@ -61,7 +59,7 @@ class Camera(QtWidgets.QWidget):
         self.timer.start()
 
     def updateImage(self):
-        # Rotate frame because cv2 and pg coords don't match
-        self._plotItem.setImage(np.rot90(IPC.CameraBufferObject.readBuffer('FrameBuffer'), -1))
+        # Plot image
+        self._plotItem.setImage(np.rot90(IPC.CameraBufferObject._buffers['FrameBuffer'].readFrame(), -1))
 
         self.t = perf_counter()

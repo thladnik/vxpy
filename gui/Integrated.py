@@ -269,7 +269,8 @@ class Recording(QtWidgets.QGroupBox):
         ### Set buttons dis-/enabled
         self._btn_start.setEnabled(not(active) and enabled)
         self._btn_start.setText('Start' if self._main.inState(Definition.State.idle, Definition.Process.Controller) else 'Resume')
-        self._btn_pause.setEnabled(active and enabled)
+        #self._btn_pause.setEnabled(active and enabled)
+        self._btn_pause.setEnabled(False)
         self._btn_stop.setEnabled(bool(Config.Recording[Definition.Recording.current_folder]) and enabled)
 
         ### Set buffer check states

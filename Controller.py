@@ -26,8 +26,6 @@ import signal
 import sys
 import time
 
-import Buffer
-import buffers.CameraBuffers
 import Config
 import Definition
 from helper import Basic
@@ -72,12 +70,17 @@ class BaseProcess:
           _app (GUI)
         """
 
+        if '_configuration' in kwargs:
+            for ckey, config in kwargs['_configuration'].items():
+                setattr(Config, ckey, config)
+
         for key, value in kwargs.items():
 
             # Set configuration dictionaries (managed dicts)
             if key == '_configuration':
-                for ckey, config in value.items():
-                    setattr(Config, ckey, config)
+                pass
+                #for ckey, config in value.items():
+                #    setattr(Config, ckey, config)
 
             # Set state ints (managed ints)
             elif key == '_states':
@@ -315,11 +318,13 @@ class Controller(BaseProcess):
         self.setState(Definition.State.idle)
 
     def _setupBuffers(self):
+        import Buffer
         ### Create buffer object
         IPC.CameraBufferObject = Buffer.BufferObject(Definition.Process.Camera)
 
         ### Add camera buffers if camera is activated
         if Config.Camera[Definition.Camera.use]:
+            import buffers.CameraBuffers
             for bufferName in Config.Camera[Definition.Camera.buffers]:
                 IPC.CameraBufferObject.addBuffer(getattr(buffers.CameraBuffers, bufferName))
 

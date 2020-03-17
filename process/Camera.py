@@ -24,6 +24,7 @@ from time import perf_counter, strftime, sleep
 import Config
 import Controller
 import Definition
+import devices.Camera
 import IPC
 import Logging
 
@@ -36,39 +37,27 @@ class Main(Controller.BaseProcess):
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
-        ### Set camera buffer object
-        IPC.CameraBufferObject.constructBuffers()
-
         ### Set recording parameters
         self.frameDims = (int(Config.Camera[Definition.Camera.res_y]),
                           int(Config.Camera[Definition.Camera.res_x]))
         self.fps = Config.Camera[Definition.Camera.fps]
 
-        ### Set up camera
-        ## The Imaging Source cameras
-        if Config.Camera[Definition.Camera.manufacturer] == 'TIS':
-            import devices.cameras.tisgrabber as IC
-            self.camera = IC.TIS_CAM()
-            self.camera.open(Config.Camera[Definition.Camera.model])
-            self.camera.SetVideoFormat(Config.Camera[Definition.Camera.format])
-            self.camera.SetPropertySwitch("Framerate","Auto",0)
-            self.camera.SetPropertySwitch("Exposure","Auto",0)
-            self.camera.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
-            self.camera.SetFrameRate(self.fps)
-            self.camera.SetContinuousMode(0)
-            self.camera.StartLive(0)
+        ### Get selected camera
+        self.camera = devices.Camera.GetCamera()
 
-        ## Virtual camera
-        elif Config.Camera[Definition.Camera.manufacturer] == 'virtual':
-            import devices.cameras.virtual as VC
-            self.camera = VC.VirtualCamera()
-            self.camera.setVideoFormat(Config.Camera[Definition.Camera.format],
-                                       Config.Camera[Definition.Camera.res_y],
-                                       Config.Camera[Definition.Camera.res_x])
-
-        Logging.logger.log(logging.DEBUG, 'Using camera {}>>{}'
+        Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
                            .format(Config.Camera[Definition.Camera.manufacturer],
                                    Config.Camera[Definition.Camera.model]))
+
+        ### Set avg. minimum sleep period
+        sleep(2)  # Wait to determine sleep period (on initial startup heavy CPU load skews the results)
+        times = list()
+        for i in range(100):
+            t = perf_counter()
+            sleep(10**-10)
+            times.append(perf_counter()-t)
+        self.acqSleepThresh = np.quantile(times, 0.95)
+        Logging.write(logging.INFO, 'Set acquisition threshold to {0:.4f}s'.format(self.acqSleepThresh))
 
         ### Run event loop
         self.run()
@@ -81,5 +70,5 @@ class Main(Controller.BaseProcess):
 
         # Wait until next frame
         t = self.t + 1./self.fps - perf_counter()
-        if t > 0.:
+        if t > self.acqSleepThresh:
             sleep(t)

@@ -152,7 +152,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self.close()
 
 
-import devices.cameras.tisgrabber as IC
+import lib.pyapi.tisgrabber as IC
 class CameraConfiguration(QtWidgets.QGroupBox):
 
     def __init__(self, _main):

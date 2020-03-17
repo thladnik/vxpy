@@ -80,6 +80,8 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
     def _setupAddons(self):
         self.addons = dict()
         for addonName in Config.Gui[Definition.Gui.addons]:
+            if not(bool(addonName)):
+                continue
 
             self.addons[addonName] = getattr(gui.addons, addonName)(self)
             if not(self.addons[addonName].moduleIsActive):
