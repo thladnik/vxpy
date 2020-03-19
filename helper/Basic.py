@@ -25,10 +25,12 @@ import Definition
 
 class Config:
 
-    def __init__(self, _configfile):
+    def __init__(self, _configfile=None):
         self._configfile = _configfile
         self.data = configparser.ConfigParser()
-        self.data.read(os.path.join(Definition.Path.Config, self._configfile))
+
+        if not(self._configfile is None):
+            self.data.read(os.path.join(Definition.Path.Config, self._configfile))
 
     def _parsedSection(self, section):
         parsed = dict()

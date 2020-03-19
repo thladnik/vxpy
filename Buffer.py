@@ -206,19 +206,35 @@ class AbstractBuffer:
         self._built = True
 
 
-    def streamToFile(self, file):
+    def streamToFile(self, file: Union[h5py.File, None]):
         ### Set id of current buffer e.g. "Camera/FrameBuffer"
         bufferName = self.__class__.__name__
-        bufferId = '{}/{}'.format(self._bo.name, bufferName)
 
         ### If no file object was provided or this particular buffer is not supposed to stream to file: return
-        if file is None or not(bufferId in Config.Recording[Definition.Recording.buffers]):
+        if file is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Definition.Recording.buffers]):
             return None
 
-        ## Each buffer writes to it's own group.
-        grp = file.require_group(bufferName)
+        ## Each buffer writes to it's own group
+        if not(bufferName in file):
+            Logging.write(logging.INFO, 'Create record group {}'.format(bufferName))
+            file.create_group(bufferName)
+        grp = file[bufferName]
 
-        ## Iterate over datasets in group (buffer)
+        ### Set time
+        if not('time' in grp):
+            try:
+                Logging.write(logging.INFO, 'Create record dset "{}/time"'.format(bufferName))
+                grp.create_dataset('time', shape=(0, 1), dtype=np.float64, maxshape=(None, 1))
+            except:
+                Logging.write(logging.WARNING, 'Failed to create record dset "{}/time"'.format(bufferName))
+
+        dset = grp['time']
+        ## Resize dataset and append new time
+        dset.resize((dset.shape[0]+1, 1))
+        currTime = time()
+        dset[dset.shape[0]-1] = currTime
+
+        ## Iterate over data in group (buffer)
         for key, value in self._out():
 
             ## Convert and determine dshape/dtype
@@ -237,17 +253,18 @@ class AbstractBuffer:
 
             ## Create dataset if it doesn't exist
             if not(key in grp):
-                dset = grp.create_dataset(key,
+                try:
+                    Logging.write(logging.INFO, 'Create record dset "{}/{}"'.format(bufferName, key))
+                    grp.create_dataset(key,
                                        shape=(0, *dshape,),
                                        dtype=dtype,
                                        maxshape=(None, *dshape,),
                                        chunks=(1, *dshape,),)#compression='lzf')
-            else:
-                dset = grp[key]
-
+                except:
+                    Logging.write(logging.WARNING, 'Failed to create record dset "{}/{}"'.format(bufferName, key))
+            dset = grp[key]
+            dset.attrs.create('Position', currTime, dtype=np.float64)
 
             ## Resize dataset and append new value
-            t = perf_counter()
             dset.resize((dset.shape[0]+1, *dshape))
             dset[dset.shape[0]-1] = value
-            #print(dtype, dshape, perf_counter()-t)

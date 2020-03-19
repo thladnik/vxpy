@@ -59,10 +59,7 @@ class FrameBuffer(AbstractBuffer):
         self.frame[:,:,:] = frame[:,:,:]
 
     def _out(self):
-
-        yield 'time', self.time
         yield 'frame', self.readFrame()
-
 
     def readFrame(self):
         return self.read('frame')

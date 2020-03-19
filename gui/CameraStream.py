@@ -31,17 +31,15 @@ class Camera(QtWidgets.QWidget):
         self.main = _main
         QtWidgets.QWidget.__init__(self, *args, parent=_main, **kwargs)
 
-        self.fps = 30
+        self.streamFps = 120
 
         self._setupUI()
 
     def _setupUI(self):
         self.setWindowTitle('Camera')
-        self.setLayout(QtWidgets.QGridLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
 
-
-        self._plotItem = dict()
-        # Use default PlotWidget
+        ## Use default PlotWidget
         self._wdgt_plot = pg.PlotWidget(parent=self)
         self._wdgt_plot.getPlotItem().hideAxis('left')
         self._wdgt_plot.getPlotItem().hideAxis('bottom')
@@ -50,13 +48,37 @@ class Camera(QtWidgets.QWidget):
         self._wdgt_plot.addItem(self._plotItem)
         self._wdgt_plot.getPlotItem().vb.setMouseEnabled(x=False, y=False)
         self.setMinimumSize(Config.Camera[Definition.Camera.res_x], Config.Camera[Definition.Camera.res_y])
-        self.layout().addWidget(self._wdgt_plot, 0, 0)
+        self.layout().addWidget(self._wdgt_plot)
+
+        ### Set camera property dials
+        self._gb_properties = QtWidgets.QGroupBox('Camera properties')
+        self.layout().addWidget(self._gb_properties)
+        ## Exposure
+        self._gb_properties.setLayout(QtWidgets.QGridLayout())
+        self._gb_properties.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 0, 0)
+        self._dspn_exposure = QtWidgets.QDoubleSpinBox(self._gb_properties)
+        self._dspn_exposure.setSingleStep(0.01)
+        self._dspn_exposure.valueChanged.connect(lambda: self.updateConfig(Definition.Camera.exposure))
+        self._gb_properties.layout().addWidget(self._dspn_exposure, 0, 1)
+
+        ### Set property update timer
+        self.propTimer = QtCore.QTimer()
+        self.propTimer.setInterval(20)
+        self.propTimer.timeout.connect(self.updateProperties)
+        self.propTimer.start()
 
         ### Set frame update timer
-        self.timer = QtCore.QTimer()
-        self.timer.setInterval(1000//self.fps)
-        self.timer.timeout.connect(self.updateImage)
-        self.timer.start()
+        self.imTimer = QtCore.QTimer()
+        self.imTimer.setInterval(1000 // self.streamFps)
+        self.imTimer.timeout.connect(self.updateImage)
+        self.imTimer.start()
+
+    def updateProperties(self):
+        self._dspn_exposure.setValue(Config.Camera[Definition.Camera.exposure])
+
+    def updateConfig(self, propName):
+        if propName == Definition.Camera.exposure:
+            Config.Camera[Definition.Camera.exposure] = self._dspn_exposure.value()
 
     def updateImage(self):
         # Plot image

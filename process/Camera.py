@@ -43,7 +43,7 @@ class Main(Controller.BaseProcess):
         self.fps = Config.Camera[Definition.Camera.fps]
 
         ### Get selected camera
-        self.camera = devices.Camera.GetCamera()
+        self.camera = devices.Camera.GetCamera(1)
 
         Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
                            .format(Config.Camera[Definition.Camera.manufacturer],
@@ -63,8 +63,14 @@ class Main(Controller.BaseProcess):
         self.run()
 
     def main(self):
+        # Update camera settings
+        # All camera settings with the "*_prop_*" substring are considered properties which may be changed online
+        for setting, value in Config.Camera.items():
+            if setting.find('_prop_') >= 0:
+                self.camera.updateProperty(setting, value)
+
         # Fetch current frame
-        frame = self.camera.GetImage()
+        frame = self.camera.getImage()
         # Update buffers
         IPC.CameraBufferObject.update(frame)
 

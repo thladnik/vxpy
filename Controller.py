@@ -343,6 +343,7 @@ class Controller(BaseProcess):
 
         ### Pre-shutdown
         ## Update configurations that should persist
+        configuration.updateConfiguration(Definition.Camera, **{k : v for k, v in Config.Camera.items() if k.find('_prop_') >= 0})
         configuration.updateConfiguration(Definition.Display, **Config.Display)
         configuration.updateConfiguration(Definition.Recording, **Config.Recording)
         Logging.logger.log(logging.INFO, 'Save configuration to file {}'
@@ -418,6 +419,6 @@ class Controller(BaseProcess):
 
 if __name__ == '__main__':
 
-    _configfile = 'default.ini'
+    _configfile = 'default_TIS.ini'
     configuration = Basic.Config(_configfile)
     ctrl = Controller()

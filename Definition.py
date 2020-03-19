@@ -61,7 +61,8 @@ class Camera:
     format       = 'str_format'
     res_x        = 'int_resolution_x'
     res_y        = 'int_resolution_y'
-    fps          = 'int_fps'
+    fps          = 'int_prop_fps'
+    exposure     = 'float_prop_exposure'
 
     # Buffers
     buffers      = 'list_buffers'
