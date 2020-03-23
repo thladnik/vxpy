@@ -1,6 +1,9 @@
-# Installation
+# MappApp
+Software for visual stimulation and recording/online-analysis of behavior
 
-## Windows 10 (Anaconda recommended)
+## Installation
+
+### Windows 10 (Anaconda recommended)
 
 1. Download and install the latest release of [Anaconda](https://www.anaconda.com/distribution/) (recommended for beginners) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 2. Set up a new environment called `glumpy`
@@ -15,14 +18,14 @@
     4. Run `pip install triangle glumpy`
 6. Download the current master release of MappApp to a folder or clone the branch using `git`.
 
-# Running the application
+## Running the application
  
 1. Open an Anaconda prompt (Start >> Anaconda prompt)
 2. Go to the directory to which you've downloaded MappApp with `cd path\to\mappapp`
 2. Activate the environment with `conda activate glumpy`
 
-## Setup application
+### Setup application
 Before using the application a configuration file has to be created. This can be done simply by executing the `Startup.py` script (`python Startup.py`).
 
-## Start application
+### Start application
 Run `python Controller.py`
