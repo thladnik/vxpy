@@ -7,24 +7,13 @@
   2.1 Open an Anaconda command prompt (Start >> type `anaconda prompt` >> Open)
   2.2 Run `conda create -n glumpy python=3.7`and confirm creation of new environment with `y`
 3. Activate the newly created environment by running `conda activate glumpy`
-4. Install dependencies for MappApp available via Anaconda by running
-  ```
-  conda install -c anaconda pyqt -y
-  conda install -c anaconda scipy -y
-  conda install -c anaconda pyopengl -y
-  conda install -c anaconda freetype -y
-  conda install -c anaconda cython -y
-  conda install -c anaconda h5py -y
-  conda install -c conda-forge opencv -y
-  ```
-5. Download [Visual Studio Community](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2019). Why? Because Windows.
-6. Install Visual Studio. Under "Individual Components" select `MSVC v140 VS 2015 C++ build tools (v14.00)`
-7. Install Glumpy
- ```
- pip install triangle
- pip install glumpy
- ```
-8. Download the current master release of MappApp to a folder or clone the branch using `git`.
+4. Install dependencies for MappApp `pip install pyqt5 pyqtgraph pyglet scipy scikit-learn pyopengl cython h5py opencv-python keyboard imageio`
+5 Install `glumpy`
+  5.1 Download [Visual Studio Community Edition](https://visualstudio.microsoft.com/downloads/). Why? Because Windows.
+  5.2 Install Visual Studio. Under "Individual Components" select `MSVC v140 VS 2015 C++ build tools (v14.00)`
+  5.3 Install freetype with `conda install -c anaconda freetype`
+  5.4 Install dependencies and glumpy with `pip install triangle glumpy`
+6. Download the current master release of MappApp to a folder or clone the branch using `git`.
  
  
 # Running the application
