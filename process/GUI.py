@@ -80,6 +80,8 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
     def _setupAddons(self):
         self.addons = dict()
         for addonName in Config.Gui[Definition.Gui.addons]:
+            if not(bool(addonName)):
+                continue
 
             self.addons[addonName] = getattr(gui.addons, addonName)(self)
             if not(self.addons[addonName].moduleIsActive):
@@ -249,10 +251,10 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         ### Inform controller of close event
         self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
 
+        # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
+
         ### Close child widgets
         self._wdgt_dispSettings.close()
         self._wdgt_stimProtocols.close()
         if Config.Camera[Definition.Camera.use]:
             self._wdgt_camera.close()
-
-

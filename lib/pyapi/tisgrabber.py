@@ -13,7 +13,7 @@ from enum import Enum
 
 import ctypes as C
 import os
-os.environ['PATH'] += ';%s' % os.path.join(os.getcwd(), 'dlls')
+os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), 'lib', 'dll'))
 import sys
 import numpy as np
 
@@ -399,6 +399,18 @@ class TIS_GrabberDLL(object):
                             C.c_char_p,
                             C.POINTER(C.c_float), )
 
+# ############################################################################
+    EnableCameraAutoProperty = __tisgrabber.IC_EnableAutoCameraProperty
+    EnableCameraAutoProperty.restype = C.c_int
+    EnableCameraAutoProperty.argtypes = (GrabberHandlePtr,
+                                         C.c_int,
+                                         C.c_int)
+    EnableVideoAutoProperty = __tisgrabber.IC_EnableAutoVideoProperty
+    EnableVideoAutoProperty.restype = C.c_int
+    EnableVideoAutoProperty.argtypes = (GrabberHandlePtr,
+                                        C.c_int,
+                                        C.c_int)
+
     # definition of the frameready callback
     FRAMEREADYCALLBACK = C.CFUNCTYPE(C.c_void_p,C.c_int, C.POINTER(C.c_ubyte), C.c_ulong,  C.py_object )
 
@@ -736,3 +748,9 @@ class TIS_CAM(object):
             :returns: 1 on success, 0 otherwise.
             '''
             return TIS_GrabberDLL.OpenVideoCaptureDevice(self._handle, self.s(DeviceName))
+
+        def enableCameraAutoProperty(self, property, onoff):
+            return TIS_GrabberDLL.EnableCameraAutoProperty(self._handle,property,onoff)
+
+        def enableVideoAutoProperty(self, property, onoff):
+            return TIS_GrabberDLL.EnableVideoAutoProperty(self._handle,property,onoff)

@@ -17,24 +17,61 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from time import sleep
+from time import sleep, time
+import importlib
+import logging
+import os
 
 import Controller
 import Definition
+import Logging
 
 class Main(Controller.BaseProcess):
     name = Definition.Process.Worker
 
-    _functionList : list = list()
-
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(**kwargs)
+        Controller.BaseProcess.__init__(self, **kwargs)
 
-    def addFunction(self, fun):
-        self._functionList.append(fun)
+        self._task_intervals = list()
+        self._scheduled_times = list()
+        self._scheduled_tasks = list()
+        self._tasks = dict()
+
+        ### Run event loop
+        self.run()
+
+    def _loadTask(self, task_name):
+        if not(task_name in self._tasks):
+            module = '.'.join([Definition.Path.Task, task_name])
+            try:
+                Logging.write(logging.DEBUG, 'Import task {}'.format(module))
+                self._tasks[task_name] = importlib.import_module(module)
+            except:
+                Logging.write(logging.WARNING, 'Failed to import task {}'.format(module))
+
+        return self._tasks[task_name]
+
+    def scheduleTask(self, task_name, task_interval=1. / 2):
+        self._scheduled_tasks.append(task_name)
+        self._scheduled_times.append(time() + task_interval)
+        self._task_intervals.append(task_interval)
+
+    def runTask(self, task_name, *args, **kwargs):
+        self.setState(Definition.State.busy)
+        self._loadTask(task_name).run(*args, **kwargs)
+        self.setState(Definition.State.idle)
 
     def main(self):
-        if len(self._functionList) == 0:
-            sleep(0.1)
-        for fun in self._functionList:
-            fun()
+        for i, task_name, task_time, task_interval in enumerate(zip(self._scheduled_tasks,
+                                                                    self._scheduled_times,
+                                                                    self._task_intervals)):
+            ### If scheduled time is now
+            if task_time <= time():
+                Logging.write(logging.DEBUG, 'Run task {}'.format(task_time))
+
+                # Run
+                self.runTask(task_name)
+
+                ## Set next time
+                task_idx = self._scheduled_tasks.index(task_name)
+                self._scheduled_times[task_idx] = time() + self._task_intervals[task_idx]

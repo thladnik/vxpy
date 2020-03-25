@@ -29,6 +29,7 @@ Configuration = {
         Definition.Camera.res_y                   : 600,
         Definition.Camera.res_x                   : 400,
         Definition.Camera.fps                     : 60,
+        Definition.Camera.exposure                : 2.0,
         Definition.Camera.buffers                 : ''
     },
 

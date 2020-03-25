@@ -51,17 +51,18 @@ class EyePositionDetector(QtWidgets.QWidget):
         self._tmr_frameUpdate.start()
 
     def updateFrame(self):
-        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.BufferObject.readBuffer('EyePositionDetector'), -1))
+        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.CameraBufferObject._buffers['FrameBuffer'].frame, -1))
 
 class GraphicsWidget(pg.GraphicsLayoutWidget):
     def __init__(self, **kwargs):
         pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
         ### Set synchronized variables
-        self.eyeMarkerRects: dict = IPC.BufferObject._buffers[self.parent().__class__.__name__].eyeMarkerRects
-        self.extractedRects: dict = IPC.BufferObject._buffers[self.parent().__class__.__name__].extractedRects
-        self.segmentationMode = IPC.BufferObject._buffers[self.parent().__class__.__name__].segmentationMode
-        self.areaThreshold = IPC.BufferObject._buffers[self.parent().__class__.__name__].areaThreshold
+        bufferName = self.parent().__class__.__name__
+        IPC.CameraBufferObject._buffers[bufferName]._build()
+        self.eyeMarkerRects : dict = IPC.CameraBufferObject.readAttribute('{}/eyeMarkerRects'.format(bufferName))
+        self.extractedRects : dict = IPC.CameraBufferObject.readAttribute('{}/extractedRects'.format(bufferName))
+        self.segmentationMode = IPC.CameraBufferObject.readAttribute('{}/segmentationMode'.format(bufferName))
 
         ### Set up basics
         self.lineSegROIs = dict()
@@ -156,6 +157,7 @@ class GraphicsWidget(pg.GraphicsLayoutWidget):
             if not(id in self.extractedRects):
                 continue
 
+            ### Plot rectangualar ROI
             plot['imageitem'].setImage(np.rot90(self.extractedRects[id], -1))
 
 

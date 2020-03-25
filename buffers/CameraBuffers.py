@@ -1,26 +1,80 @@
+"""
+MappApp ./CameraBuffer.py - FrameBuffer subclasses.
+Copyright (C) 2020 Tim Hladnik
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+import ctypes
 import cv2
 import numpy as np
 from sklearn import metrics
+from time import perf_counter, time
 
-from Buffer import FrameBuffer
+from Buffer import AbstractBuffer
 import Config
 import Definition
 from helper import Geometry
 import IPC
 
-class EyePositionDetector(FrameBuffer):
+class FrameBuffer(AbstractBuffer):
 
     def __init__(self, *args, **kwargs):
-        FrameBuffer.__init__(self, *args, **kwargs)
+        AbstractBuffer.__init__(self, *args, **kwargs)
 
-        self.recording = False
+        ### Set up shared variables
+        # Note that the self.<attrName> = self.sharedAttribute(<attrName>, ...) convention
+        # is purely for accessibility purposes. The actual attribute name
+        # in the instance object depends entirely on the first positional argument)
+        frameSize = (Config.Camera[Definition.Camera.res_y], Config.Camera[Definition.Camera.res_x], 3)
+        self.frame = self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
+        self.time = self.sharedAttribute('time', 'Value', 'd', 0.0)
 
-        self.extractedRects = IPC.Manager.dict()
-        self.eyePositions = IPC.Manager.list()
-        self.eyeMarkerRects = IPC.Manager.dict()
-        self.segmentationMode = IPC.Manager.Value('s', '')
-        self.areaThreshold = IPC.Manager.Value('i', 0)
+        ### Setup frame timing stats
+        self.frametimes = list()
+        self.t = perf_counter()
+
+    def _compute(self, frame):
+        ### Call build function
+        self._build()
+
+        # Add FPS counter
+        self.frametimes.append(perf_counter() - self.t)
+        self.t = perf_counter()
+        fps = 1. / np.mean(self.frametimes[-20:])
+        frame = cv2.putText(frame, 'FPS %.2f' % fps, (0, frame.shape[0]//20), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2)
+
+        ### Update shared attributes
+        self.time = time()
+        self.frame[:,:,:] = frame[:,:,:]
+
+    def _out(self):
+        yield 'frame', self.readFrame()
+
+    def readFrame(self):
+        return self.read('frame')
+
+class EyePositionDetector(AbstractBuffer):
+
+    def __init__(self, *args, **kwargs):
+        AbstractBuffer.__init__(self, *args, **kwargs)
+
+        ### Set up shared attributes
+        self.extractedRects = self.sharedAttribute('extractedRects', 'dict')
+        for i in range(10):
+            self.sharedAttribute('eyePositions{}'.format(i), 'list')
+        self.eyeMarkerRects = self.sharedAttribute('eyeMarkerRects', 'dict')
+        self.segmentationMode = self.sharedAttribute('segmentationMode', 'Value', 's', '')
 
     def default(self, rect):
         """Default function for extracting fish eyes' angular position.
@@ -40,7 +94,7 @@ class EyePositionDetector(FrameBuffer):
         reCnts, _ = cv2.findContours(reThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         if len(reCnts) == 0:
-            return rect
+            return None, rect
 
         reCnt = None
         if len(reCnts) > 1:
@@ -51,7 +105,7 @@ class EyePositionDetector(FrameBuffer):
                     reCnt = cnt.squeeze()
 
         if reCnt is None:
-            return rect
+            return None, rect
 
         reCntSort = reCnt[reCnt[:, 1].argsort()]
         upperPoints = reCntSort[-reCntSort.shape[0] // 3:, :]
@@ -69,7 +123,7 @@ class EyePositionDetector(FrameBuffer):
             cv2.drawMarker(rect, tuple(p), (0, 0, 255), cv2.MARKER_DIAMOND, 3)
 
         if upperPoints.shape[0] < 2 or lowerPoints.shape[0] < 2:
-            return rect
+            return None, rect
 
         dists = metrics.pairwise_distances(upperPoints, lowerPoints)
         maxIdcs = np.unravel_index(dists.argmax(), dists.shape)
@@ -97,7 +151,7 @@ class EyePositionDetector(FrameBuffer):
         leCnts, _ = cv2.findContours(leThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         if len(leCnts) == 0:
-            return rect
+            return None, rect
 
         leCnt = None
         if len(leCnts) > 1:
@@ -108,7 +162,7 @@ class EyePositionDetector(FrameBuffer):
                     leCnt = cnt.squeeze()
 
         if leCnt is None:
-            return rect
+            return None, rect
 
         leCntSort = leCnt[leCnt[:, 1].argsort()]
         upperPoints = leCntSort[-leCntSort.shape[0] // 3:, :]
@@ -124,7 +178,7 @@ class EyePositionDetector(FrameBuffer):
 
         ## Return if thete are to few contour points
         if upperPoints.shape[0] < 2 or lowerPoints.shape[0] < 2:
-            return rect
+            return None, rect
 
         ### Calculate distances between upper and lower points and find longest axis
         dists = metrics.pairwise_distances(upperPoints, lowerPoints)
@@ -145,22 +199,14 @@ class EyePositionDetector(FrameBuffer):
         ## Display perpendicular axis
         cv2.line(rect, tuple(p2), tuple((p2 + 0.75 * leAngle * np.linalg.norm(axis) * perpAxis).astype(int)), (255, 255, 0), 1)
 
-        ### Append angular eye positions to shared list
-        self.eyePositions.append([leAngle, reAngle])
-
-        return rect
+        return [leAngle, reAngle], rect
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
 
-    def _grab(self, frame):
-        if self.recording:
-            pass
-        return frame
-
     def _compute(self, frame):
-
-        newframe = frame.copy()
+        ### Call build function
+        self._build()
 
         ### If eyes were marked: iterate over rects and extract eye positions
         if bool(self.eyeMarkerRects):
@@ -177,11 +223,11 @@ class EyePositionDetector(FrameBuffer):
                 ## Get rect and frame parameters
                 center, size, angle = rect[0], rect[1], rect[2]
                 center, size = tuple(map(int, center)), tuple(map(int, size))
-                height, width = newframe.shape[0], newframe.shape[1]
+                height, width = frame.shape[0], frame.shape[1]
 
                 ## Rotate
                 M = cv2.getRotationMatrix2D(center, angle, 1)
-                rotFrame = cv2.warpAffine(newframe, M, (width, height))
+                rotFrame = cv2.warpAffine(frame, M, (width, height))
 
                 ## Crop rect from frame
                 cropRect = cv2.getRectSubPix(rotFrame, size, center)
@@ -205,22 +251,39 @@ class EyePositionDetector(FrameBuffer):
 
                 ## Apply detection function on cropped rect which contains eyes
                 if self.segmentationMode.value == 'something':
-                    newRect = []
-                    #newRect = self.watershed(self._grab(rotRect))
+                    eyePositions, newRect = [], []
                 else:  # default
-                    newRect = self.default(self._grab(rotRect))
+                    eyePositions, newRect = self.default(rotRect)
 
                 # Debug: write to file
                 #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
+                ### Append angular eye positions to shared list
+                if eyePositions is not None:
+                    getattr(self, 'eyePositions{}'.format(id)).append(eyePositions)
+
+                ### Set current rect ROI data
                 self.extractedRects[id] = newRect
 
-        return newframe
+    def _out(self):
+        ### Call build function
+        self._build()
 
-class TailDeflectionDetector(FrameBuffer):
+        for id in range(10):
+            eyePositions = self.read('eyePositions{}'.format(id))
+
+            if len(eyePositions) > 0:
+                yield 'ang_eye_pos{}'.format(id), eyePositions[-1]
+
+            if id in self.read('extractedRects'):
+                yield 'eye_extracted_rect{}'.format(id), self.read('extractedRects')[id]
+
+
+
+class TailDeflectionDetector(AbstractBuffer):
 
     def __init__(self, *args, **kwargs):
-        FrameBuffer.__init__(self, *args, **kwargs)
+        AbstractBuffer.__init__(self, *args, **kwargs)
 
         self.recording = False
 
@@ -228,10 +291,6 @@ class TailDeflectionDetector(FrameBuffer):
         self.extractedRects = IPC.Manager.dict()
         self.tailDeflectionAngles = IPC.Manager.list()
 
-    def _grab(self, frame):
-        if self.recording:
-            pass
-        return frame
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
@@ -288,7 +347,7 @@ class TailDeflectionDetector(FrameBuffer):
                 rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
                 ## Apply detection function on cropped rect which contains eyes
-                newRect = self.default(self._grab(rotRect))
+                newRect = self.default(rotRect)
 
                 # Debug: write to file
                 #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
