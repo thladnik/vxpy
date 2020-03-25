@@ -66,6 +66,8 @@ class Main(Controller.BaseProcess):
         self.on_init = self._glWindow.event(self.on_init)
         self.on_key_press = self._glWindow.event(self.on_key_press)
 
+        self._checkScreenStatus = True
+
         ### Run event loop
         self.run()
 
@@ -166,14 +168,24 @@ class Main(Controller.BaseProcess):
                     time.sleep(continPressDelay)
 
     def _checkScreen(self, dt):
+        if not(self._checkScreenStatus):
+            return
         screenid = Config.Display[Definition.Display.window_screen_id]
         fscreen = Config.Display[Definition.Display.window_fullscreen]
         if self._glWindow.get_fullscreen() != fscreen:
-            if fscreen:
-                self._glWindow.set_fullscreen(True, screen=screenid)
-            else:
-                self._glWindow.set_fullscreen(False, screen=screenid)
-                self._glWindow.set_size(600, 400)
+            try:
+                self._glWindow.set_fullscreen(fscreen, screen=screenid)
+            except:
+                self._glWindow.set_fullscreen(fscreen)
+                Logging.write(logging.WARNING, 'Unable to set screen ID for fullscreen. Check glumpy version.')
+                self._checkScreenStatus = False
+
+            if not(fscreen):
+                try:
+                    self._glWindow.set_size(600, 400)
+                except:
+                    Logging.write(logging.WARNING, 'Unable to set backend window size. Check glumpy version.')
+                    self._checkScreenStatus = False
 
     def startNewStimulationProtocol(self, protocol_cls):
         """Start the presentation of a new stimulation protocol

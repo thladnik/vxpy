@@ -68,7 +68,6 @@ class EyePositionDetector(AbstractBuffer):
 
     def __init__(self, *args, **kwargs):
         AbstractBuffer.__init__(self, *args, **kwargs)
-        print('UUUUH?')
 
         ### Set up shared attributes
         self.extractedRects = self.sharedAttribute('extractedRects', 'dict')
@@ -270,15 +269,14 @@ class EyePositionDetector(AbstractBuffer):
         ### Call build function
         self._build()
 
-        extractedRects = self.read('extractedRects')
         for id in range(10):
             eyePositions = self.read('eyePositions{}'.format(id))
 
             if len(eyePositions) > 0:
                 yield 'ang_eye_pos{}'.format(id), eyePositions[-1]
 
-            if id in extractedRects:
-                yield 'eye_extracted_rect{}'.format(id), extractedRects[id]
+            if id in self.read('extractedRects'):
+                yield 'eye_extracted_rect{}'.format(id), self.read('extractedRects')[id]
 
 
 

@@ -203,7 +203,7 @@ class Recording(QtWidgets.QGroupBox):
         self.layout().addWidget(self._btn_pause, 1, 1)
         ## Stop
         self._btn_stop = QtWidgets.QPushButton('Stop')
-        self._btn_stop.clicked.connect(lambda: self._main.rpc(Definition.Process.Controller, Controller.Controller.stopRecording))
+        self._btn_stop.clicked.connect(self.finalizeRecording)
         self.layout().addWidget(self._btn_stop, 1, 2)
 
         ### Add buffers
@@ -236,6 +236,28 @@ class Recording(QtWidgets.QGroupBox):
         self._tmr_updateGUI.setInterval(100)
         self._tmr_updateGUI.timeout.connect(self.updateGui)
         self._tmr_updateGUI.start()
+
+    def finalizeRecording(self):
+        ### First: pause recording
+        self._main.rpc(Definition.Process.Controller, Controller.Controller.pauseRecording)
+
+        reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
+                                               QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
+                                               QtWidgets.QMessageBox.Save)
+        if reply == QtWidgets.QMessageBox.Save:
+            print('Save metadata and stuff...')
+        else:
+            reply = QtWidgets.QMessageBox.question(self, 'Confirm discard', 'Are you sure you want to DISCARD all recorded data?',
+                                                   QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No,
+                                                   QtWidgets.QMessageBox.No)
+            if reply == QtWidgets.QMessageBox.Yes:
+                print('Fine... I`ll trash it all..')
+            else:
+                print('Puh... good choice')
+
+        ### Finally: stop recording
+        print('Stop recording...')
+        self._main.rpc(Definition.Process.Controller, Controller.Controller.stopRecording)
 
     def toggleEnable(self, newstate):
         self._main.rpc(Definition.Process.Controller, Controller.Controller.toggleEnableRecording, newstate)

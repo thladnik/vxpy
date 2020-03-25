@@ -31,6 +31,7 @@ class Path:
     Protocol = 'protocols'
     Sample   = 'samples'
     Shader   = 'shaders'
+    Task     = 'tasks'
 
 class Process:
     Camera     = 'Camera'

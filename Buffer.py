@@ -22,7 +22,7 @@ import multiprocessing as mp
 import numpy as np
 import os
 from time import perf_counter, time
-from typing import Union
+from typing import Union, Iterable
 
 import Config
 import Definition
@@ -101,12 +101,22 @@ class BufferObject:
 
             return self.h5File
 
-        ### If recording is not running, but file is still open: close file object
-        elif not(Config.Recording[Definition.Recording.active]) and not(self.h5File is None):
-            self.h5File.close()
-            self.h5File = None
+        ### Recording is not running at the moment
+        else:
 
-        return None
+            ## If current recording folder is still set: recording is paused
+            if bool(Config.Recording[Definition.Recording.current_folder]):
+                ## Do nothing; return nothing
+                return None
+
+            ## If folder is not set anymore
+            else:
+                # Close open file (if open)
+                if not(self.h5File is None):
+                    self.h5File.close()
+                    self.h5File = None
+                # Return nothing
+                return None
 
 
 ################################
@@ -120,24 +130,20 @@ class AbstractBuffer:
 
         self._built = False
         self._sharedAttributes = dict()
+        self.currentTime = time()
 
     def _compute(self, data):
         """Compute method is called on data updates (so in the producer process).
         Every buffer needs to reimplement this method."""
-        NotImplementedError('_compute not implemented in {}'.format(self))
+        NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
-    def _out(self):
+    def _out(self) -> Iterable:
         """Method can be reimplemented. Can be used to alter the output to file.
         Implementations of this method should yield a tuple (attribute name, attribute value) to be written to file
 
         By default this returns the current attribute name -> attribute value pair.
         """
-
-        for attrName in self._sharedAttributes:
-            if hasattr(self.read(attrName), 'value'):
-                yield self.read(attrName).value
-            else:
-                yield self.read(attrName)
+        NotImplemented('method _out not implemented in {}'.format(self.__class__.__name__))
 
     def read(self, attrName):
         ### Call build function
@@ -155,11 +161,22 @@ class AbstractBuffer:
         ### Call compute method
         self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
 
-        ### Call buffer objects save-to-file method
-        #self._bo._streamToFile(self)
-
     def sharedAttribute(self, attrName, attrType, *args, **kwargs):
-        ### Create shared attribute
+        """Create a shared attribute.
+        Shared attributes are accessible in all processes.
+        This method may only be called in the __init__ function of the buffer because shared attributes
+        need to be created upon buffer initialization in the Controller process.
+
+
+        :param attrName: string with the attribute name; attrNames should only be valid python variable names,
+          i.e. not 'var test', but 'var_test' and no '123test' for example
+        :param attrType: string which corresponds to a valid shared data type in the built-in multiprocessing module
+          overview of available types can be found here: https://docs.python.org/2/library/multiprocessing.html#sharing-state-between-processes
+        :param args: positional arguments for the shared attribute
+        :param kwargs: keyword arguments for the shared attribute
+        :return:
+        """
+
         if not(attrName in self._sharedAttributes):
             self._sharedAttributes[attrName] = dict(type=attrType)
 
@@ -205,6 +222,32 @@ class AbstractBuffer:
         ### Mark buffer for this instance as built
         self._built = True
 
+    def _appendData(self, grp, key, value):
+
+        ## Convert and determine dshape/dtype
+        value = np.asarray(value) if isinstance(value, list) else value
+        dshape = value.shape if isinstance(value, np.ndarray) else (1,)
+        dtype = value.dtype if isinstance(value, np.ndarray) else type(value)
+
+        ## Create dataset if it doesn't exist
+        if not(key in grp):
+            try:
+                Logging.write(logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
+                grp.create_dataset(key,
+                                   shape=(0, *dshape,),
+                                   dtype=dtype,
+                                   maxshape=(None, *dshape,),
+                                   chunks=(1, *dshape,), )  # compression='lzf')
+            except:
+                Logging.write(logging.WARNING, 'Failed to create record dset "{}/{}"'.format(grp.name, key))
+
+            grp[key].attrs.create('Position', self.currentTime, dtype=np.float64)
+
+        dset = grp[key]
+
+        ## Resize dataset and append new value
+        dset.resize((dset.shape[0] + 1, *dshape))
+        dset[dset.shape[0] - 1] = value
 
     def streamToFile(self, file: Union[h5py.File, None]):
         ### Set id of current buffer e.g. "Camera/FrameBuffer"
@@ -220,27 +263,11 @@ class AbstractBuffer:
             file.create_group(bufferName)
         grp = file[bufferName]
 
-        ### Set time
-        if not('time' in grp):
-            try:
-                Logging.write(logging.INFO, 'Create record dset "{}/time"'.format(bufferName))
-                grp.create_dataset('time', shape=(0, 1), dtype=np.float64, maxshape=(None, 1))
-            except:
-                Logging.write(logging.WARNING, 'Failed to create record dset "{}/time"'.format(bufferName))
-
-        dset = grp['time']
-        ## Resize dataset and append new time
-        dset.resize((dset.shape[0]+1, 1))
-        currTime = time()
-        dset[dset.shape[0]-1] = currTime
+        ### Current time for entry
+        self.currentTime = time()
 
         ## Iterate over data in group (buffer)
         for key, value in self._out():
-
-            ## Convert and determine dshape/dtype
-            value = np.asarray(value) if isinstance(value, list) else value
-            dshape = value.shape if isinstance(value, np.ndarray) else (1,)
-            dtype = value.dtype if isinstance(value, np.ndarray) else type(value)
 
             ## On datasets:
             ## TODO: handle changing dataset sizes (e.g. rect ROIs which are slightly altered during rec)
@@ -251,20 +278,5 @@ class AbstractBuffer:
             # TODO: write export tool for datasets
             ###
 
-            ## Create dataset if it doesn't exist
-            if not(key in grp):
-                try:
-                    Logging.write(logging.INFO, 'Create record dset "{}/{}"'.format(bufferName, key))
-                    grp.create_dataset(key,
-                                       shape=(0, *dshape,),
-                                       dtype=dtype,
-                                       maxshape=(None, *dshape,),
-                                       chunks=(1, *dshape,),)#compression='lzf')
-                except:
-                    Logging.write(logging.WARNING, 'Failed to create record dset "{}/{}"'.format(bufferName, key))
-            dset = grp[key]
-            dset.attrs.create('Position', currTime, dtype=np.float64)
-
-            ## Resize dataset and append new value
-            dset.resize((dset.shape[0]+1, *dshape))
-            dset[dset.shape[0]-1] = value
+            self._appendData(grp, key, value)
+            self._appendData(grp, '{}_time'.format(key), self.currentTime)

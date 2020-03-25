@@ -37,6 +37,9 @@ class CAM_Virtual:
     def getModels(cls):
         return cls._models
 
+    def updateProperty(self, propName, value):
+        pass
+
     def getFormats(self):
         return self.__class__._formats[self._model]
 
@@ -53,26 +56,40 @@ class CAM_TIS:
     def __init__(self):
         from lib.pyapi import tisgrabber as IC
         self._device = IC.TIS_CAM()
-        self._device.open(self._device.GetDevices()[0].decode())#Config.Camera[Definition.Camera.model])
+        #import IPython
+        #IPython.embed()
+        self._device.open(Config.Camera[Definition.Camera.model])
         self._device.SetVideoFormat(Config.Camera[Definition.Camera.format])
-        ### Disable automatic settings
-        self._device.SetPropertySwitch("Framerate","Auto",0)
-        self._device.SetPropertySwitch("Exposure","Auto",0)
 
-        #self._device.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)
+        ### Disable automatic settings
         #self._device.SetFrameRate(Config.Camera[Definition.Camera.fps])
-        self._device.SetContinuousMode(0)
+        #self._device.SetContinuousMode(0)
+
+        self._device.SetPropertySwitch("Exposure","Auto", 0)
+        self._device.SetPropertyAbsoluteValue("Exposure", "Value", 1./1000)  # 1ms
+        self._device.SetPropertySwitch("Gain","Auto", 0)
+        self._device.SetPropertyAbsoluteValue("Gain", "Value", 5)
+
+
+        self.exposureAuto = [0]
+        #self._device.GetPropertySwitch("AutoExposure", "Auto", self.exposureAuto)  # wrong auto exposure
+        self.gainAuto = [0]
+        self._device.GetPropertySwitch("Gain", "Auto", self.gainAuto)
+        self._device.enableCameraAutoProperty(4,0) # Disable auto exposure (for REAL)
         self._device.StartLive(0)
 
     def updateProperty(self, propName, value):
         ### Fetch current exposure
         currExposure = [0.]
         self._device.GetPropertyAbsoluteValue('Exposure', 'Value', currExposure)
+        currGain = [0.]
+        self._device.GetPropertyAbsoluteValue('Gain', 'Value', currGain)
+        #print('Exposure [{}]:'.format(self.exposureAuto[0]), currExposure[0], '// Gain [{}]:'.format(self.gainAuto[0]), currGain[0])
 
-        if propName == Definition.Camera.exposure and not(np.isclose(value, currExposure[0] * 1000)):
+        if propName == Definition.Camera.exposure and not(np.isclose(value, currExposure[0] * 1000, atol=0.001)):
+            print('Set exposure from', currExposure[0] * 1000, 'to', value)
             self._device.SetPropertyAbsoluteValue('Exposure', 'Value', float(value)/1000)
-        #elif propName == Definition.Camera.fps and
-        #    self._device.SetPropertyAbsoluteValue('Framrate', 'Value', )
+
 
 
 
@@ -86,4 +103,5 @@ class CAM_TIS:
         return device.GetVideoFormats()
 
     def getImage(self):
+        self._device.SnapImage()
         return self._device.GetImage()

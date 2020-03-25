@@ -31,6 +31,7 @@ import Definition
 from helper import Basic
 import IPC
 import Logging
+import process
 
 if Definition.Env == Definition.EnvTypes.Dev:
     pass
@@ -159,6 +160,8 @@ class BaseProcess:
         Convenience function to send messages to other Processes.
         All messages have the format [Sender, Receiver, Data]
         """
+        Logging.write(logging.DEBUG, 'Send to process {} with signal {} > args: {} > kwargs: {}'
+                      .format(processName, signal, args, kwargs))
         self._pipes[processName][0].send([signal, args, kwargs])
 
     def rpc(self, processName, function, *args, **kwargs):
@@ -258,22 +261,19 @@ class Controller(BaseProcess):
 
         ### Set up components
         self._setupBuffers()
-
         ### Set up processes
+        ## Worker
+        self._registerProcess(process.Worker.Main)
         ## GUI
         if Config.Gui[Definition.Gui.use]:
-            import process.GUI
             self._registerProcess(process.GUI.Main)
         ## Camera
         if Config.Camera[Definition.Camera.use]:
-            import process.Camera
             self._registerProcess(process.Camera.Main)
         ## Display
         if Config.Display[Definition.Display.use]:
-            import process.Display
             self._registerProcess(process.Display.Main)
         ## Logger
-        import process.Logger
         self._registerProcess(process.Logger.Main)
 
         ### Run event loop
@@ -283,7 +283,7 @@ class Controller(BaseProcess):
         """Register new process to be spawned.
 
         :param target: process class
-        :param kwargs: optional keyword arguments for intialization of process class
+        :param kwargs: optional keyword arguments for initalization of process class
         """
         self._registeredProcesses.append((target, kwargs))
 
@@ -328,7 +328,6 @@ class Controller(BaseProcess):
             for bufferName in Config.Camera[Definition.Camera.buffers]:
                 IPC.CameraBufferObject.addBuffer(getattr(buffers.CameraBuffers, bufferName))
 
-
     def start(self):
         ### Initialize all pipes
         for target, kwargs in self._registeredProcesses:
@@ -366,6 +365,7 @@ class Controller(BaseProcess):
                 del self._processes[processName]
                 del self._pipes[processName]
         self._running = False
+        self.setState(Definition.State.stopped)
 
     ################
     # Recording
@@ -384,10 +384,13 @@ class Controller(BaseProcess):
 
         ### Create output folder
         outPath = os.path.join(Definition.Path.Output, Config.Recording[Definition.Recording.current_folder])
+        Logging.write(logging.DEBUG, 'Set output folder {}'.format(outPath))
         if not(os.path.exists(outPath)):
+            Logging.write(logging.DEBUG, 'Create output folder {}'.format(outPath))
             os.mkdir(outPath)
 
         ### Set state to recording
+        Logging.write(logging.INFO, 'Start recording')
         self.setState(Definition.State.recording)
         Config.Recording[Definition.Recording.active] = True
 
@@ -396,16 +399,26 @@ class Controller(BaseProcess):
             Logging.write(logging.WARNING, 'Tried to pause inactive recording.')
             return
 
+        Logging.write(logging.INFO, 'Pause recording')
         self.setState(Definition.State.recording_paused)
         Config.Recording[Definition.Recording.active] = False
 
-    def stopRecording(self):
+    def stopRecording(self, sessiondata=None):
         if Config.Recording[Definition.Recording.active]:
             Config.Recording[Definition.Recording.active] = False
 
+        ### Save metadata and externally provided sessiondata
+        metadata = dict(hello1name='test', hello2val=123)
+        #TODO: save to file
+
+        ### Let worker compose all individual recordings into one data structure
+        self.rpc(Definition.Process.Worker, process.Worker.Main.runTask,
+                 'ComposeRecordings',
+                 Config.Recording[Definition.Recording.current_folder])
+
+        Logging.write(logging.INFO, 'Stop recording')
         self.setState(Definition.State.idle)
         Config.Recording[Definition.Recording.current_folder] = ''
-
 
     def main(self):
         pass
@@ -419,6 +432,7 @@ class Controller(BaseProcess):
 
 if __name__ == '__main__':
 
-    _configfile = 'default_TIS.ini'
+    #_configfile = 'default_TIS.ini'
+    _configfile = 'default.ini'
     configuration = Basic.Config(_configfile)
     ctrl = Controller()
