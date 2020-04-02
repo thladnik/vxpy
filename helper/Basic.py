@@ -21,7 +21,7 @@ import os
 from PyQt5 import QtCore
 
 import Default
-import Definition
+import Def
 
 class Config:
 
@@ -30,7 +30,7 @@ class Config:
         self.data = configparser.ConfigParser()
 
         if not(self._configfile is None):
-            self.data.read(os.path.join(Definition.Path.Config, self._configfile))
+            self.data.read(os.path.join(Def.Path.Config, self._configfile))
 
     def _parsedSection(self, section):
         parsed = dict()
@@ -78,7 +78,7 @@ class Config:
             self.data[config.name][option] = str(value)
 
     def saveToFile(self):
-        with open(os.path.join(Definition.Path.Config, self._configfile), 'w') as fobj:
+        with open(os.path.join(Def.Path.Config, self._configfile), 'w') as fobj:
             self.data.write(fobj)
             fobj.close()
 

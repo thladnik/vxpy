@@ -16,15 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticStimulationProtocol
+from Protocol import StaticProtocol
 
 from stimuli.ContiguousMotionNoise import IcoCMN
 from stimuli.Insta360OneX import Calibrated
 
-class IcoCMNProtocol(StaticStimulationProtocol):
+class IcoCMNProtocol(StaticProtocol):
 
     _name = 'ico_cmn'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-        self.addStimulus(IcoCMN, {}, duration=None)
+        self.addVisual(IcoCMN, {}, duration=None)

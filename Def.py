@@ -1,5 +1,5 @@
 """
-MappApp ./Definition.py - Definitions required to run the program.
+MappApp ./Def.py - Definitions required to run the program.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 
+################################
+# Environment settings
+
 class EnvTypes:
     Dev        = 'dev'
     Production = 'production'
 
 Env = EnvTypes.Production
+
+
+################################
+# Subfolder definitions
 
 class Path:
     Config   = 'configs'
@@ -33,6 +40,10 @@ class Path:
     Shader   = 'shaders'
     Task     = 'tasks'
 
+
+################################
+# Process names
+
 class Process:
     Camera     = 'Camera'
     Controller = 'Controller'
@@ -42,15 +53,10 @@ class Process:
     Logger     = 'Logger'
     Worker     = 'Worker'
 
-class State:
-    stopped          = 99
-    starting         = 10
-    idle             = 20
-    busy             = 30
-    recording        = 50
-    recording_paused = 55
+################################
+# Configuration key definitions
 
-class Camera:
+class CameraCfg:
     name = 'camera'
 
     # Use camera
@@ -64,11 +70,12 @@ class Camera:
     res_y        = 'int_resolution_y'
     fps          = 'int_prop_fps'
     exposure     = 'float_prop_exposure'
+    gain         = 'float_prop_gain'
 
     # Buffers
     buffers      = 'list_buffers'
 
-class Display:
+class DisplayCfg:
     name = 'display'
 
     # Use display
@@ -95,7 +102,7 @@ class Display:
     view_distance          = 'float_view_origin_distance'
     view_scale             = 'float_view_scale'
 
-class Gui:
+class GuiCfg:
     name = 'gui'
 
     use         = 'bool_use'
@@ -103,19 +110,35 @@ class Gui:
     # Addons
     addons      = 'list_addons'
 
-class IO:
+class IoCfg:
     name = 'io'
 
     use     = 'bool_use'
 
     buffers = 'list_buffers'
 
-class Recording:
+class RecCfg:
     name = 'recording'
 
     enabled         = 'bool_enabled'
-    active          = 'bool_active'
-    current_folder  = 'str_current_folder'
 
     # Active buffers
     buffers         = 'list_buffers'
+
+
+################################
+# Recording controls
+
+class RecCtrl:
+    active    = 'recording_active'
+    folder    = 'current_folder'
+
+################################
+# Protocol controls
+
+class ProtocolCtrl:
+    name             = 'current_protocol'
+    phase_id         = 'current_phase'
+    phase_start      = 'phase_start_time'
+    phase_stop       = 'phase_stop_time'
+

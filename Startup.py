@@ -23,7 +23,7 @@ from typing import Union
 
 from PyQt5 import QtCore, QtWidgets
 
-import Definition
+import Def
 from helper import Basic
 
 from devices.Camera import GetCamera
@@ -83,7 +83,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
     def _updateConfigfileList(self):
         self._cb_selectConfigfile.clear()
-        for fname in os.listdir(Definition.Path.Config):
+        for fname in os.listdir(Def.Path.Config):
             self._cb_selectConfigfile.addItem(fname[:-4])
 
     def _addConfigfile(self):
@@ -96,8 +96,8 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                 fname = name
                 name = name[:-4]
 
-            if fname not in os.listdir(Definition.Path.Config):
-                with open(os.path.join(Definition.Path.Config, fname), 'w') as fobj:
+            if fname not in os.listdir(Def.Path.Config):
+                with open(os.path.join(Def.Path.Config, fname), 'w') as fobj:
                     parser = ConfigParser()
                     parser.write(fobj)
             self._updateConfigfileList()

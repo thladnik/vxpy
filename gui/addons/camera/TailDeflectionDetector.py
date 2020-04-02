@@ -21,21 +21,21 @@ from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
 
 import Config
-import Definition
+import Def
 from helper import Geometry
 import IPC
 
 class TailDeflectionDetector(QtWidgets.QWidget):
     def __init__(self, parent, **kwargs):
         ### Check if camera is being used (since detector relies on camera input)
-        if not(Config.Camera[Definition.Camera.use]):
+        if not(Config.Camera[Def.CameraCfg.use]):
             self.moduleIsActive = False
             return
         self.moduleIsActive = True
 
         QtWidgets.QWidget.__init__(self, parent, flags=QtCore.Qt.Window, **kwargs)
         self.setWindowTitle('Tail deflection detector')
-        baseSize = (Config.Camera[Definition.Camera.res_x], 1.5 * Config.Camera[Definition.Camera.res_y])
+        baseSize = (Config.Camera[Def.CameraCfg.res_x], 1.5 * Config.Camera[Def.CameraCfg.res_y])
         self.setMinimumSize(*baseSize)
         self.resize(*baseSize)
         self.setLayout(QtWidgets.QGridLayout())
@@ -51,16 +51,16 @@ class TailDeflectionDetector(QtWidgets.QWidget):
         self._tmr_frameUpdate.start()
 
     def updateFrame(self):
-        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.CameraBufferObject.readBuffer('TailDeflectionDetector'), -1))
+        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.Buffer.Camera.readBuffer('TailDeflectionDetector'), -1))
 
 class GraphicsWidget(pg.GraphicsLayoutWidget):
     def __init__(self, **kwargs):
         pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
         ### Set synchronized variables
-        self.fishMarkerRects: dict = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].fishMarkerRects
-        self.extractedRects: dict = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].extractedRects
-        self.tailDeflectionAngles = IPC.CameraBufferObject._buffers[self.parent().__class__.__name__].tailDeflectionAngles
+        self.fishMarkerRects: dict = IPC.Buffer.Camera._buffers[self.parent().__class__.__name__].fishMarkerRects
+        self.extractedRects: dict = IPC.Buffer.Camera._buffers[self.parent().__class__.__name__].extractedRects
+        self.tailDeflectionAngles = IPC.Buffer.Camera._buffers[self.parent().__class__.__name__].tailDeflectionAngles
 
         ### Set up basics
         self.lineSegROIs = dict()

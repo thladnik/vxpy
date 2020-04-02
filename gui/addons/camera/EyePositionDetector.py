@@ -21,21 +21,21 @@ from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
 
 import Config
-import Definition
+import Def
 from helper import Geometry
 import IPC
 
 class EyePositionDetector(QtWidgets.QWidget):
     def __init__(self, parent, **kwargs):
         ### Check if camera is being used (since detector relies on camera input)
-        if not(Config.Camera[Definition.Camera.use]):
+        if not(Config.Camera[Def.CameraCfg.use]):
             self.moduleIsActive = False
             return
         self.moduleIsActive = True
 
         QtWidgets.QWidget.__init__(self, parent, flags=QtCore.Qt.Window, **kwargs)
         self.setWindowTitle('Eye position detector')
-        baseSize = (Config.Camera[Definition.Camera.res_x], 1.5 * Config.Camera[Definition.Camera.res_y])
+        baseSize = (Config.Camera[Def.CameraCfg.res_x], 1.5 * Config.Camera[Def.CameraCfg.res_y])
         self.setMinimumSize(*baseSize)
         self.resize(*baseSize)
         self.setLayout(QtWidgets.QGridLayout())
@@ -51,7 +51,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self._tmr_frameUpdate.start()
 
     def updateFrame(self):
-        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.CameraBufferObject._buffers['FrameBuffer'].frame, -1))
+        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.Buffer.Camera._buffers['FrameBuffer'].frame, -1))
 
 class GraphicsWidget(pg.GraphicsLayoutWidget):
     def __init__(self, **kwargs):
@@ -59,10 +59,10 @@ class GraphicsWidget(pg.GraphicsLayoutWidget):
 
         ### Set synchronized variables
         bufferName = self.parent().__class__.__name__
-        IPC.CameraBufferObject._buffers[bufferName]._build()
-        self.eyeMarkerRects : dict = IPC.CameraBufferObject.readAttribute('{}/eyeMarkerRects'.format(bufferName))
-        self.extractedRects : dict = IPC.CameraBufferObject.readAttribute('{}/extractedRects'.format(bufferName))
-        self.segmentationMode = IPC.CameraBufferObject.readAttribute('{}/segmentationMode'.format(bufferName))
+        IPC.Buffer.Camera._buffers[bufferName]._build()
+        self.eyeMarkerRects : dict = IPC.Buffer.Camera.readAttribute('{}/eyeMarkerRects'.format(bufferName))
+        self.extractedRects : dict = IPC.Buffer.Camera.readAttribute('{}/extractedRects'.format(bufferName))
+        self.segmentationMode = IPC.Buffer.Camera.readAttribute('{}/segmentationMode'.format(bufferName))
 
         ### Set up basics
         self.lineSegROIs = dict()

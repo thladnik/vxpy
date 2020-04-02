@@ -19,11 +19,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from glumpy import gl
 import numpy as np
 
-from Stimulus import SphericalStimulus
+from Visuals import SphericalVisual
 from models import BasicSphere
 from Shader import BasicFileShader
 
-class BlackWhiteCheckerboard(SphericalStimulus):
+class BlackWhiteCheckerboard(SphericalVisual):
 
     def __init__(self, protocol, display, rows, cols):
         """Black-and-white checkerboard for calibration.
@@ -32,7 +32,7 @@ class BlackWhiteCheckerboard(SphericalStimulus):
         :param rows: number of rows on checkerboard
         :param cols: number of columns on checkerboard
         """
-        SphericalStimulus.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, protocol, display)
 
         self.sphere = self.addModel('sphere',
                                     BasicSphere.UVSphere,

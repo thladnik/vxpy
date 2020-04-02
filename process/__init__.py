@@ -1,6 +1,6 @@
-from process import Camera
-from process import Display
-from process import GUI
-from process import IO
-from process import Logger
-from process import Worker
+from process.Camera import Main as Camera
+from process.Display import Main as Display
+from process.GUI import Main as GUI
+from process.IO import Main as IO
+from process.Logger import Main as Logger
+from process.Worker import Main as Worker

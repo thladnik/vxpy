@@ -19,10 +19,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from glumpy import gl
 
 from Shader import BasicFileShader
-from Stimulus import SphericalStimulus
+from Visuals import SphericalVisual
 from models import BasicSphere
 
-class BlackWhiteGrating(SphericalStimulus):
+class BlackWhiteGrating(SphericalVisual):
 
     def __init__(self, protocol, display, orientation, shape, velocity, num):
         """
@@ -33,7 +33,7 @@ class BlackWhiteGrating(SphericalStimulus):
         :param velocity:
         :param num:
         """
-        SphericalStimulus.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, protocol, display)
 
         ### Set up model
         self.sphere = self.addModel('sphere',

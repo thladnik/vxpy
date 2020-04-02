@@ -25,7 +25,7 @@ from time import perf_counter, time
 from typing import Union, Iterable
 
 import Config
-import Definition
+import Def
 import IPC
 import Logging
 
@@ -82,19 +82,19 @@ class BufferObject:
         """
 
         ### If recording is running and file is open: return file object
-        if Config.Recording[Definition.Recording.active] and not(self.h5File is None):
+        if IPC.Control.Recording[Def.RecCtrl.active] and not(self.h5File is None):
             return self.h5File
 
         ### If recording is running and file not open: open file and return file object
-        elif Config.Recording[Definition.Recording.active] and self.h5File is None:
+        elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5File is None:
             ## If output folder is not set: log warning and return None
-            if not(bool(Config.Recording[Definition.Recording.current_folder])):
+            if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
                 Logging.write(logging.WARNING, 'Recording has been started but output folder is not set.')
                 return None
 
             ### If output folder is set: open file
-            filepath = os.path.join(Definition.Path.Output,
-                                    Config.Recording[Definition.Recording.current_folder],
+            filepath = os.path.join(Def.Path.Output,
+                                    IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
             Logging.write(logging.DEBUG, 'Open new file {}'.format(filepath))
             self.h5File = h5py.File(filepath, 'w')
@@ -105,7 +105,7 @@ class BufferObject:
         else:
 
             ## If current recording folder is still set: recording is paused
-            if bool(Config.Recording[Definition.Recording.current_folder]):
+            if bool(IPC.Control.Recording[Def.RecCtrl.folder]):
                 ## Do nothing; return nothing
                 return None
 
@@ -126,7 +126,6 @@ class AbstractBuffer:
 
     def __init__(self, _bo):
         self._bo = _bo
-        self.fileStruct = dict()
 
         self._built = False
         self._sharedAttributes = dict()
@@ -254,7 +253,7 @@ class AbstractBuffer:
         bufferName = self.__class__.__name__
 
         ### If no file object was provided or this particular buffer is not supposed to stream to file: return
-        if file is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Definition.Recording.buffers]):
+        if file is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Def.RecCfg.buffers]):
             return None
 
         ## Each buffer writes to it's own group
@@ -275,7 +274,6 @@ class AbstractBuffer:
             # NOTE ON COMPRESSION FOR FUTURE:
             # GZIP: common, but slow
             # LZF: fast, but only natively implemented in python h5py (-> can't be read by HDF Viewer)
-            # TODO: write export tool for datasets
             ###
 
             self._appendData(grp, key, value)

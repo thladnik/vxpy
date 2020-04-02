@@ -16,56 +16,55 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import Definition
+import Def
 
 Configuration = {
 
-    Definition.Camera.name: {
-        Definition.Camera.use                     : True,
+    Def.CameraCfg.name: {
+        Def.CameraCfg.use                     : True,
 
-        Definition.Camera.manufacturer            : 'virtual',
-        Definition.Camera.model                   : 'cam01',
-        Definition.Camera.format                  : 'RGB (600, 400)',
-        Definition.Camera.res_y                   : 600,
-        Definition.Camera.res_x                   : 400,
-        Definition.Camera.fps                     : 60,
-        Definition.Camera.exposure                : 2.0,
-        Definition.Camera.buffers                 : ''
+        Def.CameraCfg.manufacturer            : 'virtual',
+        Def.CameraCfg.model                   : 'cam01',
+        Def.CameraCfg.format                  : 'RGB (600, 400)',
+        Def.CameraCfg.res_y                   : 600,
+        Def.CameraCfg.res_x                   : 400,
+        Def.CameraCfg.fps                     : 60,
+        Def.CameraCfg.exposure                : 2.0,
+        Def.CameraCfg.gain                    : 1.0,
+        Def.CameraCfg.buffers                 : ''
     },
 
-    Definition.Display.name : {
-        Definition.Display.use                    : True,
-        Definition.Display.type                   : 'spherical',
+    Def.DisplayCfg.name : {
+        Def.DisplayCfg.use                    : True,
+        Def.DisplayCfg.type                   : 'spherical',
 
-        Definition.Display.fps                    : 60,
+        Def.DisplayCfg.fps                    : 60,
 
-        Definition.Display.window_screen_id       : 0,
-        Definition.Display.window_fullscreen      : False,
-        Definition.Display.window_width           : 900,
-        Definition.Display.window_height          : 600,
-        Definition.Display.window_pos_x           : 400,
-        Definition.Display.window_pos_y           : 400,
+        Def.DisplayCfg.window_screen_id       : 0,
+        Def.DisplayCfg.window_fullscreen      : False,
+        Def.DisplayCfg.window_width           : 900,
+        Def.DisplayCfg.window_height          : 600,
+        Def.DisplayCfg.window_pos_x           : 400,
+        Def.DisplayCfg.window_pos_y           : 400,
 
-        Definition.Display.pos_glob_x_pos         : 0.0,
-        Definition.Display.pos_glob_y_pos         : 0.0,
-        Definition.Display.pos_glob_radial_offset : 1.0,
+        Def.DisplayCfg.pos_glob_x_pos         : 0.0,
+        Def.DisplayCfg.pos_glob_y_pos         : 0.0,
+        Def.DisplayCfg.pos_glob_radial_offset : 1.0,
 
-        Definition.Display.view_elev_angle        : 0.0,
-        Definition.Display.view_azim_angle        : 0.0,
-        Definition.Display.view_distance          : 5.0,
-        Definition.Display.view_scale             : 1.0,
+        Def.DisplayCfg.view_elev_angle        : 0.0,
+        Def.DisplayCfg.view_azim_angle        : 0.0,
+        Def.DisplayCfg.view_distance          : 5.0,
+        Def.DisplayCfg.view_scale             : 1.0,
     },
 
-    Definition.Gui.name : {
-        Definition.Gui.use                        : True,
+    Def.GuiCfg.name : {
+        Def.GuiCfg.use                        : True,
 
-        Definition.Gui.addons                     : ''
+        Def.GuiCfg.addons                     : ''
     },
 
-    Definition.Recording.name : {
-        Definition.Recording.enabled              : True,
-        Definition.Recording.active               : False,
-        Definition.Recording.current_folder       : '',
-        Definition.Recording.buffers              : []
+    Def.RecCfg.name : {
+        Def.RecCfg.enabled              : True,
+        Def.RecCfg.buffers              : []
     }
 }

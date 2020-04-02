@@ -23,41 +23,48 @@ from time import perf_counter, strftime, sleep
 
 import Config
 import Controller
-import Definition
+import Def
 import devices.Camera
 import IPC
 import Logging
 
-if Definition.Env == Definition.EnvTypes.Dev:
+if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
 class Main(Controller.BaseProcess):
-    name = Definition.Process.Camera
+    name = Def.Process.Camera
 
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set recording parameters
-        self.frameDims = (int(Config.Camera[Definition.Camera.res_y]),
-                          int(Config.Camera[Definition.Camera.res_x]))
-        self.fps = Config.Camera[Definition.Camera.fps]
+        self.frameDims = (int(Config.Camera[Def.CameraCfg.res_y]),
+                          int(Config.Camera[Def.CameraCfg.res_x]))
 
         ### Get selected camera
         self.camera = devices.Camera.GetCamera(1)
 
         Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
-                           .format(Config.Camera[Definition.Camera.manufacturer],
-                                   Config.Camera[Definition.Camera.model]))
+                           .format(Config.Camera[Def.CameraCfg.manufacturer],
+                                   Config.Camera[Def.CameraCfg.model]))
 
         ### Set avg. minimum sleep period
-        sleep(2)  # Wait to determine sleep period (on initial startup heavy CPU load skews the results)
+        #sleep(2)  # Wait to determine sleep period (on initial startup heavy CPU load skews the results)
         times = list()
         for i in range(100):
             t = perf_counter()
             sleep(10**-10)
             times.append(perf_counter()-t)
         self.acqSleepThresh = np.quantile(times, 0.95)
-        Logging.write(logging.INFO, 'Set acquisition threshold to {0:.4f}s'.format(self.acqSleepThresh))
+        msg = 'Set acquisition threshold to {0:.6f}s'.format(self.acqSleepThresh)
+        if self.acqSleepThresh > 1./Config.Camera[Def.CameraCfg.fps]:
+            msg_type = logging.WARNING
+            msg += '. Threshold is ABOVE average target frame time of 1/{}.'\
+                .format(Config.Camera[Def.CameraCfg.fps])
+        else:
+            msg_type = logging.INFO
+
+        Logging.write(msg_type, msg)
 
         ### Run event loop
         self.run()
@@ -72,9 +79,9 @@ class Main(Controller.BaseProcess):
         # Fetch current frame
         frame = self.camera.getImage()
         # Update buffers
-        IPC.CameraBufferObject.update(frame)
+        IPC.Buffer.Camera.update(frame)
 
         # Wait until next frame
-        t = self.t + 1./self.fps - perf_counter()
+        t = self.t + 1./Config.Camera[Def.CameraCfg.fps] - perf_counter()
         if t > self.acqSleepThresh:
             sleep(t)

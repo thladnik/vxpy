@@ -1,5 +1,5 @@
 """
-MappApp ./Stimulus.py - Base stimulus classes which is inherited by
+MappApp ./Visuals.py - Base stimulus classes which is inherited by
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik, Yue Zhang
 
@@ -28,7 +28,7 @@ import Model
 ################################
 ### Abstract stimulus class
 
-class AbstractStimulus:
+class AbstractVisual:
 
     _texture : np.ndarray = None
     _programs    = dict()
@@ -110,9 +110,9 @@ from helper import Geometry
 from glumpy import glm
 
 import Config
-from Definition import Display
+from Def import DisplayCfg
 
-class SphericalStimulus(AbstractStimulus):
+class SphericalVisual(AbstractVisual):
 
     _mask_name = '_mask'
 
@@ -157,15 +157,15 @@ class SphericalStimulus(AbstractStimulus):
         self.setUniform('u_ptime', self.protocol._time)
 
         #### Set 2D scaling for aspect 1:1
-        width = Config.Display[Display.window_width]
-        height = Config.Display[Display.window_height]
+        width = Config.Display[DisplayCfg.window_width]
+        height = Config.Display[DisplayCfg.window_height]
         if height > width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
 
         ### Set 3D translation and projection
-        distance = Config.Display[Display.view_distance]
+        distance = Config.Display[DisplayCfg.view_distance]
         translate3d = glm.translation(0, 0, -distance)
         fov = 240.0/distance
         project3d = glm.perspective(fov, 1, 2.0, 100.0)
@@ -173,7 +173,7 @@ class SphericalStimulus(AbstractStimulus):
         ### Set uniforms
         self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
-        self.setUniform('u_mapcalib_scale', Config.Display[Display.view_scale] * np.array ([1, 1]))
+        self.setUniform('u_mapcalib_scale', Config.Display[DisplayCfg.view_scale] * np.array ([1, 1]))
 
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
 
@@ -182,15 +182,15 @@ class SphericalStimulus(AbstractStimulus):
             gl.glEnable(gl.GL_STENCIL_TEST)
             gl.glEnable(gl.GL_BLEND)
 
-            elev = Config.Display[Display.view_elev_angle]
+            elev = Config.Display[DisplayCfg.view_elev_angle]
             elevRot3d = glm.rotate(np.eye(4), -90 + elev, 1, 0, 0)
             ### Rotate 3d model
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 225, 0, 0, 1) @ elevRot3d)
             ### Rotate around center of screen
             self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i))
             ### Translate radially
-            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[Display.pos_glob_radial_offset]
-            xyOffset =  np.array([Config.Display[Display.pos_glob_x_pos], Config.Display[Display.pos_glob_y_pos]])
+            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[DisplayCfg.pos_glob_radial_offset]
+            xyOffset =  np.array([Config.Display[DisplayCfg.pos_glob_x_pos], Config.Display[DisplayCfg.pos_glob_y_pos]])
             translate2d = radialOffset + xyOffset
             self.setUniform('u_mapcalib_translate2d', translate2d)
 
@@ -211,7 +211,7 @@ class SphericalStimulus(AbstractStimulus):
             #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
             ### Apply 90*i degree rotation for rendering different parts of actual sphere
-            azim_angle = Config.Display[Display.view_azim_angle]
+            azim_angle = Config.Display[DisplayCfg.view_azim_angle]
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
             ### Call the rendering function of the subclass
@@ -220,7 +220,7 @@ class SphericalStimulus(AbstractStimulus):
 ################################
 ### Plane stimulus class
 
-class PlaneStimulus(AbstractStimulus):
+class PlaneVisual(AbstractVisual):
 
     def __init__(self, display, protocol):
         self.display = display
@@ -249,8 +249,8 @@ class PlaneStimulus(AbstractStimulus):
 
 
         ### Construct vertices
-        height = Config.Display[Display.window_height]
-        width = Config.Display[Display.window_width]
+        height = Config.Display[DisplayCfg.window_height]
+        width = Config.Display[DisplayCfg.window_width]
 
         if width > height:
             self.u_mapcalib_xscale = height/width

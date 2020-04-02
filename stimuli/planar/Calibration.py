@@ -18,15 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from glumpy import gl
 
-from Stimulus import PlaneStimulus
+from Visuals import PlaneVisual
 from models import BasicPlane
 from Shader import BasicFileShader
 
 
-class Checkerboard(PlaneStimulus):
+class Checkerboard(PlaneVisual):
 
     def __init__(self, protcol, display):
-        PlaneStimulus.__init__(self, display=display, protocol=protcol)
+        PlaneVisual.__init__(self, display=display, protocol=protcol)
 
         self.plane = self.addModel('planar',
                                    BasicPlane.VerticalXYPlane)

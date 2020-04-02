@@ -22,13 +22,13 @@ from time import strftime
 
 import Config
 import Controller
-import Definition
+import Def
 from helper.Basic import Conversion
 import IPC
 import Logging
 from process import GUI
 
-if Definition.Env == Definition.EnvTypes.Dev:
+if Def.Env == Def.EnvTypes.Dev:
     pass
 
 class ProcessMonitor(QtWidgets.QGroupBox):
@@ -52,43 +52,43 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         ## Controller process status
         self._le_controllerState = QtWidgets.QLineEdit('')
         self._le_controllerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.Controller), 0, 0)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Controller), 0, 0)
         self.layout().addWidget(self._le_controllerState, 1, 0)
 
         ## Camera process status
         self._le_cameraState = QtWidgets.QLineEdit('')
         self._le_cameraState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.Camera), 0, 1)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Camera), 0, 1)
         self.layout().addWidget(self._le_cameraState, 1, 1)
 
         ## Display process status
         self._le_displayState = QtWidgets.QLineEdit('')
         self._le_displayState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.Display), 0, 2)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Display), 0, 2)
         self.layout().addWidget(self._le_displayState, 1, 2)
 
         ## Gui process status
         self._le_guiState = QtWidgets.QLineEdit('')
         self._le_guiState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.GUI), 0, 3)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.GUI), 0, 3)
         self.layout().addWidget(self._le_guiState, 1, 3)
 
         ## IO process status
         self._le_ioState = QtWidgets.QLineEdit('')
         self._le_ioState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.IO), 0, 4)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.IO), 0, 4)
         self.layout().addWidget(self._le_ioState, 1, 4)
 
         ## Logger process status
         self._le_loggerState = QtWidgets.QLineEdit('')
         self._le_loggerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.Logger), 0, 5)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Logger), 0, 5)
         self.layout().addWidget(self._le_loggerState, 1, 5)
 
         ## Worker process status
         self._le_workerState = QtWidgets.QLineEdit('')
         self._le_workerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Definition.Process.Worker), 0, 6)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 0, 6)
         self.layout().addWidget(self._le_workerState, 1, 6)
 
         ## Set timer for GUI update
@@ -98,75 +98,51 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._tmr_updateGUI.start()
 
     def _getProcessStateStr(self, code):
-        if code == Definition.State.stopped:
+        if code == self._main.State.stopped:
             return 'Stopped'
-        elif code == Definition.State.idle:
+        elif code == self._main.State.READY:
+            return 'Ready'
+        elif code == self._main.State.IDLE:
             return 'Idle'
-        elif code == Definition.State.busy:
-            return 'Busy'
-        elif code == Definition.State.starting:
+        elif code == self._main.State.RUNNING:
+            return 'Running'
+        elif code == self._main.State.starting:
             return 'Starting'
-        elif code == Definition.State.recording:
-            return 'Recording'
-        elif code == Definition.State.recording_paused:
-            return 'Paused'
+        else:
+            return 'N/A'
 
     def _setProcessState(self, le: QtWidgets.QLineEdit, code):
-        if code is None:
-            le.setText('N/A')
+        ### Set text
+        le.setText(self._getProcessStateStr(code))
+
+        ### Set style
+        if code == self._main.State.IDLE:
+            le.setStyleSheet('color: #3bb528; font-weight:bold;')
+        elif code == self._main.State.starting:
+            le.setStyleSheet('color: #3c81f3; font-weight:bold;')
+        elif code == self._main.State.READY:
+            le.setStyleSheet('color: #3c81f3; font-weight:bold;')
+        elif code == self._main.State.stopped:
+            le.setStyleSheet('color: #d43434; font-weight:bold;')
+        else:
             le.setStyleSheet('color: #FF0000')
 
-        else:
-            le.setText(self._getProcessStateStr(code))
-            if code == Definition.State.idle:
-                le.setStyleSheet('color: #3bb528; font-weight:bold;')
-            elif code == Definition.State.starting:
-                le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-            elif code == Definition.State.busy:
-                le.setStyleSheet('color: #a15aec; font-weight:bold;')
-            elif code == Definition.State.stopped:
-                le.setStyleSheet('color: #d43434; font-weight:bold;')
-            elif code == Definition.State.recording:
-                le.setStyleSheet('color: #b6bf34; font-weight:bold; font-style:italic;')
-            elif code == Definition.State.recording_paused:
-                le.setStyleSheet('color: #b6bf34; font-weight:bold; font-style:italic;')
-
     def _updateStates(self):
+        """This method sets the process state according to the current global state variables.
+        Additionally it modifies 
+        """
 
-        if hasattr(IPC.State, Definition.Process.Controller):
-            self._setProcessState(self._le_controllerState, getattr(IPC.State, Definition.Process.Controller).value)
-        else:
-            self._setProcessState(self._le_controllerState, None)
+        self._setProcessState(self._le_controllerState, self._main.getState(Def.Process.Controller))
+        self._setProcessState(self._le_cameraState, self._main.getState(Def.Process.Camera))
+        self._setProcessState(self._le_displayState, self._main.getState(Def.Process.Display))
+        self._setProcessState(self._le_guiState, self._main.getState(Def.Process.GUI))
+        self._setProcessState(self._le_ioState, self._main.getState(Def.Process.IO))
+        self._setProcessState(self._le_loggerState, self._main.getState(Def.Process.Logger))
+        self._setProcessState(self._le_workerState, self._main.getState(Def.Process.Worker))
 
-        if hasattr(IPC.State, Definition.Process.Camera):
-            self._setProcessState(self._le_cameraState, getattr(IPC.State, Definition.Process.Camera).value)
-        else:
-            self._setProcessState(self._le_cameraState, None)
 
-        if hasattr(IPC.State, Definition.Process.Display):
-            self._setProcessState(self._le_displayState, getattr(IPC.State, Definition.Process.Display).value)
-        else:
-            self._setProcessState(self._le_displayState, None)
-
-        if hasattr(IPC.State, Definition.Process.GUI):
-            self._setProcessState(self._le_guiState, getattr(IPC.State, Definition.Process.GUI).value)
-        else:
-            self._setProcessState(self._le_guiState, None)
-
-        if hasattr(IPC.State, Definition.Process.IO):
-            self._setProcessState(self._le_ioState, getattr(IPC.State, Definition.Process.IO).value)
-        else:
-            self._setProcessState(self._le_ioState, None)
-
-        if hasattr(IPC.State, Definition.Process.Logger):
-            self._setProcessState(self._le_loggerState, getattr(IPC.State, Definition.Process.Logger).value)
-        else:
-            self._setProcessState(self._le_loggerState, None)
-
-        if hasattr(IPC.State, Definition.Process.Worker):
-            self._setProcessState(self._le_workerState, getattr(IPC.State, Definition.Process.Worker).value)
-        else:
-            self._setProcessState(self._le_workerState, None)
+################################
+# Recordings widget
 
 class Recording(QtWidgets.QGroupBox):
 
@@ -174,20 +150,23 @@ class Recording(QtWidgets.QGroupBox):
         QtWidgets.QGroupBox.__init__(self, 'Recordings')
         self._main : GUI.Main = _main
 
-        self._setupUi()
-
-    def _setupUi(self):
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        ### Create inner widget
+        self.wdgt = QtWidgets.QWidget(self)
+        self.wdgt.setObjectName('InGroupBox')
+        self.wdgt.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self.wdgt)
 
         ### Basic properties
         self.setCheckable(True)
-        self.setLayout(QtWidgets.QGridLayout())
 
         ### Current folder
         self._le_folder = QtWidgets.QLineEdit()
         self._le_folder.setEnabled(False)
-        self.layout().addWidget(QtWidgets.QLabel('Folder'), 0, 0)
-        self.layout().addWidget(self._le_folder, 0, 1, 1, 2)
+        self.wdgt.layout().addWidget(QtWidgets.QLabel('Folder'), 0, 0)
+        self.wdgt.layout().addWidget(self._le_folder, 0, 1, 1, 2)
 
         ### GroupBox
         self.clicked.connect(self.toggleEnable)
@@ -195,25 +174,25 @@ class Recording(QtWidgets.QGroupBox):
         ### Buttons
         ## Start
         self._btn_start = QtWidgets.QPushButton('Start')
-        self._btn_start.clicked.connect(lambda: self._main.rpc(Definition.Process.Controller, Controller.Controller.startRecording))
-        self.layout().addWidget(self._btn_start, 1, 0)
+        self._btn_start.clicked.connect(lambda: self._main.rpc(Def.Process.Controller, Controller.Controller.startRecording))
+        self.wdgt.layout().addWidget(self._btn_start, 1, 0)
         ## Pause
         self._btn_pause = QtWidgets.QPushButton('Pause')
-        self._btn_pause.clicked.connect(lambda: self._main.rpc(Definition.Process.Controller, Controller.Controller.pauseRecording))
-        self.layout().addWidget(self._btn_pause, 1, 1)
+        self._btn_pause.clicked.connect(lambda: self._main.rpc(Def.Process.Controller, Controller.Controller.pauseRecording))
+        self.wdgt.layout().addWidget(self._btn_pause, 1, 1)
         ## Stop
         self._btn_stop = QtWidgets.QPushButton('Stop')
         self._btn_stop.clicked.connect(self.finalizeRecording)
-        self.layout().addWidget(self._btn_stop, 1, 2)
+        self.wdgt.layout().addWidget(self._btn_stop, 1, 2)
 
         ### Add buffers
         self._cb_buffers = dict()
         ## Camera buffers
         self._grp_cameraBuffers = QtWidgets.QGroupBox('Camera buffers')
         self._grp_cameraBuffers.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self._grp_cameraBuffers, 2, 0, 1, 3)
-        for bufferName in Config.Camera[Definition.Camera.buffers]:
-            bufferId = '{}/{}'.format(Definition.Process.Camera, bufferName)
+        self.wdgt.layout().addWidget(self._grp_cameraBuffers, 2, 0, 1, 3)
+        for bufferName in Config.Camera[Def.CameraCfg.buffers]:
+            bufferId = '{}/{}'.format(Def.Process.Camera, bufferName)
             self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
             self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
             self._cb_buffers[bufferId].setTristate(False)
@@ -221,15 +200,15 @@ class Recording(QtWidgets.QGroupBox):
         ## IO buffers
         self._grp_ioBuffers = QtWidgets.QGroupBox('I/O buffers')
         self._grp_ioBuffers.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self._grp_ioBuffers, 3, 0, 1, 3)
-        for bufferName in Config.IO[Definition.IO.buffers]:
-            bufferId = '{}/{}'.format(Definition.Process.IO, bufferName)
+        self.wdgt.layout().addWidget(self._grp_ioBuffers, 3, 0, 1, 3)
+        for bufferName in Config.IO[Def.IoCfg.buffers]:
+            bufferId = '{}/{}'.format(Def.Process.IO, bufferName)
             self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
             self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
             self._cb_buffers[bufferId].setTristate(False)
             self._grp_ioBuffers.layout().addWidget(self._cb_buffers[bufferId])
 
-        self.layout().addItem(vSpacer, 4, 0)
+        self.wdgt.layout().addItem(vSpacer, 4, 0)
 
         ### Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
@@ -239,7 +218,7 @@ class Recording(QtWidgets.QGroupBox):
 
     def finalizeRecording(self):
         ### First: pause recording
-        self._main.rpc(Definition.Process.Controller, Controller.Controller.pauseRecording)
+        self._main.rpc(Def.Process.Controller, Controller.Controller.pauseRecording)
 
         reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
                                                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
@@ -257,10 +236,10 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Finally: stop recording
         print('Stop recording...')
-        self._main.rpc(Definition.Process.Controller, Controller.Controller.stopRecording)
+        self._main.rpc(Def.Process.Controller, Controller.Controller.stopRecording)
 
     def toggleEnable(self, newstate):
-        self._main.rpc(Definition.Process.Controller, Controller.Controller.toggleEnableRecording, newstate)
+        self._main.rpc(Def.Process.Controller, Controller.Controller.toggleEnableRecording, newstate)
 
     def bufferStateChanged(self):
         """Update shared buffer list for recordings based on UI selection.
@@ -268,36 +247,42 @@ class Recording(QtWidgets.QGroupBox):
 
         for bufferId, cb in self._cb_buffers.items():
             # Add bufferId if checkstate == True and bufferId not in buffer list
-            if Conversion.QtCheckstateToBool(cb.checkState()) and bufferId not in Config.Recording[Definition.Recording.buffers]:
-                Config.Recording[Definition.Recording.buffers] = Config.Recording[Definition.Recording.buffers] + [bufferId]
+            if Conversion.QtCheckstateToBool(cb.checkState()) and bufferId not in Config.Recording[Def.RecCfg.buffers]:
+                Config.Recording[Def.RecCfg.buffers] = Config.Recording[Def.RecCfg.buffers] + [bufferId]
             # Remove bufferId if checkstate == False and bufferId is in buffer list
-            elif not(Conversion.QtCheckstateToBool(cb.checkState())) and bufferId in Config.Recording[Definition.Recording.buffers]:
-                Config.Recording[Definition.Recording.buffers] = [bi for bi in Config.Recording[Definition.Recording.buffers] if bi != bufferId]
+            elif not(Conversion.QtCheckstateToBool(cb.checkState())) and bufferId in Config.Recording[Def.RecCfg.buffers]:
+                Config.Recording[Def.RecCfg.buffers] = [bi for bi in Config.Recording[Def.RecCfg.buffers] if bi != bufferId]
 
     def updateGui(self):
         """(Periodically) update UI based on shared configuration"""
 
-        active = Config.Recording[Definition.Recording.active]
-        enabled = Config.Recording[Definition.Recording.enabled]
-        current_folder = Config.Recording[Definition.Recording.current_folder]
+        enabled = Config.Recording[Def.RecCfg.enabled]
+        active = IPC.Control.Recording[Def.RecCtrl.active]
+        current_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+
+
+        if active:
+            self.wdgt.setStyleSheet('QWidget#InGroupBox {background: rgba(179, 31, 18, 0.5);}')
+        else:
+            self.wdgt.setStyleSheet('QWidget#InGroupBox {background: rgba(0, 0, 0, 0.0);}')
 
         ### Set enabled
         self.setCheckable(not(active) and not(bool(current_folder)))
         self.setChecked(enabled)
 
         ### Set current folder
-        self._le_folder.setText(Config.Recording[Definition.Recording.current_folder])
+        self._le_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
 
         ### Set buttons dis-/enabled
         self._btn_start.setEnabled(not(active) and enabled)
-        self._btn_start.setText('Start' if self._main.inState(Definition.State.idle, Definition.Process.Controller) else 'Resume')
+        self._btn_start.setText('Start' if self._main.inState(self._main.State.IDLE, Def.Process.Controller) else 'Resume')
         #self._btn_pause.setEnabled(active and enabled)
         self._btn_pause.setEnabled(False)
-        self._btn_stop.setEnabled(bool(Config.Recording[Definition.Recording.current_folder]) and enabled)
+        self._btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
 
         ### Set buffer check states
         for bufferId, cb in self._cb_buffers.items():
-            cb.setCheckState(Conversion.boolToQtCheckstate(bufferId in Config.Recording[Definition.Recording.buffers]))
+            cb.setCheckState(Conversion.boolToQtCheckstate(bufferId in Config.Recording[Def.RecCfg.buffers]))
 
         ### Enable/disable buffer groups during active recording
         self._grp_cameraBuffers.setDisabled(active or not(enabled))

@@ -23,20 +23,20 @@ import logging
 import time
 
 import Config
-import Definition
+import Def
 import Logging
-from Stimulus import SphericalStimulus
+from Visuals import SphericalVisual
 from models import BasicSphere
 from Shader import BasicFileShader
 
-class RipplesOnStaticBackground(SphericalStimulus):
+class RipplesOnStaticBackground(SphericalVisual):
 
     def __init__(self, protocol, display, u_mod_sign, u_mod_depth, u_mod_shape, u_mod_vel, u_mod_width,
                  u_mod_min_elev=-np.pi/2, u_mod_max_elev=+np.pi/2, u_upper_field_flash=0):
         """
 
         """
-        SphericalStimulus.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, protocol, display)
 
         ### Create model
         self.sphere_model = self.addModel('sphere',
@@ -76,7 +76,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
         self.texture_program.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         ### Second: start new ripple?
-        if np.random.randint(Config.Display[Definition.Display.fps] * 3) == 0 \
+        if np.random.randint(Config.Display[Def.DisplayCfg.fps] * 3) == 0 \
                 and self.protocol._advanceTime > (self.protocol._time + 20.0 / (2.0 * self.u_mod_vel)):
 
             # Create program

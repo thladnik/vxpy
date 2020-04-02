@@ -21,24 +21,24 @@ import logging.handlers
 import os
 from time import strftime, sleep
 
-import Config
 import Controller
-import Definition
+import Def
+import IPC
 import Logging
 
 class Main(Controller.BaseProcess):
-    name = Definition.Process.Logger
+    name = Def.Process.Logger
 
     def __init__(self, **kwargs):
         Controller.BaseProcess.__init__(self, **kwargs)
 
         ### Set file to log to
-        if Config.Logfile.value == '':
-            Config.Logfile.value = '%s.log' % strftime('%Y-%m-%d-%H-%M-%S')
+        if IPC.Buffer.Logfile.value == '':
+            IPC.Buffer.Logfile.value = '%s.log' % strftime('%Y-%m-%d-%H-%M-%S')
 
         ### Set up logger, formatte and handler
         self.logger = logging.getLogger('mylog')
-        h = logging.handlers.TimedRotatingFileHandler(os.path.join(Definition.Path.Log, Config.Logfile.value), 'd')
+        h = logging.handlers.TimedRotatingFileHandler(os.path.join(Def.Path.Log, IPC.Buffer.Logfile.value), 'd')
         f = logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<')
         h.setFormatter(f)
         self.logger.addHandler(h)
@@ -55,7 +55,7 @@ class Main(Controller.BaseProcess):
         record = self._logQueue.get()
 
         ### Development mode: write to console
-        if Definition.Env == Definition.EnvTypes.Dev:
+        if Def.Env == Def.EnvTypes.Dev:
             print('{:10s} {:15s} {}'.format(record.levelname, record.name, record.message))
             return
 

@@ -23,7 +23,7 @@ from time import perf_counter, time
 
 from Buffer import AbstractBuffer
 import Config
-import Definition
+import Def
 from helper import Geometry
 import IPC
 
@@ -36,7 +36,7 @@ class FrameBuffer(AbstractBuffer):
         # Note that the self.<attrName> = self.sharedAttribute(<attrName>, ...) convention
         # is purely for accessibility purposes. The actual attribute name
         # in the instance object depends entirely on the first positional argument)
-        frameSize = (Config.Camera[Definition.Camera.res_y], Config.Camera[Definition.Camera.res_x], 3)
+        frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
         self.frame = self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
         self.time = self.sharedAttribute('time', 'Value', 'd', 0.0)
 
@@ -202,7 +202,7 @@ class EyePositionDetector(AbstractBuffer):
         return [leAngle, reAngle], rect
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
-        return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
+        return [asType(point[0]), asType(Config.Camera[Def.CameraCfg.res_y] - point[1])]
 
     def _compute(self, frame):
         ### Call build function
@@ -293,7 +293,7 @@ class TailDeflectionDetector(AbstractBuffer):
 
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
-        return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
+        return [asType(point[0]), asType(Config.Camera[Def.CameraCfg.res_y] - point[1])]
 
     def default(self, rect):
 

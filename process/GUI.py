@@ -22,14 +22,14 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 from time import strftime, sleep
 
-import Definition
+import Def
 import Buffer
 import Config
 import Controller
 import IPC
 import Logging
 import gui.DisplaySettings
-import gui.Protocols
+import gui.ProtocolControl
 import gui.Integrated
 import gui.CameraStream
 import gui.addons
@@ -39,7 +39,7 @@ import process.Display
 import process.Logger
 
 class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
-    name = Definition.Process.GUI
+    name = Def.Process.GUI
 
     _app         : QtWidgets.QApplication
 
@@ -63,7 +63,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self.run()
 
     def run(self):
-        IPC.State.Gui.value = Definition.State.idle
+        IPC.State.Gui.value = self.State.IDLE
         ### Set timer for handling of communication
         self._tmr_handlePipe = QtCore.QTimer()
         self._tmr_handlePipe.timeout.connect(self._handleInbox)
@@ -79,7 +79,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
     def _setupAddons(self):
         self.addons = dict()
-        for addonName in Config.Gui[Definition.Gui.addons]:
+        for addonName in Config.Gui[Def.GuiCfg.addons]:
             if not(bool(addonName)):
                 continue
 
@@ -152,21 +152,21 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         # Restart display
         self._menu_process_redisp = QtWidgets.QAction('Restart display')
         self._menu_process_redisp.triggered.connect(
-            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeProcess, process.Display.Main))
+            lambda: self.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Display))
         self._menu_process.addAction(self._menu_process_redisp)
         # Restart camera
         self._menu_process_recam = QtWidgets.QAction('Restart camera')
         self._menu_process_recam.triggered.connect(
-            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeProcess, process.Camera.Main))
+            lambda: self.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Camera))
         self._menu_process.addAction(self._menu_process_recam)
         # Restart IO
         self._menu_process_relog = QtWidgets.QAction('Restart logger')
         self._menu_process_relog.triggered.connect(
-            lambda: self.rpc(Definition.Process.Controller, Controller.Controller.initializeProcess, process.Logger.Main))
+            lambda: self.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Logger))
         self._menu_process.addAction(self._menu_process_relog)
 
         ## Display Settings
-        displayType = Config.Display[Definition.Display.type]
+        displayType = Config.Display[Def.DisplayCfg.type]
         if displayType == 'spherical':
             self._wdgt_dispSettings = gui.DisplaySettings.SphericalDisplaySettings(self)
         elif displayType == 'planar':
@@ -176,11 +176,11 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._openDisplaySettings()
 
         ## Stimulus Protocols
-        self._wdgt_stimProtocols = gui.Protocols.Protocols(self)
+        self._wdgt_stimProtocols = gui.ProtocolControl.Protocols(self)
         self._openStimProtocols()
 
         # Video Streamer
-        if Config.Camera[Definition.Camera.use]:
+        if Config.Camera[Def.CameraCfg.use]:
             self._wdgt_camera = gui.CameraStream.Camera(self, flags=QtCore.Qt.Window)
             self._openVideoStreamer()
 
@@ -197,15 +197,15 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_act_stimProtocols.setShortcut('Ctrl+p')
         self._menu_act_stimProtocols.setAutoRepeat(False)
         ### Reset Video streamer view
-        if Config.Camera[Definition.Camera.use]:
+        if Config.Camera[Def.CameraCfg.use]:
             self._menu_act_vidStream.setShortcut('Ctrl+v')
             self._menu_act_vidStream.setAutoRepeat(False)
 
         ### Restart display process
-        self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
+        self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+m')
         self._menu_process_redisp.setAutoRepeat(False)
         ### Restart camera process
-        if Config.Camera[Definition.Camera.use]:
+        if Config.Camera[Def.CameraCfg.use]:
             self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
             self._menu_process_recam.setAutoRepeat(False)
         ### Restart display process
@@ -213,10 +213,10 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._menu_process_relog.setAutoRepeat(False)
 
     def printLog(self):
-        if Config.Logfile is None:
+        if IPC.Buffer.Logfile is None:
             return
 
-        with open(os.path.join(Definition.Path.Log, Config.Logfile.value), 'r') as fobj:
+        with open(os.path.join(Def.Path.Log, IPC.Buffer.Logfile.value), 'r') as fobj:
             lines = fobj.read().split('<<\n')
             for line in lines[self.logccount:]:
                 if len(line) == 0:
@@ -240,7 +240,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self._wdgt_stimProtocols.show()
 
     def _openVideoStreamer(self):
-        if not(Config.Camera[Definition.Camera.use]):
+        if not(Config.Camera[Def.CameraCfg.use]):
             return
 
         self._wdgt_camera.showNormal()
@@ -249,12 +249,13 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         ### Inform controller of close event
-        self.send(Definition.Process.Controller, Controller.BaseProcess.Signals.Shutdown)
+        self.send(Def.Process.Controller, Controller.BaseProcess.Signal.Shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
+        self.setState(self.State.stopped)
 
         ### Close child widgets
         self._wdgt_dispSettings.close()
         self._wdgt_stimProtocols.close()
-        if Config.Camera[Definition.Camera.use]:
+        if Config.Camera[Def.CameraCfg.use]:
             self._wdgt_camera.close()

@@ -16,15 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticStimulationProtocol
+from Protocol import StaticProtocol
 
 from stimuli.planar.Calibration import Checkerboard
 
-class CheckerboardProtocol(StaticStimulationProtocol):
+class CheckerboardProtocol(StaticProtocol):
 
     _name = 'PlaneCalibration'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 
-        self.addStimulus(Checkerboard, dict())
+        self.addVisual(Checkerboard, dict())

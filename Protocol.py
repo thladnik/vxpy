@@ -1,5 +1,5 @@
 """
-MappApp ./Protocol.py - Collection of stimulation protocol classes which
+MappApp ./Protocol.py - Collection of protocol classes which
 are be used to concatenate and present successive stimuli.
 Copyright (C) 2020 Tim Hladnik
 
@@ -21,10 +21,15 @@ from glumpy import gloo, transforms
 import importlib
 import logging
 
-import Definition
+import Def
 import Logging
 
-class StaticStimulationProtocol:
+class AbstractProtocol:
+    pass
+
+class StaticProtocol(AbstractProtocol):
+    """Static experimental protocol which does NOT support closed-loop designs.
+    """
 
     _name = None
 
@@ -38,8 +43,16 @@ class StaticStimulationProtocol:
 
         self._current = None
 
-    def addStimulus(self, stimulus, kwargs, duration=None):
-        self._stimuli.append((stimulus, kwargs, duration))
+        self._phases = list()
+
+    def newPhase(self, duration):
+        self._phases.append(dict(visuals=list(), signals=list()))
+
+    def addVisual(self, stimulus, kwargs, duration=None):
+        self._phases[-1]['visuals'].append((stimulus, kwargs, duration))
+
+    def addSignal(self, signal, kwargs, duration=None):
+        self._phases[-1]['signals'].append((signal, kwargs, duration))
 
     def _advance(self):
         self._stimulus_index += 1
@@ -53,7 +66,6 @@ class StaticStimulationProtocol:
                                          '// Stimulus {} with parameters {} (duration {})'
                            .format(self._name, self._stimulus_index, new_stimulus, kwargs, duration))
 
-
         ### Set new stimulus
         self._current = new_stimulus(self, self.display, **kwargs)
         self._current.start()
@@ -63,9 +75,6 @@ class StaticStimulationProtocol:
             self._advanceTime = self._time + duration
         else:
             self._advanceTime = None
-
-        # FINALLY: dispatch resize event
-        #self.display._glWindow.dispatch_event('on_resize', self.display._glWindow.width, self.display._glWindow.height)
 
     def draw(self, dt):
         self._time += dt

@@ -18,15 +18,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import ctypes
 from multiprocessing import managers
 
-import Definition
+import Def
 
 Manager : managers.SyncManager
-
-def createConfigDict():
-    return Manager.dict()
-
-def createSharedState():
-    return Manager.Value(ctypes.c_int8, Definition.State.stopped)
 
 class State:
     Camera     : int = None
@@ -37,5 +31,14 @@ class State:
     Logger     : int = None
     Worker     : int = None
 
-CameraBufferObject = None
-IoBufferObject     = None
+
+class Buffer:
+    Camera   = None
+    Io       = None
+    Display  = None
+    Logfile = None
+
+
+class Control:
+    Recording = None
+    Protocol  = None

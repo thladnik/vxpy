@@ -22,7 +22,7 @@ import pyqtgraph as pg
 from time import perf_counter
 
 import Config
-import Definition
+import Def
 import IPC
 
 class Camera(QtWidgets.QWidget):
@@ -47,19 +47,25 @@ class Camera(QtWidgets.QWidget):
         self._plotItem = pg.ImageItem()
         self._wdgt_plot.addItem(self._plotItem)
         self._wdgt_plot.getPlotItem().vb.setMouseEnabled(x=False, y=False)
-        self.setMinimumSize(Config.Camera[Definition.Camera.res_x], Config.Camera[Definition.Camera.res_y])
+        self.setMinimumSize(Config.Camera[Def.CameraCfg.res_x], Config.Camera[Def.CameraCfg.res_y])
         self.layout().addWidget(self._wdgt_plot)
 
         ### Set camera property dials
         self._gb_properties = QtWidgets.QGroupBox('Camera properties')
+        self._gb_properties.setLayout(QtWidgets.QGridLayout())
         self.layout().addWidget(self._gb_properties)
         ## Exposure
-        self._gb_properties.setLayout(QtWidgets.QGridLayout())
         self._gb_properties.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 0, 0)
         self._dspn_exposure = QtWidgets.QDoubleSpinBox(self._gb_properties)
         self._dspn_exposure.setSingleStep(0.01)
-        self._dspn_exposure.valueChanged.connect(lambda: self.updateConfig(Definition.Camera.exposure))
+        self._dspn_exposure.valueChanged.connect(lambda: self.updateConfig(Def.CameraCfg.exposure))
         self._gb_properties.layout().addWidget(self._dspn_exposure, 0, 1)
+        ## Gain
+        self._gb_properties.layout().addWidget(QtWidgets.QLabel('Gain [a.u.]'), 1, 0)
+        self._dspn_gain = QtWidgets.QDoubleSpinBox(self._gb_properties)
+        self._dspn_gain.setSingleStep(0.01)
+        self._dspn_gain.valueChanged.connect(lambda: self.updateConfig(Def.CameraCfg.gain))
+        self._gb_properties.layout().addWidget(self._dspn_gain, 1, 1)
 
         ### Set property update timer
         self.propTimer = QtCore.QTimer()
@@ -74,14 +80,18 @@ class Camera(QtWidgets.QWidget):
         self.imTimer.start()
 
     def updateProperties(self):
-        self._dspn_exposure.setValue(Config.Camera[Definition.Camera.exposure])
+        self._dspn_exposure.setValue(Config.Camera[Def.CameraCfg.exposure])
+        self._dspn_gain.setValue(Config.Camera[Def.CameraCfg.gain])
 
     def updateConfig(self, propName):
-        if propName == Definition.Camera.exposure:
-            Config.Camera[Definition.Camera.exposure] = self._dspn_exposure.value()
+        if propName == Def.CameraCfg.exposure:
+            Config.Camera[propName] = self._dspn_exposure.value()
+        elif propName == Def.CameraCfg.gain:
+            print('Set gain to {}'.format(self._dspn_gain.value()))
+            Config.Camera[propName] = self._dspn_gain.value()
 
     def updateImage(self):
         # Plot image
-        self._plotItem.setImage(np.rot90(IPC.CameraBufferObject._buffers['FrameBuffer'].readFrame(), -1))
+        self._plotItem.setImage(np.rot90(IPC.Buffer.Camera._buffers['FrameBuffer'].readFrame(), -1))
 
         self.t = perf_counter()
