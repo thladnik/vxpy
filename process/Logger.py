@@ -26,11 +26,11 @@ import Def
 import IPC
 import Logging
 
-class Main(Controller.BaseProcess):
+class Main(Controller.AbstractProcess):
     name = Def.Process.Logger
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Controller.AbstractProcess.__init__(self, **kwargs)
 
         ### Set file to log to
         if IPC.Buffer.Logfile.value == '':
@@ -79,4 +79,4 @@ class Main(Controller.BaseProcess):
             self.logger.handle(self._logQueue.get())
 
         ### Finally shut down
-        Controller.BaseProcess._startShutdown(self)
+        Controller.AbstractProcess._startShutdown(self)

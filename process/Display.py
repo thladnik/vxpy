@@ -36,7 +36,7 @@ if Def.Env == Def.EnvTypes.Dev:
 app.use('pyglet')
 from pyglet.window import key
 
-class Main(Controller.BaseProcess):
+class Main(Controller.AbstractProcess):
     name = Def.Process.Display
 
     _config   : dict              = dict()
@@ -44,7 +44,7 @@ class Main(Controller.BaseProcess):
     protocol  : Protocol          = None
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Controller.AbstractProcess.__init__(self, **kwargs)
 
         self._window_config = app.configuration.Configuration()
         self._window_config.stencil_size = 8
@@ -75,9 +75,18 @@ class Main(Controller.BaseProcess):
     ### Glumpy-called events
 
     def on_init(self):
-        """Glumpy on_init event
-        """
+        """Glumpy on_init event"""
         pass
+
+    def _prepareProtocol(self):
+        print('Protocollin\' and rollin\'')
+        self.protocol = 'something'
+
+    def _preparePhase(self):
+        print('phase lala')
+
+    def _cleanupProtocol(self):
+        print('Just cleanin\'')
 
     def on_draw(self, dt):
         """Glumpy on_draw event.
@@ -87,85 +96,10 @@ class Main(Controller.BaseProcess):
         :return:
         """
 
-        ########
-        ### RUNNING
-        if self.inState(self.State.RUNNING):
-
-            if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                Logging.write(logging.INFO, 'Phase {} ended.'.format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]))
-                self.setState(self.State.PHASE_END)
-                return
-
-            #TODO: actually draw frame
+        if self._runProtocol():
             pass
+            #self.protocol.draw()
 
-        ########
-        ### IDLE
-        elif self.inState(self.State.IDLE):
-
-            ## Ctrl PREPARE_PROTOCOL
-            if self.inState(self.State.PREPARE_PROTOCOL, Def.Process.Controller):
-
-                # TODO: actually set up protocol
-                protocol = IPC.Control.Protocol[Def.ProtocolCtrl.name]
-
-                # Set next state
-                self.setState(self.State.WAIT_FOR_PHASE)
-                return
-
-            ### Fallback, timeout
-            time.sleep(0.05)
-
-        ########
-        ### WAIT_FOR_PHASE
-        elif self.inState(self.State.WAIT_FOR_PHASE):
-
-            if not(self.inState(self.State.PREPARE_PHASE, Def.Process.Controller)):
-                return
-
-            # TODO: actually set up phase
-            phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-
-            # Set next state
-            self.setState(self.State.READY)
-
-        ########
-        ### READY
-        elif self.inState(self.State.READY):
-            if not(self.inState(self.State.RUNNING, Def.Process.Controller)):
-                return
-
-            ### Wait for go time
-            while self.inState(self.State.RUNNING, Def.Process.Controller):
-                if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= time.time():
-                    Logging.write(logging.INFO, 'Start at {}'.format(time.time()))
-                    self.setState(self.State.RUNNING)
-                    break
-
-            return
-
-        ########
-        ### PHASE_END
-        elif self.inState(self.State.PHASE_END):
-
-            ####
-            ## Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.inState(self.State.PREPARE_PHASE, Def.Process.Controller):
-                self.setState(self.State.WAIT_FOR_PHASE)
-                return
-
-            elif self.inState(self.State.PROTOCOL_END, Def.Process.Controller):
-
-                # TODO: clean up protocol
-
-                self.setState(self.State.IDLE)
-            else:
-                pass
-
-        ########
-        ### Fallback: timeout
-        else:
-            time.sleep(0.05)
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event
@@ -263,28 +197,6 @@ class Main(Controller.BaseProcess):
                     Logging.write(logging.WARNING, 'Unable to set backend window size. Check glumpy version.')
                     self._checkScreenStatus = False
 
-    def startProtocol(self):
-        Logging.write(logging.INFO, 'Start new protocol ({})'
-                      .format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
-
-        print('Start protocol')
-        ### Set protocol
-        self.protocol1 = 'blabla'
-
-        ### Stand by for phase
-        self.setState(self.State.standby)
-
-    def stopProtocol(self):
-        Logging.write(logging.INFO, 'Stop protocol ({})'
-                      .format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
-
-        print('Stop protocol')
-        ### Cleanup
-        self.protocol1 = None
-
-        ### Turn to idle
-        self.setState(self.State.idle)
-
     def startNewStimulationProtocol(self, protocol_cls):
         """Start the presentation of a new stimulation protocol
 
@@ -299,7 +211,7 @@ class Main(Controller.BaseProcess):
 
     def _startShutdown(self):
         self._glWindow.close()
-        Controller.BaseProcess._startShutdown(self)
+        Controller.AbstractProcess._startShutdown(self)
 
     def main(self):
         app.clock.schedule_interval(self._handleInbox, 0.01)

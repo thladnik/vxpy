@@ -27,6 +27,8 @@ import Def
 from helper import Geometry
 import IPC
 
+import Controller
+
 class FrameBuffer(AbstractBuffer):
 
     def __init__(self, *args, **kwargs):

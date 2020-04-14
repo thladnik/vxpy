@@ -22,7 +22,6 @@ import numpy as np
 from typing import Union
 
 import Logging
-import Shader
 import Model
 
 ################################
@@ -86,10 +85,10 @@ class AbstractVisual:
 
 
     def draw(self, dt):
-        NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
+        raise NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
 
     def render(self, dt):
-        NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
+        raise NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
 
     def update(self, **kwargs):
         """
@@ -220,7 +219,7 @@ class SphericalVisual(AbstractVisual):
 ################################
 ### Plane stimulus class
 
-class PlaneVisual(AbstractVisual):
+class PlanarVisual(AbstractVisual):
 
     def __init__(self, display, protocol):
         self.display = display

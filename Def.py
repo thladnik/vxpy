@@ -53,8 +53,40 @@ class Process:
     Logger     = 'Logger'
     Worker     = 'Worker'
 
+
+################################
+# Process states
+
+class State:
+    na               = 0
+    STOPPED          = 99
+    starting         = 10
+    PREPARE_PROTOCOL = 30
+    WAIT_FOR_PHASE   = 31
+    PREPARE_PHASE    = 32
+    READY            = 33
+    PHASE_END        = 37
+    PROTOCOL_END     = 39
+    IDLE             = 20
+    RUNNING          = 41
+    standby          = 42
+
+################################
+# IPC signals
+
+class Signal:
+    UpdateProperty  = 10
+    RPC             = 20
+    Query           = 30
+    Shutdown        = 99
+    ConfirmShutdown = 100
+
+
 ################################
 # Configuration key definitions
+
+########
+# Camera
 
 class CameraCfg:
     name = 'camera'
@@ -74,6 +106,10 @@ class CameraCfg:
 
     # Buffers
     buffers      = 'list_buffers'
+
+
+########
+# Display
 
 class DisplayCfg:
     name = 'display'
@@ -102,6 +138,10 @@ class DisplayCfg:
     view_distance          = 'float_view_origin_distance'
     view_scale             = 'float_view_scale'
 
+
+########
+# GUI
+
 class GuiCfg:
     name = 'gui'
 
@@ -110,12 +150,25 @@ class GuiCfg:
     # Addons
     addons      = 'list_addons'
 
+
+########
+# IO
+
 class IoCfg:
     name = 'io'
 
-    use     = 'bool_use'
+    use          = 'bool_use'
+    device_type  = 'str_device_type'
+    device_model = 'str_device_model'
+    device_port  = 'str_device_comport'
+    digital_pins = 'list_digital_pins'
+    analog_pins  = 'list_analog_pins'
 
     buffers = 'list_buffers'
+
+
+########
+# Recording
 
 class RecCfg:
     name = 'recording'
@@ -127,14 +180,17 @@ class RecCfg:
 
 
 ################################
-# Recording controls
+# Controls
+
+########
+# Recording
 
 class RecCtrl:
     active    = 'recording_active'
     folder    = 'current_folder'
 
 ################################
-# Protocol controls
+# Protocol
 
 class ProtocolCtrl:
     name             = 'current_protocol'

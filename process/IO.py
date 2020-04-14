@@ -19,125 +19,54 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import logging
 import time
 
+import Config
 import Controller
 import Def
-from devices import Arduino
 import IPC
 import Logging
 
-class Main(Controller.BaseProcess):
+class Main(Controller.AbstractProcess):
     name = Def.Process.IO
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Controller.AbstractProcess.__init__(self, **kwargs)
+
+        self.device = None
+        if Config.IO[Def.IoCfg.device_type] == 'Arduino':
+            import devices.microcontrollers.Arduino
+            self.device = devices.microcontrollers.Arduino.Device()
 
         try:
-            Arduino.getSerialConnection()
-        except:
-            Logging.logger.log(logging.WARNING, 'No connected serial device found.')
+            if self.device is None:
+                raise Exception('No applicable device found.')
+            else:
+                if self.device.connect():
+                    if self.device.setup():
+                        ### Run event loop
+                        self.run()
+        except Exception as exc:
+            Logging.logger.log(logging.WARNING, 'Could not connect to device. // Exception: {}'
+                               .format(exc))
+            self.setState(Def.State.STOPPED)
 
 
-        ### Run event loop
-        self.run()
+
+    def _prepareProtocol(self):
+        print('Protocollin\' and rollin\'')
+        self.protocol = 'something'
+
+    def _preparePhase(self):
+        print('phase lala')
+
+    def _cleanupProtocol(self):
+        print('Just cleanin\'')
 
 
     def main(self):
-        #print(self.getState())
-        ########
-        ### RUNNING
-        if self.inState(self.State.RUNNING):
 
-            if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                Logging.write(logging.INFO, 'Phase {} ended.'.format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]))
-                self.setState(self.State.PHASE_END)
-                return
-
-            #TODO: actually draw frame
+        if self._runProtocol():
+            self.device._digital['test01_pwmout'].write(1)
+            time.sleep(0.5)
+            self.device._digital['test01_pwmout'].write(0)
+            time.sleep(0.5)
             pass
-
-        ########
-        ### IDLE
-        elif self.inState(self.State.IDLE):
-
-            ## Ctrl PREPARE_PROTOCOL
-            if self.inState(self.State.PREPARE_PROTOCOL, Def.Process.Controller):
-
-                # TODO: actually set up protocol
-                protocol = IPC.Control.Protocol[Def.ProtocolCtrl.name]
-
-                # Set next state
-                self.setState(self.State.WAIT_FOR_PHASE)
-                return
-
-            ### Fallback, timeout
-            time.sleep(0.05)
-
-        ########
-        ### WAIT_FOR_PHASE
-        elif self.inState(self.State.WAIT_FOR_PHASE):
-
-            if not(self.inState(self.State.PREPARE_PHASE, Def.Process.Controller)):
-                return
-
-            # TODO: actually set up phase
-            phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-
-            # Set next state
-            self.setState(self.State.READY)
-
-        ########
-        ### READY
-        elif self.inState(self.State.READY):
-            if not(self.inState(self.State.RUNNING, Def.Process.Controller)):
-                return
-
-            ### Wait for go time
-            while self.inState(self.State.RUNNING, Def.Process.Controller):
-                if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= time.time():
-                    Logging.write(logging.INFO, 'Start at {}'.format(time.time()))
-                    self.setState(self.State.RUNNING)
-                    break
-
-            return
-
-        ########
-        ### PHASE_END
-        elif self.inState(self.State.PHASE_END):
-
-            ####
-            ## Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.inState(self.State.PREPARE_PHASE, Def.Process.Controller):
-                self.setState(self.State.WAIT_FOR_PHASE)
-                return
-
-            elif self.inState(self.State.PROTOCOL_END, Def.Process.Controller):
-
-                # TODO: clean up protocol
-
-                self.setState(self.State.IDLE)
-            else:
-                pass
-
-        ########
-        ### Fallback: timeout
-        else:
-            time.sleep(0.05)
-    def startProtocol(self):
-        Logging.write(logging.INFO, 'Start new protocol ({})'
-                      .format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
-
-        ### Set protocol
-        self.protocol1 = 'blabla'
-
-        ### Stand by for phase
-        self.setState(self.State.standby)
-
-    def stopProtocol(self):
-        Logging.write(logging.INFO, 'Stop protocol ({})'
-                      .format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
-
-        ### Cleanup
-        self.protocol1 = None
-
-        ### Turn to idle
-        self.setState(self.State.IDLE)

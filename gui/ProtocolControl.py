@@ -22,6 +22,7 @@ from PyQt5 import QtCore, QtWidgets
 
 import Controller
 import Def
+import IPC
 import protocols
 
 class Protocols(QtWidgets.QWidget):
@@ -73,7 +74,7 @@ class Protocols(QtWidgets.QWidget):
             self._lwdgt_protocols.addItem(protocol._name)
 
     def _updateProtocolInfo(self):
-        self._btn_start_protocol.setEnabled(self.main.inState(self.main.State.IDLE, Def.Process.Controller))
+        self._btn_start_protocol.setEnabled(IPC.inState(Def.State.IDLE, Def.Process.Controller))
 
     def startStimulationProtocol(self):
         file_name = self._lwdgt_files.currentItem().text()

@@ -18,15 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from glumpy import gl
 
-from Visuals import PlaneVisual
+from Visuals import PlanarVisual
 from models import BasicPlane
 from Shader import BasicFileShader
 
 
-class Checkerboard(PlaneVisual):
+class Checkerboard(PlanarVisual):
 
     def __init__(self, protcol, display):
-        PlaneVisual.__init__(self, display=display, protocol=protcol)
+        PlanarVisual.__init__(self, display=display, protocol=protcol)
 
         self.plane = self.addModel('planar',
                                    BasicPlane.VerticalXYPlane)

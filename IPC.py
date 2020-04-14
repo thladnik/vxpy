@@ -16,13 +16,20 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import ctypes
+import logging
 from multiprocessing import managers
 
 import Def
+import Logging
 
 Manager : managers.SyncManager
 
+########
+# States
+
 class State:
+    localName  : str = None
+
     Camera     : int = None
     Controller : int = None
     Display    : int = None
@@ -31,6 +38,38 @@ class State:
     Logger     : int = None
     Worker     : int = None
 
+def setState(new_state):
+    getattr(State, State.localName).value = new_state
+
+def getState(process_name=None):
+    if process_name is None:
+        process_name = State.localName
+
+    return getattr(State, process_name).value
+
+def inState(state, process_name=None):
+    if process_name is None:
+        process_name = State.localName
+
+    return getState(process_name) == state
+
+
+########
+# Pipes
+
+Pipes : dict = dict()
+
+def send(processName, signal, *args, **kwargs):
+    Logging.write(logging.DEBUG, 'Send to process {} with signal {} > args: {} > kwargs: {}'
+                  .format(processName, signal, args, kwargs))
+    Pipes[processName][0].send([signal, args, kwargs])
+
+def rpc(processName, function, *args, **kwargs):
+    send(processName, Def.Signal.RPC, function.__name__, *args, **kwargs)
+
+
+########
+# Buffers
 
 class Buffer:
     Camera   = None

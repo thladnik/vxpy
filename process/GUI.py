@@ -38,13 +38,13 @@ import process.Camera
 import process.Display
 import process.Logger
 
-class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
+class Main(QtWidgets.QMainWindow, Controller.AbstractProcess):
     name = Def.Process.GUI
 
     _app         : QtWidgets.QApplication
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs)
+        Controller.AbstractProcess.__init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         ### Set icon
@@ -63,7 +63,7 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         self.run()
 
     def run(self):
-        IPC.State.Gui.value = self.State.IDLE
+        IPC.setState(Def.State.IDLE)
         ### Set timer for handling of communication
         self._tmr_handlePipe = QtCore.QTimer()
         self._tmr_handlePipe.timeout.connect(self._handleInbox)
@@ -152,17 +152,17 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
         # Restart display
         self._menu_process_redisp = QtWidgets.QAction('Restart display')
         self._menu_process_redisp.triggered.connect(
-            lambda: self.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Display))
+            lambda: IPC.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Display))
         self._menu_process.addAction(self._menu_process_redisp)
         # Restart camera
         self._menu_process_recam = QtWidgets.QAction('Restart camera')
         self._menu_process_recam.triggered.connect(
-            lambda: self.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Camera))
+            lambda: IPC.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Camera))
         self._menu_process.addAction(self._menu_process_recam)
         # Restart IO
         self._menu_process_relog = QtWidgets.QAction('Restart logger')
         self._menu_process_relog.triggered.connect(
-            lambda: self.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Logger))
+            lambda: IPC.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Logger))
         self._menu_process.addAction(self._menu_process_relog)
 
         ## Display Settings
@@ -249,10 +249,10 @@ class Main(QtWidgets.QMainWindow, Controller.BaseProcess):
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         ### Inform controller of close event
-        self.send(Def.Process.Controller, Controller.BaseProcess.Signal.Shutdown)
+        IPC.send(Def.Process.Controller, Def.Signal.Shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
-        self.setState(self.State.stopped)
+        IPC.setState(Def.State.STOPPED)
 
         ### Close child widgets
         self._wdgt_dispSettings.close()

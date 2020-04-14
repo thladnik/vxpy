@@ -31,25 +31,31 @@ import Logging
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-class Main(Controller.BaseProcess):
+class Main(Controller.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Controller.AbstractProcess.__init__(self, **kwargs)
 
         ### Set recording parameters
         self.frameDims = (int(Config.Camera[Def.CameraCfg.res_y]),
                           int(Config.Camera[Def.CameraCfg.res_x]))
 
         ### Get selected camera
-        self.camera = devices.Camera.GetCamera(1)
+        try:
+            self.camera = devices.Camera.GetCamera(1)
 
-        Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
+            Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
                            .format(Config.Camera[Def.CameraCfg.manufacturer],
                                    Config.Camera[Def.CameraCfg.model]))
+        except Exception as exc:
+            Logging.logger.log(logging.INFO, 'Unable to use camera {}>>{} // Exception: {}'
+                               .format(Config.Camera[Def.CameraCfg.manufacturer],
+                                       Config.Camera[Def.CameraCfg.model],
+                                       exc))
+
 
         ### Set avg. minimum sleep period
-        #sleep(2)  # Wait to determine sleep period (on initial startup heavy CPU load skews the results)
         times = list()
         for i in range(100):
             t = perf_counter()
@@ -59,7 +65,7 @@ class Main(Controller.BaseProcess):
         msg = 'Set acquisition threshold to {0:.6f}s'.format(self.acqSleepThresh)
         if self.acqSleepThresh > 1./Config.Camera[Def.CameraCfg.fps]:
             msg_type = logging.WARNING
-            msg += '. Threshold is ABOVE average target frame time of 1/{}.'\
+            msg += '. Threshold is ABOVE average target frame time of 1/{}s.'\
                 .format(Config.Camera[Def.CameraCfg.fps])
         else:
             msg_type = logging.INFO
@@ -71,7 +77,8 @@ class Main(Controller.BaseProcess):
 
     def main(self):
         # Update camera settings
-        # All camera settings with the "*_prop_*" substring are considered properties which may be changed online
+        # All camera settings with the "*_prop_*" substring
+        # are considered properties which may be changed online
         for setting, value in Config.Camera.items():
             if setting.find('_prop_') >= 0:
                 self.camera.updateProperty(setting, value)

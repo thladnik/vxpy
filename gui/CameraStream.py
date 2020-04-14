@@ -87,7 +87,6 @@ class Camera(QtWidgets.QWidget):
         if propName == Def.CameraCfg.exposure:
             Config.Camera[propName] = self._dspn_exposure.value()
         elif propName == Def.CameraCfg.gain:
-            print('Set gain to {}'.format(self._dspn_gain.value()))
             Config.Camera[propName] = self._dspn_gain.value()
 
     def updateImage(self):

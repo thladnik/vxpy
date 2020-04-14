@@ -98,15 +98,15 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._tmr_updateGUI.start()
 
     def _getProcessStateStr(self, code):
-        if code == self._main.State.stopped:
+        if code == Def.State.STOPPED:
             return 'Stopped'
-        elif code == self._main.State.READY:
+        elif code == Def.State.READY:
             return 'Ready'
-        elif code == self._main.State.IDLE:
+        elif code == Def.State.IDLE:
             return 'Idle'
-        elif code == self._main.State.RUNNING:
+        elif code ==Def.State.RUNNING:
             return 'Running'
-        elif code == self._main.State.starting:
+        elif code == Def.State.starting:
             return 'Starting'
         else:
             return 'N/A'
@@ -116,13 +116,13 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         le.setText(self._getProcessStateStr(code))
 
         ### Set style
-        if code == self._main.State.IDLE:
+        if code == Def.State.IDLE:
             le.setStyleSheet('color: #3bb528; font-weight:bold;')
-        elif code == self._main.State.starting:
+        elif code == Def.State.starting:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif code == self._main.State.READY:
+        elif code == Def.State.READY:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif code == self._main.State.stopped:
+        elif code == Def.State.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
         else:
             le.setStyleSheet('color: #FF0000')
@@ -275,7 +275,7 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Set buttons dis-/enabled
         self._btn_start.setEnabled(not(active) and enabled)
-        self._btn_start.setText('Start' if self._main.inState(self._main.State.IDLE, Def.Process.Controller) else 'Resume')
+        self._btn_start.setText('Start' if self._main.inState(Def.State.IDLE, Def.Process.Controller) else 'Resume')
         #self._btn_pause.setEnabled(active and enabled)
         self._btn_pause.setEnabled(False)
         self._btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
