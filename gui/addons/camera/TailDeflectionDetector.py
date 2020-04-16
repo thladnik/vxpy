@@ -51,16 +51,16 @@ class TailDeflectionDetector(QtWidgets.QWidget):
         self._tmr_frameUpdate.start()
 
     def updateFrame(self):
-        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.Buffer.Camera.readBuffer('TailDeflectionDetector'), -1))
+        self.graphicsWidget.imageItem.setImage(np.rot90(IPC.BufferObject.Camera.readBuffer('TailDeflectionDetector'), -1))
 
 class GraphicsWidget(pg.GraphicsLayoutWidget):
     def __init__(self, **kwargs):
         pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
         ### Set synchronized variables
-        self.fishMarkerRects: dict = IPC.Buffer.Camera._buffers[self.parent().__class__.__name__].fishMarkerRects
-        self.extractedRects: dict = IPC.Buffer.Camera._buffers[self.parent().__class__.__name__].extractedRects
-        self.tailDeflectionAngles = IPC.Buffer.Camera._buffers[self.parent().__class__.__name__].tailDeflectionAngles
+        self.fishMarkerRects: dict = IPC.BufferObject.Camera._buffers[self.parent().__class__.__name__].fishMarkerRects
+        self.extractedRects: dict = IPC.BufferObject.Camera._buffers[self.parent().__class__.__name__].extractedRects
+        self.tailDeflectionAngles = IPC.BufferObject.Camera._buffers[self.parent().__class__.__name__].tailDeflectionAngles
 
         ### Set up basics
         self.lineSegROIs = dict()

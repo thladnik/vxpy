@@ -91,6 +91,6 @@ class Camera(QtWidgets.QWidget):
 
     def updateImage(self):
         # Plot image
-        self._plotItem.setImage(np.rot90(IPC.Buffer.Camera._buffers['FrameBuffer'].readFrame(), -1))
+        self._plotItem.setImage(np.rot90(IPC.BufferObject.Camera._buffers['FrameBuffer'].readFrame(), -1))
 
         self.t = perf_counter()

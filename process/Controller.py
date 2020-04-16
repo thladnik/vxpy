@@ -1,5 +1,5 @@
 """
-MappApp ./Controller.py - Base process and controller class called to start program.
+MappApp ./Controller.py - Controller process class.
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
@@ -33,334 +33,51 @@ from helper import Basic
 import IPC
 import Logging
 import process
+from Process import AbstractProcess
 
-if Def.Env == Def.EnvTypes.Dev:
-    pass
-
-##################################
-## Process BASE class
-
-class AbstractProcess:
-    name       : str
-
-
-    _running   : bool
-    _shutdown  : bool
-
-    _logQueue  : mp.Queue
-    _inPipe    : mp.connection.PipeConnection
-
-    ## Controller exclusives
-    _processes : dict = dict()
-
-
-    def __init__(self, **kwargs):
-        """
-        Kwargs should contain at least
-          _logQueue
-          _inPipe
-        for basic communication and logging in sub processes (Controller does not require _inPipe)
-
-        Known further kwargs are:
-          _app (GUI)
-        """
-
-
-        for key, value in kwargs.items():
-
-            # Set buffers
-            if key == '_buffers':
-                for bkey, buffer in value.items():
-                    setattr(IPC.Buffer, bkey, buffer)
-            # Set configurations
-            elif key == '_configurations':
-                for ckey, config in value.items():
-                    setattr(Config, ckey, config)
-            # Set controls
-            elif key == '_controls':
-                for ckey, control in value.items():
-                    setattr(IPC.Control, ckey, control)
-            # Set state ints (managed ints)
-            elif key == '_states':
-                for skey, state in value.items():
-                    setattr(IPC.State, skey, state)
-            # Set pipes
-            elif key == '_pipes':
-                IPC.Pipes.update(value)
-
-            # Set process attributes
-            else:
-                setattr(self, key, value)
-
-        ### Set process name in IPC
-        IPC.State.localName = self.name
-
-        ### Set process state
-        if not(getattr(IPC.State, self.name) is None):
-            IPC.setState(Def.State.starting)
-
-        ### Setup logging
-        Logging.setupLogger(self._logQueue, self.name)
-
-        ### Bind signals
-        signal.signal(signal.SIGINT, self._handleSIGINT)
-
-    def run(self):
-        Logging.logger.log(logging.INFO, 'Run {}'.format(self.name))
-        ### Set state to running
-        self._running = True
-        self._shutdown = False
-
-        ### Set process state
-        IPC.setState(Def.State.IDLE)
-
-        ### Run event loop
-        self.t = time.perf_counter()
-        while self._isRunning():
-            self._handleInbox()
-            self.main()
-            self.t = time.perf_counter()
-
-    def main(self):
-        """Event loop to be re-implemented in subclass"""
-        raise NotImplementedError('Event loop of process base class is not implemented in {}.'
-                                  .format(self.name))
-
-    ################################
-    ### PROTOCOL RESPONSE
-
-    def _prepareProtocol(self):
-        """Method is called when a new protocol has been started by Controller."""
-        raise NotImplementedError('Method "_prepareProtocol not implemented in {}.'
-                                  .format(self.name))
-
-    def _preparePhase(self):
-        """Method is called when the Controller has set the next protocol phase."""
-        raise NotImplementedError('Method "_preparePhase" not implemented in {}.'
-                                  .format(self.name))
-
-    def _cleanupProtocol(self):
-        """Method is called after the last phase at the end of the protocol."""
-        raise NotImplementedError('Method "_cleanupProtocol" not implemented in {}.'
-                                  .format(self.name))
-
-    def _runProtocol(self):
-        """Method can be called by all processes that in some way respond to
-        the protocol control states.
-
-        Returns True of protocol is currently running and False if not.
-        """
-
-        ########
-        ### RUNNING
-        if self.inState(Def.State.RUNNING):
-
-            if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                self.setState(Def.State.PHASE_END)
-                return False
-
-            ### Execute
-            return True
-
-        ########
-        ### IDLE
-        elif self.inState(Def.State.IDLE):
-
-            ## Ctrl PREPARE_PROTOCOL
-            if self.inState(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
-
-                self._prepareProtocol()
-                protocol = IPC.Control.Protocol[Def.ProtocolCtrl.name]
-
-                # Set next state
-                self.setState(Def.State.WAIT_FOR_PHASE)
-                return False
-
-            ### Fallback, timeout
-            time.sleep(0.05)
-
-        ########
-        ### WAIT_FOR_PHASE
-        elif self.inState(Def.State.WAIT_FOR_PHASE):
-
-            if not(self.inState(Def.State.PREPARE_PHASE, Def.Process.Controller)):
-                return False
-
-            self._preparePhase()
-            phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-
-            # Set next state
-            self.setState(Def.State.READY)
-
-        ########
-        ### READY
-        elif self.inState(Def.State.READY):
-            if not(self.inState(Def.State.RUNNING, Def.Process.Controller)):
-                return False
-
-            ### Wait for go time
-            while self.inState(Def.State.RUNNING, Def.Process.Controller):
-                if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= time.time():
-                    Logging.write(logging.INFO, 'Start at {}'.format(time.time()))
-                    self.setState(Def.State.RUNNING)
-                    break
-
-            ### Execute
-            return True
-
-        ########
-        ### PHASE_END
-        elif self.inState(Def.State.PHASE_END):
-
-            ####
-            ## Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.inState(Def.State.PREPARE_PHASE, Def.Process.Controller):
-                self.setState(Def.State.WAIT_FOR_PHASE)
-
-
-            elif self.inState(Def.State.PROTOCOL_END, Def.Process.Controller):
-
-                self._cleanupProtocol()
-
-                self.setState(Def.State.IDLE)
-            else:
-                pass
-
-            ### Do NOT execute
-            return False
-
-        ########
-        ### Fallback: timeout
-        else:
-            time.sleep(0.05)
-
-    def getState(self, process=None):
-        """Deprecated. Now handled directly in IPC"""
-        if process is None:
-            process = self.name
-        return getattr(IPC.State, process).value
-
-    def setState(self, code):
-        """Deprecated. Now handled directly in IPC"""
-        getattr(IPC.State, self.name).value = code
-
-    def inState(self, code, process=None):
-        """Deprecated. Now handled directly in IPC"""
-        if process is None:
-            process = self.name
-        return getattr(IPC.State, process).value == code
-
-    def _startShutdown(self):
-        # Handle all pipe messages before shutdown
-        while IPC.Pipes[self.name][1].poll():
-            self._handleInbox()
-
-        ### Set process state
-        if getattr(IPC.State, self.name) is not None:
-            getattr(IPC.State, self.name).value = Def.State.STOPPED
-
-        self._shutdown = True
-
-    def _isRunning(self):
-        return self._running and not(self._shutdown)
-
-    ### Inter process communication
-
-    def send(self, processName, signal, *args, **kwargs):
-        """DEPRECATED > moved to IPC
-        Convenience function to send messages to other Processes.
-        All messages have the format [Sender, Receiver, Data]
-        """
-        Logging.write(logging.DEBUG, 'Send to process {} with signal {} > args: {} > kwargs: {}'
-                      .format(processName, signal, args, kwargs))
-        IPC.Pipes[processName][0].send([signal, args, kwargs])
-
-    def rpc(self, processName, function, *args, **kwargs):
-        """DEPRECATED > moved to IPC"""
-        self.send(processName, Def.Signal.RPC, function.__name__, *args, **kwargs)
-
-    ################################
-    ### Private functions
-
-    def _executeRPC(self, fun: str, *args, **kwargs):
-        """Execute a remote call to the specified function and pass *args, **kwargs
-
-        :param fun: function name
-        :param args: list of arguments
-        :param kwargs: dictionary of keyword arguments
-        :return:
-        """
-        try:
-            Logging.logger.log(logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'.
-                               format(fun, args, kwargs))
-            getattr(self, fun)(*args, **kwargs)
-        except Exception as exc:
-            Logging.logger.log(logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
-                                                '// Exception: {}'.
-                                                format(fun, args, kwargs, exc))
-
-    def _handleInbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
-
-        # Poll pipe
-        if not(IPC.Pipes[self.name][1].poll()):
-            return
-
-        msg = IPC.Pipes[self.name][1].recv()
-
-        Logging.logger.log(logging.DEBUG, 'Received message: {}'.
-                           format(msg))
-
-        ### Unpack message
-        signal, args, kwargs = msg
-
-        if signal == Def.Signal.Shutdown:
-            self._startShutdown()
-
-        ### RPC calls
-        elif signal == Def.Signal.RPC:
-            self._executeRPC(*args, **kwargs)
-
-    def _handleSIGINT(self, sig, frame):
-        print('> SIGINT event handled in  %s' % self.__class__)
-        sys.exit(0)
-
-
-##################################
-### CONTROLLER class
+configfile = None
 
 class Controller(AbstractProcess):
     name = Def.Process.Controller
 
     _registeredProcesses = list()
 
+    _processes : dict = dict()
+
     def __init__(self):
-        AbstractProcess.__init__(self, _logQueue=mp.Queue())
+        ### Set up manager
+        IPC.Manager = mp.Manager()
+
+        ### Set up logging
+        IPC.Log.Queue = mp.Queue()
+        IPC.Log.History = IPC.Manager.list()
+        IPC.Log.File = IPC.Manager.Value(ctypes.c_char_p, '')
+
+        AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
+                                             if not (k.startswith('_'))})
+        global configfile
 
         ### Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
 
-        ### Set up manager
-        IPC.Manager = mp.Manager()
-
         ### Set configurations
+        self.configuration = Basic.Config(configfile)
         # Camera
         Config.Camera = IPC.Manager.dict()
-        Config.Camera.update(configuration.configuration(Def.CameraCfg))
+        Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
         # Display
         Config.Display = IPC.Manager.dict()
-        Config.Display.update(configuration.configuration(Def.DisplayCfg))
+        Config.Display.update(self.configuration.configuration(Def.DisplayCfg))
         # Gui
         Config.Gui = IPC.Manager.dict()
-        Config.Gui.update(configuration.configuration(Def.GuiCfg))
+        Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
         # IO
         Config.IO = IPC.Manager.dict()
-        Config.IO.update(configuration.configuration(Def.IoCfg))
+        Config.IO.update(self.configuration.configuration(Def.IoCfg))
         # Recording
         Config.Recording = IPC.Manager.dict()
-        Config.Recording.update(configuration.configuration(Def.RecCfg))
+        Config.Recording.update(self.configuration.configuration(Def.RecCfg))
 
-        # Set up logfile
-        IPC.Buffer.Logfile = IPC.Manager.Value(ctypes.c_char_p, '')
 
         ### Set up states
         IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
@@ -436,35 +153,42 @@ class Controller(AbstractProcess):
             ### Delete references
             del self._processes[processName]
 
+        ### Update keyword args
+        kwargs.update(dict(
+                          _pipes          = IPC.Pipes,
+                          _configurations = {k: v for k, v in Config.__dict__.items()
+                                             if not (k.startswith('_'))},
+                          _states         = {k: v for k, v in IPC.State.__dict__.items()
+                                             if not (k.startswith('_'))},
+                          _buffers        = {k: v for k, v in IPC.BufferObject.__dict__.items()
+                                            if not (k.startswith('_'))},
+                          _controls       = {k: v for k, v in IPC.Control.__dict__.items()
+                                             if not (k.startswith('_'))},
+                          _log            = {k: v for k, v in IPC.Log.__dict__.items()
+                                             if not (k.startswith('_'))},
+                          **kwargs
+                      ))
+
+        ### Create subprocess
         self._processes[processName] = mp.Process(target=target,
                                                   name=processName,
-                                                  kwargs=dict(
-                                                      _logQueue       = self._logQueue, # TODO: move out of class, this is IPC
-                                                      _pipes          = IPC.Pipes,
-                                                      _configurations = {k: v for k, v in Config.__dict__.items()
-                                                                         if not (k.startswith('_'))},
-                                                      _states         = {k: v for k, v in IPC.State.__dict__.items()
-                                                                         if not (k.startswith('_'))},
-                                                      _buffers        = {k: v for k, v in IPC.Buffer.__dict__.items()
-                                                                        if not (k.startswith('_'))},
-                                                      _controls       = {k: v for k, v in IPC.Control.__dict__.items()
-                                                                         if not (k.startswith('_'))},
-                                                      **kwargs
-                                                  ))
+                                                  kwargs=kwargs)
 
+        ### Start subprocess
         self._processes[processName].start()
 
+        ### Set state to IDLE
         self.setState(Def.State.IDLE)
 
     def _setupBuffers(self):
         ### Create buffer object
-        IPC.Buffer.Camera = Buffer.BufferObject(Def.Process.Camera)
+        IPC.BufferObject.Camera = Buffer.BufferObject(Def.Process.Camera)
 
         ### Add camera buffers if camera is activated
         if Config.Camera[Def.CameraCfg.use]:
             import buffers.CameraBuffers
             for bufferName in Config.Camera[Def.CameraCfg.buffers]:
-                IPC.Buffer.Camera.addBuffer(getattr(buffers.CameraBuffers, bufferName))
+                IPC.BufferObject.Camera.addBuffer(getattr(buffers.CameraBuffers, bufferName))
 
     def start(self):
         ### Initialize all pipes
@@ -495,11 +219,11 @@ class Controller(AbstractProcess):
 
         ### Pre-shutdown
         ## Update configurations that should persist
-        Logging.logger.log(logging.INFO, 'Save configuration to file {}'.format(_configfile))
-        configuration.updateConfiguration(Def.CameraCfg, **{k : v for k, v in Config.Camera.items() if k.find('_prop_') >= 0})
-        configuration.updateConfiguration(Def.DisplayCfg, **Config.Display)
-        configuration.updateConfiguration(Def.RecCfg, **Config.Recording)
-        configuration.saveToFile()
+        Logging.logger.log(logging.INFO, 'Save configuration to file {}'.format(configfile))
+        self.configuration.updateConfiguration(Def.CameraCfg, **{k : v for k, v in Config.Camera.items() if k.find('_prop_') >= 0})
+        self.configuration.updateConfiguration(Def.DisplayCfg, **Config.Display)
+        self.configuration.updateConfiguration(Def.RecCfg, **Config.Recording)
+        self.configuration.saveToFile()
 
         ### Shutdown procedure
         Logging.logger.log(logging.DEBUG, 'Wait for processes to terminate')
@@ -571,7 +295,7 @@ class Controller(AbstractProcess):
         #TODO: compose proper metadata, append sessiondata and save to file
 
         ### Let worker compose all individual recordings into one data structure
-        self.rpc(Def.Process.Worker, process.Worker.runTask,
+        IPC.rpc(Def.Process.Worker, process.Worker.runTask,
                  'ComposeRecordings',
                  IPC.Control.Recording[Def.RecCtrl.folder])
 
@@ -706,11 +430,3 @@ class Controller(AbstractProcess):
         self._shutdown = True
         for processName in self._processes:
             IPC.send(processName, Def.Signal.Shutdown)
-
-
-if __name__ == '__main__':
-
-    #_configfile = 'default_TIS.ini'
-    _configfile = 'default.ini'
-    configuration = Basic.Config(_configfile)
-    ctrl = Controller()

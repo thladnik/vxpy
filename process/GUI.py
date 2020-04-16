@@ -20,12 +20,10 @@ import logging
 import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
-from time import strftime, sleep
 
 import Def
-import Buffer
 import Config
-import Controller
+import Process
 import IPC
 import Logging
 import gui.DisplaySettings
@@ -38,13 +36,17 @@ import process.Camera
 import process.Display
 import process.Logger
 
-class Main(QtWidgets.QMainWindow, Controller.AbstractProcess):
+class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
     name = Def.Process.GUI
 
-    _app         : QtWidgets.QApplication
+    _app : QtWidgets.QApplication
 
-    def __init__(self, **kwargs):
-        Controller.AbstractProcess.__init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs)
+    def __init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs):
+        ### Create application
+        self._app = _app
+
+        ### Set up superclasses
+        Process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         ### Set icon
@@ -63,6 +65,7 @@ class Main(QtWidgets.QMainWindow, Controller.AbstractProcess):
         self.run()
 
     def run(self):
+        #Logging.write(logging.INFO, 'RUN GUI')
         IPC.setState(Def.State.IDLE)
         ### Set timer for handling of communication
         self._tmr_handlePipe = QtCore.QTimer()
@@ -116,7 +119,6 @@ class Main(QtWidgets.QMainWindow, Controller.AbstractProcess):
         self._grp_recordings = gui.Integrated.Recording(self)
         self.centralWidget().layout().addWidget(self._grp_recordings, 1, 0)
 
-
         ## Logger
         self._grp_log = QtWidgets.QGroupBox()
         self._grp_log.setLayout(QtWidgets.QVBoxLayout())
@@ -152,17 +154,17 @@ class Main(QtWidgets.QMainWindow, Controller.AbstractProcess):
         # Restart display
         self._menu_process_redisp = QtWidgets.QAction('Restart display')
         self._menu_process_redisp.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Display))
+            lambda: IPC.rpc(Def.Process.Controller, Process.Controller.initializeProcess, process.Display))
         self._menu_process.addAction(self._menu_process_redisp)
         # Restart camera
         self._menu_process_recam = QtWidgets.QAction('Restart camera')
         self._menu_process_recam.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Camera))
+            lambda: IPC.rpc(Def.Process.Controller, Process.Controller.initializeProcess, process.Camera))
         self._menu_process.addAction(self._menu_process_recam)
         # Restart IO
         self._menu_process_relog = QtWidgets.QAction('Restart logger')
         self._menu_process_relog.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, Controller.Controller.initializeProcess, process.Logger))
+            lambda: IPC.rpc(Def.Process.Controller, Process.Controller.initializeProcess, process.Logger))
         self._menu_process.addAction(self._menu_process_relog)
 
         ## Display Settings
@@ -213,20 +215,15 @@ class Main(QtWidgets.QMainWindow, Controller.AbstractProcess):
         self._menu_process_relog.setAutoRepeat(False)
 
     def printLog(self):
-        if IPC.Buffer.Logfile is None:
+        if IPC.Log.File is None:
             return
 
-        with open(os.path.join(Def.Path.Log, IPC.Buffer.Logfile.value), 'r') as fobj:
-            lines = fobj.read().split('<<\n')
-            for line in lines[self.logccount:]:
-                if len(line) == 0:
-                    continue
-                record = line.split(' <<>> ')
-                if record[2].find('INFO') > -1 or record[2].find('WARN') > -1 or record[2].find('EXE') > -1 :
-                    line = '{} :: {:10} :: {:8} :: {}'\
-                        .format(record[0], record[1].replace(' ', ''), record[2].replace(' ', ''), record[3])
-
+        if len(IPC.Log.History) > self.logccount:
+            for record in IPC.Log.History[self.logccount:]:
+                if record.levelno > 10:
+                    line = '{} : {:10} : {}'.format(record.asctime, record.levelname, record.msg)
                     self._txe_log.append(line)
+
                 self.logccount += 1
 
     def _openDisplaySettings(self):

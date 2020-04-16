@@ -22,7 +22,7 @@ import numpy as np
 from time import perf_counter, strftime, sleep
 
 import Config
-import Controller
+import Process
 import Def
 import devices.Camera
 import IPC
@@ -31,11 +31,11 @@ import Logging
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-class Main(Controller.AbstractProcess):
+class Main(Process.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        Controller.AbstractProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         ### Set recording parameters
         self.frameDims = (int(Config.Camera[Def.CameraCfg.res_y]),
@@ -86,7 +86,7 @@ class Main(Controller.AbstractProcess):
         # Fetch current frame
         frame = self.camera.getImage()
         # Update buffers
-        IPC.Buffer.Camera.update(frame)
+        IPC.BufferObject.Camera.update(frame)
 
         # Wait until next frame
         t = self.t + 1./Config.Camera[Def.CameraCfg.fps] - perf_counter()

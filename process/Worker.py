@@ -22,15 +22,15 @@ import importlib
 import logging
 import os
 
-import Controller
+import Process
 import Def
 import Logging
 
-class Main(Controller.AbstractProcess):
+class Main(Process.AbstractProcess):
     name = Def.Process.Worker
 
     def __init__(self, **kwargs):
-        Controller.AbstractProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         self._task_intervals = list()
         self._scheduled_times = list()

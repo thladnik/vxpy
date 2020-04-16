@@ -60,23 +60,32 @@ def inState(state, process_name=None):
 Pipes : dict = dict()
 
 def send(processName, signal, *args, **kwargs):
+    """Convenience function for sending messages to other Processes.
+    All messages have the format [Signal code, Argument list, Keyword argument dictionary]
+    """
     Logging.write(logging.DEBUG, 'Send to process {} with signal {} > args: {} > kwargs: {}'
                   .format(processName, signal, args, kwargs))
     Pipes[processName][0].send([signal, args, kwargs])
 
 def rpc(processName, function, *args, **kwargs):
-    send(processName, Def.Signal.RPC, function.__name__, *args, **kwargs)
+    send(processName, Def.Signal.RPC, function. __qualname__, *args, **kwargs)
 
 
 ########
-# Buffers
+# Buffer objects
 
-class Buffer:
+class BufferObject:
     Camera   = None
     Io       = None
     Display  = None
-    Logfile = None
 
+class Log:
+    File     = None
+    Queue    = None
+    History  = None
+
+########
+# Controls
 
 class Control:
     Recording = None

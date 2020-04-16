@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from configparser import ConfigParser
 import os
+import sys
 from typing import Union
 
 from PyQt5 import QtCore, QtWidgets
@@ -128,7 +129,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
     def _startApplication(self):
         self.configuration.saveToFile()
-        global _configfile
+        global configfile
         _configfile = self._configfile
         self.close()
 
@@ -155,13 +156,22 @@ class CameraWidget(QtWidgets.QGroupBox):
 
 if __name__ == '__main__':
 
-    _configfile = None
-    app = QtWidgets.QApplication([])
-    window = StartupConfiguration()
-    app.exec_()
+    if not('--skip_setup' in sys.argv):
 
-    if _configfile is None:
-        exit()
+        configfile = None
+        app = QtWidgets.QApplication([])
+        window = StartupConfiguration()
+        app.exec_()
 
-    import Controller
-    Controller.Controller()
+        if configfile is None:
+            exit()
+
+        import Process
+        Process.Controller()
+
+    else:
+        # _configfile = 'default_TIS.ini'
+        from process import Controller
+
+        Controller.configfile = 'default.ini'
+        ctrl = Controller.Controller()

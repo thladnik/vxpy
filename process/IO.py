@@ -20,16 +20,16 @@ import logging
 import time
 
 import Config
-import Controller
+import Process
 import Def
 import IPC
 import Logging
 
-class Main(Controller.AbstractProcess):
+class Main(Process.AbstractProcess):
     name = Def.Process.IO
 
     def __init__(self, **kwargs):
-        Controller.AbstractProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         self.device = None
         if Config.IO[Def.IoCfg.device_type] == 'Arduino':

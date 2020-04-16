@@ -27,13 +27,15 @@ import Def
 from helper import Geometry
 import IPC
 
-import Controller
+import Process
 
 class FrameBuffer(AbstractBuffer):
+
 
     def __init__(self, *args, **kwargs):
         AbstractBuffer.__init__(self, *args, **kwargs)
 
+        self.exposed = [FrameBuffer.testbuffer, FrameBuffer.testbufferargs]
         ### Set up shared variables
         # Note that the self.<attrName> = self.sharedAttribute(<attrName>, ...) convention
         # is purely for accessibility purposes. The actual attribute name
@@ -45,6 +47,13 @@ class FrameBuffer(AbstractBuffer):
         ### Setup frame timing stats
         self.frametimes = list()
         self.t = perf_counter()
+
+    def testbuffer(self):
+        print('it is the buffer!')
+
+    def testbufferargs(self, arg1):
+        return
+        print('it is the buffer!', arg1)
 
     def _compute(self, frame):
         ### Call build function
@@ -65,6 +74,7 @@ class FrameBuffer(AbstractBuffer):
 
     def readFrame(self):
         return self.read('frame')
+
 
 class EyePositionDetector(AbstractBuffer):
 

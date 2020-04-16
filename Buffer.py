@@ -45,13 +45,28 @@ class BufferObject:
         self._npBuffers = dict()
 
 
+    def createHooks(self, instance):
+        """Method is called by process immediately after initialization.
+        For each method listed in the buffers 'exposed' attribute, it
+        sets a reference on the process instance to said buffer method,
+        thus making it accessible via RPC calls.
+        Attribute reference: <Buffer name>_<Buffer method name>
+
+        :arg instance: instance object of the current process
+        """
+        for name, buffer in self._buffers.items():
+            for method in buffer.exposed:
+                fun_path = method.__qualname__.split('.')
+                fun_str = '_'.join(fun_path)
+                if not(hasattr(instance, fun_str)):
+                    # This is probably my weirdest programming construct yet...
+                    setattr(instance, fun_str, lambda *args, **kwargs: method(buffer, *args, **kwargs))
+                else:
+                    print('Oh no, buffer method already set. NOT GOOD!')
+
     def addBuffer(self, buffer, **kwargs):
         """To be called by controller (initialization of buffers has to happen in parent process)"""
         self._buffers[buffer.__name__] = buffer(self, **kwargs)
-
-    def constructBuffers(self, _reconstruct=False):
-        """Deprecated -> remove"""
-        Logging.write(logging.WARNING, 'constructBuffer method for BufferObject is deprecated and will be removed.')
 
     def update(self, frame):
         for name in self._buffers:
@@ -127,6 +142,7 @@ class AbstractBuffer:
     def __init__(self, _bo):
         self._bo = _bo
 
+        self.exposed = list()
         self._built = False
         self._sharedAttributes = dict()
         self.currentTime = time()

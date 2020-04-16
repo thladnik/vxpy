@@ -21,7 +21,7 @@ from PyQt5 import QtCore, QtWidgets
 from time import strftime
 
 import Config
-import Controller
+from process.Controller import Controller
 import Def
 from helper.Basic import Conversion
 import IPC
@@ -132,13 +132,13 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         Additionally it modifies 
         """
 
-        self._setProcessState(self._le_controllerState, self._main.getState(Def.Process.Controller))
-        self._setProcessState(self._le_cameraState, self._main.getState(Def.Process.Camera))
-        self._setProcessState(self._le_displayState, self._main.getState(Def.Process.Display))
-        self._setProcessState(self._le_guiState, self._main.getState(Def.Process.GUI))
-        self._setProcessState(self._le_ioState, self._main.getState(Def.Process.IO))
-        self._setProcessState(self._le_loggerState, self._main.getState(Def.Process.Logger))
-        self._setProcessState(self._le_workerState, self._main.getState(Def.Process.Worker))
+        self._setProcessState(self._le_controllerState, IPC.getState(Def.Process.Controller))
+        self._setProcessState(self._le_cameraState, IPC.getState(Def.Process.Camera))
+        self._setProcessState(self._le_displayState, IPC.getState(Def.Process.Display))
+        self._setProcessState(self._le_guiState, IPC.getState(Def.Process.GUI))
+        self._setProcessState(self._le_ioState, IPC.getState(Def.Process.IO))
+        self._setProcessState(self._le_loggerState, IPC.getState(Def.Process.Logger))
+        self._setProcessState(self._le_workerState, IPC.getState(Def.Process.Worker))
 
 
 ################################
@@ -174,11 +174,11 @@ class Recording(QtWidgets.QGroupBox):
         ### Buttons
         ## Start
         self._btn_start = QtWidgets.QPushButton('Start')
-        self._btn_start.clicked.connect(lambda: self._main.rpc(Def.Process.Controller, Controller.Controller.startRecording))
+        self._btn_start.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.startRecording))
         self.wdgt.layout().addWidget(self._btn_start, 1, 0)
         ## Pause
         self._btn_pause = QtWidgets.QPushButton('Pause')
-        self._btn_pause.clicked.connect(lambda: self._main.rpc(Def.Process.Controller, Controller.Controller.pauseRecording))
+        self._btn_pause.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.pauseRecording))
         self.wdgt.layout().addWidget(self._btn_pause, 1, 1)
         ## Stop
         self._btn_stop = QtWidgets.QPushButton('Stop')
@@ -218,7 +218,7 @@ class Recording(QtWidgets.QGroupBox):
 
     def finalizeRecording(self):
         ### First: pause recording
-        self._main.rpc(Def.Process.Controller, Controller.Controller.pauseRecording)
+        IPC.rpc(Def.Process.Controller, Controller.pauseRecording)
 
         reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
                                                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
@@ -236,10 +236,10 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Finally: stop recording
         print('Stop recording...')
-        self._main.rpc(Def.Process.Controller, Controller.Controller.stopRecording)
+        IPC.rpc(Def.Process.Controller, Controller.stopRecording)
 
     def toggleEnable(self, newstate):
-        self._main.rpc(Def.Process.Controller, Controller.Controller.toggleEnableRecording, newstate)
+        IPC.rpc(Def.Process.Controller, Controller.toggleEnableRecording, newstate)
 
     def bufferStateChanged(self):
         """Update shared buffer list for recordings based on UI selection.
@@ -275,7 +275,7 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Set buttons dis-/enabled
         self._btn_start.setEnabled(not(active) and enabled)
-        self._btn_start.setText('Start' if self._main.inState(Def.State.IDLE, Def.Process.Controller) else 'Resume')
+        self._btn_start.setText('Start' if IPC.inState(Def.State.IDLE, Def.Process.Controller) else 'Resume')
         #self._btn_pause.setEnabled(active and enabled)
         self._btn_pause.setEnabled(False)
         self._btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)

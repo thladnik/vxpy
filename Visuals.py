@@ -25,7 +25,7 @@ import Logging
 import Model
 
 ################################
-### Abstract stimulus class
+### Abstract visual class
 
 class AbstractVisual:
 

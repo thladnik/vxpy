@@ -20,8 +20,8 @@ import importlib
 import os
 from PyQt5 import QtCore, QtWidgets
 
-import Controller
 import Def
+from process import Controller
 import IPC
 import protocols
 
@@ -80,5 +80,5 @@ class Protocols(QtWidgets.QWidget):
         file_name = self._lwdgt_files.currentItem().text()
         protocol_name = self._lwdgt_protocols.currentItem().text()
 
-        self.main.rpc(Def.Process.Controller, Controller.Controller.startProtocol,
+        IPC.rpc(Def.Process.Controller, Controller.Controller.startProtocol,
                       '.'.join([file_name[:-3], protocol_name]))

@@ -21,13 +21,14 @@ import keyboard
 import logging
 import time
 
-import Controller
+import Process
 import Config
 import Def
 import IPC
 import Logging
 import Protocol
 
+from buffers import CameraBuffers
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
@@ -36,7 +37,7 @@ if Def.Env == Def.EnvTypes.Dev:
 app.use('pyglet')
 from pyglet.window import key
 
-class Main(Controller.AbstractProcess):
+class Main(Process.AbstractProcess):
     name = Def.Process.Display
 
     _config   : dict              = dict()
@@ -44,7 +45,7 @@ class Main(Controller.AbstractProcess):
     protocol  : Protocol          = None
 
     def __init__(self, **kwargs):
-        Controller.AbstractProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         self._window_config = app.configuration.Configuration()
         self._window_config.stencil_size = 8
@@ -95,6 +96,7 @@ class Main(Controller.AbstractProcess):
         :param dt: elapsed time since last call in [s]
         :return:
         """
+        #IPC.rpc(Def.Process.Camera, CameraBuffers.FrameBuffer.testbufferargs, 'blabla')
 
         if self._runProtocol():
             pass
@@ -211,7 +213,7 @@ class Main(Controller.AbstractProcess):
 
     def _startShutdown(self):
         self._glWindow.close()
-        Controller.AbstractProcess._startShutdown(self)
+        Process.AbstractProcess._startShutdown(self)
 
     def main(self):
         app.clock.schedule_interval(self._handleInbox, 0.01)
