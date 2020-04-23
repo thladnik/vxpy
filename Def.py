@@ -58,9 +58,9 @@ class Process:
 # Process states
 
 class State:
-    na               = 0
+    NA               = 0
     STOPPED          = 99
-    starting         = 10
+    STARTING         = 10
     PREPARE_PROTOCOL = 30
     WAIT_FOR_PHASE   = 31
     PREPARE_PHASE    = 32
@@ -69,7 +69,7 @@ class State:
     PROTOCOL_END     = 39
     IDLE             = 20
     RUNNING          = 41
-    standby          = 42
+    STANDBY          = 42
 
 ################################
 # IPC signals

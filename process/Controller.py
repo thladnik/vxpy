@@ -80,13 +80,13 @@ class Controller(AbstractProcess):
 
 
         ### Set up states
-        IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
-        IPC.State.Camera     = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
-        IPC.State.Display    = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
-        IPC.State.Gui        = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
-        IPC.State.IO         = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
-        IPC.State.Logger     = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
-        IPC.State.Worker     = IPC.Manager.Value(ctypes.c_int8, Def.State.na)
+        IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.Camera     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.Display    = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.Gui        = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.IO         = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.Logger     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.Worker     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
 
         ### Set of record object
         IPC.Control.Recording = IPC.Manager.dict()

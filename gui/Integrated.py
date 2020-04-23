@@ -17,13 +17,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import logging
+import numpy as np
 from PyQt5 import QtCore, QtWidgets
-from time import strftime
+import pyqtgraph as pg
+import time
 
 import Config
 from process.Controller import Controller
 import Def
-from helper.Basic import Conversion
+import gui.Controls
+import gui.CameraAddons
 import IPC
 import Logging
 from process import GUI
@@ -41,10 +44,11 @@ class ProcessMonitor(QtWidgets.QGroupBox):
 
     def _setupUi(self):
 
-        self.setMaximumWidth(6 * 130)
+        self.setFixedWidth(150)
+
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
 
         ## Setup widget
-        self.setWindowTitle('Process monitor')
         self.setLayout(QtWidgets.QGridLayout())
         self.setMinimumSize(QtCore.QSize(0,0))
         self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
@@ -53,43 +57,46 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._le_controllerState = QtWidgets.QLineEdit('')
         self._le_controllerState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Controller), 0, 0)
-        self.layout().addWidget(self._le_controllerState, 1, 0)
+        self.layout().addWidget(self._le_controllerState, 0, 1)
 
         ## Camera process status
         self._le_cameraState = QtWidgets.QLineEdit('')
         self._le_cameraState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Camera), 0, 1)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Camera), 1, 0)
         self.layout().addWidget(self._le_cameraState, 1, 1)
 
         ## Display process status
         self._le_displayState = QtWidgets.QLineEdit('')
         self._le_displayState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Display), 0, 2)
-        self.layout().addWidget(self._le_displayState, 1, 2)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Display), 2, 0)
+        self.layout().addWidget(self._le_displayState, 2, 1)
 
         ## Gui process status
         self._le_guiState = QtWidgets.QLineEdit('')
         self._le_guiState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.GUI), 0, 3)
-        self.layout().addWidget(self._le_guiState, 1, 3)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.GUI), 3, 0)
+        self.layout().addWidget(self._le_guiState, 3, 1)
 
         ## IO process status
         self._le_ioState = QtWidgets.QLineEdit('')
         self._le_ioState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.IO), 0, 4)
-        self.layout().addWidget(self._le_ioState, 1, 4)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.IO), 4, 0)
+        self.layout().addWidget(self._le_ioState, 4, 1)
 
         ## Logger process status
         self._le_loggerState = QtWidgets.QLineEdit('')
         self._le_loggerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Logger), 0, 5)
-        self.layout().addWidget(self._le_loggerState, 1, 5)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Logger), 5, 0)
+        self.layout().addWidget(self._le_loggerState, 5, 1)
 
         ## Worker process status
         self._le_workerState = QtWidgets.QLineEdit('')
         self._le_workerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 0, 6)
-        self.layout().addWidget(self._le_workerState, 1, 6)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 6, 0)
+        self.layout().addWidget(self._le_workerState, 6, 1)
+
+        self.layout().addItem(vSpacer, 7, 0)
+
 
         ## Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
@@ -106,7 +113,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
             return 'Idle'
         elif code ==Def.State.RUNNING:
             return 'Running'
-        elif code == Def.State.starting:
+        elif code == Def.State.STARTING:
             return 'Starting'
         else:
             return 'N/A'
@@ -118,7 +125,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         ### Set style
         if code == Def.State.IDLE:
             le.setStyleSheet('color: #3bb528; font-weight:bold;')
-        elif code == Def.State.starting:
+        elif code == Def.State.STARTING:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
         elif code == Def.State.READY:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
@@ -149,24 +156,22 @@ class Recording(QtWidgets.QGroupBox):
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Recordings')
         self._main : GUI.Main = _main
+        self.setObjectName('RecGroupBox')
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
 
-        self.setLayout(QtWidgets.QHBoxLayout())
         ### Create inner widget
-        self.wdgt = QtWidgets.QWidget(self)
-        self.wdgt.setObjectName('InGroupBox')
-        self.wdgt.setLayout(QtWidgets.QGridLayout())
-        self.layout().addWidget(self.wdgt)
+        self.setLayout(QtWidgets.QGridLayout())
 
         ### Basic properties
         self.setCheckable(True)
+        self.setFixedWidth(250)
 
         ### Current folder
         self._le_folder = QtWidgets.QLineEdit()
         self._le_folder.setEnabled(False)
-        self.wdgt.layout().addWidget(QtWidgets.QLabel('Folder'), 0, 0)
-        self.wdgt.layout().addWidget(self._le_folder, 0, 1, 1, 2)
+        self.layout().addWidget(QtWidgets.QLabel('Folder'), 0, 0)
+        self.layout().addWidget(self._le_folder, 1, 0)
 
         ### GroupBox
         self.clicked.connect(self.toggleEnable)
@@ -175,44 +180,21 @@ class Recording(QtWidgets.QGroupBox):
         ## Start
         self._btn_start = QtWidgets.QPushButton('Start')
         self._btn_start.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.startRecording))
-        self.wdgt.layout().addWidget(self._btn_start, 1, 0)
+        self.layout().addWidget(self._btn_start, 2, 0)
         ## Pause
         self._btn_pause = QtWidgets.QPushButton('Pause')
         self._btn_pause.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.pauseRecording))
-        self.wdgt.layout().addWidget(self._btn_pause, 1, 1)
+        self.layout().addWidget(self._btn_pause, 3, 0)
         ## Stop
         self._btn_stop = QtWidgets.QPushButton('Stop')
         self._btn_stop.clicked.connect(self.finalizeRecording)
-        self.wdgt.layout().addWidget(self._btn_stop, 1, 2)
+        self.layout().addWidget(self._btn_stop, 4, 0)
 
-        ### Add buffers
-        self._cb_buffers = dict()
-        ## Camera buffers
-        self._grp_cameraBuffers = QtWidgets.QGroupBox('Camera buffers')
-        self._grp_cameraBuffers.setLayout(QtWidgets.QVBoxLayout())
-        self.wdgt.layout().addWidget(self._grp_cameraBuffers, 2, 0, 1, 3)
-        for bufferName in Config.Camera[Def.CameraCfg.buffers]:
-            bufferId = '{}/{}'.format(Def.Process.Camera, bufferName)
-            self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
-            self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
-            self._cb_buffers[bufferId].setTristate(False)
-            self._grp_cameraBuffers.layout().addWidget(self._cb_buffers[bufferId])
-        ## IO buffers
-        self._grp_ioBuffers = QtWidgets.QGroupBox('I/O buffers')
-        self._grp_ioBuffers.setLayout(QtWidgets.QVBoxLayout())
-        self.wdgt.layout().addWidget(self._grp_ioBuffers, 3, 0, 1, 3)
-        for bufferName in Config.IO[Def.IoCfg.buffers]:
-            bufferId = '{}/{}'.format(Def.Process.IO, bufferName)
-            self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
-            self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
-            self._cb_buffers[bufferId].setTristate(False)
-            self._grp_ioBuffers.layout().addWidget(self._cb_buffers[bufferId])
-
-        self.wdgt.layout().addItem(vSpacer, 4, 0)
+        self.layout().addItem(vSpacer, 5, 0)
 
         ### Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
-        self._tmr_updateGUI.setInterval(100)
+        self._tmr_updateGUI.setInterval(200)
         self._tmr_updateGUI.timeout.connect(self.updateGui)
         self._tmr_updateGUI.start()
 
@@ -241,18 +223,6 @@ class Recording(QtWidgets.QGroupBox):
     def toggleEnable(self, newstate):
         IPC.rpc(Def.Process.Controller, Controller.toggleEnableRecording, newstate)
 
-    def bufferStateChanged(self):
-        """Update shared buffer list for recordings based on UI selection.
-        Because buffer list is shared (managed) list, appending and removing has to be done in weird way (below)"""
-
-        for bufferId, cb in self._cb_buffers.items():
-            # Add bufferId if checkstate == True and bufferId not in buffer list
-            if Conversion.QtCheckstateToBool(cb.checkState()) and bufferId not in Config.Recording[Def.RecCfg.buffers]:
-                Config.Recording[Def.RecCfg.buffers] = Config.Recording[Def.RecCfg.buffers] + [bufferId]
-            # Remove bufferId if checkstate == False and bufferId is in buffer list
-            elif not(Conversion.QtCheckstateToBool(cb.checkState())) and bufferId in Config.Recording[Def.RecCfg.buffers]:
-                Config.Recording[Def.RecCfg.buffers] = [bi for bi in Config.Recording[Def.RecCfg.buffers] if bi != bufferId]
-
     def updateGui(self):
         """(Periodically) update UI based on shared configuration"""
 
@@ -260,11 +230,10 @@ class Recording(QtWidgets.QGroupBox):
         active = IPC.Control.Recording[Def.RecCtrl.active]
         current_folder = IPC.Control.Recording[Def.RecCtrl.folder]
 
-
         if active:
-            self.wdgt.setStyleSheet('QWidget#InGroupBox {background: rgba(179, 31, 18, 0.5);}')
+            self.setStyleSheet('QGroupBox#RecGroupBox {background: rgba(179, 31, 18, 0.5);}')
         else:
-            self.wdgt.setStyleSheet('QWidget#InGroupBox {background: rgba(0, 0, 0, 0.0);}')
+            self.setStyleSheet('QGroupBox#RecGroupBox {background: rgba(0, 0, 0, 0.0);}')
 
         ### Set enabled
         self.setCheckable(not(active) and not(bool(current_folder)))
@@ -280,11 +249,117 @@ class Recording(QtWidgets.QGroupBox):
         self._btn_pause.setEnabled(False)
         self._btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
 
-        ### Set buffer check states
-        for bufferId, cb in self._cb_buffers.items():
-            cb.setCheckState(Conversion.boolToQtCheckstate(bufferId in Config.Recording[Def.RecCfg.buffers]))
+class Log(QtWidgets.QGroupBox):
 
-        ### Enable/disable buffer groups during active recording
-        self._grp_cameraBuffers.setDisabled(active or not(enabled))
-        self._grp_ioBuffers.setDisabled(active or not(enabled))
+    def __init__(self, _main):
+        QtWidgets.QGroupBox.__init__(self, 'Log')
+        self._main : GUI.Main = _main
 
+        self.setLayout(QtWidgets.QHBoxLayout())
+
+        self._txe_log = QtWidgets.QTextEdit()
+        self._txe_log.setReadOnly(True)
+        self._txe_log.setFontFamily('Courier')
+        self._txe_log.setFontPointSize(10)
+        self.layout().addWidget(self._txe_log)
+
+        ### Set initial log line count
+        self.logccount = 0
+
+        ### Set timer for updating of log
+        self._tmr_logger = QtCore.QTimer()
+        self._tmr_logger.timeout.connect(self.printLog)
+        self._tmr_logger.start(50)
+
+
+    def printLog(self):
+        if IPC.Log.File is None:
+            return
+
+        if len(IPC.Log.History) > self.logccount:
+            for record in IPC.Log.History[self.logccount:]:
+                if record.levelno > 10:
+                    line = '{} : {:10} : {:10} : {}'\
+                        .format(record.asctime, record.name, record.levelname, record.msg)
+                    self._txe_log.append(line)
+
+                self.logccount += 1
+
+class Controls(QtWidgets.QTabWidget):
+
+    def __init__(self, _main):
+        QtWidgets.QTabWidget.__init__(self)
+        self._main : GUI.Main = _main
+
+        ## Display Settings
+        if Config.Display[Def.DisplayCfg.use]:
+            if Config.Display[Def.DisplayCfg.type] == 'spherical':
+                self.tabWdgt_Display = gui.Controls.SphericalDisplaySettings(self)
+            elif Config.Display[Def.DisplayCfg.type] == 'planar':
+                self.tabWdgt_Display = gui.Controls.PlanarDisplaySettings(self)
+            else:
+                raise Exception('No valid display settings widget found for display type "{}"'
+                                .format(Config.Display[Def.DisplayCfg.type]))
+
+            self.addPaddedTab(self.tabWdgt_Display, 'Display')
+
+        ### Protocols
+        self.tabWdgt_Protocols = gui.Controls.Protocol(self)
+        self.addPaddedTab(self.tabWdgt_Protocols, 'Protocols')
+
+        ### Camera
+        self.tabWdgt_Camera = gui.Controls.Camera(self)
+        self.addPaddedTab(self.tabWdgt_Camera, 'Camera')
+
+    def addPaddedTab(self, wdgt, name):
+        wrapper = QtWidgets.QWidget()
+        wrapper.setLayout(QtWidgets.QGridLayout())
+        wrapper.layout().addWidget(wdgt, 0, 0)
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        wrapper.layout().addItem(vSpacer, 1, 0)
+        wrapper.layout().addItem(hSpacer, 0, 1)
+        self.addTab(wrapper, name)
+
+class Camera(QtWidgets.QTabWidget):
+
+    def __init__(self, _main):
+        self.main = _main
+        QtWidgets.QTabWidget.__init__(self)
+
+        self.streamFps = 30
+
+        self._setupUI()
+
+    def _setupUI(self):
+        self.setWindowTitle('Camera')
+        self.setLayout(QtWidgets.QVBoxLayout())
+        #self.setFixedSize(800, 600)
+
+        ### Use default PlotWidget
+        #self._wdgt_plot = Camera.CameraWidget(parent=self)
+        #self._wdgt_plot.setFixedSize(self.size())
+        #self.addTab(self._wdgt_plot, 'Live camera')
+
+        ### Add camera addons
+        for addonName in ['LiveCamera', *Config.Gui[Def.GuiCfg.addons]]:
+        #for addonName in Config.Gui[Def.GuiCfg.addons]:
+            if not(bool(addonName)):
+                continue
+
+            wdgt = getattr(gui.CameraAddons, addonName)(self)
+            if not(wdgt.moduleIsActive):
+                Logging.write(logging.WARNING, 'Addon {} could not be activated'
+                              .format(addonName))
+                continue
+            self.addTab(wdgt, addonName)
+
+        ### Set frame update timer
+        self.imTimer = QtCore.QTimer()
+        self.imTimer.setInterval(1000 // self.streamFps)
+        self.imTimer.timeout.connect(self.updateFrames)
+        self.imTimer.start()
+
+    def updateFrames(self):
+        for idx in range(self.count()):
+            self.widget(idx).updateFrame()

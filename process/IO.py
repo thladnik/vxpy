@@ -66,7 +66,7 @@ class Main(Process.AbstractProcess):
 
         if self._runProtocol():
             self.device._digital['test01_pwmout'].write(1)
-            time.sleep(0.5)
+            time.sleep(1.0)
             self.device._digital['test01_pwmout'].write(0)
             time.sleep(0.5)
             pass

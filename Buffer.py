@@ -144,6 +144,9 @@ class AbstractBuffer:
 
         self.exposed = list()
         self._built = False
+        self._idx = 0
+        self._bufferMaxSize = 100  # TODO: this should be configurable
+        self._retainedAttributeVals = dict()
         self._sharedAttributes = dict()
         self.currentTime = time()
 
@@ -153,7 +156,8 @@ class AbstractBuffer:
         NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
     def _out(self) -> Iterable:
-        """Method can be reimplemented. Can be used to alter the output to file.
+        """Method may be reimplemented. Can be used to alter the output to file.
+        If this buffer is going to be used for recording data, this method HAS to be implemented.
         Implementations of this method should yield a tuple (attribute name, attribute value) to be written to file
 
         By default this returns the current attribute name -> attribute value pair.
@@ -162,10 +166,17 @@ class AbstractBuffer:
 
     def read(self, attrName):
         ### Call build function
-        self._build()
+        #self._build()
 
         ### Return
-        return getattr(self, attrName)
+        return self.getSharedAttribute(attrName)
+        #return getattr(self, attrName)
+
+    def _retain(self):
+        for attrName in self._sharedAttributes:
+            self._retainedAttributeVals[attrName][self._idx % self._bufferMaxSize] = 0
+
+        self._idx += 1
 
     def update(self, data):
         """Method is called on every iteration of the producer.
@@ -175,6 +186,48 @@ class AbstractBuffer:
 
         ### Call compute method
         self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
+        #self._retain()
+
+    def getSharedAttribute(self, attrName):
+        if not(attrName in self._sharedAttributes):
+            Logging.write(logging.WARNING, 'Tried to access non-existent shared attribute {} in {}'
+                          .format(attrName, self.__class__.__qualname__))
+            return
+
+        ### If there is no obj
+        if not('obj' in self._sharedAttributes[attrName]):
+            ## Try to build obj
+            if not(self._buildAttribute(attrName)):
+                # Raise exception if obj wasn't built
+                raise Exception('Shared attribute {} could not be built in {}'
+                                .format(attrName, self.__class__.__name__))
+
+        return self._sharedAttributes[attrName]['obj']
+
+    def _buildAttribute(self, attrName):
+        """Build function for shared attributes.
+        Some shared attributes may require build steps in child process: this is the place to include them.
+
+        E.g. ctype shared arrays of the multiprocessing module (type == 'Array') may be bound to numpy arrays
+        for convenient and fast integration.
+        """
+        if not(attrName in self._sharedAttributes):
+            Logging.write(logging.WARNING, 'Tried to build non-existent shared attribute {} in {}'
+                          .format(attrName, self.__class__.__qualname__))
+            return
+        
+        ### Build special attribute types
+        attrData = self._sharedAttributes[attrName]
+        ## Array
+        if attrData['type'] == 'Array':
+            self._sharedAttributes[attrName]['obj'] = np.ctypeslib.as_array(
+                self._sharedAttributes[attrName]['cArr'].get_obj())
+            self._sharedAttributes[attrName]['obj'] = self._sharedAttributes[attrName]['obj'].reshape(
+                self._sharedAttributes[attrName]['dshape'])
+
+            return True
+
+        return False
 
     def sharedAttribute(self, attrName, attrType, *args, **kwargs):
         """Create a shared attribute.
@@ -182,9 +235,8 @@ class AbstractBuffer:
         This method may only be called in the __init__ function of the buffer because shared attributes
         need to be created upon buffer initialization in the Controller process.
 
-
         :param attrName: string with the attribute name; attrNames should only be valid python variable names,
-          i.e. not 'var test', but 'var_test' and no '123test' for example
+          i.e. not 'var test', but 'var_test' and no '123test', but instead 'test123'
         :param attrType: string which corresponds to a valid shared data type in the built-in multiprocessing module
           overview of available types can be found here: https://docs.python.org/2/library/multiprocessing.html#sharing-state-between-processes
         :param args: positional arguments for the shared attribute
@@ -205,37 +257,6 @@ class AbstractBuffer:
             else:
                 ### Create shared attribute object
                 self._sharedAttributes[attrName]['obj'] = getattr(IPC.Manager, attrType)(*args, **kwargs)
-
-
-    def _build(self):
-        """Build function which should be called at the start of every function in a Buffer implementation.
-        Can be used to handle build events which must take place in the child processes of the Controller.
-
-        Sets every shared attribute to the instance for access via self.<shared attribute>
-
-        E.g. Ctype shared arrays of the multiprocessing module (type == 'Array') may be bound to numpy arrays
-        for convenient and fast integration into the code.
-
-        !!! This method is only executed ONCE per child process
-        and it may under NO circumstances be executed in the Controller !!!
-        "Build in Controller" == "Buffer not working"
-        """
-
-        ### Check if function has been called before in this process
-        if self._built:
-            return
-
-        ### Iterate through all attributes
-        for attrName, attrData in self._sharedAttributes.items():
-            if attrData['type'] == 'Array':
-                self._sharedAttributes[attrName]['obj'] = np.ctypeslib.as_array(self._sharedAttributes[attrName]['cArr'].get_obj())
-                self._sharedAttributes[attrName]['obj'] = self._sharedAttributes[attrName]['obj'].reshape(self._sharedAttributes[attrName]['dshape'])
-
-            ### Set shared attribute for instance (so it may be accessed conveniently through self.<attrName>)
-            setattr(self, attrName, self._sharedAttributes[attrName]['obj'])
-
-        ### Mark buffer for this instance as built
-        self._built = True
 
     def _appendData(self, grp, key, value):
 

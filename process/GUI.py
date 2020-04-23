@@ -26,11 +26,9 @@ import Config
 import Process
 import IPC
 import Logging
-import gui.DisplaySettings
-import gui.ProtocolControl
+import gui.Controls
 import gui.Integrated
-import gui.CameraStream
-import gui.addons
+import gui.CameraAddons
 
 import process.Camera
 import process.Display
@@ -56,10 +54,7 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self._setupUI()
 
         ### Setup addons
-        self._setupAddons()
-
-        ### Set initial log line count
-        self.logccount = 0
+        #self._setupAddons()
 
         ### Run event loop
         self.run()
@@ -72,25 +67,8 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self._tmr_handlePipe.timeout.connect(self._handleInbox)
         self._tmr_handlePipe.start(10)
 
-        ### Set timer for updating of log
-        self._tmr_logger = QtCore.QTimer()
-        self._tmr_logger.timeout.connect(self.printLog)
-        self._tmr_logger.start(50)
-
         ### Run QApplication event loop
         self._app.exec_()
-
-    def _setupAddons(self):
-        self.addons = dict()
-        for addonName in Config.Gui[Def.GuiCfg.addons]:
-            if not(bool(addonName)):
-                continue
-
-            self.addons[addonName] = getattr(gui.addons, addonName)(self)
-            if not(self.addons[addonName].moduleIsActive):
-                Logging.write(logging.WARNING, 'Addon {} could not be activated'.format(addonName))
-                continue
-            self.addons[addonName].show()
 
     def _setupUI(self):
 
@@ -106,47 +84,51 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.setCentralWidget(self._centralwidget)
 
         ### Add spacers
-        hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.centralWidget().layout().addItem(hSpacer, 0, 1)
-        self.centralWidget().layout().addItem(hSpacer, 0, 2)
+        hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        #self.hSplitter = QtWidgets.QSplitter()
 
         ### Add integrated addons
+        ## Add controls
+        self._grp_controls = gui.Integrated.Controls(self)
+        self.centralWidget().layout().addWidget(self._grp_controls, 0, 0, 2, 2)
+
+        ## Add camera
+        self._grp_camera = gui.Integrated.Camera(self)
+        self.centralWidget().layout().addWidget(self._grp_camera, 0, 2)
+
+        ## Add topright
+        self._grp_topright = QtWidgets.QWidget()
+        self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
+        self._grp_topright.layout().addItem(hvSpacer)
+        self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
+
+        ## Add IO monitor
+        self._grp_io = QtWidgets.QWidget()
+        self._grp_io.setLayout(QtWidgets.QHBoxLayout())
+        self._grp_io.layout().addItem(hvSpacer)
+        self.centralWidget().layout().addWidget(self._grp_io, 1, 3, 1, 2)
+
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
-        self.centralWidget().layout().addWidget(self._grp_processStatus, 0, 0)
+        self._grp_processStatus.setMaximumHeight(300)
+        self.centralWidget().layout().addWidget(self._grp_processStatus, 2, 0)
 
         ## Recordings
         self._grp_recordings = gui.Integrated.Recording(self)
-        self.centralWidget().layout().addWidget(self._grp_recordings, 1, 0)
+        self._grp_recordings.setMaximumHeight(300)
+        self.centralWidget().layout().addWidget(self._grp_recordings, 2, 1)
 
         ## Logger
-        self._grp_log = QtWidgets.QGroupBox()
-        self._grp_log.setLayout(QtWidgets.QVBoxLayout())
-        self.centralWidget().layout().addWidget(self._grp_log, 1, 1, 1, 2)
-        self._txe_log = QtWidgets.QTextEdit()
-        self._txe_log.setReadOnly(True)
-        self._txe_log.setFontFamily('Courier')
-        self._txe_log.setFontPointSize(10)
-        self._grp_log.layout().addWidget(QtWidgets.QLabel('Log'))
-        self._grp_log.layout().addWidget(self._txe_log)
+        self._grp_log = gui.Integrated.Log(self)
+        self._grp_log.setMaximumHeight(300)
+        self.centralWidget().layout().addWidget(self._grp_log, 2, 2, 1, 2)
 
         ### Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
         ## Menu windows
         self._menu_windows = QtWidgets.QMenu('Windows')
         self.menuBar().addMenu(self._menu_windows)
-        # Display settings
-        self._menu_act_dispSettings = QtWidgets.QAction('Display settings')
-        self._menu_act_dispSettings.triggered.connect(self._openDisplaySettings)
-        self._menu_windows.addAction(self._menu_act_dispSettings)
-        # Stimulation protocols
-        self._menu_act_stimProtocols = QtWidgets.QAction('Stimulation protocols')
-        self._menu_act_stimProtocols.triggered.connect(self._openStimProtocols)
-        self._menu_windows.addAction(self._menu_act_stimProtocols)
-        # Video streamer
-        self._menu_act_vidStream = QtWidgets.QAction('Video streamer')
-        self._menu_act_vidStream.triggered.connect(self._openVideoStreamer)
-        self._menu_windows.addAction(self._menu_act_vidStream)
         ## Menu processes
         self._menu_process = QtWidgets.QMenu('Processes')
         self.menuBar().addMenu(self._menu_process)
@@ -167,41 +149,12 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
             lambda: IPC.rpc(Def.Process.Controller, Process.Controller.initializeProcess, process.Logger))
         self._menu_process.addAction(self._menu_process_relog)
 
-        ## Display Settings
-        displayType = Config.Display[Def.DisplayCfg.type]
-        if displayType == 'spherical':
-            self._wdgt_dispSettings = gui.DisplaySettings.SphericalDisplaySettings(self)
-        elif displayType == 'planar':
-            self._wdgt_dispSettings = gui.DisplaySettings.PlanarDisplaySettings(self)
-        else:
-            Exception('No valid GUI found for current display type "{}"'.format(displayType))
-        self._openDisplaySettings()
-
-        ## Stimulus Protocols
-        self._wdgt_stimProtocols = gui.ProtocolControl.Protocols(self)
-        self._openStimProtocols()
-
-        # Video Streamer
-        if Config.Camera[Def.CameraCfg.use]:
-            self._wdgt_camera = gui.CameraStream.Camera(self, flags=QtCore.Qt.Window)
-            self._openVideoStreamer()
-
         # Bind shortcuts
         self._bindShortcuts()
 
-        self.show()
+        self.showMaximized()
 
     def _bindShortcuts(self):
-        ### Reset Display settings view
-        self._menu_act_dispSettings.setShortcut('Ctrl+s')
-        self._menu_act_dispSettings.setAutoRepeat(False)
-        ### Reset Stimulation protocols view
-        self._menu_act_stimProtocols.setShortcut('Ctrl+p')
-        self._menu_act_stimProtocols.setAutoRepeat(False)
-        ### Reset Video streamer view
-        if Config.Camera[Def.CameraCfg.use]:
-            self._menu_act_vidStream.setShortcut('Ctrl+v')
-            self._menu_act_vidStream.setAutoRepeat(False)
 
         ### Restart display process
         self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+m')
@@ -214,45 +167,9 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self._menu_process_relog.setShortcut('Ctrl+Alt+Shift+l')
         self._menu_process_relog.setAutoRepeat(False)
 
-    def printLog(self):
-        if IPC.Log.File is None:
-            return
-
-        if len(IPC.Log.History) > self.logccount:
-            for record in IPC.Log.History[self.logccount:]:
-                if record.levelno > 10:
-                    line = '{} : {:10} : {}'.format(record.asctime, record.levelname, record.msg)
-                    self._txe_log.append(line)
-
-                self.logccount += 1
-
-    def _openDisplaySettings(self):
-        self._wdgt_dispSettings.showNormal()
-        self._wdgt_dispSettings.move(0, self.screenGeo.height()//3+50)
-        self._wdgt_dispSettings.show()
-
-    def _openStimProtocols(self):
-        self._wdgt_stimProtocols.showNormal()
-        self._wdgt_stimProtocols.move(400, self.screenGeo.height()//3+50)
-        self._wdgt_stimProtocols.show()
-
-    def _openVideoStreamer(self):
-        if not(Config.Camera[Def.CameraCfg.use]):
-            return
-
-        self._wdgt_camera.showNormal()
-        self._wdgt_camera.move(800, self.screenGeo.height()//3+50)
-        self._wdgt_camera.show()
-
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         ### Inform controller of close event
         IPC.send(Def.Process.Controller, Def.Signal.Shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
         IPC.setState(Def.State.STOPPED)
-
-        ### Close child widgets
-        self._wdgt_dispSettings.close()
-        self._wdgt_stimProtocols.close()
-        if Config.Camera[Def.CameraCfg.use]:
-            self._wdgt_camera.close()

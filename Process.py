@@ -116,7 +116,7 @@ class AbstractProcess:
 
         ### Set process state
         if not(getattr(IPC.State, self.name) is None):
-            IPC.setState(Def.State.starting)
+            IPC.setState(Def.State.STARTING)
 
         ### Setup logging
         Logging.setupLogger(self.name)

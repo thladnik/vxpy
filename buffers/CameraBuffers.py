@@ -35,14 +35,17 @@ class FrameBuffer(AbstractBuffer):
     def __init__(self, *args, **kwargs):
         AbstractBuffer.__init__(self, *args, **kwargs)
 
+        ### Define list of exposed methods
+        # (These methods hook into the process instance - here Camera - and are thus
+        #  accessible from all other processes)
         self.exposed = [FrameBuffer.testbuffer, FrameBuffer.testbufferargs]
+
+        self.saved = list()
+
         ### Set up shared variables
-        # Note that the self.<attrName> = self.sharedAttribute(<attrName>, ...) convention
-        # is purely for accessibility purposes. The actual attribute name
-        # in the instance object depends entirely on the first positional argument)
         frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
-        self.frame = self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
-        self.time = self.sharedAttribute('time', 'Value', 'd', 0.0)
+        self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
+        self.sharedAttribute('time', 'Value', 'd', 0.0)
 
         ### Setup frame timing stats
         self.frametimes = list()
@@ -52,12 +55,11 @@ class FrameBuffer(AbstractBuffer):
         print('it is the buffer!')
 
     def testbufferargs(self, arg1):
-        return
         print('it is the buffer!', arg1)
 
     def _compute(self, frame):
         ### Call build function
-        self._build()
+        self.frame = self.getSharedAttribute('frame')
 
         # Add FPS counter
         self.frametimes.append(perf_counter() - self.t)
@@ -68,6 +70,7 @@ class FrameBuffer(AbstractBuffer):
         ### Update shared attributes
         self.time = time()
         self.frame[:,:,:] = frame[:,:,:]
+        self.saved.append(frame[:,:,:])
 
     def _out(self):
         yield 'frame', self.readFrame()
@@ -82,11 +85,11 @@ class EyePositionDetector(AbstractBuffer):
         AbstractBuffer.__init__(self, *args, **kwargs)
 
         ### Set up shared attributes
-        self.extractedRects = self.sharedAttribute('extractedRects', 'dict')
+        self.sharedAttribute('extractedRects', 'dict')
         for i in range(10):
             self.sharedAttribute('eyePositions{}'.format(i), 'list')
-        self.eyeMarkerRects = self.sharedAttribute('eyeMarkerRects', 'dict')
-        self.segmentationMode = self.sharedAttribute('segmentationMode', 'Value', 's', '')
+        self.sharedAttribute('eyeMarkerRects', 'dict')
+        self.sharedAttribute('segmentationMode', 'Value', 's', '')
 
     def default(self, rect):
         """Default function for extracting fish eyes' angular position.
@@ -217,8 +220,9 @@ class EyePositionDetector(AbstractBuffer):
         return [asType(point[0]), asType(Config.Camera[Def.CameraCfg.res_y] - point[1])]
 
     def _compute(self, frame):
-        ### Call build function
-        self._build()
+
+        self.eyeMarkerRects = self.getSharedAttribute('eyeMarkerRects')
+        self.extractedRects = self.getSharedAttribute('extractedRects')
 
         ### If eyes were marked: iterate over rects and extract eye positions
         if bool(self.eyeMarkerRects):
@@ -262,7 +266,8 @@ class EyePositionDetector(AbstractBuffer):
                 rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
                 ## Apply detection function on cropped rect which contains eyes
-                if self.segmentationMode.value == 'something':
+                self.segmentationMode = 'implemented_in_future'
+                if self.segmentationMode == 'something':
                     eyePositions, newRect = [], []
                 else:  # default
                     eyePositions, newRect = self.default(rotRect)
@@ -272,15 +277,13 @@ class EyePositionDetector(AbstractBuffer):
 
                 ### Append angular eye positions to shared list
                 if eyePositions is not None:
-                    getattr(self, 'eyePositions{}'.format(id)).append(eyePositions)
+                    self.eyePositions = self.getSharedAttribute('eyePositions{}'.format(id))
+                    self.eyePositions.append(eyePositions)
 
                 ### Set current rect ROI data
                 self.extractedRects[id] = newRect
 
     def _out(self):
-        ### Call build function
-        self._build()
-
         for id in range(10):
             eyePositions = self.read('eyePositions{}'.format(id))
 

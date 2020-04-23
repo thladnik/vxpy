@@ -29,8 +29,7 @@ def setupLogger(_name):
     global logger, write
     # Set up logging
     h = logging.handlers.QueueHandler(IPC.Log.Queue)
-    root = logging.getLogger(_name)
-    root.addHandler(h)
-    root.setLevel(logging.DEBUG)
     logger = logging.getLogger(_name)
+    logger.addHandler(h)
+    logger.setLevel(logging.DEBUG)
     write = logging.getLogger(_name).log
