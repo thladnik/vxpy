@@ -24,7 +24,7 @@ class UVSphere(Model.SphereModel):
         ### Set index buffer
         self.indices = sphI.astype(np.uint32)
 
-        ### Create buffers
+        ### Create routines
         self.createBuffers()
 
 

@@ -26,7 +26,7 @@ import Config
 from process.Controller import Controller
 import Def
 import gui.Controls
-import gui.CameraAddons
+import gui.Camera
 import IPC
 import Logging
 from process import GUI
@@ -347,7 +347,7 @@ class Camera(QtWidgets.QTabWidget):
             if not(bool(addonName)):
                 continue
 
-            wdgt = getattr(gui.CameraAddons, addonName)(self)
+            wdgt = getattr(gui.Camera, addonName)(self)
             if not(wdgt.moduleIsActive):
                 Logging.write(logging.WARNING, 'Addon {} could not be activated'
                               .format(addonName))

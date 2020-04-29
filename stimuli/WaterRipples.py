@@ -44,7 +44,7 @@ class RipplesOnStaticBackground(SphericalVisual):
                                    theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
         ### Set texture coords
         self.sphere_model.setTextureCoords('uv_standard')
-        ## Create buffers
+        ## Create routines
         self.sphere_model.createBuffers()
 
         ### Create program

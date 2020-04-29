@@ -28,7 +28,7 @@ import IPC
 import Logging
 import Protocol
 
-from buffers import CameraBuffers
+from routines import Camera
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 

@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
+import ctypes
 import h5py
 import logging
 import multiprocessing as mp
@@ -32,8 +32,8 @@ import Logging
 ################################
 ## Buffer Object
 
-class BufferObject:
-    """Buffer Object: wrapper for buffers
+class Routines:
+    """Buffer Object: wrapper for routines
     """
 
     def __init__(self, name):
@@ -41,55 +41,53 @@ class BufferObject:
         self.h5File = None
         self.vidFile = None
 
-        self._buffers = dict()
-        self._npBuffers = dict()
-
+        self._routines = dict()
 
     def createHooks(self, instance):
         """Method is called by process immediately after initialization.
-        For each method listed in the buffers 'exposed' attribute, it
-        sets a reference on the process instance to said buffer method,
+        For each method listed in the routines 'exposed' attribute, it
+        sets a reference on the process instance to said routine method,
         thus making it accessible via RPC calls.
         Attribute reference: <Buffer name>_<Buffer method name>
 
         :arg instance: instance object of the current process
         """
-        for name, buffer in self._buffers.items():
-            for method in buffer.exposed:
+        for name, routine in self._routines.items():
+            for method in routine.exposed:
                 fun_path = method.__qualname__.split('.')
                 fun_str = '_'.join(fun_path)
                 if not(hasattr(instance, fun_str)):
                     # This is probably my weirdest programming construct yet...
-                    setattr(instance, fun_str, lambda *args, **kwargs: method(buffer, *args, **kwargs))
+                    setattr(instance, fun_str, lambda *args, **kwargs: method(routine, *args, **kwargs))
                 else:
-                    print('Oh no, buffer method already set. NOT GOOD!')
+                    print('Oh no, routine method already set. NOT GOOD!')
 
-    def addBuffer(self, buffer, **kwargs):
-        """To be called by controller (initialization of buffers has to happen in parent process)"""
-        self._buffers[buffer.__name__] = buffer(self, **kwargs)
+    def addBuffer(self, routine, **kwargs):
+        """To be called by controller (initialization of routines has to happen in parent process)"""
+        self._routines[routine.__name__] = routine(self, **kwargs)
 
     def update(self, frame):
-        for name in self._buffers:
-            self._buffers[name].update(frame)
-            self._buffers[name].streamToFile(self._openFile())
+        for name in self._routines:
+            self._routines[name].update(frame)
+            self._routines[name].streamToFile(self._openFile())
 
-    def readAttribute(self, attrName, bufferName=None):
+    def readAttribute(self, attr_name, routine_name=None):
         """Read shared attribute from buffer.
 
-        :param attrName: string name of attribute or string format <attrName>/<bufferName>
-        :param bufferName: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
+        :param attr_name: string name of attribute or string format <attrName>/<bufferName>
+        :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
 
         :return: value of the buffer
         """
-        if bufferName is None:
-            parts = attrName.split('/')
-            attrName = parts[1]
-            bufferName = parts[0]
+        if routine_name is None:
+            parts = attr_name.split('/')
+            attr_name = parts[1]
+            routine_name = parts[0]
 
-        return self._buffers[bufferName].read(attrName)
+        return self._routines[routine_name].read(attr_name)
 
-    def buffers(self):
-        return self._buffers
+    def routines(self):
+        return self._routines
 
     def _openFile(self) -> Union[h5py.File, None]:
         """Method checks if application is currently recording.
@@ -137,46 +135,32 @@ class BufferObject:
 ################################
 ## Abstract Buffer class
 
-class AbstractBuffer:
+class AbstractRoutine:
 
     def __init__(self, _bo):
         self._bo = _bo
 
         self.exposed = list()
-        self._built = False
-        self._idx = 0
-        self._bufferMaxSize = 100  # TODO: this should be configurable
-        self._retainedAttributeVals = dict()
-        self._sharedAttributes = dict()
+        self.buffer = RingBuffer()
         self.currentTime = time()
 
     def _compute(self, data):
         """Compute method is called on data updates (so in the producer process).
         Every buffer needs to reimplement this method."""
-        NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
+        raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
-    def _out(self) -> Iterable:
+    def _out(self):
         """Method may be reimplemented. Can be used to alter the output to file.
         If this buffer is going to be used for recording data, this method HAS to be implemented.
         Implementations of this method should yield a tuple (attribute name, attribute value) to be written to file
 
         By default this returns the current attribute name -> attribute value pair.
         """
-        NotImplemented('method _out not implemented in {}'.format(self.__class__.__name__))
+        raise NotImplemented('method _out not implemented in {}'.format(self.__class__.__name__))
 
-    def read(self, attrName):
-        ### Call build function
-        #self._build()
-
+    def read(self, attr_name):
         ### Return
-        return self.getSharedAttribute(attrName)
-        #return getattr(self, attrName)
-
-    def _retain(self):
-        for attrName in self._sharedAttributes:
-            self._retainedAttributeVals[attrName][self._idx % self._bufferMaxSize] = 0
-
-        self._idx += 1
+        return self.buffer.read(attr_name)
 
     def update(self, data):
         """Method is called on every iteration of the producer.
@@ -186,77 +170,7 @@ class AbstractBuffer:
 
         ### Call compute method
         self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
-        #self._retain()
-
-    def getSharedAttribute(self, attrName):
-        if not(attrName in self._sharedAttributes):
-            Logging.write(logging.WARNING, 'Tried to access non-existent shared attribute {} in {}'
-                          .format(attrName, self.__class__.__qualname__))
-            return
-
-        ### If there is no obj
-        if not('obj' in self._sharedAttributes[attrName]):
-            ## Try to build obj
-            if not(self._buildAttribute(attrName)):
-                # Raise exception if obj wasn't built
-                raise Exception('Shared attribute {} could not be built in {}'
-                                .format(attrName, self.__class__.__name__))
-
-        return self._sharedAttributes[attrName]['obj']
-
-    def _buildAttribute(self, attrName):
-        """Build function for shared attributes.
-        Some shared attributes may require build steps in child process: this is the place to include them.
-
-        E.g. ctype shared arrays of the multiprocessing module (type == 'Array') may be bound to numpy arrays
-        for convenient and fast integration.
-        """
-        if not(attrName in self._sharedAttributes):
-            Logging.write(logging.WARNING, 'Tried to build non-existent shared attribute {} in {}'
-                          .format(attrName, self.__class__.__qualname__))
-            return
-        
-        ### Build special attribute types
-        attrData = self._sharedAttributes[attrName]
-        ## Array
-        if attrData['type'] == 'Array':
-            self._sharedAttributes[attrName]['obj'] = np.ctypeslib.as_array(
-                self._sharedAttributes[attrName]['cArr'].get_obj())
-            self._sharedAttributes[attrName]['obj'] = self._sharedAttributes[attrName]['obj'].reshape(
-                self._sharedAttributes[attrName]['dshape'])
-
-            return True
-
-        return False
-
-    def sharedAttribute(self, attrName, attrType, *args, **kwargs):
-        """Create a shared attribute.
-        Shared attributes are accessible in all processes.
-        This method may only be called in the __init__ function of the buffer because shared attributes
-        need to be created upon buffer initialization in the Controller process.
-
-        :param attrName: string with the attribute name; attrNames should only be valid python variable names,
-          i.e. not 'var test', but 'var_test' and no '123test', but instead 'test123'
-        :param attrType: string which corresponds to a valid shared data type in the built-in multiprocessing module
-          overview of available types can be found here: https://docs.python.org/2/library/multiprocessing.html#sharing-state-between-processes
-        :param args: positional arguments for the shared attribute
-        :param kwargs: keyword arguments for the shared attribute
-        :return:
-        """
-
-        if not(attrName in self._sharedAttributes):
-            self._sharedAttributes[attrName] = dict(type=attrType)
-
-            if attrType == 'Array':
-                dtype = args[0]
-                dshape = args[1]
-                self._sharedAttributes[attrName]['dtype'] = dtype
-                self._sharedAttributes[attrName]['dshape'] = dshape
-                self._sharedAttributes[attrName]['cArr'] = mp.Array(dtype, int(np.prod(dshape)))
-
-            else:
-                ### Create shared attribute object
-                self._sharedAttributes[attrName]['obj'] = getattr(IPC.Manager, attrType)(*args, **kwargs)
+        self.buffer.next()
 
     def _appendData(self, grp, key, value):
 
@@ -315,3 +229,42 @@ class AbstractBuffer:
 
             self._appendData(grp, key, value)
             self._appendData(grp, '{}_time'.format(key), self.currentTime)
+
+class RingBuffer:
+
+    def __init__(self, buffer_length=1000):
+        self.__dict__['_bufferLength'] = buffer_length
+
+        self.__dict__['_attributeList'] = list()
+        ### Index that points to the record which is currently being updated
+        self.__dict__['_currentIdx'] = IPC.Manager.Value(ctypes.c_int64, 0)
+
+    def next(self):
+        self.__dict__['_currentIdx'].value += 1
+
+    def index(self):
+        return self.__dict__['_currentIdx'].value
+
+    def length(self):
+        return self.__dict__['_bufferLength']
+
+    def read(self, name):
+        """Read **by consumer**: return last complete record (_currentIdx-1)"""
+        return self.__dict__['_data_{}'.format(name)][(self.index()-1) % self.length()]
+
+    def __setattr__(self, name, value):
+        if not('_data_{}'.format(name) in self.__dict__):
+            self.__dict__['_attributeList'].append(name)
+            self.__dict__['_data_{}'.format(name)] = IPC.Manager.list(self.length() * [None])
+            self.__dict__['_info_{}'.format(name)] = value
+        else:
+            # TODO: add checks?
+            self.__dict__['_data_{}'.format(name)][self.index() % self.length()] = value
+
+    def __getattr__(self, name):
+        """Get current record"""
+        try:
+            return self.__dict__['_data_{}'.format(name)][(self.index()) % self.length()]
+        except:
+            ### Fallback to parent is essential for pickling!
+            super().__getattribute__(name)

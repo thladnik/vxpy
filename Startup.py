@@ -198,10 +198,10 @@ class Recording(QtWidgets.QGroupBox):
         self._btn_stop.clicked.connect(self.finalizeRecording)
         self.wdgt.layout().addWidget(self._btn_stop, 1, 2)
 
-        ### Add buffers
+        ### Add routines
         self._cb_buffers = dict()
-        ## Camera buffers
-        self._grp_cameraBuffers = QtWidgets.QGroupBox('Camera buffers')
+        ## Camera routines
+        self._grp_cameraBuffers = QtWidgets.QGroupBox('Camera routines')
         self._grp_cameraBuffers.setLayout(QtWidgets.QVBoxLayout())
         self.wdgt.layout().addWidget(self._grp_cameraBuffers, 2, 0, 1, 3)
         for bufferName in Config.Camera[Def.CameraCfg.buffers]:
@@ -210,8 +210,8 @@ class Recording(QtWidgets.QGroupBox):
             self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
             self._cb_buffers[bufferId].setTristate(False)
             self._grp_cameraBuffers.layout().addWidget(self._cb_buffers[bufferId])
-        ## IO buffers
-        self._grp_ioBuffers = QtWidgets.QGroupBox('I/O buffers')
+        ## IO routines
+        self._grp_ioBuffers = QtWidgets.QGroupBox('I/O routines')
         self._grp_ioBuffers.setLayout(QtWidgets.QVBoxLayout())
         self.wdgt.layout().addWidget(self._grp_ioBuffers, 3, 0, 1, 3)
         for bufferName in Config.IO[Def.IoCfg.buffers]:

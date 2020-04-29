@@ -28,7 +28,7 @@ import IPC
 import Logging
 import gui.Controls
 import gui.Integrated
-import gui.CameraAddons
+import gui.Camera
 
 import process.Camera
 import process.Display

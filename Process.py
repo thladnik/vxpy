@@ -26,7 +26,7 @@ import signal
 import sys
 import time
 
-import Buffer
+import Routine
 import Config
 import Def
 from helper import Basic
@@ -61,11 +61,11 @@ class AbstractProcess:
                  _states=None,
                  **kwargs):
 
-        ### Set buffers
+        ### Set routines
         if not(_buffers is None):
             for bkey, buffer in _buffers.items():
                 ## Set buffer object
-                setattr(IPC.BufferObject, bkey, buffer)
+                setattr(IPC.Routines, bkey, buffer)
 
                 ## Create method hooks in process class instance
                 try:
@@ -287,6 +287,7 @@ class AbstractProcess:
     ### Private functions
 
     def _executeRPC(self, fun: str, *args, **kwargs):
+        print(fun, args, kwargs)
         """Execute a remote call to the specified function and pass *args, **kwargs
 
         :param fun: function name

@@ -26,7 +26,7 @@ import signal
 import sys
 import time
 
-import Buffer
+import Routine
 import Config
 import Def
 from helper import Basic
@@ -99,7 +99,7 @@ class Controller(AbstractProcess):
                                                  Def.ProtocolCtrl.phase_start   : None,
                                                  Def.ProtocolCtrl.phase_stop    : None})
 
-        ### Set up buffers
+        ### Set up routines
         self._setupBuffers()
 
         ### Set up processes
@@ -160,7 +160,7 @@ class Controller(AbstractProcess):
                                              if not (k.startswith('_'))},
                           _states         = {k: v for k, v in IPC.State.__dict__.items()
                                              if not (k.startswith('_'))},
-                          _buffers        = {k: v for k, v in IPC.BufferObject.__dict__.items()
+                          _buffers        = {k: v for k, v in IPC.Routines.__dict__.items()
                                             if not (k.startswith('_'))},
                           _controls       = {k: v for k, v in IPC.Control.__dict__.items()
                                              if not (k.startswith('_'))},
@@ -182,13 +182,13 @@ class Controller(AbstractProcess):
 
     def _setupBuffers(self):
         ### Create buffer object
-        IPC.BufferObject.Camera = Buffer.BufferObject(Def.Process.Camera)
+        IPC.Routines.Camera = Routine.Routines(Def.Process.Camera)
 
-        ### Add camera buffers if camera is activated
+        ### Add camera routines if camera is activated
         if Config.Camera[Def.CameraCfg.use]:
-            import buffers.CameraBuffers
+            import routines.Camera
             for bufferName in Config.Camera[Def.CameraCfg.buffers]:
-                IPC.BufferObject.Camera.addBuffer(getattr(buffers.CameraBuffers, bufferName))
+                IPC.Routines.Camera.addBuffer(getattr(routines.Camera, bufferName))
 
     def start(self):
         ### Initialize all pipes

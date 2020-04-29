@@ -74,7 +74,7 @@ def rpc(processName, function, *args, **kwargs):
 ########
 # Buffer objects
 
-class BufferObject:
+class Routines:
     Camera   = None
     Io       = None
     Display  = None

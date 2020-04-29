@@ -175,7 +175,7 @@ class RecCfg:
 
     enabled         = 'bool_enabled'
 
-    # Active buffers
+    # Active routines
     buffers         = 'list_buffers'
 
 

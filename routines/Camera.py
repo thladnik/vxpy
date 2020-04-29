@@ -21,7 +21,7 @@ import numpy as np
 from sklearn import metrics
 from time import perf_counter, time
 
-from Buffer import AbstractBuffer
+from Routine import AbstractRoutine
 import Config
 import Def
 from helper import Geometry
@@ -29,23 +29,21 @@ import IPC
 
 import Process
 
-class FrameBuffer(AbstractBuffer):
+class FrameRoutine(AbstractRoutine):
 
 
     def __init__(self, *args, **kwargs):
-        AbstractBuffer.__init__(self, *args, **kwargs)
+        AbstractRoutine.__init__(self, *args, **kwargs)
 
         ### Define list of exposed methods
         # (These methods hook into the process instance - here Camera - and are thus
         #  accessible from all other processes)
-        self.exposed = [FrameBuffer.testbuffer, FrameBuffer.testbufferargs]
-
-        self.saved = list()
+        self.exposed.append(FrameRoutine.testbuffer)
+        self.exposed.append(FrameRoutine.testbufferargs)
 
         ### Set up shared variables
         frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
-        self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
-        self.sharedAttribute('time', 'Value', 'd', 0.0)
+        self.buffer.frame = ('frame', 'Array', ctypes.c_uint8, frameSize)
 
         ### Setup frame timing stats
         self.frametimes = list()
@@ -58,8 +56,6 @@ class FrameBuffer(AbstractBuffer):
         print('it is the buffer!', arg1)
 
     def _compute(self, frame):
-        ### Call build function
-        self.frame = self.getSharedAttribute('frame')
 
         # Add FPS counter
         self.frametimes.append(perf_counter() - self.t)
@@ -69,27 +65,32 @@ class FrameBuffer(AbstractBuffer):
 
         ### Update shared attributes
         self.time = time()
-        self.frame[:,:,:] = frame[:,:,:]
-        self.saved.append(frame[:,:,:])
+        self.buffer.frame = frame
 
     def _out(self):
-        yield 'frame', self.readFrame()
+        yield 'frame', self.buffer.frame
 
     def readFrame(self):
         return self.read('frame')
 
 
-class EyePositionDetector(AbstractBuffer):
+class EyePosDetectRoutine(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
-        AbstractBuffer.__init__(self, *args, **kwargs)
+        AbstractRoutine.__init__(self, *args, **kwargs)
 
-        ### Set up shared attributes
-        self.sharedAttribute('extractedRects', 'dict')
-        for i in range(10):
-            self.sharedAttribute('eyePositions{}'.format(i), 'list')
-        self.sharedAttribute('eyeMarkerRects', 'dict')
-        self.sharedAttribute('segmentationMode', 'Value', 's', '')
+        ### Set accessible methods
+        self.exposed.append(EyePosDetectRoutine.setROI)
+
+        ### Set up shared variables
+        self.ROIs = dict()
+
+        ### Set up buffer
+        self.buffer.extractedRects = ('extractedRects', 'dict')
+        self.buffer.eyePositions = ('eyePositions', 'list')
+
+    def setROI(self, id, params):
+        self.ROIs[id] = params
 
     def default(self, rect):
         """Default function for extracting fish eyes' angular position.
@@ -221,67 +222,71 @@ class EyePositionDetector(AbstractBuffer):
 
     def _compute(self, frame):
 
-        self.eyeMarkerRects = self.getSharedAttribute('eyeMarkerRects')
-        self.extractedRects = self.getSharedAttribute('extractedRects')
+        if not(bool(self.ROIs)):
+            return
 
+        extractedRects = dict()
+        eyePositions = dict()
         ### If eyes were marked: iterate over rects and extract eye positions
-        if bool(self.eyeMarkerRects):
+        for id, rectParams in self.ROIs.items():
 
-            for id, rectParams in self.eyeMarkerRects.items():
+            ## Draw contour points of rect
+            rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
+            # For debugging: draw rectangle
+            #box = cv2.boxPoints(rect)
+            #box = np.int0(box)
+            #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
 
-                ## Draw contour points of rect
-                rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
-                # For debugging: draw rectangle
-                #box = cv2.boxPoints(rect)
-                #box = np.int0(box)
-                #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
+            ## Get rect and frame parameters
+            center, size, angle = rect[0], rect[1], rect[2]
+            center, size = tuple(map(int, center)), tuple(map(int, size))
+            height, width = frame.shape[0], frame.shape[1]
 
-                ## Get rect and frame parameters
-                center, size, angle = rect[0], rect[1], rect[2]
-                center, size = tuple(map(int, center)), tuple(map(int, size))
-                height, width = frame.shape[0], frame.shape[1]
+            ## Rotate
+            M = cv2.getRotationMatrix2D(center, angle, 1)
+            rotFrame = cv2.warpAffine(frame, M, (width, height))
 
-                ## Rotate
-                M = cv2.getRotationMatrix2D(center, angle, 1)
-                rotFrame = cv2.warpAffine(frame, M, (width, height))
+            ## Crop rect from frame
+            cropRect = cv2.getRectSubPix(rotFrame, size, center)
 
-                ## Crop rect from frame
-                cropRect = cv2.getRectSubPix(rotFrame, size, center)
+            ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
+            center = (size[0]/2, size[1]/2)
+            width, height = size
+            M = cv2.getRotationMatrix2D(center, 90, 1)
+            absCos = abs(M[0, 0])
+            absSin = abs(M[0, 1])
 
-                ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
-                center = (size[0]/2, size[1]/2)
-                width, height = size
-                M = cv2.getRotationMatrix2D(center, 90, 1)
-                absCos = abs(M[0, 0])
-                absSin = abs(M[0, 1])
+            # New bound width/height
+            wBound = int(height * absSin + width * absCos)
+            hBound = int(height * absCos + width * absSin)
 
-                # New bound width/height
-                wBound = int(height * absSin + width * absCos)
-                hBound = int(height * absCos + width * absSin)
+            # Subtract old image center
+            M[0, 2] += wBound / 2 - center[0]
+            M[1, 2] += hBound / 2 - center[1]
+            # Rotate
+            rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-                # Subtract old image center
-                M[0, 2] += wBound / 2 - center[0]
-                M[1, 2] += hBound / 2 - center[1]
-                # Rotate
-                rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
+            ## Apply detection function on cropped rect which contains eyes
+            self.segmentationMode = 'implemented_in_future'
+            if self.segmentationMode == 'something':
+                eyePos, newRect = [], []
+            else:  # default
+                eyePos, newRect = self.default(rotRect)
 
-                ## Apply detection function on cropped rect which contains eyes
-                self.segmentationMode = 'implemented_in_future'
-                if self.segmentationMode == 'something':
-                    eyePositions, newRect = [], []
-                else:  # default
-                    eyePositions, newRect = self.default(rotRect)
+            # Debug: write to file
+            #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
-                # Debug: write to file
-                #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
+            ### Append angular eye positions to shared list
+            if eyePos is not None:
+                eyePositions[id] = eyePos
 
-                ### Append angular eye positions to shared list
-                if eyePositions is not None:
-                    self.eyePositions = self.getSharedAttribute('eyePositions{}'.format(id))
-                    self.eyePositions.append(eyePositions)
+            ### Set current rect ROI data
+            extractedRects[id] = newRect
 
-                ### Set current rect ROI data
-                self.extractedRects[id] = newRect
+        ### Update buffer
+        self.buffer.extractedRects = extractedRects
+        self.buffer.eyePositions = eyePositions
+
 
     def _out(self):
         for id in range(10):
@@ -295,10 +300,10 @@ class EyePositionDetector(AbstractBuffer):
 
 
 
-class TailDeflectionDetector(AbstractBuffer):
+class TailDeflectionDetector(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
-        AbstractBuffer.__init__(self, *args, **kwargs)
+        AbstractRoutine.__init__(self, *args, **kwargs)
 
         self.recording = False
 

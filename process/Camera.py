@@ -1,5 +1,5 @@
 """
-MappApp ./process/Camera.py - Handles camera interaction and writes to the camera buffers.
+MappApp ./process/Camera.py - Handles camera interaction and writes to the camera routines.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -85,8 +85,8 @@ class Main(Process.AbstractProcess):
 
         # Fetch current frame
         frame = self.camera.getImage()
-        # Update buffers
-        IPC.BufferObject.Camera.update(frame)
+        # Update routines
+        IPC.Routines.Camera.update(frame)
 
         # Wait until next frame
         t = self.t + 1./Config.Camera[Def.CameraCfg.fps] - perf_counter()

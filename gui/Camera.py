@@ -1,5 +1,5 @@
 """
-MappApp ./gui/CameraAddons.py - Custom addons which handle UI and visualization with camera process.
+MappApp ./gui/Camera.py - Custom addons which handle UI and visualization with camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,6 +24,7 @@ import Config
 import Def
 from helper import Geometry
 import IPC
+import routines.Camera
 
 ################################
 # Live Camera Widget
@@ -43,8 +44,9 @@ class LiveCamera(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        frame = IPC.BufferObject.Camera.readAttribute('FrameBuffer/frame')
-        self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
+        frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        if not(frame is None):
+            self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
@@ -84,19 +86,16 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        frame = IPC.BufferObject.Camera.readAttribute('FrameBuffer/frame')
-        self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
+        frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        if not(frame is None):
+            self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
 
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
             pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
-            ### Set synchronized variables
-            bufferName = self.parent().__class__.__name__
-            self.eyeMarkerRects : dict = IPC.BufferObject.Camera.readAttribute('{}/eyeMarkerRects'.format(bufferName))
-            self.extractedRects : dict = IPC.BufferObject.Camera.readAttribute('{}/extractedRects'.format(bufferName))
-            self.segmentationMode = IPC.BufferObject.Camera.readAttribute('{}/segmentationMode'.format(bufferName))
+            self.ROIs = dict()
 
             ### Set up basics
             self.lineSegROIs = dict()
@@ -187,12 +186,13 @@ class EyePositionDetector(QtWidgets.QWidget):
                 self.newMarker = None
 
         def updateRectSubplots(self):
-            for id, plot in self.rectSubplots.items():
-                if not(id in self.extractedRects):
-                    continue
+            extractedRects = IPC.Routines.Camera.readAttribute('EyePosDetectRoutine/extractedRects')
+            if extractedRects is None:
+                return
 
-                ### Plot rectangualar ROI
-                plot['imageitem'].setImage(np.rot90(self.extractedRects[id], -1))
+            ### Plot rectangualar ROIs
+            for id in range(len(extractedRects)):
+                self.rectSubplots[id]['imageitem'].setImage(np.rot90(extractedRects[id], -1))
 
 
     class Line(pg.LineSegmentROI):
@@ -235,7 +235,10 @@ class EyePositionDetector(QtWidgets.QWidget):
 
             self.rect = [lineStart, np.array(self.size()), 360 * lineAngleRad / (2 * np.pi)]
 
-            self.parent.eyeMarkerRects[self.id] = self.rect
+            ### Set updates ROI parameters
+            self.parent.ROIs[self.id] = self.rect
+            ### Send update to detector routine
+            IPC.rpc(Def.Process.Camera, routines.Camera.EyePosDetectRoutine.setROI, self.id, self.rect)
 
 
 ################################
@@ -261,7 +264,7 @@ class TailDeflectionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        frame = IPC.BufferObject.Camera.readAttribute('FrameBuffer/frame')
+        frame = IPC.Routines.Camera.readAttribute('FrameBuffer/frame')
         self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
 
 
@@ -270,9 +273,9 @@ class TailDeflectionDetector(QtWidgets.QWidget):
             pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
             ### Set synchronized variables
-            self.fishMarkerRects: dict = IPC.BufferObject.Camera._buffers[self.parent().__class__.__name__].fishMarkerRects
-            self.extractedRects: dict = IPC.BufferObject.Camera._buffers[self.parent().__class__.__name__].extractedRects
-            self.tailDeflectionAngles = IPC.BufferObject.Camera._buffers[self.parent().__class__.__name__].tailDeflectionAngles
+            self.fishMarkerRects: dict = IPC.Routines.Camera._buffers[self.parent().__class__.__name__].fishMarkerRects
+            self.extractedRects: dict = IPC.Routines.Camera._buffers[self.parent().__class__.__name__].extractedRects
+            self.tailDeflectionAngles = IPC.Routines.Camera._buffers[self.parent().__class__.__name__].tailDeflectionAngles
 
             ### Set up basics
             self.lineSegROIs = dict()
