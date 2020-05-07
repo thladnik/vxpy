@@ -52,25 +52,29 @@ class AbstractProcess:
     _running   : bool
     _shutdown  : bool
 
+    ### Protocol related
+    protocol_start_ptime : float = None
+    phase_start_ptime    : float = None
+
     def __init__(self,
-                 _buffers=None,
                  _configurations=None,
                  _controls=None,
                  _log=None,
                  _pipes=None,
+                 _routines=None,
                  _states=None,
                  **kwargs):
 
         ### Set routines
-        if not(_buffers is None):
-            for bkey, buffer in _buffers.items():
-                ## Set buffer object
-                setattr(IPC.Routines, bkey, buffer)
+        if not(_routines is None):
+            for bkey, routine in _routines.items():
+                ## Set routines object
+                setattr(IPC.Routines, bkey, routine)
 
                 ## Create method hooks in process class instance
                 try:
-                    if not(buffer is None):
-                        buffer.createHooks(self)
+                    if not(routine is None):
+                        routine.createHooks(self)
                 except:
                     # This is a workaround. Please do not remove or you'll break the GUI.
                     # In order for some IPC features to work the, AbstractProcess init has to be
@@ -80,7 +84,7 @@ class AbstractProcess:
                     # on the new, uninitialized QMainWindow sub-class.
                     # Catching this exception prevents a crash.
                     # Why this is the case? Well... once upon a time in land far, far away...
-                    # -> Hashtag "JustPythonStuff"
+                    # -> #JustPythonStuff
                     pass
 
         ### Set configurations
@@ -174,11 +178,12 @@ class AbstractProcess:
         ### RUNNING
         if self.inState(Def.State.RUNNING):
 
+            ## If phase stoptime is exceeded: end phase
             if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
                 self.setState(Def.State.PHASE_END)
                 return False
 
-            ### Execute
+            ### Default: execute protocol
             return True
 
         ########
@@ -189,13 +194,12 @@ class AbstractProcess:
             if self.inState(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
 
                 self._prepareProtocol()
-                protocol = IPC.Control.Protocol[Def.ProtocolCtrl.name]
 
                 # Set next state
                 self.setState(Def.State.WAIT_FOR_PHASE)
                 return False
 
-            ### Fallback, timeout
+            ### Fallback, timeout during IDLE operation
             time.sleep(0.05)
 
         ########
@@ -206,7 +210,6 @@ class AbstractProcess:
                 return False
 
             self._preparePhase()
-            phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
 
             # Set next state
             self.setState(Def.State.READY)
@@ -222,6 +225,7 @@ class AbstractProcess:
                 if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= time.time():
                     Logging.write(logging.INFO, 'Start at {}'.format(time.time()))
                     self.setState(Def.State.RUNNING)
+                    self.phase_start_ptime = time.perf_counter()
                     break
 
             ### Execute
@@ -254,20 +258,18 @@ class AbstractProcess:
             time.sleep(0.05)
 
     def getState(self, process=None):
-        """Deprecated. Now handled directly in IPC"""
-        if process is None:
-            process = self.name
-        return getattr(IPC.State, process).value
+        """Convenience function for access in process class"""
+        return IPC.getState()
 
     def setState(self, code):
-        """Deprecated. Now handled directly in IPC"""
-        getattr(IPC.State, self.name).value = code
+        """Convenience function for access in process class"""
+        IPC.setState(code)
 
-    def inState(self, code, process=None):
-        """Deprecated. Now handled directly in IPC"""
-        if process is None:
-            process = self.name
-        return getattr(IPC.State, process).value == code
+    def inState(self, code, process_name=None):
+        """Convenience function for access in process class"""
+        if process_name is None:
+            process_name = self.name
+        return IPC.inState(code, process_name)
 
     def _startShutdown(self):
         # Handle all pipe messages before shutdown
@@ -275,8 +277,7 @@ class AbstractProcess:
             self._handleInbox()
 
         ### Set process state
-        if getattr(IPC.State, self.name) is not None:
-            getattr(IPC.State, self.name).value = Def.State.STOPPED
+        self.setState(Def.State.STOPPED)
 
         self._shutdown = True
 
@@ -287,7 +288,6 @@ class AbstractProcess:
     ### Private functions
 
     def _executeRPC(self, fun: str, *args, **kwargs):
-        print(fun, args, kwargs)
         """Execute a remote call to the specified function and pass *args, **kwargs
 
         :param fun: function name
@@ -309,6 +309,7 @@ class AbstractProcess:
             Logging.logger.log(logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
                                                 '// Exception: {}'.
                                                 format(fun_str, args, kwargs, exc))
+
 
     def _handleInbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
 

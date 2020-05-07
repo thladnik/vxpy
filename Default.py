@@ -31,7 +31,7 @@ Configuration = {
         Def.CameraCfg.fps                     : 60,
         Def.CameraCfg.exposure                : 2.0,
         Def.CameraCfg.gain                    : 1.0,
-        Def.CameraCfg.buffers                 : ''
+        Def.CameraCfg.routines                 : ''
     },
 
     Def.DisplayCfg.name : {
@@ -65,6 +65,6 @@ Configuration = {
 
     Def.RecCfg.name : {
         Def.RecCfg.enabled              : True,
-        Def.RecCfg.buffers              : []
+        Def.RecCfg.routines              : []
     }
 }

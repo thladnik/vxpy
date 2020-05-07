@@ -32,32 +32,38 @@ class Protocol(QtWidgets.QWidget):
 
     def __init__(self, _main):
         self.main = _main
-        QtWidgets.QWidget.__init__(self, parent=_main, flags=QtCore.Qt.Window)
-
-        self.setupUi()
-
-    def setupUi(self):
+        QtWidgets.QWidget.__init__(self, parent=_main)
 
         ## Setup widget
         self.setLayout(QtWidgets.QGridLayout())
-        self.setMinimumSize(400, 100)
         self.setWindowTitle('Stimulation Protocols')
 
-        # File list
+        ### File list
         self._lwdgt_files = QtWidgets.QListWidget()
-        self._lwdgt_files.setFixedWidth(200)
-        self._lwdgt_files.itemSelectionChanged.connect(self._compileProtocolList)
-        self.layout().addWidget(self._lwdgt_files, 0, 0, 2, 1)
-        # Protocol list
+        self._lwdgt_files.itemSelectionChanged.connect(self.updateFileList)
+        self.layout().addWidget(QtWidgets.QLabel('Files'), 0, 0)
+        self.layout().addWidget(self._lwdgt_files, 1, 0)
+        ### Protocol list
         self._lwdgt_protocols = QtWidgets.QListWidget()
-        self._lwdgt_protocols.setFixedWidth(200)
-        self._lwdgt_protocols.itemSelectionChanged.connect(self._updateProtocolInfo)
-        self.layout().addWidget(self._lwdgt_protocols, 0, 1, 2, 1)
+        #self._lwdgt_protocols.itemSelectionChanged.connect(self._updateProtocolInfo)
+        self.layout().addWidget(QtWidgets.QLabel('Protocols'), 0, 1)
+        self.layout().addWidget(self._lwdgt_protocols, 1, 1)
 
-        # Start button
+        ### Start button
         self._btn_start_protocol = QtWidgets.QPushButton('Start protocol')
-        self._btn_start_protocol.clicked.connect(self.startStimulationProtocol)
-        self.layout().addWidget(self._btn_start_protocol, 0, 2)
+        self._btn_start_protocol.clicked.connect(self.startProtocol)
+        self.layout().addWidget(self._btn_start_protocol, 2, 0, 1, 2)
+        ### Abort protocol button
+        self._btn_abort_protocol = QtWidgets.QPushButton('Abort protocol')
+        self._btn_abort_protocol.clicked.connect(self.abortProtocol)
+        self.layout().addWidget(self._btn_abort_protocol, 3, 0, 1, 2)
+
+        ### Set update timer
+        self._tmr_update = QtCore.QTimer()
+        self._tmr_update.setInterval(200)
+        self._tmr_update.timeout.connect(self.updateGUI)
+        self._tmr_update.start()
+
 
         ### Once set up: compile file list for first time
         self._compileFileList()
@@ -69,24 +75,27 @@ class Protocol(QtWidgets.QWidget):
         for file in protocols.all():
             self._lwdgt_files.addItem(file)
 
-    def _compileProtocolList(self):
+    def updateFileList(self):
         self._lwdgt_protocols.clear()
         self._btn_start_protocol.setEnabled(False)
 
         for protocol in protocols.read(protocols.open(self._lwdgt_files.currentItem().text())):
-            self._lwdgt_protocols.addItem(protocol._name)
+            self._lwdgt_protocols.addItem(protocol.__name__)
 
-    def _updateProtocolInfo(self):
-        self._btn_start_protocol.setEnabled(IPC.inState(Def.State.IDLE, Def.Process.Controller))
+    def updateGUI(self):
+        ctrl_is_idle = IPC.inState(Def.State.IDLE, Def.Process.Controller)
+        self._btn_start_protocol.setEnabled(ctrl_is_idle and len(self._lwdgt_protocols.selectedItems()) > 0)
+        self._btn_abort_protocol.setEnabled(bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
 
-    def startStimulationProtocol(self):
+    def startProtocol(self):
         file_name = self._lwdgt_files.currentItem().text()
         protocol_name = self._lwdgt_protocols.currentItem().text()
 
         IPC.rpc(Def.Process.Controller, Controller.Controller.startProtocol,
-                      '.'.join([file_name[:-3], protocol_name]))
+                      '.'.join([file_name, protocol_name]))
 
-
+    def abortProtocol(self):
+        pass
 
 class SphericalDisplaySettings(QtWidgets.QWidget):
 
@@ -300,7 +309,7 @@ class Camera(QtWidgets.QWidget):
 
         ### Set property update timer
         self.propTimer = QtCore.QTimer()
-        self.propTimer.setInterval(20)
+        self.propTimer.setInterval(50)
         self.propTimer.timeout.connect(self.updateProperties)
         self.propTimer.start()
 

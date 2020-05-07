@@ -34,6 +34,7 @@ class Example(StaticProtocol):
                 for shape in ['normal', 'rect']:
                         for sign in [1, -1]:
                             for vel in [4.0, 8.0]:
+                                self.newPhase(duration=10)
                                 self.addVisual(RipplesOnStaticBackground,
                                                dict(u_mod_sign=sign,
                                                      u_mod_depth=depth,
@@ -54,6 +55,7 @@ class ElevationsExample(StaticProtocol):
         for depth in [0.7, 0.2]:
             for sign in [1, -1]:
                 for elev in [np.pi/8, 0.0, -np.pi/8, -np.pi/4]:
+                    self.newPhase(duration=10)
                     self.addVisual(RipplesOnStaticBackground,
                                    dict(u_mod_sign=sign,
                                          u_mod_depth=depth,
@@ -74,6 +76,7 @@ class UpperFlashesExample(StaticProtocol):
 
         for depth in [0.7, 0.2]:
                 for vel in [1.0, 3.0, 5.0, 8.0]:
+                    self.newPhase(duration=10)
                     self.addVisual(RipplesOnStaticBackground,
                                    dict(u_mod_sign=1,
                                          u_mod_depth=depth,

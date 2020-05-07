@@ -6,6 +6,10 @@ from Protocol import AbstractProtocol, StaticProtocol
 
 _protocols = dict()
 
+def load(protocol_path):
+    file_name, protocol_name = protocol_path.split('.')
+    return getattr(open(file_name), protocol_name)
+
 def open(file_name):
     if _protocols[file_name]['obj'] is None:
         _protocols[file_name]['obj'] = importlib.import_module(_protocols[file_name]['path'])
@@ -26,7 +30,9 @@ for i, path in enumerate(os.listdir(Def.Path.Protocol)):
     if path.startswith('.') or path.startswith('_'):
         continue
 
-    importpath = '.'.join([Def.Path.Protocol, path[:-3]])
+    file_name = path[:-3]
 
-    file_name = path
+    # E.g. protocols.TestProtocol
+    importpath = '.'.join([Def.Path.Protocol, file_name])
+
     _protocols[file_name] = dict(path=importpath, obj=None)

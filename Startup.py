@@ -204,7 +204,7 @@ class Recording(QtWidgets.QGroupBox):
         self._grp_cameraBuffers = QtWidgets.QGroupBox('Camera routines')
         self._grp_cameraBuffers.setLayout(QtWidgets.QVBoxLayout())
         self.wdgt.layout().addWidget(self._grp_cameraBuffers, 2, 0, 1, 3)
-        for bufferName in Config.Camera[Def.CameraCfg.buffers]:
+        for bufferName in Config.Camera[Def.CameraCfg.routines]:
             bufferId = '{}/{}'.format(Def.Process.Camera, bufferName)
             self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
             self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
@@ -214,8 +214,8 @@ class Recording(QtWidgets.QGroupBox):
         self._grp_ioBuffers = QtWidgets.QGroupBox('I/O routines')
         self._grp_ioBuffers.setLayout(QtWidgets.QVBoxLayout())
         self.wdgt.layout().addWidget(self._grp_ioBuffers, 3, 0, 1, 3)
-        for bufferName in Config.IO[Def.IoCfg.buffers]:
-            bufferId = '{}/{}'.format(Def.Process.IO, bufferName)
+        for bufferName in Config.IO[Def.IoCfg.routines]:
+            bufferId = '{}/{}'.format(Def.Process.Io, bufferName)
             self._cb_buffers[bufferId] = QtWidgets.QCheckBox(bufferId)
             self._cb_buffers[bufferId].clicked.connect(self.bufferStateChanged)
             self._cb_buffers[bufferId].setTristate(False)
@@ -260,11 +260,11 @@ class Recording(QtWidgets.QGroupBox):
 
         for bufferId, cb in self._cb_buffers.items():
             # Add bufferId if checkstate == True and bufferId not in buffer list
-            if Conversion.QtCheckstateToBool(cb.checkState()) and bufferId not in Config.Recording[Def.RecCfg.buffers]:
-                Config.Recording[Def.RecCfg.buffers] = Config.Recording[Def.RecCfg.buffers] + [bufferId]
+            if Conversion.QtCheckstateToBool(cb.checkState()) and bufferId not in Config.Recording[Def.RecCfg.routines]:
+                Config.Recording[Def.RecCfg.routines] = Config.Recording[Def.RecCfg.routines] + [bufferId]
             # Remove bufferId if checkstate == False and bufferId is in buffer list
-            elif not(Conversion.QtCheckstateToBool(cb.checkState())) and bufferId in Config.Recording[Def.RecCfg.buffers]:
-                Config.Recording[Def.RecCfg.buffers] = [bi for bi in Config.Recording[Def.RecCfg.buffers] if bi != bufferId]
+            elif not(Conversion.QtCheckstateToBool(cb.checkState())) and bufferId in Config.Recording[Def.RecCfg.routines]:
+                Config.Recording[Def.RecCfg.routines] = [bi for bi in Config.Recording[Def.RecCfg.routines] if bi != bufferId]
 
     def updateGui(self):
         """(Periodically) update UI based on shared configuration"""
@@ -295,7 +295,7 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Set buffer check states
         for bufferId, cb in self._cb_buffers.items():
-            cb.setCheckState(Conversion.boolToQtCheckstate(bufferId in Config.Recording[Def.RecCfg.buffers]))
+            cb.setCheckState(Conversion.boolToQtCheckstate(bufferId in Config.Recording[Def.RecCfg.routines]))
 
         ### Enable/disable buffer groups during active recording
         self._grp_cameraBuffers.setDisabled(active or not(enabled))

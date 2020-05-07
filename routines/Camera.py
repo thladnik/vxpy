@@ -1,5 +1,5 @@
 """
-MappApp ./CameraBuffer.py - FrameBuffer subclasses.
+MappApp ./routines/Camera.py - Custom processing routine implementations for the camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -70,8 +70,6 @@ class FrameRoutine(AbstractRoutine):
     def _out(self):
         yield 'frame', self.buffer.frame
 
-    def readFrame(self):
-        return self.read('frame')
 
 
 class EyePosDetectRoutine(AbstractRoutine):
@@ -222,81 +220,80 @@ class EyePosDetectRoutine(AbstractRoutine):
 
     def _compute(self, frame):
 
-        if not(bool(self.ROIs)):
-            return
-
         extractedRects = dict()
         eyePositions = dict()
-        ### If eyes were marked: iterate over rects and extract eye positions
-        for id, rectParams in self.ROIs.items():
 
-            ## Draw contour points of rect
-            rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
-            # For debugging: draw rectangle
-            #box = cv2.boxPoints(rect)
-            #box = np.int0(box)
-            #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
+        if bool(self.ROIs):
 
-            ## Get rect and frame parameters
-            center, size, angle = rect[0], rect[1], rect[2]
-            center, size = tuple(map(int, center)), tuple(map(int, size))
-            height, width = frame.shape[0], frame.shape[1]
+            ### If eyes were marked: iterate over rects and extract eye positions
+            for id, rectParams in self.ROIs.items():
 
-            ## Rotate
-            M = cv2.getRotationMatrix2D(center, angle, 1)
-            rotFrame = cv2.warpAffine(frame, M, (width, height))
+                ## Draw contour points of rect
+                rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
+                # For debugging: draw rectangle
+                #box = cv2.boxPoints(rect)
+                #box = np.int0(box)
+                #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
 
-            ## Crop rect from frame
-            cropRect = cv2.getRectSubPix(rotFrame, size, center)
+                ## Get rect and frame parameters
+                center, size, angle = rect[0], rect[1], rect[2]
+                center, size = tuple(map(int, center)), tuple(map(int, size))
+                height, width = frame.shape[0], frame.shape[1]
 
-            ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
-            center = (size[0]/2, size[1]/2)
-            width, height = size
-            M = cv2.getRotationMatrix2D(center, 90, 1)
-            absCos = abs(M[0, 0])
-            absSin = abs(M[0, 1])
+                ## Rotate
+                M = cv2.getRotationMatrix2D(center, angle, 1)
+                rotFrame = cv2.warpAffine(frame, M, (width, height))
 
-            # New bound width/height
-            wBound = int(height * absSin + width * absCos)
-            hBound = int(height * absCos + width * absSin)
+                ## Crop rect from frame
+                cropRect = cv2.getRectSubPix(rotFrame, size, center)
 
-            # Subtract old image center
-            M[0, 2] += wBound / 2 - center[0]
-            M[1, 2] += hBound / 2 - center[1]
-            # Rotate
-            rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
+                ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
+                center = (size[0]/2, size[1]/2)
+                width, height = size
+                M = cv2.getRotationMatrix2D(center, 90, 1)
+                absCos = abs(M[0, 0])
+                absSin = abs(M[0, 1])
 
-            ## Apply detection function on cropped rect which contains eyes
-            self.segmentationMode = 'implemented_in_future'
-            if self.segmentationMode == 'something':
-                eyePos, newRect = [], []
-            else:  # default
-                eyePos, newRect = self.default(rotRect)
+                # New bound width/height
+                wBound = int(height * absSin + width * absCos)
+                hBound = int(height * absCos + width * absSin)
 
-            # Debug: write to file
-            #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
+                # Subtract old image center
+                M[0, 2] += wBound / 2 - center[0]
+                M[1, 2] += hBound / 2 - center[1]
+                # Rotate
+                rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-            ### Append angular eye positions to shared list
-            if eyePos is not None:
-                eyePositions[id] = eyePos
+                ## Apply detection function on cropped rect which contains eyes
+                self.segmentationMode = 'implemented_in_future'
+                if self.segmentationMode == 'something':
+                    eyePos, newRect = [], []
+                else:  # default
+                    eyePos, newRect = self.default(rotRect)
 
-            ### Set current rect ROI data
-            extractedRects[id] = newRect
+                # Debug: write to file
+                #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
-        ### Update buffer
+                ### Append angular eye positions to shared list
+                if eyePos is not None:
+                    eyePositions[id] = eyePos
+
+                ### Set current rect ROI data
+                extractedRects[id] = newRect
+
+        ### Update buffer (Always set)
         self.buffer.extractedRects = extractedRects
         self.buffer.eyePositions = eyePositions
 
-
     def _out(self):
-        for id in range(10):
-            eyePositions = self.read('eyePositions{}'.format(id))
 
-            if len(eyePositions) > 0:
-                yield 'ang_eye_pos{}'.format(id), eyePositions[-1]
+        for id in self.buffer.extractedRects.keys():
 
-            if id in self.read('extractedRects'):
-                yield 'eye_extracted_rect{}'.format(id), self.read('extractedRects')[id]
+            yield 'eye_extracted_rect{}'.format(id), self.buffer.extractedRects[id]
+
+            if id in self.buffer.eyePositions:
+                yield 'ang_eye_pos{}_left'.format(id), self.buffer.eyePositions[id][0]
+                yield 'ang_eye_pos{}_right'.format(id), self.buffer.eyePositions[id][1]
 
 
 

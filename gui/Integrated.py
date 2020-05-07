@@ -80,7 +80,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         ## IO process status
         self._le_ioState = QtWidgets.QLineEdit('')
         self._le_ioState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.IO), 4, 0)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Io), 4, 0)
         self.layout().addWidget(self._le_ioState, 4, 1)
 
         ## Logger process status
@@ -143,7 +143,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._setProcessState(self._le_cameraState, IPC.getState(Def.Process.Camera))
         self._setProcessState(self._le_displayState, IPC.getState(Def.Process.Display))
         self._setProcessState(self._le_guiState, IPC.getState(Def.Process.GUI))
-        self._setProcessState(self._le_ioState, IPC.getState(Def.Process.IO))
+        self._setProcessState(self._le_ioState, IPC.getState(Def.Process.Io))
         self._setProcessState(self._le_loggerState, IPC.getState(Def.Process.Logger))
         self._setProcessState(self._le_workerState, IPC.getState(Def.Process.Worker))
 
@@ -190,7 +190,13 @@ class Recording(QtWidgets.QGroupBox):
         self._btn_stop.clicked.connect(self.finalizeRecording)
         self.layout().addWidget(self._btn_stop, 4, 0)
 
-        self.layout().addItem(vSpacer, 5, 0)
+        ### Show recorded routines
+        self._gb_routines = QtWidgets.QGroupBox('Recording routines')
+        self._gb_routines.setLayout(QtWidgets.QVBoxLayout())
+        for routine_id in Config.Recording[Def.RecCfg.routines]:
+            self._gb_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
+        self.layout().addWidget(self._gb_routines, 5, 0)
+        self.layout().addItem(vSpacer, 6, 0)
 
         ### Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
@@ -243,11 +249,17 @@ class Recording(QtWidgets.QGroupBox):
         self._le_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
 
         ### Set buttons dis-/enabled
+        ## Start
         self._btn_start.setEnabled(not(active) and enabled)
         self._btn_start.setText('Start' if IPC.inState(Def.State.IDLE, Def.Process.Controller) else 'Resume')
+        ## Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self._btn_pause.setEnabled(False)
+        ## Stop
         self._btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
+        # Overwrite stop button during protocol
+        if bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
+            self._btn_stop.setEnabled(False)
 
 class Log(QtWidgets.QGroupBox):
 

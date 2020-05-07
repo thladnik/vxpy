@@ -33,7 +33,7 @@ class LiveCamera(QtWidgets.QWidget):
     def __init__(self, parent, **kwargs):
         ### Set module always to active
         self.moduleIsActive = True
-        QtWidgets.QWidget.__init__(self, parent, flags=QtCore.Qt.Window, **kwargs)
+        QtWidgets.QWidget.__init__(self, parent, **kwargs)
         self.setWindowTitle('Live camera')
         baseSize = (Config.Camera[Def.CameraCfg.res_x], 1.5 * Config.Camera[Def.CameraCfg.res_y])
         self.setMinimumSize(*baseSize)
@@ -44,7 +44,7 @@ class LiveCamera(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
 
@@ -86,7 +86,8 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
 
@@ -186,7 +187,7 @@ class EyePositionDetector(QtWidgets.QWidget):
                 self.newMarker = None
 
         def updateRectSubplots(self):
-            extractedRects = IPC.Routines.Camera.readAttribute('EyePosDetectRoutine/extractedRects')
+            idx, extractedRects = IPC.Routines.Camera.readAttribute('EyePosDetectRoutine/extractedRects')
             if extractedRects is None:
                 return
 

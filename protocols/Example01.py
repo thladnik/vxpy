@@ -30,6 +30,7 @@ class Example01(StaticProtocol):
 
         for num in range(4):
             for v in range(5):
+                self.newPhase(5)
                 self.addVisual(BlackWhiteGrating,
                                dict(orientation='vertical', shape='rectangular', num=10+num*4, velocity=v+1),
                                duration=5)

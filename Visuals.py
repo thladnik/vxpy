@@ -16,8 +16,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from glumpy import gl, gloo
 import logging
-from glumpy import gl, gloo, transforms
 import numpy as np
 from typing import Union
 
@@ -36,6 +36,11 @@ class AbstractVisual:
 
     _warns = list()
 
+    def __init__(self):
+        self.time = None
+
+    def start(self):
+        self.time = IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]
 
     def program(self, pname) -> gloo.Program:
         return self._programs[self.__class__][pname]
@@ -103,19 +108,24 @@ class AbstractVisual:
 ################################
 ### Spherical stimulus class
 
-from Shader import BasicFileShader
-from models import BasicSphere
-from helper import Geometry
 from glumpy import glm
 
 import Config
-from Def import DisplayCfg
+import Def
+from helper import Geometry
+import IPC
+from models import BasicSphere
+from Shader import BasicFileShader
+
+from time import perf_counter
 
 class SphericalVisual(AbstractVisual):
 
     _mask_name = '_mask'
 
     def __init__(self, protocol, display):
+        AbstractVisual.__init__(self)
+
         self.protocol = protocol
         self.display = display
 
@@ -137,34 +147,27 @@ class SphericalVisual(AbstractVisual):
         self._mask_program.bind(self._mask_model.vertexBuffer)
 
 
-    def start(self):
-        self._started = True
-
     def draw(self, dt):
         self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+        self.time = perf_counter() - self.display.phase_start_ptime
 
-        if self._running and not(self._stopped):
-            self.time += dt
-        elif self._started and not(self._running):
-            self.time = 0.0
-            self._running = True
-        elif self._stopped or not(self._started):
-            return
+        ### Increment time
+        self.time += dt
 
         ### Set time uniforms
         self.setUniform('u_stime', self.time)
         self.setUniform('u_ptime', self.protocol._time)
 
         #### Set 2D scaling for aspect 1:1
-        width = Config.Display[DisplayCfg.window_width]
-        height = Config.Display[DisplayCfg.window_height]
+        width = Config.Display[Def.DisplayCfg.window_width]
+        height = Config.Display[Def.DisplayCfg.window_height]
         if height > width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
 
         ### Set 3D translation and projection
-        distance = Config.Display[DisplayCfg.view_distance]
+        distance = Config.Display[Def.DisplayCfg.view_distance]
         translate3d = glm.translation(0, 0, -distance)
         fov = 240.0/distance
         project3d = glm.perspective(fov, 1, 2.0, 100.0)
@@ -172,7 +175,7 @@ class SphericalVisual(AbstractVisual):
         ### Set uniforms
         self.setUniform('u_mapcalib_aspectscale', u_mapcalib_aspectscale)
         self.setUniform('u_mapcalib_transform3d', translate3d @ project3d)
-        self.setUniform('u_mapcalib_scale', Config.Display[DisplayCfg.view_scale] * np.array ([1, 1]))
+        self.setUniform('u_mapcalib_scale', Config.Display[Def.DisplayCfg.view_scale] * np.array ([1, 1]))
 
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
 
@@ -181,15 +184,15 @@ class SphericalVisual(AbstractVisual):
             gl.glEnable(gl.GL_STENCIL_TEST)
             gl.glEnable(gl.GL_BLEND)
 
-            elev = Config.Display[DisplayCfg.view_elev_angle]
+            elev = Config.Display[Def.DisplayCfg.view_elev_angle]
             elevRot3d = glm.rotate(np.eye(4), -90 + elev, 1, 0, 0)
             ### Rotate 3d model
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 225, 0, 0, 1) @ elevRot3d)
             ### Rotate around center of screen
             self.setUniform('u_mapcalib_rotate2d', Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i))
             ### Translate radially
-            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[DisplayCfg.pos_glob_radial_offset]
-            xyOffset =  np.array([Config.Display[DisplayCfg.pos_glob_x_pos], Config.Display[DisplayCfg.pos_glob_y_pos]])
+            radialOffset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[Def.DisplayCfg.pos_glob_radial_offset]
+            xyOffset =  np.array([Config.Display[Def.DisplayCfg.pos_glob_x_pos], Config.Display[Def.DisplayCfg.pos_glob_y_pos]])
             translate2d = radialOffset + xyOffset
             self.setUniform('u_mapcalib_translate2d', translate2d)
 
@@ -210,11 +213,12 @@ class SphericalVisual(AbstractVisual):
             #self._mask_program.draw(gl.GL_TRIANGLES, self._mask_model.indexBuffer)
 
             ### Apply 90*i degree rotation for rendering different parts of actual sphere
-            azim_angle = Config.Display[DisplayCfg.view_azim_angle]
+            azim_angle = Config.Display[Def.DisplayCfg.view_azim_angle]
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
             ### Call the rendering function of the subclass
             self.render(dt)
+
 
 ################################
 ### Plane stimulus class
@@ -222,6 +226,7 @@ class SphericalVisual(AbstractVisual):
 class PlanarVisual(AbstractVisual):
 
     def __init__(self, display, protocol):
+        AbstractVisual.__init__(self)
         self.display = display
         self.protocol = protocol
 
@@ -229,10 +234,6 @@ class PlanarVisual(AbstractVisual):
         self._started = False
         self._running = False
         self._stopped = False
-
-
-    def start(self):
-        self._started = True
 
 
     def draw(self, dt):
@@ -248,8 +249,8 @@ class PlanarVisual(AbstractVisual):
 
 
         ### Construct vertices
-        height = Config.Display[DisplayCfg.window_height]
-        width = Config.Display[DisplayCfg.window_width]
+        height = Config.Display[Def.DisplayCfg.window_height]
+        width = Config.Display[Def.DisplayCfg.window_width]
 
         if width > height:
             self.u_mapcalib_xscale = height/width

@@ -34,6 +34,7 @@ import IPC
 import Logging
 import process
 from Process import AbstractProcess
+import protocols
 
 configfile = None
 
@@ -72,35 +73,78 @@ class Controller(AbstractProcess):
         Config.Gui = IPC.Manager.dict()
         Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
         # IO
-        Config.IO = IPC.Manager.dict()
-        Config.IO.update(self.configuration.configuration(Def.IoCfg))
+        Config.Io = IPC.Manager.dict()
+        Config.Io.update(self.configuration.configuration(Def.IoCfg))
         # Recording
         Config.Recording = IPC.Manager.dict()
         Config.Recording.update(self.configuration.configuration(Def.RecCfg))
 
+        ################################
+        ### Set up STATES
 
-        ### Set up states
         IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Camera     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Display    = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Gui        = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
-        IPC.State.IO         = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
+        IPC.State.Io         = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Logger     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Worker     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
 
-        ### Set of record object
+        ################################
+        ### Set up CONTROLS
+
+        ## General
+        IPC.Control.General = IPC.Manager.dict()
+        # Set avg. minimum sleep period
+        times = list()
+        for i in range(100):
+            t = time.perf_counter()
+            time.sleep(10**-10)
+            times.append(time.perf_counter()-t)
+        IPC.Control.General.update({Def.GenCtrl.min_sleep_time : max(times)})
+        Logging.write(logging.INFO, 'Minimum sleep period is {0:.3f}ms'.format(1000*max(times)))
+
+        ### Check time precision on system
+        dt = list()
+        t0 = time.time()
+        while len(dt) < 100:
+            t1 = time.time()
+            if t1 > t0:
+                dt.append(t1-t0)
+        avg_dt = sum(dt) / len(dt)
+        msg = 'Timing precision on system {0:3f}ms'.format(1000*avg_dt)
+        if avg_dt > 0.001:
+            msg_type = logging.WARNING
+        else:
+            msg_type = logging.INFO
+        Logging.write(msg_type, msg)
+
+        ### Recording
         IPC.Control.Recording = IPC.Manager.dict()
         IPC.Control.Recording.update({Def.RecCtrl.active    : False,
                                       Def.RecCtrl.folder    : ''})
 
-        ### Set up protocol object
+        ### Protocol
         IPC.Control.Protocol = IPC.Manager.dict({Def.ProtocolCtrl.name          : None,
                                                  Def.ProtocolCtrl.phase_id      : None,
                                                  Def.ProtocolCtrl.phase_start   : None,
                                                  Def.ProtocolCtrl.phase_stop    : None})
 
         ### Set up routines
-        self._setupBuffers()
+        ## Camera
+        IPC.Routines.Camera = Routine.Routines(Def.Process.Camera)
+        # Add camera routines if camera is activated
+        if Config.Camera[Def.CameraCfg.use]:
+            import routines.Camera
+            for routine_name in Config.Camera[Def.CameraCfg.routines]:
+                IPC.Routines.Camera.addRoutine(getattr(routines.Camera, routine_name))
+
+        ## IO
+        IPC.Routines.Io = Routine.Routines(Def.Process.Io)
+        if Config.Io[Def.IoCfg.use]:
+            import routines.Io
+            for routine_name in Config.Io[Def.IoCfg.routines]:
+                IPC.Routines.Io.addRoutine(getattr(routines.Io, routine_name))
 
         ### Set up processes
         ## Worker
@@ -115,7 +159,7 @@ class Controller(AbstractProcess):
         if Config.Display[Def.DisplayCfg.use]:
             self._registerProcess(process.Display)
         ## IO
-        if Config.IO[Def.IoCfg.use]:
+        if Config.Io[Def.IoCfg.use]:
             self._registerProcess(process.IO)
         ## Logger (always runs in background)
         self._registerProcess(process.Logger)
@@ -160,13 +204,12 @@ class Controller(AbstractProcess):
                                              if not (k.startswith('_'))},
                           _states         = {k: v for k, v in IPC.State.__dict__.items()
                                              if not (k.startswith('_'))},
-                          _buffers        = {k: v for k, v in IPC.Routines.__dict__.items()
+                          _routines        = {k: v for k, v in IPC.Routines.__dict__.items()
                                             if not (k.startswith('_'))},
                           _controls       = {k: v for k, v in IPC.Control.__dict__.items()
                                              if not (k.startswith('_'))},
                           _log            = {k: v for k, v in IPC.Log.__dict__.items()
-                                             if not (k.startswith('_'))},
-                          **kwargs
+                                             if not (k.startswith('_'))}
                       ))
 
         ### Create subprocess
@@ -180,16 +223,6 @@ class Controller(AbstractProcess):
         ### Set state to IDLE
         self.setState(Def.State.IDLE)
 
-    def _setupBuffers(self):
-        ### Create buffer object
-        IPC.Routines.Camera = Routine.Routines(Def.Process.Camera)
-
-        ### Add camera routines if camera is activated
-        if Config.Camera[Def.CameraCfg.use]:
-            import routines.Camera
-            for bufferName in Config.Camera[Def.CameraCfg.buffers]:
-                IPC.Routines.Camera.addBuffer(getattr(routines.Camera, bufferName))
-
     def start(self):
         ### Initialize all pipes
         for target, kwargs in self._registeredProcesses:
@@ -198,21 +231,6 @@ class Controller(AbstractProcess):
         ### Initialize all processes
         for target, kwargs in self._registeredProcesses:
             self.initializeProcess(target, **kwargs)
-
-        ### Check time precision on system
-        dt = list()
-        t0 = time.time()
-        while len(dt) < 100:
-            t1 = time.time()
-            if t1 > t0:
-                dt.append(t1-t0)
-        avg_dt = sum(dt) / len(dt)
-        msg = 'Timing precision on system {0:6f}s'.format(avg_dt)
-        if avg_dt > 0.001:
-            msg_type = logging.WARNING
-        else:
-            msg_type = logging.INFO
-        Logging.write(msg_type, msg)
 
         ### Run controller
         self.run()
@@ -312,8 +330,8 @@ class Controller(AbstractProcess):
             processes = list()
             if not(self.inState(Def.State.IDLE, Def.Process.Display)):
                 processes.append(Def.Process.Display)
-            if not (self.inState(Def.State.IDLE, Def.Process.IO)):
-                processes.append(Def.Process.IO)
+            if not (self.inState(Def.State.IDLE, Def.Process.Io)):
+                processes.append(Def.Process.Io)
 
             Logging.write(logging.WARNING,
                           'One or more processes currently busy. Can not start new protocol.'
@@ -332,7 +350,7 @@ class Controller(AbstractProcess):
         ### Set protocol class path
         IPC.Control.Protocol[Def.ProtocolCtrl.name] = protocol_path
 
-        ### Go into standby mode
+        ### Go into PREPARE_PROTOCOL
         self.setState(Def.State.PREPARE_PROTOCOL)
 
     def startProtocolPhase(self, _id = None):
@@ -352,12 +370,14 @@ class Controller(AbstractProcess):
         ### In state PREPARE_PROTOCOL
         if self.inState(Def.State.PREPARE_PROTOCOL):
 
+            self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+
             ### Wait for children to WAIT_FOR_PHASE (if they are not stopped)
             if (not(self.inState(Def.State.WAIT_FOR_PHASE, Def.Process.Display))
                 and not(self.inState(Def.State.STOPPED, Def.Process.Display))) \
                     or \
-                (not(self.inState(Def.State.WAIT_FOR_PHASE, Def.Process.IO))
-                 and not(self.inState(Def.State.STOPPED, Def.Process.IO))):
+                (not(self.inState(Def.State.WAIT_FOR_PHASE, Def.Process.Io))
+                 and not(self.inState(Def.State.STOPPED, Def.Process.Io))):
                 return
 
             ### Set next phase
@@ -369,16 +389,19 @@ class Controller(AbstractProcess):
         ########
         ### PREPARE_PHASE
         if self.inState(Def.State.PREPARE_PHASE):
-            print('meh?')
             ### IF Display READY or STOPPED _and_ IO READY or STOPPED
             if (self.inState(Def.State.READY, Def.Process.Display)
                 or self.inState(Def.State.STOPPED, Def.Process.Display))\
                     and \
-                (self.inState(Def.State.READY, Def.Process.IO)
-                 or self.inState(Def.State.STOPPED, Def.Process.IO)):
+                (self.inState(Def.State.READY, Def.Process.Io)
+                 or self.inState(Def.State.STOPPED, Def.Process.Io)):
 
-                IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] = time.time() + 0.1
-                IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time() + 5.1
+                phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+                duration = self.protocol._phases[phase_id]['duration']
+
+                fixed_delay = 0.1
+                IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] = time.time() + fixed_delay
+                IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time() + duration + fixed_delay
 
                 Logging.write(logging.INFO, 'Run phase {}. Set start time to {}'
                       .format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id],
@@ -398,8 +421,7 @@ class Controller(AbstractProcess):
         ### PHASE_END
         elif self.inState(Def.State.PHASE_END):
 
-            # TODO: properly check if there's a next phase
-            if IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] > 1:
+            if (IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1) >= self.protocol.phaseCount():
                 self.setState(Def.State.PROTOCOL_END)
                 return
 
@@ -414,8 +436,8 @@ class Controller(AbstractProcess):
             if (self.inState(Def.State.IDLE, Def.Process.Display)
                 or self.inState(Def.State.STOPPED, Def.Process.Display)) \
                     and \
-                (self.inState(Def.State.IDLE, Def.Process.IO)
-                 or self.inState(Def.State.STOPPED, Def.Process.IO)):
+                (self.inState(Def.State.IDLE, Def.Process.Io)
+                 or self.inState(Def.State.STOPPED, Def.Process.Io)):
 
                 self.stopRecording()
 

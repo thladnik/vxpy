@@ -27,4 +27,7 @@ class IcoCMNProtocol(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
+        self.newPhase(duration=2)
+        self.addVisual(IcoCMN, {}, duration=None)
+        self.newPhase(duration=3)
         self.addVisual(IcoCMN, {}, duration=None)

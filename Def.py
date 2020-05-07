@@ -49,7 +49,7 @@ class Process:
     Controller = 'Controller'
     Display    = 'Display'
     GUI        = 'Gui'
-    IO         = 'IO'
+    Io         = 'Io'
     Logger     = 'Logger'
     Worker     = 'Worker'
 
@@ -105,7 +105,7 @@ class CameraCfg:
     gain         = 'float_prop_gain'
 
     # Buffers
-    buffers      = 'list_buffers'
+    routines      = 'list_routines'
 
 
 ########
@@ -161,10 +161,11 @@ class IoCfg:
     device_type  = 'str_device_type'
     device_model = 'str_device_model'
     device_port  = 'str_device_comport'
-    digital_pins = 'list_digital_pins'
+    sample_rate  = 'int_sample_rate'
+    pins         = 'list_pins'
     analog_pins  = 'list_analog_pins'
 
-    buffers = 'list_buffers'
+    routines = 'list_routines'
 
 
 ########
@@ -176,11 +177,17 @@ class RecCfg:
     enabled         = 'bool_enabled'
 
     # Active routines
-    buffers         = 'list_buffers'
+    routines         = 'list_routines'
 
 
 ################################
 # Controls
+
+########
+# General
+
+class GenCtrl:
+    min_sleep_time = 'min_sleep_time'
 
 ########
 # Recording

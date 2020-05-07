@@ -1,5 +1,5 @@
 """
-MappApp ./Buffer.py - Buffer-objects which are used for inter-process-communication and save-to-file operations
+MappApp ./Routine.py - Routine wrapper, abstract routine and ring buffer implementations.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -30,10 +30,10 @@ import IPC
 import Logging
 
 ################################
-## Buffer Object
+## Routine wrapper class
 
 class Routines:
-    """Buffer Object: wrapper for routines
+    """Wrapper class for routines
     """
 
     def __init__(self, name):
@@ -62,20 +62,25 @@ class Routines:
                 else:
                     print('Oh no, routine method already set. NOT GOOD!')
 
-    def addBuffer(self, routine, **kwargs):
+    def addRoutine(self, routine, **kwargs):
         """To be called by controller (initialization of routines has to happen in parent process)"""
         self._routines[routine.__name__] = routine(self, **kwargs)
 
     def update(self, frame):
         for name in self._routines:
+            ### Update the data in buffer
             self._routines[name].update(frame)
+            ### Stream new routine computation results to file (if active)
             self._routines[name].streamToFile(self._openFile())
+            # Advance the associated buffer
+            self._routines[name].buffer.next()
 
-    def readAttribute(self, attr_name, routine_name=None):
+    def readAttribute(self, attr_name, routine_name=None, **kwargs):
         """Read shared attribute from buffer.
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>
         :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
+                                routine_name can be either str or list[str]
 
         :return: value of the buffer
         """
@@ -84,7 +89,7 @@ class Routines:
             attr_name = parts[1]
             routine_name = parts[0]
 
-        return self._routines[routine_name].read(attr_name)
+        return self._routines[routine_name].read(attr_name, **kwargs)
 
     def routines(self):
         return self._routines
@@ -133,7 +138,7 @@ class Routines:
 
 
 ################################
-## Abstract Buffer class
+## Abstract Routine class
 
 class AbstractRoutine:
 
@@ -143,6 +148,9 @@ class AbstractRoutine:
         self.exposed = list()
         self.buffer = RingBuffer()
         self.currentTime = time()
+
+        ### Set time attribute by default on all buffers
+        self.buffer.time = ('time', float)
 
     def _compute(self, data):
         """Compute method is called on data updates (so in the producer process).
@@ -158,19 +166,18 @@ class AbstractRoutine:
         """
         raise NotImplemented('method _out not implemented in {}'.format(self.__class__.__name__))
 
-    def read(self, attr_name):
-        ### Return
-        return self.buffer.read(attr_name)
+    def read(self, attr_name, *args, **kwargs):
+        return self.buffer.read(attr_name, *args, **kwargs)
 
     def update(self, data):
         """Method is called on every iteration of the producer.
 
         :param data: input data to be updated
         """
-
+        self.buffer.time = time()
         ### Call compute method
         self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
-        self.buffer.next()
+        #                            (TODO: I don't think this copying works as intended, yet)
 
     def _appendData(self, grp, key, value):
 
@@ -204,7 +211,7 @@ class AbstractRoutine:
         bufferName = self.__class__.__name__
 
         ### If no file object was provided or this particular buffer is not supposed to stream to file: return
-        if file is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Def.RecCfg.buffers]):
+        if file is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Def.RecCfg.routines]):
             return None
 
         ## Each buffer writes to it's own group
@@ -214,7 +221,7 @@ class AbstractRoutine:
         grp = file[bufferName]
 
         ### Current time for entry
-        self.currentTime = time()
+        #self.currentTime = time()
 
         ## Iterate over data in group (buffer)
         for key, value in self._out():
@@ -228,9 +235,11 @@ class AbstractRoutine:
             ###
 
             self._appendData(grp, key, value)
-            self._appendData(grp, '{}_time'.format(key), self.currentTime)
+            self._appendData(grp, '{}_time'.format(key), self.buffer.time)
 
 class RingBuffer:
+    """A simple ring buffer model. """
+    # TODO: try to use shared array instead of lists in order to increase speed?
 
     def __init__(self, buffer_length=1000):
         self.__dict__['_bufferLength'] = buffer_length
@@ -248,9 +257,55 @@ class RingBuffer:
     def length(self):
         return self.__dict__['_bufferLength']
 
-    def read(self, name):
-        """Read **by consumer**: return last complete record (_currentIdx-1)"""
-        return self.__dict__['_data_{}'.format(name)][(self.index()-1) % self.length()]
+    def read(self, name, last=1, last_idx=None):
+        """Read **by consumer**: return last complete record(s) (_currentIdx-1)
+        Returns a tuple of (index, record_dataset)
+                        or (indices, record_datasets)
+        """
+        if not(last_idx is None):
+            last = self.index()-last_idx
+
+        ### Set index relative to buffer length
+        list_idx = (self.index()) % self.length()
+
+        ### One record
+        if last == 1:
+            idx_start = list_idx-1
+            idx_end = None
+            idcs = self.index()-1
+
+        ### Multiple record
+        elif last > 1:
+            if last > self.length():
+                raise Exception('Trying to read more records than stored in buffer. '
+                                'Attribute \'{}\''.format(name))
+
+            idx_start = list_idx-last
+            idx_end = list_idx
+
+            idcs = list(range(self.index()-last, self.index()))
+
+        ### No entry: raise exception
+        else:
+            raise Exception('Smallest possible record set size is 1')
+
+        if isinstance(name, str):
+            return idcs, self._read(name, idx_start, idx_end)
+        else:
+            return idcs, {n: self._read(n, idx_start, idx_end) for n in name}
+
+    def _read(self, name, idx_start, idx_end):
+
+        ### Return single record
+        if idx_end is None:
+            return self.__dict__['_data_{}'.format(name)][idx_start]
+
+        ### Return multiple records
+        if idx_start >= 0:
+            return self.__dict__['_data_{}'.format(name)][idx_start:idx_end]
+        else:
+            return self.__dict__['_data_{}'.format(name)][idx_start:] \
+                   + self.__dict__['_data_{}'.format(name)][:idx_end]
 
     def __setattr__(self, name, value):
         if not('_data_{}'.format(name) in self.__dict__):

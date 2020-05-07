@@ -1,5 +1,5 @@
 """
-MappApp ./process/IO.py - General purpose digital/analog input/output process.
+MappApp ./process/Io.py - General purpose digital/analog input/output process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -26,30 +26,33 @@ import IPC
 import Logging
 
 class Main(Process.AbstractProcess):
-    name = Def.Process.IO
+    name = Def.Process.Io
 
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
 
+        ################################
+        ### Set up device
         self.device = None
-        if Config.IO[Def.IoCfg.device_type] == 'Arduino':
+        if Config.Io[Def.IoCfg.device_type] == 'Arduino':
             import devices.microcontrollers.Arduino
             self.device = devices.microcontrollers.Arduino.Device()
 
+        run = False
         try:
             if self.device is None:
                 raise Exception('No applicable device found.')
             else:
-                if self.device.connect():
-                    if self.device.setup():
-                        ### Run event loop
-                        self.run()
+                run = self.device.connect() and self.device.setup()
+
         except Exception as exc:
             Logging.logger.log(logging.WARNING, 'Could not connect to device. // Exception: {}'
                                .format(exc))
             self.setState(Def.State.STOPPED)
 
-
+        ### Run event loop
+        if run:
+            self.run()
 
     def _prepareProtocol(self):
         print('Protocollin\' and rollin\'')
@@ -64,9 +67,16 @@ class Main(Process.AbstractProcess):
 
     def main(self):
 
-        if self._runProtocol():
-            self.device._digital['test01_pwmout'].write(1)
-            time.sleep(1.0)
-            self.device._digital['test01_pwmout'].write(0)
-            time.sleep(0.5)
+        # (optional) Sleep to reduce CPU usage
+        dt = self.t + 1./Config.Io[Def.IoCfg.sample_rate] - time.perf_counter()
+        if dt > IPC.Control.General[Def.GenCtrl.min_sleep_time]:
+            time.sleep(3*dt/4)
+
+        # Precise timing
+        while time.perf_counter() < self.t + 1./Config.Io[Def.IoCfg.sample_rate]:
             pass
+
+        # Update routines
+        IPC.Routines.Io.update(self.device.readAll())
+        self._runProtocol()
+

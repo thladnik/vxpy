@@ -27,6 +27,7 @@ import Def
 import IPC
 import Logging
 import Protocol
+import protocols
 
 from routines import Camera
 if Def.Env == Def.EnvTypes.Dev:
@@ -40,9 +41,9 @@ from pyglet.window import key
 class Main(Process.AbstractProcess):
     name = Def.Process.Display
 
-    _config   : dict              = dict()
-    _glWindow : app.window.Window = None
-    protocol  : Protocol          = None
+    _config   : dict                      = dict()
+    _glWindow : app.window.Window         = None
+    protocol  : Protocol.AbstractProtocol = None
 
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
@@ -80,27 +81,25 @@ class Main(Process.AbstractProcess):
         pass
 
     def _prepareProtocol(self):
-        print('Protocollin\' and rollin\'')
-        self.protocol = 'something'
+        self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def _preparePhase(self):
-        print('phase lala')
+        self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
 
     def _cleanupProtocol(self):
-        print('Just cleanin\'')
+        pass
+        #self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
     def on_draw(self, dt):
         """Glumpy on_draw event.
-        This method is just a pass-through to the currently set protocol.
 
-        :param dt: elapsed time since last call in [s]
+        :param dt: elapsed time since last call in [s]. This is usually ~1/FPS
         :return:
         """
-        #IPC.rpc(Def.Process.Camera, CameraBuffers.FrameBuffer.testbufferargs, 'blabla')
 
+        ### Call draw, if protocol is running
         if self._runProtocol():
-            pass
-            #self.protocol.draw()
+            self.protocol.draw(dt)
 
 
     def on_resize(self, width: int, height: int):
@@ -198,18 +197,6 @@ class Main(Process.AbstractProcess):
                 except:
                     Logging.write(logging.WARNING, 'Unable to set backend window size. Check glumpy version.')
                     self._checkScreenStatus = False
-
-    def startNewStimulationProtocol(self, protocol_cls):
-        """Start the presentation of a new stimulation protocol
-
-        :param protocol_cls: class object of the stimulation protocol
-        :return:
-        """
-
-        ### Initialize new stimulus protocol
-        Logging.logger.log(logging.INFO, 'Start new stimulation procotol {}'.
-                           format(str(protocol_cls)))
-        self.protocol = protocol_cls(self)
 
     def _startShutdown(self):
         self._glWindow.close()

@@ -27,8 +27,9 @@ import Process
 import IPC
 import Logging
 import gui.Controls
-import gui.Integrated
 import gui.Camera
+import gui.Integrated
+import gui.Io
 
 import process.Camera
 import process.Display
@@ -104,10 +105,12 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
 
         ## Add IO monitor
-        self._grp_io = QtWidgets.QWidget()
+        self._grp_io = QtWidgets.QGroupBox('I/O Monitor')
         self._grp_io.setLayout(QtWidgets.QHBoxLayout())
-        self._grp_io.layout().addItem(hvSpacer)
-        self.centralWidget().layout().addWidget(self._grp_io, 1, 3, 1, 2)
+        if Config.Io[Def.IoCfg.use]:
+            self._wdgt_io_monitor = gui.Io.IoWidget(self)
+            self._grp_io.layout().addWidget(self._wdgt_io_monitor)
+        self.centralWidget().layout().addWidget(self._grp_io, 1, 2, 1, 2)
 
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)

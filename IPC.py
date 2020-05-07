@@ -34,7 +34,7 @@ class State:
     Controller : int = None
     Display    : int = None
     Gui        : int = None
-    IO         : int = None
+    Io         : int = None
     Logger     : int = None
     Worker     : int = None
 
@@ -88,5 +88,6 @@ class Log:
 # Controls
 
 class Control:
+    General   = None
     Recording = None
     Protocol  = None

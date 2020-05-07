@@ -16,10 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import cv2
 import logging
-import numpy as np
-from time import perf_counter, strftime, sleep
+import time
 
 import Config
 import Process
@@ -55,22 +53,11 @@ class Main(Process.AbstractProcess):
                                        exc))
 
 
-        ### Set avg. minimum sleep period
-        times = list()
-        for i in range(100):
-            t = perf_counter()
-            sleep(10**-10)
-            times.append(perf_counter()-t)
-        self.acqSleepThresh = np.quantile(times, 0.95)
-        msg = 'Set acquisition threshold to {0:.6f}s'.format(self.acqSleepThresh)
-        if self.acqSleepThresh > 1./Config.Camera[Def.CameraCfg.fps]:
-            msg_type = logging.WARNING
-            msg += '. Threshold is ABOVE average target frame time of 1/{}s.'\
-                .format(Config.Camera[Def.CameraCfg.fps])
-        else:
-            msg_type = logging.INFO
-
-        Logging.write(msg_type, msg)
+        if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./Config.Camera[Def.CameraCfg.fps]:
+            Logging.write(logging.WARNING, 'Mininum sleep period is ABOVE '
+                                           'average target frametime of 1/{}s.'
+                                            'This will cause increased CPU usage.'
+                                            .format(Config.Camera[Def.CameraCfg.fps]))
 
         ### Run event loop
         self.run()
@@ -79,16 +66,19 @@ class Main(Process.AbstractProcess):
         # Update camera settings
         # All camera settings with the "*_prop_*" substring
         # are considered properties which may be changed online
+        # (Please don't touch the rest)
         for setting, value in Config.Camera.items():
             if setting.find('_prop_') >= 0:
                 self.camera.updateProperty(setting, value)
 
-        # Fetch current frame
-        frame = self.camera.getImage()
-        # Update routines
-        IPC.Routines.Camera.update(frame)
+        # (optional) Sleep to reduce CPU usage
+        #dt = self.t + 1./Config.Camera[Def.CameraCfg.fps] - time.perf_counter()
+        #if dt > IPC.Control.General[Def.GenCtrl.min_sleep_time]:
+        #    time.sleep(3*dt/4)
 
-        # Wait until next frame
-        t = self.t + 1./Config.Camera[Def.CameraCfg.fps] - perf_counter()
-        if t > self.acqSleepThresh:
-            sleep(t)
+        # Precise timing
+        #while time.perf_counter() < self.t + 1./Config.Camera[Def.CameraCfg.fps]:
+        #    pass
+
+        # Update routines
+        IPC.Routines.Camera.update(self.camera.getImage())
