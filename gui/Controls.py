@@ -64,7 +64,6 @@ class Protocol(QtWidgets.QWidget):
         self._tmr_update.timeout.connect(self.updateGUI)
         self._tmr_update.start()
 
-
         ### Once set up: compile file list for first time
         self._compileFileList()
 
@@ -91,11 +90,11 @@ class Protocol(QtWidgets.QWidget):
         file_name = self._lwdgt_files.currentItem().text()
         protocol_name = self._lwdgt_protocols.currentItem().text()
 
-        IPC.rpc(Def.Process.Controller, Controller.Controller.startProtocol,
+        IPC.rpc(Def.Process.Controller, Controller.startProtocol,
                       '.'.join([file_name, protocol_name]))
 
     def abortProtocol(self):
-        pass
+        IPC.rpc(Controller.name, Controller.abortProtocol)
 
 class SphericalDisplaySettings(QtWidgets.QWidget):
 

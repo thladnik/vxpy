@@ -36,10 +36,11 @@ import process
 from Process import AbstractProcess
 import protocols
 
-configfile = None
 
 class Controller(AbstractProcess):
     name = Def.Process.Controller
+
+    configfile = None
 
     _registeredProcesses = list()
 
@@ -56,13 +57,11 @@ class Controller(AbstractProcess):
 
         AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
                                              if not (k.startswith('_'))})
-        global configfile
-
         ### Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
 
         ### Set configurations
-        self.configuration = Basic.Config(configfile)
+        self.configuration = Basic.Config(self.configfile)
         # Camera
         Config.Camera = IPC.Manager.dict()
         Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
@@ -237,7 +236,7 @@ class Controller(AbstractProcess):
 
         ### Pre-shutdown
         ## Update configurations that should persist
-        Logging.logger.log(logging.INFO, 'Save configuration to file {}'.format(configfile))
+        Logging.logger.log(logging.INFO, 'Save configuration to file {}'.format(self.configfile))
         self.configuration.updateConfiguration(Def.CameraCfg, **{k : v for k, v in Config.Camera.items() if k.find('_prop_') >= 0})
         self.configuration.updateConfiguration(Def.DisplayCfg, **Config.Display)
         self.configuration.updateConfiguration(Def.RecCfg, **Config.Recording)
@@ -354,7 +353,7 @@ class Controller(AbstractProcess):
         self.setState(Def.State.PREPARE_PROTOCOL)
 
     def startProtocolPhase(self, _id = None):
-        ### If phase ID was provided: run this ID
+        ### If phase ID was provided: run thcontrolsis ID
         if not(_id is None):
             IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] = _id
             return
@@ -364,6 +363,11 @@ class Controller(AbstractProcess):
             IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] = 0
         else:
             IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1
+
+    def abortProtocol(self):
+        # TODO: handle stuff?
+        IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time()
+        self.setState(Def.State.PROTOCOL_END)
 
     def main(self):
 
@@ -440,6 +444,8 @@ class Controller(AbstractProcess):
                  or self.inState(Def.State.STOPPED, Def.Process.Io)):
 
                 self.stopRecording()
+
+                IPC.Control.Protocol[Def.ProtocolCtrl.name] = ''
 
                 self.setState(Def.State.IDLE)
 

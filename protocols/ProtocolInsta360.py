@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from stimuli.ContiguousMotionNoise import IcoCMN
-from stimuli.Insta360OneX import Calibrated
+from visuals.ContiguousMotionNoise import IcoCMN
+from visuals.Insta360OneX import Calibrated
 
 class Insta360Protocol(StaticProtocol):
 
@@ -27,4 +27,5 @@ class Insta360Protocol(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-        self.addVisual(Calibrated, dict(filename='insta1_virtMapsConverted'), duration=None)
+        self.newPhase(duration=10**4)
+        self.addVisual(Calibrated, dict(filename='insta1_virtMapsConverted'))

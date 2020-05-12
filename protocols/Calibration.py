@@ -18,21 +18,27 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from stimuli.Checkerboard import BlackWhiteCheckerboard
-from stimuli.Grating import BlackWhiteGrating
+from visuals.Checkerboard import BlackWhiteCheckerboard
+from visuals.Grating import BlackWhiteGrating
 
-class Calibration(StaticProtocol):
-
-    _name = 'Calibration'
+class Calibration16x16(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 
+        self.newPhase(duration=10**4)
+
         self.addVisual(BlackWhiteCheckerboard,
-                       dict(cols=16, rows=16),
-                       duration=None)
+                       dict(cols=16, rows=16))
+
+
+class CalibrationMultiple(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+
 
         for num in range(10):
+            self.newPhase(duration=10)
             self.addVisual(BlackWhiteCheckerboard,
-                           dict(cols=8+num, rows=8+num),
-                           duration=5)
+                           dict(cols=8 + num, rows=8 + num))

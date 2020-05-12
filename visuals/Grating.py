@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/Grating.py - Grating stimuli
+MappApp ./visuals/Grating.py - Grating visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

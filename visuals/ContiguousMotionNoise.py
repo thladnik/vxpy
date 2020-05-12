@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/ContiguousMotionNoise.py - icoCMN stimuli
+MappApp ./visuals/ContiguousMotionNoise.py - icoCMN visuals
 Copyright (C) 2020 Yue Zhang
 
 This program is free software: you can redistribute it and/or modify

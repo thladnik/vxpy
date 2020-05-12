@@ -17,11 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import ctypes
 import logging
-import multiprocessing as mp
-import multiprocessing.connection
-import os
 import signal
 import sys
 import time
@@ -221,6 +217,8 @@ class AbstractProcess:
                 return False
 
             ### Wait for go time
+            # TODO: there is an issue where Process gets stuck on READY, when protocol is
+            #       aborted while it is waiting in this loop. Fix: periodic checking? Might mess up timing?
             while self.inState(Def.State.RUNNING, Def.Process.Controller):
                 if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= time.time():
                     Logging.write(logging.INFO, 'Start at {}'.format(time.time()))

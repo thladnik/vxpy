@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from stimuli.WaterRipples import RipplesOnStaticBackground
+from visuals.WaterRipples import RipplesOnStaticBackground
 
 class Example(StaticProtocol):
 
@@ -41,8 +41,7 @@ class Example(StaticProtocol):
                                                      u_mod_shape=shape,
                                                      u_mod_vel=vel,
                                                      u_mod_width=width,
-                                                     u_mod_max_elev=-np.pi/8),
-                                               duration=10)
+                                                     u_mod_max_elev=-np.pi/8))
 
 class ElevationsExample(StaticProtocol):
 
@@ -62,8 +61,7 @@ class ElevationsExample(StaticProtocol):
                                          u_mod_shape='normal',
                                          u_mod_vel=4.0,
                                          u_mod_width=0.03,
-                                         u_mod_max_elev=elev),
-                                   duration=10)
+                                         u_mod_max_elev=elev))
 
 class UpperFlashesExample(StaticProtocol):
 
@@ -84,5 +82,4 @@ class UpperFlashesExample(StaticProtocol):
                                          u_mod_vel=4.0,
                                          u_mod_width=0.03,
                                          u_mod_max_elev=0.0,
-                                         u_upper_field_flash=1),
-                                   duration=10)
+                                         u_upper_field_flash=1))

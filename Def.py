@@ -66,6 +66,7 @@ class State:
     PREPARE_PHASE    = 32
     READY            = 33
     PHASE_END        = 37
+    PROTOCOL_ABORT   = 38
     PROTOCOL_END     = 39
     IDLE             = 20
     RUNNING          = 41

@@ -315,12 +315,12 @@ if __name__ == '__main__':
         if configfile is None:
             exit()
 
-        import Process
-        Process.Controller()
+        import process.Controller
+        process.Controller()
 
     else:
         # _configfile = 'default_TIS.ini'
-        from process import Controller
+        import process.Controller
 
-        Controller.configfile = 'default.ini'
-        ctrl = Controller.Controller()
+        process.Controller.configfile = 'default.ini'
+        ctrl = process.Controller()

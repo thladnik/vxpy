@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from stimuli.ContiguousMotionNoise import IcoCMN
-from stimuli.Insta360OneX import Calibrated
+from visuals.ContiguousMotionNoise import IcoCMN
+from visuals.Insta360OneX import Calibrated
 
 class IcoCMNProtocol(StaticProtocol):
 
@@ -28,6 +28,7 @@ class IcoCMNProtocol(StaticProtocol):
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
         self.newPhase(duration=2)
-        self.addVisual(IcoCMN, {}, duration=None)
+        self.addVisual(IcoCMN, {})
+
         self.newPhase(duration=3)
-        self.addVisual(IcoCMN, {}, duration=None)
+        self.addVisual(IcoCMN, {})
