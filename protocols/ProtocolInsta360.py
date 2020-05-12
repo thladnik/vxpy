@@ -16,15 +16,16 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticStimulationProtocol
+from Protocol import StaticProtocol
 
-from stimuli.ContiguousMotionNoise import IcoCMN
-from stimuli.Insta360OneX import Calibrated
+from visuals.ContiguousMotionNoise import IcoCMN
+from visuals.Insta360OneX import Calibrated
 
-class Insta360Protocol(StaticStimulationProtocol):
+class Insta360Protocol(StaticProtocol):
 
     _name = 'insta360'
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
-        self.addStimulus(Calibrated, dict(filename='insta1_virtMapsConverted'), duration=None)
+        self.newPhase(duration=10**4)
+        self.addVisual(Calibrated, dict(filename='insta1_virtMapsConverted'))

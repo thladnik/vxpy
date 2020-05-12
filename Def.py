@@ -1,5 +1,5 @@
 """
-MappApp ./Definition.py - Definitions required to run the program.
+MappApp ./Def.py - Definitions required to run the program.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -17,11 +17,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 
+################################
+# Environment settings
+
 class EnvTypes:
     Dev        = 'dev'
     Production = 'production'
 
 Env = EnvTypes.Production
+
+
+################################
+# Subfolder definitions
 
 class Path:
     Config   = 'configs'
@@ -33,24 +40,56 @@ class Path:
     Shader   = 'shaders'
     Task     = 'tasks'
 
+
+################################
+# Process names
+
 class Process:
     Camera     = 'Camera'
     Controller = 'Controller'
     Display    = 'Display'
     GUI        = 'Gui'
-    IO         = 'IO'
+    Io         = 'Io'
     Logger     = 'Logger'
     Worker     = 'Worker'
 
-class State:
-    stopped          = 99
-    starting         = 10
-    idle             = 20
-    busy             = 30
-    recording        = 50
-    recording_paused = 55
 
-class Camera:
+################################
+# Process states
+
+class State:
+    NA               = 0
+    STOPPED          = 99
+    STARTING         = 10
+    PREPARE_PROTOCOL = 30
+    WAIT_FOR_PHASE   = 31
+    PREPARE_PHASE    = 32
+    READY            = 33
+    PHASE_END        = 37
+    PROTOCOL_ABORT   = 38
+    PROTOCOL_END     = 39
+    IDLE             = 20
+    RUNNING          = 41
+    STANDBY          = 42
+
+################################
+# IPC signals
+
+class Signal:
+    UpdateProperty  = 10
+    RPC             = 20
+    Query           = 30
+    Shutdown        = 99
+    ConfirmShutdown = 100
+
+
+################################
+# Configuration key definitions
+
+########
+# Camera
+
+class CameraCfg:
     name = 'camera'
 
     # Use camera
@@ -64,11 +103,16 @@ class Camera:
     res_y        = 'int_resolution_y'
     fps          = 'int_prop_fps'
     exposure     = 'float_prop_exposure'
+    gain         = 'float_prop_gain'
 
     # Buffers
-    buffers      = 'list_buffers'
+    routines      = 'list_routines'
 
-class Display:
+
+########
+# Display
+
+class DisplayCfg:
     name = 'display'
 
     # Use display
@@ -95,7 +139,11 @@ class Display:
     view_distance          = 'float_view_origin_distance'
     view_scale             = 'float_view_scale'
 
-class Gui:
+
+########
+# GUI
+
+class GuiCfg:
     name = 'gui'
 
     use         = 'bool_use'
@@ -103,19 +151,58 @@ class Gui:
     # Addons
     addons      = 'list_addons'
 
-class IO:
+
+########
+# IO
+
+class IoCfg:
     name = 'io'
 
-    use     = 'bool_use'
+    use          = 'bool_use'
+    device_type  = 'str_device_type'
+    device_model = 'str_device_model'
+    device_port  = 'str_device_comport'
+    sample_rate  = 'int_sample_rate'
+    pins         = 'list_pins'
+    analog_pins  = 'list_analog_pins'
 
-    buffers = 'list_buffers'
+    routines = 'list_routines'
 
-class Recording:
+
+########
+# Recording
+
+class RecCfg:
     name = 'recording'
 
     enabled         = 'bool_enabled'
-    active          = 'bool_active'
-    current_folder  = 'str_current_folder'
 
-    # Active buffers
-    buffers         = 'list_buffers'
+    # Active routines
+    routines         = 'list_routines'
+
+
+################################
+# Controls
+
+########
+# General
+
+class GenCtrl:
+    min_sleep_time = 'min_sleep_time'
+
+########
+# Recording
+
+class RecCtrl:
+    active    = 'recording_active'
+    folder    = 'current_folder'
+
+################################
+# Protocol
+
+class ProtocolCtrl:
+    name             = 'current_protocol'
+    phase_id         = 'current_phase'
+    phase_start      = 'phase_start_time'
+    phase_stop       = 'phase_stop_time'
+

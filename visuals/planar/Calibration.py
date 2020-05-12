@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/Checkerboard.py - Checkerboard stimuli
+MappApp ./visuals/Checkerboard.py - Checkerboard visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,15 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from glumpy import gl
 
-from Stimulus import PlaneStimulus
+from Visuals import PlanarVisual
 from models import BasicPlane
 from Shader import BasicFileShader
 
 
-class Checkerboard(PlaneStimulus):
+class Checkerboard(PlanarVisual):
 
     def __init__(self, protcol, display):
-        PlaneStimulus.__init__(self, display=display, protocol=protcol)
+        PlanarVisual.__init__(self, display=display, protocol=protcol)
 
         self.plane = self.addModel('planar',
                                    BasicPlane.VerticalXYPlane)

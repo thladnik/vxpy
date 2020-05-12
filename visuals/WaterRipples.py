@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/WaterRipples.py - Checkerboard stimuli
+MappApp ./visuals/WaterRipples.py - Checkerboard visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -23,20 +23,20 @@ import logging
 import time
 
 import Config
-import Definition
+import Def
 import Logging
-from Stimulus import SphericalStimulus
+from Visuals import SphericalVisual
 from models import BasicSphere
 from Shader import BasicFileShader
 
-class RipplesOnStaticBackground(SphericalStimulus):
+class RipplesOnStaticBackground(SphericalVisual):
 
     def __init__(self, protocol, display, u_mod_sign, u_mod_depth, u_mod_shape, u_mod_vel, u_mod_width,
                  u_mod_min_elev=-np.pi/2, u_mod_max_elev=+np.pi/2, u_upper_field_flash=0):
         """
 
         """
-        SphericalStimulus.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, protocol, display)
 
         ### Create model
         self.sphere_model = self.addModel('sphere',
@@ -44,7 +44,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
                                    theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
         ### Set texture coords
         self.sphere_model.setTextureCoords('uv_standard')
-        ## Create buffers
+        ## Create routines
         self.sphere_model.createBuffers()
 
         ### Create program
@@ -76,8 +76,7 @@ class RipplesOnStaticBackground(SphericalStimulus):
         self.texture_program.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         ### Second: start new ripple?
-        if np.random.randint(Config.Display[Definition.Display.fps] * 3) == 0 \
-                and self.protocol._advanceTime > (self.protocol._time + 20.0 / (2.0 * self.u_mod_vel)):
+        if np.random.randint(Config.Display[Def.DisplayCfg.fps] * 3) == 0:
 
             # Create program
             self.ripple_programs[self.progI] = self.addProgram(self.progI,

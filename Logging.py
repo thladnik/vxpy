@@ -20,19 +20,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import logging
 import logging.handlers
 
-logQueue = None
+import IPC
+
 logger = None
 write = None
 
-def setupLogger(_logQueue, _name):
-    if logQueue is not None:
-        return
-    globals()['logQueue'] = _logQueue
-
+def setupLogger(_name):
+    global logger, write
     # Set up logging
-    h = logging.handlers.QueueHandler(globals()['logQueue'])
-    root = logging.getLogger(_name)
-    root.addHandler(h)
-    root.setLevel(logging.DEBUG)
-    globals()['logger'] = logging.getLogger(_name)
-    globals()['write'] = logging.getLogger(_name).log
+    h = logging.handlers.QueueHandler(IPC.Log.Queue)
+    logger = logging.getLogger(_name)
+    logger.addHandler(h)
+    logger.setLevel(logging.DEBUG)
+    write = logging.getLogger(_name).log

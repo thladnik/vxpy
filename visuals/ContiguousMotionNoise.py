@@ -1,5 +1,5 @@
 """
-MappApp ./stimuli/ContiguousMotionNoise.py - icoCMN stimuli
+MappApp ./visuals/ContiguousMotionNoise.py - icoCMN visuals
 Copyright (C) 2020 Yue Zhang
 
 This program is free software: you can redistribute it and/or modify
@@ -24,15 +24,15 @@ from glumpy import gl, gloo,glm
 import Logging
 from Shader import BasicFileShader
 from helper import Geometry
-from Stimulus import SphericalStimulus
+from Visuals import SphericalVisual
 from models import CMNSpheres
 
 # TODO: Fix shader compatibility, write stimulus, test if stimulus class allows multiple program
-class IcoCMN(SphericalStimulus):
+class IcoCMN(SphericalVisual):
 
 
     def __init__(self, protocol, display):
-        SphericalStimulus.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, protocol, display)
 
         ### Set up model
         self.sphere = self.addModel('sphere',

@@ -1,5 +1,5 @@
 """
-MappApp ./process/Camera.py - Handles camera interaction and writes to the camera buffers.
+MappApp ./process/Camera.py - Handles camera interaction and writes to the camera routines.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,65 +16,69 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import cv2
 import logging
-import numpy as np
-from time import perf_counter, strftime, sleep
+import time
 
 import Config
-import Controller
-import Definition
+import Process
+import Def
 import devices.Camera
 import IPC
 import Logging
 
-if Definition.Env == Definition.EnvTypes.Dev:
+if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-class Main(Controller.BaseProcess):
-    name = Definition.Process.Camera
+class Main(Process.AbstractProcess):
+    name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         ### Set recording parameters
-        self.frameDims = (int(Config.Camera[Definition.Camera.res_y]),
-                          int(Config.Camera[Definition.Camera.res_x]))
-        self.fps = Config.Camera[Definition.Camera.fps]
+        self.frameDims = (int(Config.Camera[Def.CameraCfg.res_y]),
+                          int(Config.Camera[Def.CameraCfg.res_x]))
 
         ### Get selected camera
-        self.camera = devices.Camera.GetCamera(1)
+        try:
+            self.camera = devices.Camera.GetCamera(1)
 
-        Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
-                           .format(Config.Camera[Definition.Camera.manufacturer],
-                                   Config.Camera[Definition.Camera.model]))
+            Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
+                           .format(Config.Camera[Def.CameraCfg.manufacturer],
+                                   Config.Camera[Def.CameraCfg.model]))
+        except Exception as exc:
+            Logging.logger.log(logging.INFO, 'Unable to use camera {}>>{} // Exception: {}'
+                               .format(Config.Camera[Def.CameraCfg.manufacturer],
+                                       Config.Camera[Def.CameraCfg.model],
+                                       exc))
 
-        ### Set avg. minimum sleep period
-        sleep(2)  # Wait to determine sleep period (on initial startup heavy CPU load skews the results)
-        times = list()
-        for i in range(100):
-            t = perf_counter()
-            sleep(10**-10)
-            times.append(perf_counter()-t)
-        self.acqSleepThresh = np.quantile(times, 0.95)
-        Logging.write(logging.INFO, 'Set acquisition threshold to {0:.4f}s'.format(self.acqSleepThresh))
+
+        if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./Config.Camera[Def.CameraCfg.fps]:
+            Logging.write(logging.WARNING, 'Mininum sleep period is ABOVE '
+                                           'average target frametime of 1/{}s.'
+                                            'This will cause increased CPU usage.'
+                                            .format(Config.Camera[Def.CameraCfg.fps]))
 
         ### Run event loop
         self.run()
 
     def main(self):
         # Update camera settings
-        # All camera settings with the "*_prop_*" substring are considered properties which may be changed online
+        # All camera settings with the "*_prop_*" substring
+        # are considered properties which may be changed online
+        # (Please don't touch the rest)
         for setting, value in Config.Camera.items():
             if setting.find('_prop_') >= 0:
                 self.camera.updateProperty(setting, value)
 
-        # Fetch current frame
-        frame = self.camera.getImage()
-        # Update buffers
-        IPC.CameraBufferObject.update(frame)
+        # (optional) Sleep to reduce CPU usage
+        #dt = self.t + 1./Config.Camera[Def.CameraCfg.fps] - time.perf_counter()
+        #if dt > IPC.Control.General[Def.GenCtrl.min_sleep_time]:
+        #    time.sleep(3*dt/4)
 
-        # Wait until next frame
-        t = self.t + 1./self.fps - perf_counter()
-        if t > self.acqSleepThresh:
-            sleep(t)
+        # Precise timing
+        #while time.perf_counter() < self.t + 1./Config.Camera[Def.CameraCfg.fps]:
+        #    pass
+
+        # Update routines
+        IPC.Routines.Camera.update(self.camera.getImage())

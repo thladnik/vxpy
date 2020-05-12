@@ -1,5 +1,5 @@
 """
-MappApp ./process/Display.py - Process which handles rendering of visual stimuli.
+MappApp ./process/Display.py - Process which handles rendering of visual visuals.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,14 +21,16 @@ import keyboard
 import logging
 import time
 
-import Controller
+import Process
 import Config
-import Definition
+import Def
 import IPC
 import Logging
 import Protocol
+import protocols
 
-if Definition.Env == Definition.EnvTypes.Dev:
+from routines import Camera
+if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
 ### Set Glumpy to use pyglet backend
@@ -36,29 +38,29 @@ if Definition.Env == Definition.EnvTypes.Dev:
 app.use('pyglet')
 from pyglet.window import key
 
-class Main(Controller.BaseProcess):
-    name = Definition.Process.Display
+class Main(Process.AbstractProcess):
+    name = Def.Process.Display
 
-    _config   : dict              = dict()
-    _glWindow : app.window.Window = None
-    protocol  : Protocol          = None
+    _config   : dict                      = dict()
+    _glWindow : app.window.Window         = None
+    protocol  : Protocol.AbstractProtocol = None
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         self._window_config = app.configuration.Configuration()
         self._window_config.stencil_size = 8
 
         ### Open OpenGL window
-        self._glWindow = app.Window(width=Config.Display[Definition.Display.window_width],
-                                    height=Config.Display[Definition.Display.window_height],
+        self._glWindow = app.Window(width=Config.Display[Def.DisplayCfg.window_width],
+                                    height=Config.Display[Def.DisplayCfg.window_height],
                                     color=(1, 1, 1, 1),
                                     title='Display',
                                     config=self._window_config,
                                     vsync=True,
                                     fullscreen=False)
-        self._glWindow.set_position(Config.Display[Definition.Display.window_pos_x],
-                                    Config.Display[Definition.Display.window_pos_y])
+        self._glWindow.set_position(Config.Display[Def.DisplayCfg.window_pos_x],
+                                    Config.Display[Def.DisplayCfg.window_pos_y])
 
         ### Apply event wrapper
         self.on_draw = self._glWindow.event(self.on_draw)
@@ -75,21 +77,30 @@ class Main(Controller.BaseProcess):
     ### Glumpy-called events
 
     def on_init(self):
-        """Glumpy on_init event
-        """
+        """Glumpy on_init event"""
         pass
+
+    def _prepareProtocol(self):
+        self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+
+    def _preparePhase(self):
+        self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
+
+    def _cleanupProtocol(self):
+        pass
+        #self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
     def on_draw(self, dt):
         """Glumpy on_draw event.
-        This method is just a pass-through to the currently set protocol.
 
-        :param dt: elapsed time since last call in [s]
+        :param dt: elapsed time since last call in [s]. This is usually ~1/FPS
         :return:
         """
 
-        ### Check if protocol is set yet and call draw if it is
-        if self.protocol is not None:
+        ### Call draw, if protocol is running
+        if self._runProtocol():
             self.protocol.draw(dt)
+
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event
@@ -103,10 +114,10 @@ class Main(Controller.BaseProcess):
         self._glWindow._width = width
         self._glWindow._height = height
         # Update size and position in configuration
-        Config.Display[Definition.Display.window_width] = width
-        Config.Display[Definition.Display.window_height] = height
-        Config.Display[Definition.Display.window_pos_x] = self._glWindow.get_position()[0]
-        Config.Display[Definition.Display.window_pos_y] = self._glWindow.get_position()[1]
+        Config.Display[Def.DisplayCfg.window_width] = width
+        Config.Display[Def.DisplayCfg.window_height] = height
+        Config.Display[Def.DisplayCfg.window_pos_x] = self._glWindow.get_position()[0]
+        Config.Display[Def.DisplayCfg.window_pos_y] = self._glWindow.get_position()[1]
 
     def on_key_press(self, symbol, modifiers):
         continPressDelay = 0.02
@@ -114,28 +125,28 @@ class Main(Controller.BaseProcess):
             if modifiers & key.MOD_ALT:
                 ### Fullscreen toggle: Ctrl+Alt+F
                 if symbol == key.F:
-                    Config.Display[Definition.Display.window_fullscreen] = \
-                        not(Config.Display[Definition.Display.window_fullscreen])
+                    Config.Display[Def.DisplayCfg.window_fullscreen] = \
+                        not(Config.Display[Def.DisplayCfg.window_fullscreen])
 
             ### X position: Ctrl(+Shift)+X
             elif symbol == key.X:
                 while keyboard.is_pressed('X'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.pos_glob_x_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.pos_glob_x_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Y position: Ctrl(+Shift)+Y
             elif symbol == key.Y:
                 while keyboard.is_pressed('Y'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.pos_glob_y_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.pos_glob_y_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Radial offset: Ctrl(+Shift)+R
             elif symbol == key.R:
                 while keyboard.is_pressed('R'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.pos_glob_radial_offset] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.pos_glob_radial_offset] += sign * 0.001
                     time.sleep(continPressDelay)
 
 
@@ -143,35 +154,35 @@ class Main(Controller.BaseProcess):
             elif symbol == key.E:
                 while keyboard.is_pressed('E'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.view_elev_angle] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.view_elev_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Azimuth: Ctrl(+Shift)+A
             elif symbol == key.A:
                 while keyboard.is_pressed('A'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.view_azim_angle] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.view_azim_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Distance: Ctrl(+Shift)+D
             elif symbol == key.D:
                 while keyboard.is_pressed('D'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.view_distance] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.view_distance] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Scale: Ctrl(+Shift)+S
             elif symbol == key.S:
                 while keyboard.is_pressed('S'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Definition.Display.view_scale] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.view_scale] += sign * 0.001
                     time.sleep(continPressDelay)
 
     def _checkScreen(self, dt):
         if not(self._checkScreenStatus):
             return
-        screenid = Config.Display[Definition.Display.window_screen_id]
-        fscreen = Config.Display[Definition.Display.window_fullscreen]
+        screenid = Config.Display[Def.DisplayCfg.window_screen_id]
+        fscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
         if self._glWindow.get_fullscreen() != fscreen:
             try:
                 self._glWindow.set_fullscreen(fscreen, screen=screenid)
@@ -187,27 +198,14 @@ class Main(Controller.BaseProcess):
                     Logging.write(logging.WARNING, 'Unable to set backend window size. Check glumpy version.')
                     self._checkScreenStatus = False
 
-    def startNewStimulationProtocol(self, protocol_cls):
-        """Start the presentation of a new stimulation protocol
-
-        :param protocol_cls: class object of the stimulation protocol
-        :return:
-        """
-
-        ### Initialize new stimulus protocol
-        Logging.logger.log(logging.INFO, 'Start new stimulation procotol {}'.
-                           format(str(protocol_cls)))
-        self.protocol = protocol_cls(self)
-
     def _startShutdown(self):
         self._glWindow.close()
-        Controller.BaseProcess._startShutdown(self)
+        Process.AbstractProcess._startShutdown(self)
 
     def main(self):
-        # Schedule glumpy to check for new inputs (keep this as INfrequent as possible, rendering has priority)
-        app.clock.schedule_interval(self._handleInbox, 0.05)
+        app.clock.schedule_interval(self._handleInbox, 0.01)
         app.clock.schedule_interval(self._checkScreen, 0.1)
 
         # Run Glumpy event loop
-        app.run(framerate=Config.Display[Definition.Display.fps])
+        app.run(framerate=Config.Display[Def.DisplayCfg.fps])
 

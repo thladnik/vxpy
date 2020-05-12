@@ -1,6 +1,6 @@
 """
-MappApp ./Protocol.py - Collection of stimulation protocol classes which
-are be used to concatenate and present successive stimuli.
+MappApp ./Protocol.py - Collection of protocol classes which
+are be used to concatenate and present successive visuals.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,61 +21,46 @@ from glumpy import gloo, transforms
 import importlib
 import logging
 
-import Definition
+import Def
 import Logging
 
-class StaticStimulationProtocol:
+class AbstractProtocol:
+    def draw(self, dt):
+        raise NotImplementedError('draw method not implemented in {}'
+                                  .format(self.__class__.__qualname__))
+
+class StaticProtocol(AbstractProtocol):
+    """Static experimental protocol which does NOT support closed-loop designs.
+    """
 
     _name = None
 
-    def __init__(self, _display):
-        self.display = _display
+    def __init__(self, process):
+        self.process = process
 
-        self._stimuli = list()
-        self._stimulus_index = -1
         self._time = 0.0
-        self._advanceTime = 0.0
 
         self._current = None
 
-    def addStimulus(self, stimulus, kwargs, duration=None):
-        self._stimuli.append((stimulus, kwargs, duration))
+        self._phases = list()
 
-    def _advance(self):
-        self._stimulus_index += 1
+    def phaseCount(self):
+        return len(self._phases)
 
-        if self._stimulus_index >= len(self._stimuli):
-            print('End of stimulation protocol')
-            return
+    def newPhase(self, duration):
+        self._phases.append(dict(visuals=list(), signals=list(), duration=duration))
 
-        new_stimulus, kwargs, duration = self._stimuli[self._stimulus_index]
-        Logging.logger.log(logging.INFO, 'Start protocol {} phase {} '
-                                         '// Stimulus {} with parameters {} (duration {})'
-                           .format(self._name, self._stimulus_index, new_stimulus, kwargs, duration))
+    def addVisual(self, stimulus, kwargs, duration=None):
+        self._phases[-1]['visuals'].append((stimulus, kwargs, duration))
 
+    def addSignal(self, signal, kwargs, duration=None):
+        self._phases[-1]['signals'].append((signal, kwargs, duration))
 
-        ### Set new stimulus
-        self._current = new_stimulus(self, self.display, **kwargs)
+    def setCurrentPhase(self, phase_id):
+        new_stimulus, kwargs, duration = self._phases[phase_id]['visuals'][0]
+        self._current = new_stimulus(self, self.process, **kwargs)
         self._current.start()
-
-        # Set new time when protocol should advance
-        if duration is not None:
-            self._advanceTime = self._time + duration
-        else:
-            self._advanceTime = None
-
-        # FINALLY: dispatch resize event
-        #self.display._glWindow.dispatch_event('on_resize', self.display._glWindow.width, self.display._glWindow.height)
 
     def draw(self, dt):
         self._time += dt
-
-        if self._shouldAdvance() or self._current is None:
-            self._advance()
-
         self._current.draw(dt)
-
-    def _shouldAdvance(self):
-        if (self._advanceTime is None) or (self._time < self._advanceTime):
-            return False
-        return True

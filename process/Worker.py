@@ -22,15 +22,15 @@ import importlib
 import logging
 import os
 
-import Controller
-import Definition
+import Process
+import Def
 import Logging
 
-class Main(Controller.BaseProcess):
-    name = Definition.Process.Worker
+class Main(Process.AbstractProcess):
+    name = Def.Process.Worker
 
     def __init__(self, **kwargs):
-        Controller.BaseProcess.__init__(self, **kwargs)
+        Process.AbstractProcess.__init__(self, **kwargs)
 
         self._task_intervals = list()
         self._scheduled_times = list()
@@ -42,7 +42,7 @@ class Main(Controller.BaseProcess):
 
     def _loadTask(self, task_name):
         if not(task_name in self._tasks):
-            module = '.'.join([Definition.Path.Task, task_name])
+            module = '.'.join([Def.Path.Task, task_name])
             try:
                 Logging.write(logging.DEBUG, 'Import task {}'.format(module))
                 self._tasks[task_name] = importlib.import_module(module)
@@ -57,9 +57,9 @@ class Main(Controller.BaseProcess):
         self._task_intervals.append(task_interval)
 
     def runTask(self, task_name, *args, **kwargs):
-        self.setState(Definition.State.busy)
+        self.setState(Def.State.RUNNING)
         self._loadTask(task_name).run(*args, **kwargs)
-        self.setState(Definition.State.idle)
+        self.setState(Def.State.IDLE)
 
     def main(self):
         for i, task_name, task_time, task_interval in enumerate(zip(self._scheduled_tasks,

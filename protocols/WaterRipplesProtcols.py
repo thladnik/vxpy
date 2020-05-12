@@ -17,16 +17,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from Protocol import StaticStimulationProtocol
+from Protocol import StaticProtocol
 
-from stimuli.WaterRipples import RipplesOnStaticBackground
+from visuals.WaterRipples import RipplesOnStaticBackground
 
-class Example(StaticStimulationProtocol):
+class Example(StaticProtocol):
 
     _name = 'WRP_Example'
 
     def __init__(self, _glWindow):
-        StaticStimulationProtocol.__init__(self, _glWindow)
+        StaticProtocol.__init__(self, _glWindow)
         import numpy as np
 
         for depth in [0.7, 0.2]:
@@ -34,52 +34,52 @@ class Example(StaticStimulationProtocol):
                 for shape in ['normal', 'rect']:
                         for sign in [1, -1]:
                             for vel in [4.0, 8.0]:
-                                self.addStimulus(RipplesOnStaticBackground,
-                                                 dict(u_mod_sign=sign,
+                                self.newPhase(duration=10)
+                                self.addVisual(RipplesOnStaticBackground,
+                                               dict(u_mod_sign=sign,
                                                      u_mod_depth=depth,
                                                      u_mod_shape=shape,
                                                      u_mod_vel=vel,
                                                      u_mod_width=width,
-                                                     u_mod_max_elev=-np.pi/8),
-                                                 duration=10)
+                                                     u_mod_max_elev=-np.pi/8))
 
-class ElevationsExample(StaticStimulationProtocol):
+class ElevationsExample(StaticProtocol):
 
     _name = 'WRP_ElevationsExample'
 
     def __init__(self, _glWindow):
-        StaticStimulationProtocol.__init__(self, _glWindow)
+        StaticProtocol.__init__(self, _glWindow)
         import numpy as np
 
         for depth in [0.7, 0.2]:
             for sign in [1, -1]:
                 for elev in [np.pi/8, 0.0, -np.pi/8, -np.pi/4]:
-                    self.addStimulus(RipplesOnStaticBackground,
-                                     dict(u_mod_sign=sign,
+                    self.newPhase(duration=10)
+                    self.addVisual(RipplesOnStaticBackground,
+                                   dict(u_mod_sign=sign,
                                          u_mod_depth=depth,
                                          u_mod_shape='normal',
                                          u_mod_vel=4.0,
                                          u_mod_width=0.03,
-                                         u_mod_max_elev=elev),
-                                     duration=10)
+                                         u_mod_max_elev=elev))
 
-class UpperFlashesExample(StaticStimulationProtocol):
+class UpperFlashesExample(StaticProtocol):
 
     _name = 'WRP_UpperFlashesExample'
 
     def __init__(self, _glWindow):
-        StaticStimulationProtocol.__init__(self, _glWindow)
+        StaticProtocol.__init__(self, _glWindow)
         import numpy as np
 
 
         for depth in [0.7, 0.2]:
                 for vel in [1.0, 3.0, 5.0, 8.0]:
-                    self.addStimulus(RipplesOnStaticBackground,
-                                     dict(u_mod_sign=1,
+                    self.newPhase(duration=10)
+                    self.addVisual(RipplesOnStaticBackground,
+                                   dict(u_mod_sign=1,
                                          u_mod_depth=depth,
                                          u_mod_shape='normal',
                                          u_mod_vel=4.0,
                                          u_mod_width=0.03,
                                          u_mod_max_elev=0.0,
-                                         u_upper_field_flash=1),
-                                     duration=10)
+                                         u_upper_field_flash=1))

@@ -1,5 +1,5 @@
 """
-MappApp ./CameraBuffer.py - FrameBuffer subclasses.
+MappApp ./routines/Camera.py - Custom processing routine implementations for the camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,32 +21,41 @@ import numpy as np
 from sklearn import metrics
 from time import perf_counter, time
 
-from Buffer import AbstractBuffer
+from Routine import AbstractRoutine
 import Config
-import Definition
+import Def
 from helper import Geometry
 import IPC
 
-class FrameBuffer(AbstractBuffer):
+import Process
+
+class FrameRoutine(AbstractRoutine):
+
 
     def __init__(self, *args, **kwargs):
-        AbstractBuffer.__init__(self, *args, **kwargs)
+        AbstractRoutine.__init__(self, *args, **kwargs)
+
+        ### Define list of exposed methods
+        # (These methods hook into the process instance - here Camera - and are thus
+        #  accessible from all other processes)
+        self.exposed.append(FrameRoutine.testbuffer)
+        self.exposed.append(FrameRoutine.testbufferargs)
 
         ### Set up shared variables
-        # Note that the self.<attrName> = self.sharedAttribute(<attrName>, ...) convention
-        # is purely for accessibility purposes. The actual attribute name
-        # in the instance object depends entirely on the first positional argument)
-        frameSize = (Config.Camera[Definition.Camera.res_y], Config.Camera[Definition.Camera.res_x], 3)
-        self.frame = self.sharedAttribute('frame', 'Array', ctypes.c_uint8, frameSize)
-        self.time = self.sharedAttribute('time', 'Value', 'd', 0.0)
+        frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
+        self.buffer.frame = ('frame', 'Array', ctypes.c_uint8, frameSize)
 
         ### Setup frame timing stats
         self.frametimes = list()
         self.t = perf_counter()
 
+    def testbuffer(self):
+        print('it is the buffer!')
+
+    def testbufferargs(self, arg1):
+        print('it is the buffer!', arg1)
+
     def _compute(self, frame):
-        ### Call build function
-        self._build()
 
         # Add FPS counter
         self.frametimes.append(perf_counter() - self.t)
@@ -56,25 +65,30 @@ class FrameBuffer(AbstractBuffer):
 
         ### Update shared attributes
         self.time = time()
-        self.frame[:,:,:] = frame[:,:,:]
+        self.buffer.frame = frame
 
     def _out(self):
-        yield 'frame', self.readFrame()
+        yield 'frame', self.buffer.frame
 
-    def readFrame(self):
-        return self.read('frame')
 
-class EyePositionDetector(AbstractBuffer):
+
+class EyePosDetectRoutine(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
-        AbstractBuffer.__init__(self, *args, **kwargs)
+        AbstractRoutine.__init__(self, *args, **kwargs)
 
-        ### Set up shared attributes
-        self.extractedRects = self.sharedAttribute('extractedRects', 'dict')
-        for i in range(10):
-            self.sharedAttribute('eyePositions{}'.format(i), 'list')
-        self.eyeMarkerRects = self.sharedAttribute('eyeMarkerRects', 'dict')
-        self.segmentationMode = self.sharedAttribute('segmentationMode', 'Value', 's', '')
+        ### Set accessible methods
+        self.exposed.append(EyePosDetectRoutine.setROI)
+
+        ### Set up shared variables
+        self.ROIs = dict()
+
+        ### Set up buffer
+        self.buffer.extractedRects = ('extractedRects', 'dict')
+        self.buffer.eyePositions = ('eyePositions', 'list')
+
+    def setROI(self, id, params):
+        self.ROIs[id] = params
 
     def default(self, rect):
         """Default function for extracting fish eyes' angular position.
@@ -202,16 +216,17 @@ class EyePositionDetector(AbstractBuffer):
         return [leAngle, reAngle], rect
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
-        return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
+        return [asType(point[0]), asType(Config.Camera[Def.CameraCfg.res_y] - point[1])]
 
     def _compute(self, frame):
-        ### Call build function
-        self._build()
 
-        ### If eyes were marked: iterate over rects and extract eye positions
-        if bool(self.eyeMarkerRects):
+        extractedRects = dict()
+        eyePositions = dict()
 
-            for id, rectParams in self.eyeMarkerRects.items():
+        if bool(self.ROIs):
+
+            ### If eyes were marked: iterate over rects and extract eye positions
+            for id, rectParams in self.ROIs.items():
 
                 ## Draw contour points of rect
                 rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
@@ -250,40 +265,42 @@ class EyePositionDetector(AbstractBuffer):
                 rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
                 ## Apply detection function on cropped rect which contains eyes
-                if self.segmentationMode.value == 'something':
-                    eyePositions, newRect = [], []
+                self.segmentationMode = 'implemented_in_future'
+                if self.segmentationMode == 'something':
+                    eyePos, newRect = [], []
                 else:  # default
-                    eyePositions, newRect = self.default(rotRect)
+                    eyePos, newRect = self.default(rotRect)
 
                 # Debug: write to file
                 #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
                 ### Append angular eye positions to shared list
-                if eyePositions is not None:
-                    getattr(self, 'eyePositions{}'.format(id)).append(eyePositions)
+                if eyePos is not None:
+                    eyePositions[id] = eyePos
 
                 ### Set current rect ROI data
-                self.extractedRects[id] = newRect
+                extractedRects[id] = newRect
+
+        ### Update buffer (Always set)
+        self.buffer.extractedRects = extractedRects
+        self.buffer.eyePositions = eyePositions
 
     def _out(self):
-        ### Call build function
-        self._build()
 
-        for id in range(10):
-            eyePositions = self.read('eyePositions{}'.format(id))
+        for id in self.buffer.extractedRects.keys():
 
-            if len(eyePositions) > 0:
-                yield 'ang_eye_pos{}'.format(id), eyePositions[-1]
+            yield 'eye_extracted_rect{}'.format(id), self.buffer.extractedRects[id]
 
-            if id in self.read('extractedRects'):
-                yield 'eye_extracted_rect{}'.format(id), self.read('extractedRects')[id]
+            if id in self.buffer.eyePositions:
+                yield 'ang_eye_pos{}_left'.format(id), self.buffer.eyePositions[id][0]
+                yield 'ang_eye_pos{}_right'.format(id), self.buffer.eyePositions[id][1]
 
 
 
-class TailDeflectionDetector(AbstractBuffer):
+class TailDeflectionDetector(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
-        AbstractBuffer.__init__(self, *args, **kwargs)
+        AbstractRoutine.__init__(self, *args, **kwargs)
 
         self.recording = False
 
@@ -293,7 +310,7 @@ class TailDeflectionDetector(AbstractBuffer):
 
 
     def coordsPg2Cv(self, point, asType : type = np.float32):
-        return [asType(point[0]), asType(Config.Camera[Definition.Camera.res_y] - point[1])]
+        return [asType(point[0]), asType(Config.Camera[Def.CameraCfg.res_y] - point[1])]
 
     def default(self, rect):
 

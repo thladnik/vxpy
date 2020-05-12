@@ -16,23 +16,29 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticStimulationProtocol
+from Protocol import StaticProtocol
 
-from stimuli.Checkerboard import BlackWhiteCheckerboard
-from stimuli.Grating import BlackWhiteGrating
+from visuals.Checkerboard import BlackWhiteCheckerboard
+from visuals.Grating import BlackWhiteGrating
 
-class Calibration(StaticStimulationProtocol):
-
-    _name = 'Calibration'
+class Calibration16x16(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
 
-        self.addStimulus(BlackWhiteCheckerboard,
-                         dict(cols=16, rows=16),
-                              duration=None)
+        self.newPhase(duration=10**4)
+
+        self.addVisual(BlackWhiteCheckerboard,
+                       dict(cols=16, rows=16))
+
+
+class CalibrationMultiple(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+
 
         for num in range(10):
-            self.addStimulus(BlackWhiteCheckerboard,
-                             dict(cols=8+num, rows=8+num),
-                             duration=5)
+            self.newPhase(duration=10)
+            self.addVisual(BlackWhiteCheckerboard,
+                           dict(cols=8 + num, rows=8 + num))

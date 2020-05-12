@@ -16,12 +16,12 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticStimulationProtocol
+from Protocol import StaticProtocol
 
-from stimuli.Checkerboard import BlackWhiteCheckerboard
-from stimuli.Grating import BlackWhiteGrating
+from visuals.Checkerboard import BlackWhiteCheckerboard
+from visuals.Grating import BlackWhiteGrating
 
-class Example01(StaticStimulationProtocol):
+class Example01(StaticProtocol):
 
     _name = 'Example01'
 
@@ -30,6 +30,11 @@ class Example01(StaticStimulationProtocol):
 
         for num in range(4):
             for v in range(5):
-                self.addStimulus(BlackWhiteGrating,
-                                 dict(orientation='vertical', shape='rectangular', num=10+num*4, velocity=v+1),
-                                 duration=5)
+
+                self.newPhase(5)
+                self.addVisual(BlackWhiteGrating,
+                               dict(orientation='vertical',
+                                    shape='rectangular',
+                                    num=10+num*4,
+                                    velocity=v+1)
+                               )

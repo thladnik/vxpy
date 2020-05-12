@@ -4,15 +4,15 @@ import numpy as np
 import os
 from scipy import io
 
-from Definition import Path
-from Stimulus import SphericalStimulus
+from Def import Path
+from Visuals import SphericalVisual
 from models import Insta360OneX
 from Shader import BasicFileShader
 
-class Calibrated(SphericalStimulus):
+class Calibrated(SphericalVisual):
 
     def __init__(self, protocol, display, filename):
-        SphericalStimulus.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, protocol, display)
 
         self.filename = '{}.mat'.format(filename)
 

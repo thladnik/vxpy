@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 ########
 ## !!! BE EXTREMELY CAREFUL WHEN EDITING THESE MODELS !!!
-## Any changes will affect all stimuli associated with the models!
+## Any changes will affect all visuals associated with the models!
 ####
 ########
 

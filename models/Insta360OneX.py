@@ -4,7 +4,7 @@ import os
 from scipy.spatial import Delaunay
 
 import Model
-from Definition import Path
+from Def import Path
 from helper import Geometry
 
 #####
