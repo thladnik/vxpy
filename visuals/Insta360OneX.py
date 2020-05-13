@@ -31,7 +31,7 @@ class Calibrated(SphericalVisual):
 
         self.i = 0
 
-    def render(self, dt):
+    def render(self):
         if self.i > 1000:
             self.i = 0
         import IPython

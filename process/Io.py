@@ -20,10 +20,11 @@ import logging
 import time
 
 import Config
-import Process
 import Def
 import IPC
 import Logging
+import Process
+import protocols
 
 class Main(Process.AbstractProcess):
     name = Def.Process.Io
@@ -52,14 +53,15 @@ class Main(Process.AbstractProcess):
 
         ### Run event loop
         if run:
-            self.run()
+            print(1./Config.Io[Def.IoCfg.sample_rate])
+            self.run(interval=1./Config.Io[Def.IoCfg.sample_rate])
 
     def _prepareProtocol(self):
-        print('Protocollin\' and rollin\'')
-        self.protocol = 'something'
+        self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def _preparePhase(self):
-        print('phase lala')
+        return
+        self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
 
     def _cleanupProtocol(self):
         print('Just cleanin\'')
@@ -67,16 +69,8 @@ class Main(Process.AbstractProcess):
 
     def main(self):
 
-        # (optional) Sleep to reduce CPU usage
-        dt = self.t + 1./Config.Io[Def.IoCfg.sample_rate] - time.perf_counter()
-        if dt > IPC.Control.General[Def.GenCtrl.min_sleep_time]:
-            time.sleep(3*dt/4)
-
-        # Precise timing
-        while time.perf_counter() < self.t + 1./Config.Io[Def.IoCfg.sample_rate]:
-            pass
-
         # Update routines
         IPC.Routines.Io.update(self.device.readAll())
-        self._runProtocol()
+        if self._runProtocol():
+            pass
 

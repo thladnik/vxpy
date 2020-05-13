@@ -49,8 +49,8 @@ class AbstractProcess:
     _shutdown  : bool
 
     ### Protocol related
-    protocol_start_ptime : float = None
     phase_start_ptime    : float = None
+    phase_time           : float = None
 
     def __init__(self,
                  _configurations=None,
@@ -124,7 +124,7 @@ class AbstractProcess:
         ### Bind signals
         signal.signal(signal.SIGINT, self._handleSIGINT)
 
-    def run(self):
+    def run(self, interval):
         Logging.logger.log(logging.INFO, 'Run {}'.format(self.name))
         ### Set state to running
         self._running = True
@@ -133,12 +133,27 @@ class AbstractProcess:
         ### Set process state
         IPC.setState(Def.State.IDLE)
 
+        min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
         ### Run event loop
         self.t = time.perf_counter()
         while self._isRunning():
             self._handleInbox()
-            self.main()
+
+            ## Wait until interval time is up
+            dt = self.t + interval - time.perf_counter()
+            # Sleep to reduce CPU usage
+            if dt > min_sleep_time:
+                time.sleep(dt)
+            # If interval is too short for sleep: busy loop
+            else:
+                while self.t + interval - time.perf_counter() >= 0:
+                    pass
+            ## Set new time
             self.t = time.perf_counter()
+
+            ## Execute main method
+            self.main()
+
 
     def main(self):
         """Event loop to be re-implemented in subclass"""
@@ -180,6 +195,7 @@ class AbstractProcess:
                 return False
 
             ### Default: execute protocol
+            self.phase_time = time.perf_counter() - self.phase_start_ptime
             return True
 
         ########
@@ -226,8 +242,7 @@ class AbstractProcess:
                     self.phase_start_ptime = time.perf_counter()
                     break
 
-            ### Execute
-            return True
+            return False
 
         ########
         ### PHASE_END

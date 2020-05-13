@@ -60,7 +60,7 @@ class Main(Process.AbstractProcess):
                                             .format(Config.Camera[Def.CameraCfg.fps]))
 
         ### Run event loop
-        self.run()
+        self.run(interval=1/Config.Camera[Def.CameraCfg.fps])
 
     def main(self):
         # Update camera settings
@@ -71,14 +71,9 @@ class Main(Process.AbstractProcess):
             if setting.find('_prop_') >= 0:
                 self.camera.updateProperty(setting, value)
 
-        # (optional) Sleep to reduce CPU usage
-        #dt = self.t + 1./Config.Camera[Def.CameraCfg.fps] - time.perf_counter()
-        #if dt > IPC.Control.General[Def.GenCtrl.min_sleep_time]:
-        #    time.sleep(3*dt/4)
-
         # Precise timing
         #while time.perf_counter() < self.t + 1./Config.Camera[Def.CameraCfg.fps]:
-        #    pass
+            #pass
 
         # Update routines
         IPC.Routines.Camera.update(self.camera.getImage())

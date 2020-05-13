@@ -45,7 +45,7 @@ class BlackWhiteCheckerboard(SphericalVisual):
 
         self.update(cols=cols, rows=rows)
 
-    def render(self, dt):
+    def render(self):
         self.checker.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
     def update(self, cols=None, rows=None):

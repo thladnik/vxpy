@@ -73,6 +73,7 @@ class IoWidget(QtWidgets.QWidget):
 
         ### Move display range
         if not(pin_data is None):
+
             xMax = pin_data['datat'][-1]
             self.graphicsWidget.dataPlot.setRange(xRange=(xMax-10,xMax))
 

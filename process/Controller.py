@@ -232,7 +232,7 @@ class Controller(AbstractProcess):
             self.initializeProcess(target, **kwargs)
 
         ### Run controller
-        self.run()
+        self.run(interval=0.5)
 
         ### Pre-shutdown
         ## Update configurations that should persist

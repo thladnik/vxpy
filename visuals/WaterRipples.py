@@ -71,12 +71,12 @@ class RipplesOnStaticBackground(SphericalVisual):
         self._overflowWarn = False
 
 
-    def render(self, dt):
+    def render(self):
         ### First: render textured sphere
         self.texture_program.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         ### Second: start new ripple?
-        if np.random.randint(Config.Display[Def.DisplayCfg.fps] * 3) == 0:
+        if np.random.randint(Config.Display[Def.DisplayCfg.fps] * 2) == 0:
 
             # Create program
             self.ripple_programs[self.progI] = self.addProgram(self.progI,
@@ -96,7 +96,9 @@ class RipplesOnStaticBackground(SphericalVisual):
             # TODO: Note-to-self; this z-layer workaround is stupid, get rid of it
             self.ripple_programs[self.progI]['u_mod_zlayer'] = self.progI
 
-            self.ripple_programs[self.progI]['u_mod_pos'] = -1.
+            #self.ripple_programs[self.progI]['u_mod_pos'] = -1.
+            self.ripple_programs[self.progI]['u_mod_start_time'] = self.phase_time
+            self.ripple_programs[self.progI]['u_mod_vel'] = self.u_mod_vel
 
             self.progI += 1
 
@@ -105,10 +107,12 @@ class RipplesOnStaticBackground(SphericalVisual):
         for pname in list(self.ripple_programs):
             prog = self.ripple_programs[pname]
             # Increment position
-            prog['u_mod_pos'] += self.u_mod_vel * dt / 20.0
+            #prog['u_mod_pos'] += self.u_mod_vel * dt / 20.0
+            prog['u_mod_time'] = self.phase_time
 
             # Remove program if it has passed the sphere
-            if prog['u_mod_pos'] < -1. or prog['u_mod_pos'] > 1.:
+            pos = (prog['u_mod_time'] - prog['u_mod_start_time']) * prog['u_mod_vel'] / 20
+            if pos < 0 or pos > 2:
                 del self.ripple_programs[pname]
                 self.deleteProgram(pname)
                 continue

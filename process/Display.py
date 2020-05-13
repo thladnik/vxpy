@@ -71,7 +71,7 @@ class Main(Process.AbstractProcess):
         self._checkScreenStatus = True
 
         ### Run event loop
-        self.run()
+        self.run(0.01)
 
     ################
     ### Glumpy-called events
@@ -84,7 +84,9 @@ class Main(Process.AbstractProcess):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def _preparePhase(self):
-        self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
+        new_phase = self.protocol._phases[IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]]
+        new_visual, kwargs, duration = new_phase['visuals'][0]
+        self.visual = new_visual(self.protocol, self, **kwargs)
 
     def _cleanupProtocol(self):
         pass
@@ -96,10 +98,11 @@ class Main(Process.AbstractProcess):
         :param dt: elapsed time since last call in [s]. This is usually ~1/FPS
         :return:
         """
+        print(dt)
 
         ### Call draw, if protocol is running
         if self._runProtocol():
-            self.protocol.draw(dt)
+            self.visual.draw(self.phase_time)
 
 
     def on_resize(self, width: int, height: int):

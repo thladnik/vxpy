@@ -44,7 +44,7 @@ class Main(Process.AbstractProcess):
         self.logger.addHandler(h)
 
         ### Run event loop
-        self.run()
+        self.run(interval=0.1)
 
     def main(self):
         ### Check queue
@@ -68,8 +68,6 @@ class Main(Process.AbstractProcess):
             print('Exception in Logger:', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
-        ### Wait for a bit (reduce CPU load)
-        sleep(0.05)
 
     def _startShutdown(self):
         ### Wait for other processes to finish first and then clear the log queue

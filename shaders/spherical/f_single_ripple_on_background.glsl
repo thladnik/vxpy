@@ -6,7 +6,9 @@ const float c_pi = 3.14159265359;
 uniform float u_mod_sign;
 uniform float u_mod_depth;
 uniform int u_mod_shape;
-uniform float u_mod_pos;
+uniform float u_mod_vel;
+uniform float u_mod_time;
+uniform float u_mod_start_time;
 uniform float u_mod_width;
 uniform float u_mod_min_elev;
 uniform float u_mod_max_elev;
@@ -37,11 +39,13 @@ void main()
         color = vec4(1.0, 1.0, 1.0, 0.0);
     }
 
+    float pos = u_mod_vel * (u_mod_time - u_mod_start_time) / 20.0 - 1;
+
 
     if(u_mod_shape == 1) {
-        color.w = u_mod_depth * normDistr(v_position.x-u_mod_pos, 0.0, u_mod_width) / normDistr(0.0, 0.0, u_mod_width);
+        color.w = u_mod_depth * normDistr(v_position.x-pos, 0.0, u_mod_width) / normDistr(0.0, 0.0, u_mod_width);
     } else {
-        color.w = u_mod_depth * rectDistr(v_position.x-u_mod_pos, 0.0, u_mod_width);
+        color.w = u_mod_depth * rectDistr(v_position.x-pos, 0.0, u_mod_width);
     }
 
     // Cut off at min/max elevation (and soften edges)
@@ -54,7 +58,7 @@ void main()
 
     // Try: flash in upper field
     if(v_elevation > 0.0 && u_mod_sign > 0.0 && u_upper_field_flash == 1) {
-        color.w += normDistr(u_mod_pos, 0.0, 0.03) * normDistr(v_elevation, c_pi/2.0, 0.45);
+        color.w += normDistr(pos, 0.0, 0.03) * normDistr(v_elevation, c_pi/2.0, 0.45);
     }
 
     //color.w = (v_elevation + c_pi/2) / c_pi ;

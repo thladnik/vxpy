@@ -37,10 +37,7 @@ class AbstractVisual:
     _warns = list()
 
     def __init__(self):
-        self.time = None
-
-    def start(self):
-        self.time = IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]
+        self.phase_time = None
 
     def program(self, pname) -> gloo.Program:
         return self._programs[self.__class__][pname]
@@ -67,6 +64,8 @@ class AbstractVisual:
         if pname not in self._programs[self.__class__]:
             Logging.write(logging.DEBUG, 'Create program {} in class {}'
                           .format(pname, self.__class__))
+            # TODO: make custom shader program class for easy handling of uniform setting?
+            #       (essentially just subclass gloo.Program and alter __getattr__ and __setattr__)
             self._programs[self.__class__][pname] = gloo.Program(vertex_shader, fragment_shader, geometry_shader)
         return self.program(pname)
 
@@ -89,10 +88,10 @@ class AbstractVisual:
         return self.model(mname)
 
 
-    def draw(self, dt):
+    def draw(self, time):
         raise NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
 
-    def render(self, dt):
+    def render(self):
         raise NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
 
     def update(self, **kwargs):
@@ -147,16 +146,12 @@ class SphericalVisual(AbstractVisual):
         self._mask_program.bind(self._mask_model.vertexBuffer)
 
 
-    def draw(self, dt):
+    def draw(self, phase_time):
+        self.phase_time = phase_time
         self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
-        self.time = perf_counter() - self.display.phase_start_ptime
-
-        ### Increment time
-        self.time += dt
 
         ### Set time uniforms
-        self.setUniform('u_stime', self.time)
-        self.setUniform('u_ptime', self.protocol._time)
+        self.setUniform('u_stime', self.phase_time)
 
         #### Set 2D scaling for aspect 1:1
         width = Config.Display[Def.DisplayCfg.window_width]
@@ -178,7 +173,6 @@ class SphericalVisual(AbstractVisual):
         self.setUniform('u_mapcalib_scale', Config.Display[Def.DisplayCfg.view_scale] * np.array ([1, 1]))
 
         gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
-
 
         for i in range(4):
             gl.glEnable(gl.GL_STENCIL_TEST)
@@ -217,7 +211,7 @@ class SphericalVisual(AbstractVisual):
             self.setUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90*i + azim_angle, 0, 0, 1) @ elevRot3d)
 
             ### Call the rendering function of the subclass
-            self.render(dt)
+            self.render()
 
 
 ################################
@@ -236,7 +230,7 @@ class PlanarVisual(AbstractVisual):
         self._stopped = False
 
 
-    def draw(self, dt):
+    def draw(self, time):
         self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
         if self._running and not(self._stopped):

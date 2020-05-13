@@ -79,7 +79,7 @@ class IcoCMN(SphericalVisual):
 
         self.i = 0
 
-    def render(self, dt) :
+    def render(self) :
 
         ### Update texture coordinates
         tidx = np.mod(self.i,499)

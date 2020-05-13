@@ -61,7 +61,7 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         ### Run event loop
         self.run()
 
-    def run(self):
+    def run(self, interval=None):
         #Logging.write(logging.INFO, 'RUN GUI')
         IPC.setState(Def.State.IDLE)
         ### Set timer for handling of communication
