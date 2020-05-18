@@ -53,7 +53,6 @@ class Main(Process.AbstractProcess):
 
         ### Run event loop
         if run:
-            print(1./Config.Io[Def.IoCfg.sample_rate])
             self.run(interval=1./Config.Io[Def.IoCfg.sample_rate])
 
     def _prepareProtocol(self):

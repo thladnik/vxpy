@@ -98,7 +98,6 @@ class Main(Process.AbstractProcess):
         :param dt: elapsed time since last call in [s]. This is usually ~1/FPS
         :return:
         """
-        print(dt)
 
         ### Call draw, if protocol is running
         if self._runProtocol():
