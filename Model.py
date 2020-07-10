@@ -100,8 +100,6 @@ class SphereModel(AbstractModel):
                                  0.5 + np.arcsin(pos[2]) / np.pi])
         elif type == 'uv_mercator':
             pass
-        elif type == 'iso_glider':
-            texcoord = AbstractModel.reshapeArray(self.a_azimuth)
 
         if bool(texcoord):
             self.addAttribute(('a_texcoord', np.float32, 2))

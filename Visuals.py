@@ -37,7 +37,7 @@ class AbstractVisual:
     _warns = list()
 
     def __init__(self):
-        self.phase_time = None
+        self.frame_time = None
 
     def program(self, pname) -> gloo.Program:
         return self._programs[self.__class__][pname]
@@ -88,7 +88,7 @@ class AbstractVisual:
         return self.model(mname)
 
 
-    def draw(self, time):
+    def draw(self, idx, time):
         raise NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
 
     def render(self):
@@ -146,12 +146,13 @@ class SphericalVisual(AbstractVisual):
         self._mask_program.bind(self._mask_model.vertexBuffer)
 
 
-    def draw(self, phase_time):
-        self.phase_time = phase_time
-        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+    def draw(self, frame_idx, frame_time):
+        self.frame_idx = frame_idx
+        self.frame_time = frame_time
+        self.display._glWindow.clear(color=(1.0, 0.0, 0.0, 1.0))
 
         ### Set time uniforms
-        self.setUniform('u_stime', self.phase_time)
+        self.setUniform('u_stime', self.frame_time)
 
         #### Set 2D scaling for aspect 1:1
         width = Config.Display[Def.DisplayCfg.window_width]
@@ -230,17 +231,8 @@ class PlanarVisual(AbstractVisual):
         self._stopped = False
 
 
-    def draw(self, time):
+    def draw(self, frame_idx, frame_time):
         self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
-
-        if self._running and not(self._stopped):
-            self.time += dt
-        elif self._started and not(self._running):
-            self.time = 0.0
-            self._running = True
-        elif self._stopped or not(self._started):
-            return
-
 
         ### Construct vertices
         height = Config.Display[Def.DisplayCfg.window_height]
@@ -252,4 +244,4 @@ class PlanarVisual(AbstractVisual):
         self.setUniform('u_mapcalib_xscale', self.u_mapcalib_xscale)
 
         ### Call the rendering function of the subclass
-        self.render(dt)
+        self.render()

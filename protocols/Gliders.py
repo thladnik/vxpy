@@ -18,9 +18,25 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.Glider import Glider3Point
+from visuals.Glider import Glider2Point, Glider3Point
 
-class GliderPosDiv(StaticProtocol):
+class Glider2PPos(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+
+        self.newPhase(duration=10**4)
+        self.addVisual(Glider2Point, dict(p_parity=1))
+
+class Glider2PNeg(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+
+        self.newPhase(duration=10**4)
+        self.addVisual(Glider2Point, dict(p_parity=-1))
+
+class Glider3PPosDiv(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
@@ -28,8 +44,7 @@ class GliderPosDiv(StaticProtocol):
         self.newPhase(duration=10**4)
         self.addVisual(Glider3Point, dict(p_parity=1, p_mode='div'))
 
-
-class GliderNegDiv(StaticProtocol):
+class Glider3PNegDiv(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
@@ -37,9 +52,7 @@ class GliderNegDiv(StaticProtocol):
         self.newPhase(duration=10**4)
         self.addVisual(Glider3Point, dict(p_parity=-1, p_mode='div'))
 
-
-
-class GliderPosConv(StaticProtocol):
+class Glider3PPosConv(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)
@@ -48,8 +61,7 @@ class GliderPosConv(StaticProtocol):
         self.addVisual(Glider3Point, dict(p_parity=1, p_mode='conv'))
 
 
-
-class GliderNegConv(StaticProtocol):
+class Glider3PNegConv(StaticProtocol):
 
     def __init__(self, _glWindow):
         super().__init__(_glWindow)

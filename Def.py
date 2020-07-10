@@ -59,6 +59,7 @@ class Process:
 
 class State:
     NA               = 0
+    SYNC             = 1
     STOPPED          = 99
     STARTING         = 10
     PREPARE_PROTOCOL = 30
@@ -71,6 +72,21 @@ class State:
     IDLE             = 20
     RUNNING          = 41
     STANDBY          = 42
+
+MapStateToStr = {State.NA : 'N\A',
+                 State.SYNC : 'Synchronizing',
+                 State.STOPPED : 'Stopped',
+                 State.STARTING : 'Starting',
+                 State.PREPARE_PROTOCOL : 'Prepare protocol',
+                 State.WAIT_FOR_PHASE : 'Wait for phase',
+                 State.PREPARE_PHASE : 'Preparing phase',
+                 State.READY : 'Ready',
+                 State.PHASE_END : 'Phase ended',
+                 State.PROTOCOL_ABORT : 'Abort protocol',
+                 State.PROTOCOL_END : 'Protocol ended',
+                 State.IDLE : 'Idle',
+                 State.RUNNING : 'Running',
+                 State.STANDBY : 'Standby',}
 
 ################################
 # IPC signals
@@ -188,7 +204,8 @@ class RecCfg:
 # General
 
 class GenCtrl:
-    min_sleep_time = 'min_sleep_time'
+    min_sleep_time    = 'min_sleep_time'
+    process_null_time = 'process_null_time'
 
 ########
 # Recording

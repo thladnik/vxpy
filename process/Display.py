@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import app, glm
+from glumpy import app
 import keyboard
 import logging
 import time
@@ -36,6 +36,7 @@ if Def.Env == Def.EnvTypes.Dev:
 ### Set Glumpy to use pyglet backend
 # (If pylget throws an exception when moving/resizing the window -> update pyglet)
 app.use('pyglet')
+#app.use('qt5')
 from pyglet.window import key
 
 class Main(Process.AbstractProcess):
@@ -87,6 +88,7 @@ class Main(Process.AbstractProcess):
         new_phase = self.protocol._phases[IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]]
         new_visual, kwargs, duration = new_phase['visuals'][0]
         self.visual = new_visual(self.protocol, self, **kwargs)
+        self.frame_idx = 0
 
     def _cleanupProtocol(self):
         pass
@@ -99,9 +101,10 @@ class Main(Process.AbstractProcess):
         :return:
         """
 
+        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
         ### Call draw, if protocol is running
         if self._runProtocol():
-            self.visual.draw(self.phase_time)
+            self.visual.draw(self.frame_idx, self.phase_time)
 
 
     def on_resize(self, width: int, height: int):
@@ -179,6 +182,8 @@ class Main(Process.AbstractProcess):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.view_scale] += sign * 0.001
                     time.sleep(continPressDelay)
+            else:
+                self._glWindow.on_key_press(symbol, modifiers)
 
     def _checkScreen(self, dt):
         if not(self._checkScreenStatus):

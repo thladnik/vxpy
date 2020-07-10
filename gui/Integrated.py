@@ -30,6 +30,8 @@ import gui.Camera
 import IPC
 import Logging
 from process import GUI
+import protocols
+
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -83,20 +85,13 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Io), 4, 0)
         self.layout().addWidget(self._le_ioState, 4, 1)
 
-        ## Logger process status
-        self._le_loggerState = QtWidgets.QLineEdit('')
-        self._le_loggerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Logger), 5, 0)
-        self.layout().addWidget(self._le_loggerState, 5, 1)
-
         ## Worker process status
         self._le_workerState = QtWidgets.QLineEdit('')
         self._le_workerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 6, 0)
-        self.layout().addWidget(self._le_workerState, 6, 1)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 5, 0)
+        self.layout().addWidget(self._le_workerState, 5, 1)
 
-        self.layout().addItem(vSpacer, 7, 0)
-
+        self.layout().addItem(vSpacer, 6, 0)
 
         ## Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
@@ -104,23 +99,10 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._tmr_updateGUI.timeout.connect(self._updateStates)
         self._tmr_updateGUI.start()
 
-    def _getProcessStateStr(self, code):
-        if code == Def.State.STOPPED:
-            return 'Stopped'
-        elif code == Def.State.READY:
-            return 'Ready'
-        elif code == Def.State.IDLE:
-            return 'Idle'
-        elif code ==Def.State.RUNNING:
-            return 'Running'
-        elif code == Def.State.STARTING:
-            return 'Starting'
-        else:
-            return 'N/A'
 
     def _setProcessState(self, le: QtWidgets.QLineEdit, code):
         ### Set text
-        le.setText(self._getProcessStateStr(code))
+        le.setText(Def.MapStateToStr[code] if code in Def.MapStateToStr else '')
 
         ### Set style
         if code == Def.State.IDLE:
@@ -132,7 +114,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         elif code == Def.State.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
         else:
-            le.setStyleSheet('color: #FF0000')
+            le.setStyleSheet('color: #000000')
 
     def _updateStates(self):
         """This method sets the process state according to the current global state variables.
@@ -144,7 +126,6 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._setProcessState(self._le_displayState, IPC.getState(Def.Process.Display))
         self._setProcessState(self._le_guiState, IPC.getState(Def.Process.GUI))
         self._setProcessState(self._le_ioState, IPC.getState(Def.Process.Io))
-        self._setProcessState(self._le_loggerState, IPC.getState(Def.Process.Logger))
         self._setProcessState(self._le_workerState, IPC.getState(Def.Process.Worker))
 
 
@@ -375,3 +356,61 @@ class Camera(QtWidgets.QTabWidget):
     def updateFrames(self):
         for idx in range(self.count()):
             self.widget(idx).updateFrame()
+
+class DisplayView(QtWidgets.QGroupBox):
+
+    def __init__(self, _main):
+        self.main = _main
+        QtWidgets.QGroupBox.__init__(self, 'Display View')
+        self.setCheckable(True)
+        self.toggled.connect(self.setTimer)
+
+        self.setLayout(QtWidgets.QVBoxLayout())
+        from glumpy import app
+        app.use('qt5')
+
+        self._glWindow = QtWidgets.QOpenGLWidget(self) # app.Window()#
+        #self.native_win = self._glWindow._native_window
+        self.layout().addWidget(self._glWindow)
+
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.updateGl)
+
+        self.current_protocol = None
+        self.current_phase_id = None
+        self.current_visual = None
+
+        self.setChecked(True)
+
+    def setTimer(self, bool):
+        if bool and not(self.timer.isActive()):
+            return
+            self.timer.start(1/20)
+        else:
+            if self.timer.isActive():
+                self.timer.stop()
+
+    def updateGl(self):
+        if self.current_protocol is None:
+
+            if IPC.Control.Protocol[Def.ProtocolCtrl.name] is None or not(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
+                return
+
+            print('SET protocol to {}'.format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
+
+            self.current_protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+            return
+
+        if self.current_phase_id != IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]:
+            self.current_phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+
+            new_phase = self.current_protocol._phases[self.current_phase_id]
+            new_visual, kwargs, duration = new_phase['visuals'][0]
+            self.current_visual = new_visual(self.current_protocol, self, **kwargs)
+
+        if self.current_visual is None:
+            return
+
+        print('draw?')
+        self.current_visual.draw(0, 0.0)

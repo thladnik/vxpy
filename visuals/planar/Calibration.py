@@ -38,5 +38,5 @@ class Checkerboard(PlanarVisual):
         self.checker.bind(self.plane.vertexBuffer)
 
 
-    def render(self, dt):
+    def render(self):
         self.checker.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)

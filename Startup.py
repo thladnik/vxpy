@@ -322,5 +322,6 @@ if __name__ == '__main__':
         # _configfile = 'default_TIS.ini'
         import process.Controller
 
-        process.Controller.configfile = 'default.ini'
+        #process.Controller.configfile = 'default.ini'
+        process.Controller.configfile = 'omr_behavior.ini'
         ctrl = process.Controller()

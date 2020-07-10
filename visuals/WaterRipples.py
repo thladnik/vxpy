@@ -56,7 +56,9 @@ class RipplesOnStaticBackground(SphericalVisual):
 
         ### TODO: loading jpg causes stimulus presentation to hang in beginning; fix this in display class
         ### Set texture
-        im = imageio.imread('samples/earth_uv_no_clouds_8k.jpg', 'jpg')
+        #im = imageio.imread('samples/earth_uv_no_clouds_8k.jpg', 'jpg')
+        #im = imageio.imread('samples/Lighthouse_360_NoLicense.jpg', 'jpg')
+        im = imageio.imread('samples/Natural_360_Frame.jpg', 'jpg')
         self.texture_program['u_texture'] = np.flipud(im).copy()
 
         ### Update parameters
@@ -97,7 +99,7 @@ class RipplesOnStaticBackground(SphericalVisual):
             self.ripple_programs[self.progI]['u_mod_zlayer'] = self.progI
 
             #self.ripple_programs[self.progI]['u_mod_pos'] = -1.
-            self.ripple_programs[self.progI]['u_mod_start_time'] = self.phase_time
+            self.ripple_programs[self.progI]['u_mod_start_time'] = self.frame_time
             self.ripple_programs[self.progI]['u_mod_vel'] = self.u_mod_vel
 
             self.progI += 1
@@ -108,7 +110,7 @@ class RipplesOnStaticBackground(SphericalVisual):
             prog = self.ripple_programs[pname]
             # Increment position
             #prog['u_mod_pos'] += self.u_mod_vel * dt / 20.0
-            prog['u_mod_time'] = self.phase_time
+            prog['u_mod_time'] = self.frame_time
 
             # Remove program if it has passed the sphere
             pos = (prog['u_mod_time'] - prog['u_mod_start_time']) * prog['u_mod_vel'] / 20

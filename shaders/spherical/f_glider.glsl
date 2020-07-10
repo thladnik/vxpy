@@ -10,6 +10,5 @@ varying float v_elevation;
 
 void main() {
     float c = (v_azimuth) / (2.0 * c_pi);
-    //gl_FragColor = vec4(c * 1.0,c * 1.0, c * 1.0,1.0);
     gl_FragColor = texture2D(u_texture, vec2(c, 0.0));
 }

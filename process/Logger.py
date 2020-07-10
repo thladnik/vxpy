@@ -47,6 +47,8 @@ class Main(Process.AbstractProcess):
         self.run(interval=0.1)
 
     def main(self):
+        sleep(1)
+        return
         ### Check queue
         if IPC.Log.Queue.empty():
             return

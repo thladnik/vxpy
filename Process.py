@@ -125,7 +125,17 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self._handleSIGINT)
 
     def run(self, interval):
-        Logging.logger.log(logging.INFO, 'Run {}'.format(self.name))
+
+        ### Synchronize process to controller
+        self.setState(Def.State.SYNC)
+        ## Wait
+        while IPC.Control.General[Def.GenCtrl.process_null_time] > time.time():
+            pass
+        ## Set time
+        t = time.time()
+        self.process_start_time  = time.perf_counter()
+
+        Logging.write(logging.INFO, 'Synchronized process {} at time {}  to process time {}'.format(self.name, t, self.process_start_time))
         ### Set state to running
         self._running = True
         self._shutdown = False

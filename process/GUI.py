@@ -59,9 +59,12 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         #self._setupAddons()
 
         ### Run event loop
-        self.run()
+        self.run(interval=0.01)
 
-    def run(self, interval=None):
+    def main(self):
+        self._app.processEvents()
+
+    def run1234(self, interval=None):
         #Logging.write(logging.INFO, 'RUN GUI')
         IPC.setState(Def.State.IDLE)
         ### Set timer for handling of communication
@@ -100,13 +103,15 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.centralWidget().layout().addWidget(self._grp_camera, 0, 2)
 
         ## Add topright
-        self._grp_topright = QtWidgets.QWidget()
+        self._grp_topright = gui.Integrated.DisplayView(self)
+        self._grp_topright.setMinimumWidth(500)
         self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
-        self._grp_topright.layout().addItem(hvSpacer)
+        self._grp_topright.layout().addWidget(self._grp_topright)
         self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
 
         ## Add IO monitor
         self._grp_io = QtWidgets.QGroupBox('I/O Monitor')
+        self._grp_io.setMinimumHeight(250)
         self._grp_io.setLayout(QtWidgets.QHBoxLayout())
         if Config.Io[Def.IoCfg.use]:
             self._wdgt_io_monitor = gui.Io.IoWidget(self)

@@ -289,7 +289,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         for id in self.buffer.extractedRects.keys():
 
-            yield 'eye_extracted_rect{}'.format(id), self.buffer.extractedRects[id]
+            #yield 'eye_extracted_rect{}'.format(id), self.buffer.extractedRects[id]
 
             if id in self.buffer.eyePositions:
                 yield 'ang_eye_pos{}_left'.format(id), self.buffer.eyePositions[id][0]
