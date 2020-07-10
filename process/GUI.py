@@ -34,7 +34,6 @@ import gui.Io
 import process.Controller
 import process.Camera
 import process.Display
-import process.Logger
 
 class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
     name = Def.Process.GUI

@@ -113,6 +113,8 @@ class ProcessMonitor(QtWidgets.QGroupBox):
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
         elif code == Def.State.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
+        elif code == Def.State.RUNNING:
+            le.setStyleSheet('color: #deb737; font-weight:bold;')
         else:
             le.setStyleSheet('color: #000000')
 

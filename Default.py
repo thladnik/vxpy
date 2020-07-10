@@ -40,6 +40,7 @@ Configuration = {
 
         Def.DisplayCfg.fps                    : 60,
 
+        # Window
         Def.DisplayCfg.window_screen_id       : 0,
         Def.DisplayCfg.window_fullscreen      : False,
         Def.DisplayCfg.window_width           : 900,
@@ -47,14 +48,20 @@ Configuration = {
         Def.DisplayCfg.window_pos_x           : 400,
         Def.DisplayCfg.window_pos_y           : 400,
 
-        Def.DisplayCfg.pos_glob_x_pos         : 0.0,
-        Def.DisplayCfg.pos_glob_y_pos         : 0.0,
-        Def.DisplayCfg.pos_glob_radial_offset : 1.0,
+        # Calibration
+        # Spherical
+        Def.DisplayCfg.sph_pos_glob_x_pos         : 0.0,
+        Def.DisplayCfg.sph_pos_glob_y_pos         : 0.0,
+        Def.DisplayCfg.sph_pos_glob_radial_offset : 1.0,
 
-        Def.DisplayCfg.view_elev_angle        : 0.0,
-        Def.DisplayCfg.view_azim_angle        : 0.0,
-        Def.DisplayCfg.view_distance          : 5.0,
-        Def.DisplayCfg.view_scale             : 1.0,
+        Def.DisplayCfg.sph_view_elev_angle        : 0.0,
+        Def.DisplayCfg.sph_view_azim_angle        : 0.0,
+        Def.DisplayCfg.sph_view_distance          : 5.0,
+        Def.DisplayCfg.sph_view_scale             : 1.0,
+
+        # Planar
+        Def.DisplayCfg.pla_xextent                : 1.0,
+        Def.DisplayCfg.pla_yextent                : 1.0,
     },
 
     Def.GuiCfg.name : {

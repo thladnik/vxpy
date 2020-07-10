@@ -91,7 +91,6 @@ class Controller(AbstractProcess):
         IPC.State.Display    = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Gui        = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Io         = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
-        #IPC.State.Logger     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Worker     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
 
         ################################
@@ -242,7 +241,7 @@ class Controller(AbstractProcess):
         while not(all([self.inState(Def.State.SYNC, target.name) for target, _ in self._registeredProcesses])):
             time.sleep(1/100)
 
-        null_time = time.time() + 0.2
+        null_time = time.time() + 0.1
         Logging.logger.log(logging.INFO, 'Set sync time to {}'.format(null_time))
         ## Set synchronized start time
         IPC.Control.General.update({Def.GenCtrl.process_null_time : null_time})

@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import app
+from glumpy import app, gl
 import keyboard
 import logging
 import time
@@ -102,6 +102,12 @@ class Main(Process.AbstractProcess):
         """
 
         self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+        #gl.glClear(gl.GL_STENCIL_BUFFER_BIT)  # THIS HAS TO BE RIGHT HERE !!!
+        #gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
+        gl.glStencilMask(0x00)
+        gl.glStencilMask(gl.GL_TRUE)
+        gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
+        gl.glDisable(gl.GL_STENCIL_TEST)
         ### Call draw, if protocol is running
         if self._runProtocol():
             self.visual.draw(self.frame_idx, self.phase_time)
@@ -137,21 +143,21 @@ class Main(Process.AbstractProcess):
             elif symbol == key.X:
                 while keyboard.is_pressed('X'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.pos_glob_x_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.sph_pos_glob_x_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Y position: Ctrl(+Shift)+Y
             elif symbol == key.Y:
                 while keyboard.is_pressed('Y'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.pos_glob_y_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.sph_pos_glob_y_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Radial offset: Ctrl(+Shift)+R
             elif symbol == key.R:
                 while keyboard.is_pressed('R'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.pos_glob_radial_offset] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset] += sign * 0.001
                     time.sleep(continPressDelay)
 
 
@@ -159,28 +165,28 @@ class Main(Process.AbstractProcess):
             elif symbol == key.E:
                 while keyboard.is_pressed('E'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_elev_angle] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.sph_view_elev_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Azimuth: Ctrl(+Shift)+A
             elif symbol == key.A:
                 while keyboard.is_pressed('A'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_azim_angle] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.sph_view_azim_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Distance: Ctrl(+Shift)+D
             elif symbol == key.D:
                 while keyboard.is_pressed('D'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_distance] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.sph_view_distance] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Scale: Ctrl(+Shift)+S
             elif symbol == key.S:
                 while keyboard.is_pressed('S'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_scale] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.sph_view_scale] += sign * 0.001
                     time.sleep(continPressDelay)
             else:
                 self._glWindow.on_key_press(symbol, modifiers)

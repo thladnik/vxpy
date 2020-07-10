@@ -146,15 +146,19 @@ class DisplayCfg:
     window_pos_y           = 'int_window_pos_y'
 
     # Calibration settings
-    pos_glob_x_pos         = 'float_pos_glob_x_pos'
-    pos_glob_y_pos         = 'float_pos_glob_y_pos'
-    pos_glob_radial_offset = 'float_pos_glob_radial_offset'
+    # Spherical
+    sph_pos_glob_x_pos         = 'float_sph_pos_glob_x_pos'
+    sph_pos_glob_y_pos         = 'float_sph_pos_glob_y_pos'
+    sph_pos_glob_radial_offset = 'float_sph_pos_glob_radial_offset'
 
-    view_elev_angle        = 'float_view_elev_angle'
-    view_azim_angle        = 'float_view_azim_angle'
-    view_distance          = 'float_view_origin_distance'
-    view_scale             = 'float_view_scale'
+    sph_view_elev_angle        = 'float_sph_view_elev_angle'
+    sph_view_azim_angle        = 'float_sph_view_azim_angle'
+    sph_view_distance          = 'float_sph_view_origin_distance'
+    sph_view_scale             = 'float_sph_view_scale'
 
+    # Planar
+    pla_xextent                = 'float_pla_xextent'
+    pla_yextent                = 'float_pla_yextent'
 
 ########
 # GUI

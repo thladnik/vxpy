@@ -120,7 +120,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_x_pos.setMinimum(-1.0)
         self._dspn_x_pos.setMaximum(1.0)
         self._dspn_x_pos.setSingleStep(.001)
-        self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.pos_glob_x_pos])
+        self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.sph_pos_glob_x_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
         self._grp_position.layout().addWidget(self._dspn_x_pos, 0, 1)
         # Y position
@@ -129,7 +129,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_y_pos.setMinimum(-1.0)
         self._dspn_y_pos.setMaximum(1.0)
         self._dspn_y_pos.setSingleStep(.001)
-        self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.pos_glob_y_pos])
+        self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.sph_pos_glob_y_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
         self._grp_position.layout().addWidget(self._dspn_y_pos, 1, 1)
         # Distance from center
@@ -138,7 +138,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_vp_center_offset.setMinimum(-1.0)
         self._dspn_vp_center_offset.setMaximum(1.0)
         self._dspn_vp_center_offset.setSingleStep(.001)
-        self._dspn_vp_center_offset.setValue(Config.Display[Def.DisplayCfg.pos_glob_radial_offset])
+        self._dspn_vp_center_offset.setValue(Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Radial offset'), 2, 0)
         self._grp_position.layout().addWidget(self._dspn_vp_center_offset, 2, 1)
 
@@ -152,7 +152,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_elev_angle.setSingleStep(0.1)
         self._dspn_elev_angle.setMinimum(-90.0)
         self._dspn_elev_angle.setMaximum(90.0)
-        self._dspn_elev_angle.setValue(Config.Display[Def.DisplayCfg.view_elev_angle])
+        self._dspn_elev_angle.setValue(Config.Display[Def.DisplayCfg.sph_view_elev_angle])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Elevation [deg]'), 0, 0)
         self._grp_view.layout().addWidget(self._dspn_elev_angle, 0, 1)
         # Azimuth
@@ -161,21 +161,21 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_azim_angle.setSingleStep(0.1)
         self._dspn_azim_angle.setMinimum(-90.0)
         self._dspn_azim_angle.setMaximum(90.0)
-        self._dspn_azim_angle.setValue(Config.Display[Def.DisplayCfg.view_azim_angle])
+        self._dspn_azim_angle.setValue(Config.Display[Def.DisplayCfg.sph_view_azim_angle])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Azimuth [deg]'), 1, 0)
         self._grp_view.layout().addWidget(self._dspn_azim_angle, 1, 1)
         # View distance(from origin of sphere)
         self._dspn_view_distance = QtWidgets.QDoubleSpinBox()
         self._dspn_view_distance.setDecimals(1)
         self._dspn_view_distance.setSingleStep(.1)
-        self._dspn_view_distance.setValue(Config.Display[Def.DisplayCfg.view_distance])
+        self._dspn_view_distance.setValue(Config.Display[Def.DisplayCfg.sph_view_distance])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Distance [a.u.]'), 2, 0)
         self._grp_view.layout().addWidget(self._dspn_view_distance, 2, 1)
         # View scale
         self._dspn_scale = QtWidgets.QDoubleSpinBox()
         self._dspn_scale.setDecimals(3)
         self._dspn_scale.setSingleStep(0.001)
-        self._dspn_scale.setValue(Config.Display[Def.DisplayCfg.view_scale])
+        self._dspn_scale.setValue(Config.Display[Def.DisplayCfg.sph_view_scale])
         self._grp_view.layout().addWidget(QtWidgets.QLabel('Scale [a.u.]'), 3, 0)
         self._grp_view.layout().addWidget(self._dspn_scale, 3, 1)
 
@@ -200,23 +200,23 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
 
         ### Make connections between config and gui
         self._dspn_x_pos.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.pos_glob_x_pos, self._dspn_x_pos.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_pos_glob_x_pos, self._dspn_x_pos.value()))
         self._dspn_y_pos.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.pos_glob_y_pos, self._dspn_y_pos.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_pos_glob_y_pos, self._dspn_y_pos.value()))
         self._dspn_elev_angle.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.view_elev_angle, self._dspn_elev_angle.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_view_elev_angle, self._dspn_elev_angle.value()))
         self._dspn_azim_angle.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.view_azim_angle, self._dspn_azim_angle.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_view_azim_angle, self._dspn_azim_angle.value()))
         self._dspn_vp_center_offset.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.pos_glob_radial_offset, self._dspn_vp_center_offset.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_pos_glob_radial_offset, self._dspn_vp_center_offset.value()))
         self._dspn_view_distance.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.view_distance, self._dspn_view_distance.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_view_distance, self._dspn_view_distance.value()))
         self._spn_screen_id.valueChanged.connect(
             lambda: self.setConfig(Def.DisplayCfg.window_screen_id, self._spn_screen_id.value()))
         self._check_fullscreen.stateChanged.connect(
             lambda: self.setConfig(Def.DisplayCfg.window_fullscreen, Conversion.QtCheckstateToBool(self._check_fullscreen.checkState())))
         self._dspn_scale.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.view_scale, self._dspn_scale.value()))
+            lambda: self.setConfig(Def.DisplayCfg.sph_view_scale, self._dspn_scale.value()))
 
     def setConfig(self, name, val):
         Config.Display[name] = val
@@ -224,39 +224,39 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
     def updateGUI(self):
         _config = Config.Display
 
-        if Def.DisplayCfg.pos_glob_x_pos in _config \
-                and _config[Def.DisplayCfg.pos_glob_x_pos] != self._dspn_x_pos.value():
-            self._dspn_x_pos.setValue(_config[Def.DisplayCfg.pos_glob_x_pos])
+        if Def.DisplayCfg.sph_pos_glob_x_pos in _config \
+                and _config[Def.DisplayCfg.sph_pos_glob_x_pos] != self._dspn_x_pos.value():
+            self._dspn_x_pos.setValue(_config[Def.DisplayCfg.sph_pos_glob_x_pos])
 
-        if Def.DisplayCfg.pos_glob_y_pos in _config \
-                and _config[Def.DisplayCfg.pos_glob_y_pos] != self._dspn_y_pos.value():
-            self._dspn_y_pos.setValue(_config[Def.DisplayCfg.pos_glob_y_pos])
+        if Def.DisplayCfg.sph_pos_glob_y_pos in _config \
+                and _config[Def.DisplayCfg.sph_pos_glob_y_pos] != self._dspn_y_pos.value():
+            self._dspn_y_pos.setValue(_config[Def.DisplayCfg.sph_pos_glob_y_pos])
 
-        if Def.DisplayCfg.view_elev_angle in _config \
-                and _config[Def.DisplayCfg.view_elev_angle] != self._dspn_elev_angle.value():
-            self._dspn_elev_angle.setValue(_config[Def.DisplayCfg.view_elev_angle])
+        if Def.DisplayCfg.sph_view_elev_angle in _config \
+                and _config[Def.DisplayCfg.sph_view_elev_angle] != self._dspn_elev_angle.value():
+            self._dspn_elev_angle.setValue(_config[Def.DisplayCfg.sph_view_elev_angle])
 
-        if Def.DisplayCfg.view_azim_angle in _config \
-                and _config[Def.DisplayCfg.view_azim_angle] != self._dspn_azim_angle.value():
-            self._dspn_azim_angle.setValue(_config[Def.DisplayCfg.view_azim_angle])
+        if Def.DisplayCfg.sph_view_azim_angle in _config \
+                and _config[Def.DisplayCfg.sph_view_azim_angle] != self._dspn_azim_angle.value():
+            self._dspn_azim_angle.setValue(_config[Def.DisplayCfg.sph_view_azim_angle])
 
-        if Def.DisplayCfg.pos_glob_radial_offset in _config \
-                and _config[Def.DisplayCfg.pos_glob_radial_offset] != self._dspn_vp_center_offset.value():
-            self._dspn_vp_center_offset.setValue(_config[Def.DisplayCfg.pos_glob_radial_offset])
+        if Def.DisplayCfg.sph_pos_glob_radial_offset in _config \
+                and _config[Def.DisplayCfg.sph_pos_glob_radial_offset] != self._dspn_vp_center_offset.value():
+            self._dspn_vp_center_offset.setValue(_config[Def.DisplayCfg.sph_pos_glob_radial_offset])
 
-        if Def.DisplayCfg.view_distance in _config \
-                and _config[Def.DisplayCfg.view_distance] != self._dspn_view_distance.value():
-            self._dspn_view_distance.setValue(_config[Def.DisplayCfg.view_distance])
+        if Def.DisplayCfg.sph_view_distance in _config \
+                and _config[Def.DisplayCfg.sph_view_distance] != self._dspn_view_distance.value():
+            self._dspn_view_distance.setValue(_config[Def.DisplayCfg.sph_view_distance])
 
-        if Def.DisplayCfg.view_scale in _config \
-                and _config[Def.DisplayCfg.view_scale] != self._dspn_scale.value():
-            self._dspn_scale.setValue(_config[Def.DisplayCfg.view_scale])
+        if Def.DisplayCfg.sph_view_scale in _config \
+                and _config[Def.DisplayCfg.sph_view_scale] != self._dspn_scale.value():
+            self._dspn_scale.setValue(_config[Def.DisplayCfg.sph_view_scale])
 
         if Def.DisplayCfg.window_screen_id in _config \
                 and _config[Def.DisplayCfg.window_screen_id] != self._spn_screen_id.value():
             self._spn_screen_id.setValue(_config[Def.DisplayCfg.window_screen_id])
 
-        if Def.DisplayCfg.pos_glob_x_pos in _config \
+        if Def.DisplayCfg.sph_pos_glob_x_pos in _config \
                 and _config[Def.DisplayCfg.window_fullscreen] != \
                 Conversion.QtCheckstateToBool(self._check_fullscreen.checkState()):
             self._check_fullscreen.setCheckState(
