@@ -244,8 +244,13 @@ class PlanarVisual(AbstractVisual):
         self.u_mapcalib_xscale *= Config.Display[Def.DisplayCfg.pla_xextent]
         self.u_mapcalib_yscale *= Config.Display[Def.DisplayCfg.pla_yextent]
 
+        ### Set real world size multiplier
+        # (PlanarVisual's positions are normalized to the smaller side of the screen)
+        self.u_small_side_size = Config.Display[Def.DisplayCfg.pla_small_side]
+
         self.setGlobalUniform('u_mapcalib_xscale', self.u_mapcalib_xscale)
         self.setGlobalUniform('u_mapcalib_yscale', self.u_mapcalib_yscale)
+        self.setGlobalUniform('u_small_side_size', self.u_small_side_size)
 
         ### Call the rendering function of the subclass
         self.render()

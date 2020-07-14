@@ -286,7 +286,7 @@ class Controls(QtWidgets.QTabWidget):
         QtWidgets.QTabWidget.__init__(self)
         self._main : GUI.Main = _main
 
-        ## Display Settings
+        ### Display Settings
         if Config.Display[Def.DisplayCfg.use]:
             if Config.Display[Def.DisplayCfg.type] == 'spherical':
                 self.tabWdgt_Display = gui.Controls.SphericalDisplaySettings(self)

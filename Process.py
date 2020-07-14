@@ -61,7 +61,7 @@ class AbstractProcess:
                  _states=None,
                  **kwargs):
 
-        ### Set routines
+        ### Set routines and let routine wrapper create hooks in process instance
         if not(_routines is None):
             for bkey, routine in _routines.items():
                 ## Set routines object
@@ -133,9 +133,9 @@ class AbstractProcess:
             pass
         ## Set time
         t = time.time()
-        self.process_start_time  = time.perf_counter()
+        self.process_sync_time  = time.perf_counter()
 
-        Logging.write(logging.INFO, 'Synchronized process {} at time {}  to process time {}'.format(self.name, t, self.process_start_time))
+        Logging.write(logging.INFO, 'Synchronized process {} at time {}  to process time {}'.format(self.name, t, self.process_sync_time))
         ### Set state to running
         self._running = True
         self._shutdown = False
@@ -239,6 +239,7 @@ class AbstractProcess:
         ########
         ### READY
         elif self.inState(Def.State.READY):
+            ### If Controller is not yet running, don't wait for go time, because there may be an abort
             if not(self.inState(Def.State.RUNNING, Def.Process.Controller)):
                 return False
 

@@ -52,6 +52,8 @@ class Routines:
 
         :arg instance: instance object of the current process
         """
+        self.process = instance
+
         for name, routine in self._routines.items():
             for method in routine.exposed:
                 fun_path = method.__qualname__.split('.')
@@ -67,7 +69,10 @@ class Routines:
         self._routines[routine.__name__] = routine(self, **kwargs)
 
     def update(self, frame):
+        t = perf_counter() - self.process.process_sync_time
         for name in self._routines:
+            ### Set time for current iteration
+            self._routines[name].buffer.time = t
             ### Update the data in buffer
             self._routines[name].update(frame)
             ### Stream new routine computation results to file (if active)
@@ -174,7 +179,9 @@ class AbstractRoutine:
 
         :param data: input data to be updated
         """
-        self.buffer.time = time()
+
+        ### Set time for current iteration
+        #self.buffer.time = time()
         ### Call compute method
         self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
         #                            (TODO: I don't think this copying works as intended, yet)

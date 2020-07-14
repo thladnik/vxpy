@@ -273,9 +273,70 @@ class PlanarDisplaySettings(QtWidgets.QWidget):
 
     def _setupUi(self):
 
-        ## Setup widget
+        ### Setup widget
         self.setWindowTitle('Planar display settings')
         self.setLayout(QtWidgets.QVBoxLayout())
+
+        ### Setup position
+        self.grp_extents = QtWidgets.QGroupBox('Extents')
+        self.grp_extents.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self.grp_extents)
+
+        # X extent
+        self.grp_extents.dspn_x_extent = QtWidgets.QDoubleSpinBox()
+        self.grp_extents.dspn_x_extent.setDecimals(3)
+        self.grp_extents.dspn_x_extent.setMinimum(-1.0)
+        self.grp_extents.dspn_x_extent.setMaximum(1.0)
+        self.grp_extents.dspn_x_extent.setSingleStep(.001)
+        self.grp_extents.dspn_x_extent.setValue(Config.Display[Def.DisplayCfg.pla_xextent])
+        self.grp_extents.layout().addWidget(QtWidgets.QLabel('X-Extent [rel]'), 0, 0)
+        self.grp_extents.layout().addWidget(self.grp_extents.dspn_x_extent, 0, 1)
+        # Y extent
+        self.grp_extents.dspn_y_extent = QtWidgets.QDoubleSpinBox()
+        self.grp_extents.dspn_y_extent.setDecimals(3)
+        self.grp_extents.dspn_y_extent.setMinimum(-1.0)
+        self.grp_extents.dspn_y_extent.setMaximum(1.0)
+        self.grp_extents.dspn_y_extent.setSingleStep(.001)
+        self.grp_extents.dspn_y_extent.setValue(Config.Display[Def.DisplayCfg.pla_yextent])
+        self.grp_extents.layout().addWidget(QtWidgets.QLabel('Y-Extent [rel]'), 1, 0)
+        self.grp_extents.layout().addWidget(self.grp_extents.dspn_y_extent, 1, 1)
+        # Small side dimensions
+        self.grp_extents.dspn_small_side = QtWidgets.QDoubleSpinBox()
+        self.grp_extents.dspn_small_side.setDecimals(3)
+        self.grp_extents.dspn_small_side.setSingleStep(.001)
+        self.grp_extents.dspn_small_side.setValue(Config.Display[Def.DisplayCfg.pla_small_side])
+        self.grp_extents.layout().addWidget(QtWidgets.QLabel('Small side [mm]'), 2, 0)
+        self.grp_extents.layout().addWidget(self.grp_extents.dspn_small_side, 2, 1)
+
+        ### Connect
+        self.grp_extents.dspn_x_extent.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.pla_xextent, self.grp_extents.dspn_x_extent.value()))
+        self.grp_extents.dspn_y_extent.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.pla_yextent, self.grp_extents.dspn_y_extent.value()))
+        self.grp_extents.dspn_small_side.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.pla_small_side, self.grp_extents.dspn_small_side.value()))
+
+
+        ### Set timer for GUI settings update
+        self._tmr_updateGUI = QtCore.QTimer()
+        self._tmr_updateGUI.setInterval(250)
+        self._tmr_updateGUI.timeout.connect(self.updateGUI)
+        self._tmr_updateGUI.start()
+
+    def setConfig(self, name, val):
+        Config.Display[name] = val
+
+    def updateGUI(self):
+        _config = Config.Display
+
+        if _config[Def.DisplayCfg.pla_xextent] != self.grp_extents.dspn_x_extent.value():
+            self.grp_extents.dspn_x_extent.setValue(_config[Def.DisplayCfg.pla_xextent])
+
+        if _config[Def.DisplayCfg.pla_yextent] != self.grp_extents.dspn_y_extent.value():
+            self.grp_extents.dspn_x_extent.setValue(_config[Def.DisplayCfg.pla_yextent])
+
+        if _config[Def.DisplayCfg.pla_small_side] != self.grp_extents.dspn_small_side.value():
+            self.grp_extents.dspn_small_side.setValue(_config[Def.DisplayCfg.pla_small_side])
 
 class Camera(QtWidgets.QWidget):
 

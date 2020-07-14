@@ -99,7 +99,9 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
 
         ## Add camera
         self._grp_camera = gui.Integrated.Camera(self)
-        self.centralWidget().layout().addWidget(self._grp_camera, 0, 2)
+        self._grp_camera.setMaximumHeight(int(Config.Camera[Def.CameraCfg.res_y] * 1.5))
+        self._grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.5))
+        self.centralWidget().layout().addWidget(self._grp_camera, 1, 2)
 
         ## Add topright
         self._grp_topright = gui.Integrated.DisplayView(self)
@@ -115,21 +117,21 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         if Config.Io[Def.IoCfg.use]:
             self._wdgt_io_monitor = gui.Io.IoWidget(self)
             self._grp_io.layout().addWidget(self._wdgt_io_monitor)
-        self.centralWidget().layout().addWidget(self._grp_io, 1, 2, 1, 2)
+        self.centralWidget().layout().addWidget(self._grp_io, 1, 3)
 
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
-        self._grp_processStatus.setMaximumHeight(300)
+        self._grp_processStatus.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self._grp_processStatus, 2, 0)
 
         ## Recordings
         self._grp_recordings = gui.Integrated.Recording(self)
-        self._grp_recordings.setMaximumHeight(300)
+        self._grp_recordings.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self._grp_recordings, 2, 1)
 
         ## Logger
         self._grp_log = gui.Integrated.Log(self)
-        self._grp_log.setMaximumHeight(300)
+        self._grp_log.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self._grp_log, 2, 2, 1, 2)
 
         ### Setup menubar

@@ -75,6 +75,8 @@ def rpc(processName, function, *args, **kwargs):
 # Buffer objects
 
 class Routines:
+    # Routine names *MUST* be identical to the corresponding process names in 'Def.Process'
+    # e.g. Def.Process.Camera = 'Camera' -> Routines.Camera
     Camera   = None
     Io       = None
     Display  = None

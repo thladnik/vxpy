@@ -71,9 +71,5 @@ class Main(Process.AbstractProcess):
             if setting.find('_prop_') >= 0:
                 self.camera.updateProperty(setting, value)
 
-        # Precise timing
-        #while time.perf_counter() < self.t + 1./Config.Camera[Def.CameraCfg.fps]:
-            #pass
-
         # Update routines
         IPC.Routines.Camera.update(self.camera.getImage())

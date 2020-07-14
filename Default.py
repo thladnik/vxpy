@@ -62,6 +62,7 @@ Configuration = {
         # Planar
         Def.DisplayCfg.pla_xextent                : 1.0,
         Def.DisplayCfg.pla_yextent                : 1.0,
+        Def.DisplayCfg.pla_small_side             : 1.0,
     },
 
     Def.GuiCfg.name : {
