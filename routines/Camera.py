@@ -21,7 +21,7 @@ import numpy as np
 from sklearn import metrics
 from time import perf_counter, time
 
-from Routine import AbstractRoutine
+from Routine import AbstractRoutine, BufferDTypes
 import Config
 import Def
 from helper import Geometry
@@ -43,7 +43,7 @@ class FrameRoutine(AbstractRoutine):
 
         ### Set up shared variables
         frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
-        self.buffer.frame = ('frame', 'Array', ctypes.c_uint8, frameSize)
+        self.buffer.frame = (BufferDTypes.uint8, frameSize)
 
         ### Setup frame timing stats
         self.frametimes = list()
@@ -84,8 +84,8 @@ class EyePosDetectRoutine(AbstractRoutine):
         self.ROIs = dict()
 
         ### Set up buffer
-        self.buffer.extractedRects = ('extractedRects', 'dict')
-        self.buffer.eyePositions = ('eyePositions', 'list')
+        self.buffer.extractedRects = ('test', )
+        self.buffer.eyePositions = ('test', )
 
     def setROI(self, id, params):
         self.ROIs[id] = params

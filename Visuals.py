@@ -187,7 +187,7 @@ class SphericalVisual(AbstractVisual):
 
             ### 2D translation radially
             radial_offset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset]
-            xy_offset =  np.array([Config.Display[Def.DisplayCfg.sph_pos_glob_x_pos], Config.Display[Def.DisplayCfg.sph_pos_glob_y_pos]])
+            xy_offset =  np.array([Config.Display[Def.DisplayCfg.glob_x_pos], Config.Display[Def.DisplayCfg.glob_y_pos]])
             self.setGlobalUniform('u_mapcalib_translate2d', radial_offset + xy_offset)
 
             ### Write stencil buffer from mask sphere

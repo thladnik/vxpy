@@ -51,6 +51,10 @@ class Main(Process.AbstractProcess):
                                .format(exc))
             self.setState(Def.State.STOPPED)
 
+
+        ### Disable timeout during idle
+        self.enable_idle_timeout = False
+
         ### Run event loop
         if run:
             self.run(interval=1./Config.Io[Def.IoCfg.sample_rate])
@@ -70,6 +74,7 @@ class Main(Process.AbstractProcess):
 
         # Update routines
         IPC.Routines.Io.update(self.device.readAll())
+
         if self._runProtocol():
             pass
 

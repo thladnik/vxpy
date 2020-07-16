@@ -143,14 +143,14 @@ class Main(Process.AbstractProcess):
             elif symbol == key.X:
                 while keyboard.is_pressed('X'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_pos_glob_x_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.glob_x_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Y position: Ctrl(+Shift)+Y
             elif symbol == key.Y:
                 while keyboard.is_pressed('Y'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_pos_glob_y_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.glob_y_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Radial offset: Ctrl(+Shift)+R

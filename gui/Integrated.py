@@ -313,7 +313,7 @@ class Controls(QtWidgets.QTabWidget):
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         wrapper.layout().addItem(vSpacer, 1, 0)
-        wrapper.layout().addItem(hSpacer, 0, 1)
+        #wrapper.layout().addItem(hSpacer, 0, 1)
         self.addTab(wrapper, name)
 
 class Camera(QtWidgets.QTabWidget):
@@ -322,7 +322,7 @@ class Camera(QtWidgets.QTabWidget):
         self.main = _main
         QtWidgets.QTabWidget.__init__(self)
 
-        self.streamFps = 30
+        self.streamFps = 15
 
         self._setupUI()
 

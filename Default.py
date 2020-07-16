@@ -50,8 +50,8 @@ Configuration = {
 
         # Calibration
         # Spherical
-        Def.DisplayCfg.sph_pos_glob_x_pos         : 0.0,
-        Def.DisplayCfg.sph_pos_glob_y_pos         : 0.0,
+        Def.DisplayCfg.glob_x_pos         : 0.0,
+        Def.DisplayCfg.glob_y_pos         : 0.0,
         Def.DisplayCfg.sph_pos_glob_radial_offset : 1.0,
 
         Def.DisplayCfg.sph_view_elev_angle        : 0.0,

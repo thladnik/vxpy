@@ -52,6 +52,8 @@ class AbstractProcess:
     phase_start_ptime    : float = None
     phase_time           : float = None
 
+    enable_idle_timeout  : bool = True
+
     def __init__(self,
                  _configurations=None,
                  _controls=None,
@@ -61,27 +63,30 @@ class AbstractProcess:
                  _states=None,
                  **kwargs):
 
-        ### Set routines and let routine wrapper create hooks in process instance
+        ### Set routines and let routine wrapper create hooks in process instance and initialize buffers
         if not(_routines is None):
-            for bkey, routine in _routines.items():
+            for bkey, routines in _routines.items():
                 ## Set routines object
-                setattr(IPC.Routines, bkey, routine)
+                setattr(IPC.Routines, bkey, routines)
 
-                ## Create method hooks in process class instance
-                try:
-                    if not(routine is None):
-                        routine.createHooks(self)
-                except:
-                    # This is a workaround. Please do not remove or you'll break the GUI.
-                    # In order for some IPC features to work the, AbstractProcess init has to be
-                    # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI process.
-                    # Doing this, however, causes an exception about failing to call
-                    # the QMainWindow super-class init, since "createHooks" directly sets attributes
-                    # on the new, uninitialized QMainWindow sub-class.
-                    # Catching this exception prevents a crash.
-                    # Why this is the case? Well... once upon a time in land far, far away...
-                    # -> #JustPythonStuff
-                    pass
+                if not(routines is None):
+                    ## Create method hooks in process class instance
+                    try:
+                        routines.createHooks(self)
+                    except:
+                        # This is a workaround. Please do not remove or you'll break the GUI.
+                        # In order for some IPC features to work the, AbstractProcess init has to be
+                        # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI process.
+                        # Doing this, however, causes an exception about failing to call
+                        # the QMainWindow super-class init, since "createHooks" directly sets attributes
+                        # on the new, uninitialized QMainWindow sub-class.
+                        # Catching this exception prevents a crash.
+                        # Why this is the case? Well... once upon a time in land far, far away...
+                        # -> #JustPythonStuff
+                        pass
+
+                    ## Initialize buffers
+                    routines.initializeBuffers()
 
         ### Set configurations
         if not(_configurations is None):
@@ -151,13 +156,13 @@ class AbstractProcess:
 
             ## Wait until interval time is up
             dt = self.t + interval - time.perf_counter()
-            # Sleep to reduce CPU usage
-            if dt > min_sleep_time:
+            if self.enable_idle_timeout and dt > min_sleep_time:
+                # Sleep to reduce CPU usage
                 time.sleep(dt)
-            # If interval is too short for sleep: busy loop
-            else:
-                while self.t + interval - time.perf_counter() >= 0:
-                    pass
+
+            # Busy loop until next main execution
+            while self.t + interval - time.perf_counter() >= 0:
+                pass
             ## Set new time
             self.t = time.perf_counter()
 
@@ -204,7 +209,7 @@ class AbstractProcess:
                 self.setState(Def.State.PHASE_END)
                 return False
 
-            ### Default: execute protocol
+            ### Default: set phase time and execute protocol
             self.phase_time = time.perf_counter() - self.phase_start_ptime
             return True
 
@@ -222,7 +227,8 @@ class AbstractProcess:
                 return False
 
             ### Fallback, timeout during IDLE operation
-            time.sleep(0.05)
+            self.idle()
+            return False
 
         ########
         ### WAIT_FOR_PHASE
@@ -279,7 +285,12 @@ class AbstractProcess:
         ########
         ### Fallback: timeout
         else:
-            time.sleep(0.05)
+            self.idle()
+
+    def idle(self):
+        if self.enable_idle_timeout:
+            time.sleep(IPC.Control.General[Def.GenCtrl.min_sleep_time])
+
 
     def getState(self, process=None):
         """Convenience function for access in process class"""

@@ -64,6 +64,10 @@ class Routines:
                 else:
                     print('Oh no, routine method already set. NOT GOOD!')
 
+    def initializeBuffers(self):
+        for name, routine in self._routines.items():
+            routine.buffer.initialize()
+
     def addRoutine(self, routine, **kwargs):
         """To be called by controller (initialization of routines has to happen in parent process)"""
         self._routines[routine.__name__] = routine(self, **kwargs)
@@ -155,7 +159,7 @@ class AbstractRoutine:
         self.currentTime = time()
 
         ### Set time attribute by default on all buffers
-        self.buffer.time = ('time', float)
+        self.buffer.time = (BufferDTypes.float64, )
 
     def _compute(self, data):
         """Compute method is called on data updates (so in the producer process).
@@ -244,6 +248,21 @@ class AbstractRoutine:
             self._appendData(grp, key, value)
             self._appendData(grp, '{}_time'.format(key), self.buffer.time)
 
+class BufferDTypes:
+    ### Unsigned integers
+    uint8 = (ctypes.c_uint8, np.uint8)
+    uint16 = (ctypes.c_uint16, np.uint16)
+    uint32 = (ctypes.c_uint32, np.uint32)
+    uint64 = (ctypes.c_uint64, np.uint64)
+    ### Signed integers
+    int8 = (ctypes.c_int8, np.int8)
+    int16 = (ctypes.c_int16, np.int16)
+    int32 = (ctypes.c_int32, np.int32)
+    int64 = (ctypes.c_int64, np.int64)
+    ### Floating point numbers
+    float32 = (ctypes.c_float, np.float32)
+    float64 = (ctypes.c_double, np.float64)
+
 class RingBuffer:
     """A simple ring buffer model. """
     # TODO: try to use shared array instead of lists in order to increase speed?
@@ -254,6 +273,15 @@ class RingBuffer:
         self.__dict__['_attributeList'] = list()
         ### Index that points to the record which is currently being updated
         self.__dict__['_currentIdx'] = IPC.Manager.Value(ctypes.c_int64, 0)
+
+    def initialize(self):
+        for attr_name in self.__dict__['_attributeList']:
+            shape = self.__dict__['_shape_{}'.format(attr_name)]
+            if shape is None or shape == (1,):
+                continue
+
+            data = np.frombuffer(self.__dict__['_dbase_{}'.format(attr_name)], self.__dict__['_dtype_{}'.format(attr_name)][1]).reshape((self.length(), *shape))
+            self.__dict__['_data_{}'.format(attr_name)] = data
 
     def next(self):
         self.__dict__['_currentIdx'].value += 1
@@ -301,6 +329,20 @@ class RingBuffer:
         else:
             return idcs, {n: self._read(n, idx_start, idx_end) for n in name}
 
+    def _createAttribute(self, attr_name, dtype, shape=None):
+        self.__dict__['_attributeList'].append(attr_name)
+        if shape is None or shape == (1,):
+            self.__dict__['_data_{}'.format(attr_name)] = IPC.Manager.list(self.length() * [None])
+        else:
+            ### *Note to future self*
+            # ALWAYS try to use shared arrays instead of managed lists, etc for stuff like this
+            # Performance GAIN in the particular example of the Camera process pushing
+            # 720x750x3 uint8 images through the buffer is close to _100%_ (DOUBLING of performance)\\ TH 2020-07-16
+            self.__dict__['_dbase_{}'.format(attr_name)] = mp.RawArray(dtype[0], int(np.prod([self.length(), *shape])))
+            self.__dict__['_data_{}'.format(attr_name)] = None
+        self.__dict__['_dtype_{}'.format(attr_name)] = dtype
+        self.__dict__['_shape_{}'.format(attr_name)] = shape
+
     def _read(self, name, idx_start, idx_end):
 
         ### Return single record
@@ -316,9 +358,7 @@ class RingBuffer:
 
     def __setattr__(self, name, value):
         if not('_data_{}'.format(name) in self.__dict__):
-            self.__dict__['_attributeList'].append(name)
-            self.__dict__['_data_{}'.format(name)] = IPC.Manager.list(self.length() * [None])
-            self.__dict__['_info_{}'.format(name)] = value
+            self._createAttribute(name, *value)
         else:
             # TODO: add checks?
             self.__dict__['_data_{}'.format(name)][self.index() % self.length()] = value

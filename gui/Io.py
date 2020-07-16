@@ -34,7 +34,7 @@ class IoWidget(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
         self._tmr_update = QtCore.QTimer()
-        self._tmr_update.setInterval(50)
+        self._tmr_update.setInterval(0)
         self._tmr_update.timeout.connect(self.updateData)
         self._tmr_update.start()
 
@@ -53,6 +53,8 @@ class IoWidget(QtWidgets.QWidget):
     def updateData(self):
         pin_data = None
 
+        idx_range = 1000
+
         for routine_name, pins in self.data.items():
             for pin_name, pin_data in pins.items():
                 idcs, newdata = IPC.Routines.Io.readAttribute(
@@ -69,13 +71,32 @@ class IoWidget(QtWidgets.QWidget):
                     pin_data['datay'].append(newdata[pin_name])
                     pin_data['last_idx'] = idcs
 
-                self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'], pin_data['datay'])
+
+                ### Leaving the GUI running for long periods of time causes stuttering, when the
+                # lists get too long. There is a pull request for pyqtgraph (https://github.com/pyqtgraph/pyqtgraph/pull/850)
+                # which implements the PlotDataItem.appendData method, but it's not been merged yet
+                # Until the fix is implemented just show a realtime snippet of the IO-data
+                if len(pin_data['datat']) <= idx_range:
+                    self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'][:],
+                                                                    pin_data['datay'][:])
+                else:
+                    self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'][-idx_range:],
+                                                                    pin_data['datay'][-idx_range:])
+                #self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'], pin_data['datay'])
 
         ### Move display range
         if not(pin_data is None):
 
             xMax = pin_data['datat'][-1]
-            self.graphicsWidget.dataPlot.setRange(xRange=(xMax-10,xMax))
+            if len(pin_data['datat']) <= idx_range:
+                xMin = 0
+            else:
+                xMin = pin_data['datat'][-idx_range]
+            self.graphicsWidget.dataPlot.setRange(xRange=(xMin,xMax))
+
+            ### See above
+            #xMax = pin_data['datat'][-1]
+            #self.graphicsWidget.dataPlot.setRange(xRange=(xMax-10,xMax))
 
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):

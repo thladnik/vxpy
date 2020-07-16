@@ -120,7 +120,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_x_pos.setMinimum(-1.0)
         self._dspn_x_pos.setMaximum(1.0)
         self._dspn_x_pos.setSingleStep(.001)
-        self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.sph_pos_glob_x_pos])
+        self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
         self._grp_position.layout().addWidget(self._dspn_x_pos, 0, 1)
         # Y position
@@ -129,7 +129,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_y_pos.setMinimum(-1.0)
         self._dspn_y_pos.setMaximum(1.0)
         self._dspn_y_pos.setSingleStep(.001)
-        self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.sph_pos_glob_y_pos])
+        self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.glob_y_pos])
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
         self._grp_position.layout().addWidget(self._dspn_y_pos, 1, 1)
         # Distance from center
@@ -200,9 +200,9 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
 
         ### Make connections between config and gui
         self._dspn_x_pos.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.sph_pos_glob_x_pos, self._dspn_x_pos.value()))
+            lambda: self.setConfig(Def.DisplayCfg.glob_x_pos, self._dspn_x_pos.value()))
         self._dspn_y_pos.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.sph_pos_glob_y_pos, self._dspn_y_pos.value()))
+            lambda: self.setConfig(Def.DisplayCfg.glob_y_pos, self._dspn_y_pos.value()))
         self._dspn_elev_angle.valueChanged.connect(
             lambda: self.setConfig(Def.DisplayCfg.sph_view_elev_angle, self._dspn_elev_angle.value()))
         self._dspn_azim_angle.valueChanged.connect(
@@ -224,13 +224,13 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
     def updateGUI(self):
         _config = Config.Display
 
-        if Def.DisplayCfg.sph_pos_glob_x_pos in _config \
-                and _config[Def.DisplayCfg.sph_pos_glob_x_pos] != self._dspn_x_pos.value():
-            self._dspn_x_pos.setValue(_config[Def.DisplayCfg.sph_pos_glob_x_pos])
+        if Def.DisplayCfg.glob_x_pos in _config \
+                and _config[Def.DisplayCfg.glob_x_pos] != self._dspn_x_pos.value():
+            self._dspn_x_pos.setValue(_config[Def.DisplayCfg.glob_x_pos])
 
-        if Def.DisplayCfg.sph_pos_glob_y_pos in _config \
-                and _config[Def.DisplayCfg.sph_pos_glob_y_pos] != self._dspn_y_pos.value():
-            self._dspn_y_pos.setValue(_config[Def.DisplayCfg.sph_pos_glob_y_pos])
+        if Def.DisplayCfg.glob_y_pos in _config \
+                and _config[Def.DisplayCfg.glob_y_pos] != self._dspn_y_pos.value():
+            self._dspn_y_pos.setValue(_config[Def.DisplayCfg.glob_y_pos])
 
         if Def.DisplayCfg.sph_view_elev_angle in _config \
                 and _config[Def.DisplayCfg.sph_view_elev_angle] != self._dspn_elev_angle.value():
@@ -256,7 +256,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
                 and _config[Def.DisplayCfg.window_screen_id] != self._spn_screen_id.value():
             self._spn_screen_id.setValue(_config[Def.DisplayCfg.window_screen_id])
 
-        if Def.DisplayCfg.sph_pos_glob_x_pos in _config \
+        if Def.DisplayCfg.glob_x_pos in _config \
                 and _config[Def.DisplayCfg.window_fullscreen] != \
                 Conversion.QtCheckstateToBool(self._check_fullscreen.checkState()):
             self._check_fullscreen.setCheckState(

@@ -145,10 +145,12 @@ class DisplayCfg:
     window_pos_x           = 'int_window_pos_x'
     window_pos_y           = 'int_window_pos_y'
 
-    # Calibration settings
+    ## Calibration settings
+    # General
+    glob_x_pos         = 'float_glob_x_pos'
+    glob_y_pos         = 'float_glob_y_pos'
+
     # Spherical
-    sph_pos_glob_x_pos         = 'float_sph_pos_glob_x_pos'
-    sph_pos_glob_y_pos         = 'float_sph_pos_glob_y_pos'
     sph_pos_glob_radial_offset = 'float_sph_pos_glob_radial_offset'
 
     sph_view_elev_angle        = 'float_sph_view_elev_angle'
