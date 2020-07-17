@@ -110,10 +110,12 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self.setWindowTitle('Spherical display settings')
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        ## Setup position
-        self._grp_position = QtWidgets.QGroupBox('Position')
-        self._grp_position.setLayout(QtWidgets.QGridLayout())
-        self.layout().addWidget(self._grp_position)
+        ########
+        ### Global display settings (apply for all types of visuals)
+
+        self._grp_global = QtWidgets.QGroupBox('Global')
+        self._grp_global.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self._grp_global)
         # X Position
         self._dspn_x_pos = QtWidgets.QDoubleSpinBox()
         self._dspn_x_pos.setDecimals(3)
@@ -121,8 +123,8 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_x_pos.setMaximum(1.0)
         self._dspn_x_pos.setSingleStep(.001)
         self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos])
-        self._grp_position.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
-        self._grp_position.layout().addWidget(self._dspn_x_pos, 0, 1)
+        self._grp_global.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
+        self._grp_global.layout().addWidget(self._dspn_x_pos, 0, 1)
         # Y position
         self._dspn_y_pos = QtWidgets.QDoubleSpinBox()
         self._dspn_y_pos.setDecimals(3)
@@ -130,8 +132,16 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._dspn_y_pos.setMaximum(1.0)
         self._dspn_y_pos.setSingleStep(.001)
         self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.glob_y_pos])
-        self._grp_position.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
-        self._grp_position.layout().addWidget(self._dspn_y_pos, 1, 1)
+        self._grp_global.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
+        self._grp_global.layout().addWidget(self._dspn_y_pos, 1, 1)
+
+        ########
+        ### Sphere-specific display settings
+
+        ## Position
+        self._grp_position = QtWidgets.QGroupBox('Position')
+        self._grp_position.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self._grp_position)
         # Distance from center
         self._dspn_vp_center_offset = QtWidgets.QDoubleSpinBox()
         self._dspn_vp_center_offset.setDecimals(3)
@@ -142,7 +152,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
         self._grp_position.layout().addWidget(QtWidgets.QLabel('Radial offset'), 2, 0)
         self._grp_position.layout().addWidget(self._dspn_vp_center_offset, 2, 1)
 
-        ## Setup view
+        ## View
         self._grp_view = QtWidgets.QGroupBox('View')
         self._grp_view.setLayout(QtWidgets.QGridLayout())
         self.layout().addWidget(self._grp_view)
@@ -277,6 +287,28 @@ class PlanarDisplaySettings(QtWidgets.QWidget):
         self.setWindowTitle('Planar display settings')
         self.setLayout(QtWidgets.QVBoxLayout())
 
+        self._grp_global = QtWidgets.QGroupBox('Global')
+        self._grp_global.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self._grp_global)
+        # X Position
+        self._dspn_x_pos = QtWidgets.QDoubleSpinBox()
+        self._dspn_x_pos.setDecimals(3)
+        self._dspn_x_pos.setMinimum(-1.0)
+        self._dspn_x_pos.setMaximum(1.0)
+        self._dspn_x_pos.setSingleStep(.001)
+        self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos])
+        self._grp_global.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
+        self._grp_global.layout().addWidget(self._dspn_x_pos, 0, 1)
+        # Y position
+        self._dspn_y_pos = QtWidgets.QDoubleSpinBox()
+        self._dspn_y_pos.setDecimals(3)
+        self._dspn_y_pos.setMinimum(-1.0)
+        self._dspn_y_pos.setMaximum(1.0)
+        self._dspn_y_pos.setSingleStep(.001)
+        self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.glob_y_pos])
+        self._grp_global.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
+        self._grp_global.layout().addWidget(self._dspn_y_pos, 1, 1)
+
         ### Setup position
         self.grp_extents = QtWidgets.QGroupBox('Extents')
         self.grp_extents.setLayout(QtWidgets.QGridLayout())
@@ -309,6 +341,10 @@ class PlanarDisplaySettings(QtWidgets.QWidget):
         self.grp_extents.layout().addWidget(self.grp_extents.dspn_small_side, 2, 1)
 
         ### Connect
+        self._dspn_x_pos.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.glob_x_pos, self._dspn_x_pos.value()))
+        self._dspn_y_pos.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.glob_y_pos, self._dspn_y_pos.value()))
         self.grp_extents.dspn_x_extent.valueChanged.connect(
             lambda: self.setConfig(Def.DisplayCfg.pla_xextent, self.grp_extents.dspn_x_extent.value()))
         self.grp_extents.dspn_y_extent.valueChanged.connect(
@@ -328,6 +364,14 @@ class PlanarDisplaySettings(QtWidgets.QWidget):
 
     def updateGUI(self):
         _config = Config.Display
+
+        if Def.DisplayCfg.glob_x_pos in _config \
+                and _config[Def.DisplayCfg.glob_x_pos] != self._dspn_x_pos.value():
+            self._dspn_x_pos.setValue(_config[Def.DisplayCfg.glob_x_pos])
+
+        if Def.DisplayCfg.glob_y_pos in _config \
+                and _config[Def.DisplayCfg.glob_y_pos] != self._dspn_y_pos.value():
+            self._dspn_y_pos.setValue(_config[Def.DisplayCfg.glob_y_pos])
 
         if _config[Def.DisplayCfg.pla_xextent] != self.grp_extents.dspn_x_extent.value():
             self.grp_extents.dspn_x_extent.setValue(_config[Def.DisplayCfg.pla_xextent])

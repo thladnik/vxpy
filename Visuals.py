@@ -240,6 +240,9 @@ class PlanarVisual(AbstractVisual):
             self.u_mapcalib_xscale = 1.
             self.u_mapcalib_yscale = width/height
 
+        self.u_glob_x_position = Config.Display[Def.DisplayCfg.glob_x_pos]
+        self.u_glob_y_position = Config.Display[Def.DisplayCfg.glob_y_pos]
+
         ### Scale according to user-defined settings
         self.u_mapcalib_xscale *= Config.Display[Def.DisplayCfg.pla_xextent]
         self.u_mapcalib_yscale *= Config.Display[Def.DisplayCfg.pla_yextent]
@@ -248,9 +251,12 @@ class PlanarVisual(AbstractVisual):
         # (PlanarVisual's positions are normalized to the smaller side of the screen)
         self.u_small_side_size = Config.Display[Def.DisplayCfg.pla_small_side]
 
+        ### Set uniforms
         self.setGlobalUniform('u_mapcalib_xscale', self.u_mapcalib_xscale)
         self.setGlobalUniform('u_mapcalib_yscale', self.u_mapcalib_yscale)
         self.setGlobalUniform('u_small_side_size', self.u_small_side_size)
+        self.setGlobalUniform('u_glob_x_position', self.u_glob_x_position)
+        self.setGlobalUniform('u_glob_y_position', self.u_glob_y_position)
 
         ### Call the rendering function of the subclass
         self.render()

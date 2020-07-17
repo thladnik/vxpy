@@ -322,7 +322,7 @@ class Camera(QtWidgets.QTabWidget):
         self.main = _main
         QtWidgets.QTabWidget.__init__(self)
 
-        self.streamFps = 15
+        self.streamFps = 10
 
         self._setupUI()
 
@@ -337,17 +337,22 @@ class Camera(QtWidgets.QTabWidget):
         #self.addTab(self._wdgt_plot, 'Live camera')
 
         ### Add camera addons
-        for addonName in ['LiveCamera', *Config.Gui[Def.GuiCfg.addons]]:
+        if Config.Gui[Def.GuiCfg.addons][0] == '':
+            addons = ['LiveCamera']
+        else:
+            addons = Config.Gui[Def.GuiCfg.addons]
+
+        for addon_name in addons:
         #for addonName in Config.Gui[Def.GuiCfg.addons]:
-            if not(bool(addonName)):
+            if not(bool(addon_name)):
                 continue
 
-            wdgt = getattr(gui.Camera, addonName)(self)
+            wdgt = getattr(gui.Camera, addon_name)(self)
             if not(wdgt.moduleIsActive):
                 Logging.write(logging.WARNING, 'Addon {} could not be activated'
-                              .format(addonName))
+                              .format(addon_name))
                 continue
-            self.addTab(wdgt, addonName)
+            self.addTab(wdgt, addon_name)
 
         ### Set frame update timer
         self.imTimer = QtCore.QTimer()

@@ -58,21 +58,10 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         #self._setupAddons()
 
         ### Run event loop
-        self.run(interval=0.01)
+        self.run(interval=0.0001)
 
     def main(self):
         self._app.processEvents()
-
-    def run1234(self, interval=None):
-        #Logging.write(logging.INFO, 'RUN GUI')
-        IPC.setState(Def.State.IDLE)
-        ### Set timer for handling of communication
-        self._tmr_handlePipe = QtCore.QTimer()
-        self._tmr_handlePipe.timeout.connect(self._handleInbox)
-        self._tmr_handlePipe.start(10)
-
-        ### Run QApplication event loop
-        self._app.exec_()
 
     def _setupUI(self):
 
