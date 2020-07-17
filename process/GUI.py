@@ -86,18 +86,21 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self._grp_controls = gui.Integrated.Controls(self)
         self.centralWidget().layout().addWidget(self._grp_controls, 0, 0, 2, 2)
 
-        ## Add camera
-        self._grp_camera = gui.Integrated.Camera(self)
-        self._grp_camera.setMaximumHeight(int(Config.Camera[Def.CameraCfg.res_y] * 1.5))
-        self._grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.5))
-        self.centralWidget().layout().addWidget(self._grp_camera, 1, 2)
+        ## Protocols
+        self.grp_protocols = gui.Integrated.Protocols(self)
+        self.centralWidget().layout().addWidget(self.grp_protocols, 0, 2)
 
-        ## Add topright
-        self._grp_topright = gui.Integrated.DisplayView(self)
-        self._grp_topright.setMinimumWidth(500)
-        self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
-        self._grp_topright.layout().addWidget(self._grp_topright)
-        self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
+        ## Camera
+        self.grp_camera = gui.Integrated.Camera(self)
+        #self.grp_camera.setMaximumHeight(int(Config.Camera[Def.CameraCfg.res_y] * 1.5))
+        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.5))
+        self.centralWidget().layout().addWidget(self.grp_camera, 0, 3)
+
+        #self._grp_topright = gui.Integrated.DisplayView(self)
+        #self._grp_topright.setMinimumWidth(500)
+        #self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
+        #self._grp_topright.layout().addWidget(self._grp_topright)
+        #self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
 
         ## Add IO monitor
         self._grp_io = QtWidgets.QGroupBox('I/O Monitor')
@@ -106,7 +109,7 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         if Config.Io[Def.IoCfg.use]:
             self._wdgt_io_monitor = gui.Io.IoWidget(self)
             self._grp_io.layout().addWidget(self._wdgt_io_monitor)
-        self.centralWidget().layout().addWidget(self._grp_io, 1, 3)
+        self.centralWidget().layout().addWidget(self._grp_io, 1, 2, 1, 2)
 
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)

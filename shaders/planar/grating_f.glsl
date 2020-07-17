@@ -8,7 +8,7 @@ uniform int u_orientation;
 
 const float c_pi = 3.14159265359;
 
-varying vec3 v_position;
+varying vec2 v_position;
 
 void main() {
 
