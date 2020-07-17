@@ -33,11 +33,6 @@ class IoWidget(QtWidgets.QWidget):
         self.graphicsWidget = IoWidget.GraphicsWidget(parent=self)
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
-        self._tmr_update = QtCore.QTimer()
-        self._tmr_update.setInterval(0)
-        self._tmr_update.timeout.connect(self.updateData)
-        self._tmr_update.start()
-
         ### Build up data structure
         self.data = dict()
         for routine_name in Config.Io[Def.IoCfg.routines]:
@@ -49,6 +44,12 @@ class IoWidget(QtWidgets.QWidget):
                 pin_name, pnum, ptype = pin_descr.split(':')
 
                 self.data[routine_name][pin_name] = dict(datat=list(), datay=list(), last_idx=0)
+
+        ### Start timer
+        self._tmr_update = QtCore.QTimer()
+        self._tmr_update.setInterval(100)
+        self._tmr_update.timeout.connect(self.updateData)
+        self._tmr_update.start()
 
     def updateData(self):
         pin_data = None
