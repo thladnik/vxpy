@@ -141,13 +141,26 @@ class Controller(AbstractProcess):
         if Config.Camera[Def.CameraCfg.use]:
             import routines.Camera
             for routine_name in Config.Camera[Def.CameraCfg.routines]:
+                if not(bool(routine_name)):
+                    continue
                 IPC.Routines.Camera.addRoutine(getattr(routines.Camera, routine_name))
+
+        ## Display
+        IPC.Routines.Display = Routine.Routines(Def.Process.Display)
+        if Config.Display[Def.DisplayCfg.use]:
+            import routines.Display
+            for routine_name in Config.Display[Def.DisplayCfg.routines]:
+                if not(bool(routine_name)):
+                    continue
+                IPC.Routines.Display.addRoutine(getattr(routines.Display, routine_name))
 
         ## IO
         IPC.Routines.Io = Routine.Routines(Def.Process.Io)
         if Config.Io[Def.IoCfg.use]:
             import routines.Io
             for routine_name in Config.Io[Def.IoCfg.routines]:
+                if not(bool(routine_name)):
+                    continue
                 IPC.Routines.Io.addRoutine(getattr(routines.Io, routine_name))
 
         ### Set up processes

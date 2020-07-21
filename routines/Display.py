@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/Example01.py - Example protocol for demonstration.
+MappApp ./routines/Display.py - Custom processing routine implementations for the display process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,20 +16,23 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Protocol import StaticProtocol
+from Routine import AbstractRoutine, BufferDTypes
 
-from visuals.planar.Grating import BlackAndWhiteGrating
 
-class ShowSFRange(StaticProtocol):
+class ParameterRoutine(AbstractRoutine):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        AbstractRoutine.__init__(self, *args, **kwargs)
 
-        for sf in range(1,5):
+        ### Set up shared variables
+        self.buffer.parameters = (BufferDTypes.dictionary, )
 
-            self.newPhase(10)
-            self.addVisual(BlackAndWhiteGrating,
-                           dict(direction='horizontal',
-                                shape='rectangular',
-                                spat_period=sf,
-                                lin_velocity=1))
+    def _compute(self, data):
+        ### Here data == visual
+        pass
+
+        #self.buffer.parameters = dict(data.u_spat_period)
+
+    def _out(self):
+
+        yield 'period', 1

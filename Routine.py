@@ -28,6 +28,7 @@ import Config
 import Def
 import IPC
 import Logging
+import Process
 
 ################################
 ## Routine wrapper class
@@ -35,6 +36,8 @@ import Logging
 class Routines:
     """Wrapper class for routines
     """
+
+    process : Process.AbstractProcess = None
 
     def __init__(self, name):
         self.name = name
@@ -163,7 +166,7 @@ class AbstractRoutine:
 
     def _compute(self, data):
         """Compute method is called on data updates (so in the producer process).
-        Every buffer needs to reimplement this method."""
+        Every buffer needs to implement this method."""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
     def _out(self):
@@ -187,8 +190,13 @@ class AbstractRoutine:
         ### Set time for current iteration
         #self.buffer.time = time()
         ### Call compute method
-        self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
+        #self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
         #                            (TODO: I don't think this copying works as intended, yet)
+        if data is None:
+            return
+
+        self._compute(data)
+
 
     def _appendData(self, grp, key, value):
 
@@ -262,6 +270,8 @@ class BufferDTypes:
     ### Floating point numbers
     float32 = (ctypes.c_float, np.float32)
     float64 = (ctypes.c_double, np.float64)
+    ### Misc types
+    dictionary = (dict, )
 
 class RingBuffer:
     """A simple ring buffer model. """

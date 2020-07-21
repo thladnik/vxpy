@@ -47,6 +47,8 @@ class BlackAndWhiteGrating(PlanarVisual):
 
         self.update(shape=shape, direction=direction, lin_velocity=lin_velocity, spat_period=spat_period)
 
+        self.u_spat_period = None
+
         self.t = time.time()
 
 
@@ -55,6 +57,7 @@ class BlackAndWhiteGrating(PlanarVisual):
         self.grating.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
 
     def update(self, shape=None, direction=None, lin_velocity=None, spat_period=None):
+        self.u_spat_period = spat_period
 
         if shape is not None:
             self._setShape(shape)

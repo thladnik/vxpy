@@ -156,7 +156,7 @@ class AbstractProcess:
 
             ## Wait until interval time is up
             dt = self.t + interval - time.perf_counter()
-            if self.enable_idle_timeout and dt > min_sleep_time:
+            if self.enable_idle_timeout and dt > 1.2 * min_sleep_time:
                 # Sleep to reduce CPU usage
                 time.sleep(dt)
 

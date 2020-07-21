@@ -28,6 +28,7 @@ import IPC
 import Logging
 import Protocol
 import protocols
+import Visuals
 
 from routines import Camera
 if Def.Env == Def.EnvTypes.Dev:
@@ -45,6 +46,7 @@ class Main(Process.AbstractProcess):
     _config   : dict                      = dict()
     _glWindow : app.window.Window         = None
     protocol  : Protocol.AbstractProtocol = None
+    visual    : Visuals.AbstractVisual    = None
 
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
@@ -112,6 +114,8 @@ class Main(Process.AbstractProcess):
         if self._runProtocol():
             self.visual.draw(self.frame_idx, self.phase_time)
 
+        # Update routines
+        IPC.Routines.Display.update(self.visual)
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event

@@ -31,7 +31,6 @@ import Process
 
 class FrameRoutine(AbstractRoutine):
 
-
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
@@ -56,6 +55,8 @@ class FrameRoutine(AbstractRoutine):
         print('it is the buffer!', arg1)
 
     def _compute(self, frame):
+        if frame is None:
+            print('he?')
 
         # Add FPS counter
         self.frametimes.append(perf_counter() - self.t)

@@ -163,6 +163,8 @@ class DisplayCfg:
     pla_yextent                = 'float_pla_yextent'
     pla_small_side             = 'float_pla_small_side'
 
+    routines                   = 'list_routines'
+
 ########
 # GUI
 

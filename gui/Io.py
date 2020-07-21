@@ -36,6 +36,9 @@ class IoWidget(QtWidgets.QWidget):
         ### Build up data structure
         self.data = dict()
         for routine_name in Config.Io[Def.IoCfg.routines]:
+            if not(bool(routine_name)):
+                continue
+
             routine = getattr(routines.Io, routine_name)
 
             self.data[routine_name] = dict()
