@@ -18,22 +18,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.planar.Grating import BlackAndWhiteHorizontalGrating
+from visuals.planar.Grating import BlackAndWhiteGrating
 
-class Example01(StaticProtocol):
-
-    _name = 'Example01'
+class ShowSFRange(StaticProtocol):
 
     def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+        StaticProtocol.__init__(self, _glWindow)
 
-        for num in range(4):
-            for v in range(5):
+        for sf in range(1,5):
 
-                self.newPhase(5)
-                self.addVisual(BlackAndWhiteHorizontalGrating,
-                               dict(orientation='vertical',
-                                    shape='rectangular',
-                                    num=20 + num * 10,
-                                    velocity=10*v+1)
-                               )
+            self.newPhase(10)
+            self.addVisual(BlackAndWhiteGrating,
+                           dict(direction='vertical',
+                                shape='rectangular',
+                                spat_period=sf,
+                                lin_velocity=1))

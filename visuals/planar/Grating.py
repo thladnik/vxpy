@@ -22,9 +22,18 @@ from Shader import BasicFileShader
 
 from glumpy import gl
 import time
-class BlackAndWhiteHorizontalGrating(PlanarVisual):
+class BlackAndWhiteGrating(PlanarVisual):
 
-    def __init__(self, *args, orientation, shape, velocity, num):
+    def __init__(self, *args, direction, shape, lin_velocity, spat_period):
+        """
+
+        :param args: positional arguments to parent class
+        :param direction: movement direction of grating; either 'vertical' or 'horizontal'
+        :param shape: shape of grating; either 'rectangular' or 'sinusoidal'; rectangular is a zero-rectified sinusoidal
+        :param lin_velocity: <float> linear velocity of grating in [mm/s]
+        :param spat_period: <float> spatial period of the grating in [mm]
+        """
+        # TODO: add temporal velocity and do automatic conversion
         PlanarVisual.__init__(self, *args)
 
         self.plane = self.addModel('planar',
@@ -36,7 +45,7 @@ class BlackAndWhiteHorizontalGrating(PlanarVisual):
                                        BasicFileShader().addShaderFile('planar/grating_f.glsl').read())
         self.grating.bind(self.plane.vertexBuffer)
 
-        self.update(shape=shape, orientation=orientation, velocity=velocity, num=num)
+        self.update(shape=shape, direction=direction, lin_velocity=lin_velocity, spat_period=spat_period)
 
         self.t = time.time()
 
@@ -45,19 +54,19 @@ class BlackAndWhiteHorizontalGrating(PlanarVisual):
         self.grating['u_stime'] = time.time() - self.t
         self.grating.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
 
-    def update(self, shape=None, orientation=None, velocity=None, num=None):
+    def update(self, shape=None, direction=None, lin_velocity=None, spat_period=None):
 
         if shape is not None:
             self._setShape(shape)
 
-        if orientation is not None:
-            self._setOrientation(orientation)
+        if direction is not None:
+            self._setOrientation(direction)
 
-        if velocity is not None:
-            self.grating['u_velocity'] = velocity
+        if lin_velocity is not None:
+            self.grating['u_lin_velocity'] = lin_velocity
 
-        if num is not None and num > 0:
-            self.grating['u_stripes_num'] = num
+        if spat_period is not None and spat_period > 0:
+            self.grating['u_spatial_period'] = spat_period
 
     def _setShape(self, shape):
         if shape == 'rectangular':
@@ -67,6 +76,6 @@ class BlackAndWhiteHorizontalGrating(PlanarVisual):
 
     def _setOrientation(self, orientation):
         if orientation == 'vertical':
-            self.grating['u_orientation'] = 1
+            self.grating['u_direction'] = 1
         elif orientation == 'horizontal':
-            self.grating['u_orientation'] = 2
+            self.grating['u_direction'] = 2
