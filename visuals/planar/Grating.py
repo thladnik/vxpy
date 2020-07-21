@@ -24,7 +24,14 @@ from glumpy import gl
 import time
 class BlackAndWhiteGrating(PlanarVisual):
 
-    def __init__(self, *args, direction, shape, lin_velocity, spat_period):
+    u_shape = 'u_shape'
+    u_direction = 'u_direction'
+    u_spat_period = 'u_spat_period'
+    u_lin_velocity = 'u_lin_velocity'
+
+    params = {u_shape: None, u_direction:None, u_lin_velocity:None, u_spat_period:None}
+
+    def __init__(self, *args, **params):
         """
 
         :param args: positional arguments to parent class
@@ -45,9 +52,8 @@ class BlackAndWhiteGrating(PlanarVisual):
                                        BasicFileShader().addShaderFile('planar/grating_f.glsl').read())
         self.grating.bind(self.plane.vertexBuffer)
 
-        self.update(shape=shape, direction=direction, lin_velocity=lin_velocity, spat_period=spat_period)
+        self.update(**params)
 
-        self.u_spat_period = None
 
         self.t = time.time()
 
@@ -56,29 +62,22 @@ class BlackAndWhiteGrating(PlanarVisual):
         self.grating['u_stime'] = time.time() - self.t
         self.grating.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
 
-    def update(self, shape=None, direction=None, lin_velocity=None, spat_period=None):
-        self.u_spat_period = spat_period
+    def update(self, **params):
 
-        if shape is not None:
-            self._setShape(shape)
+        if params.get(self.u_shape) is not None:
+            params[self.u_shape] = self.parseShape(params.get(self.u_shape))
 
-        if direction is not None:
-            self._setOrientation(direction)
+        if params.get(self.u_direction) is not None:
+            params[self.u_direction] = self.parseDirection(params.get(self.u_direction))
 
-        if lin_velocity is not None:
-            self.grating['u_lin_velocity'] = lin_velocity
+        self.params.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.params.items():
 
-        if spat_period is not None and spat_period > 0:
-            self.grating['u_spatial_period'] = spat_period
+            self.grating[k] = p
 
-    def _setShape(self, shape):
-        if shape == 'rectangular':
-            self.grating['u_shape'] = 1
-        elif shape == 'sinusoidal':
-            self.grating['u_shape'] = 2
+    def parseShape(self, shape):
+        return 1 if shape == 'rectangular' else 2  # 'sinusoidal'
 
-    def _setOrientation(self, orientation):
-        if orientation == 'vertical':
-            self.grating['u_direction'] = 1
-        elif orientation == 'horizontal':
-            self.grating['u_direction'] = 2
+
+    def parseDirection(self, orientation):
+        return 1 if orientation == 'vertical' else 2  # 'horizontal'

@@ -29,10 +29,11 @@ class ParameterRoutine(AbstractRoutine):
 
     def _compute(self, data):
         ### Here data == visual
-        pass
 
-        #self.buffer.parameters = dict(data.u_spat_period)
+        self.buffer.parameters = data.params
 
     def _out(self):
-
-        yield 'period', 1
+        if self.buffer.parameters is None:
+            return
+        for k, p in self.buffer.parameters.items():
+            yield k, p

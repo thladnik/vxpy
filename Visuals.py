@@ -34,6 +34,8 @@ class AbstractVisual:
 
     _warns = list()
 
+    params = dict()
+
     def __init__(self, protocol, display):
         self.frame_time = None
         self.protocol = protocol

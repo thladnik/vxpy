@@ -29,7 +29,7 @@ class ShowSFRange(StaticProtocol):
 
             self.newPhase(10)
             self.addVisual(BlackAndWhiteGrating,
-                           dict(direction='horizontal',
-                                shape='rectangular',
-                                spat_period=sf,
-                                lin_velocity=1))
+                           dict(u_direction='horizontal',
+                                u_shape='rectangular',
+                                u_spat_period=sf,
+                                u_lin_velocity=1))

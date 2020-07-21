@@ -1,7 +1,7 @@
 // planar/f_grating.glsl
 
 uniform float u_stime;
-uniform float u_spatial_period;
+uniform float u_spat_period;
 uniform float u_lin_velocity;
 uniform int u_shape;
 uniform int u_direction;
@@ -17,9 +17,9 @@ void main() {
 
     // Sinewave
     if (u_direction == 1) {
-        c = sin((u_spatial_period * v_position.y + u_stime * u_lin_velocity) * 2.0 * c_pi);
+        c = sin((u_spat_period * v_position.y + u_stime * u_lin_velocity) * 2.0 * c_pi);
     } else {
-        c = sin((u_spatial_period * v_position.x + u_stime * u_lin_velocity) * 2.0 * c_pi);
+        c = sin((u_spat_period * v_position.x + u_stime * u_lin_velocity) * 2.0 * c_pi);
     }
 
     // If shape is rectangular: threshold sinewave
