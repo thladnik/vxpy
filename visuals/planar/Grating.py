@@ -29,7 +29,7 @@ class BlackAndWhiteGrating(PlanarVisual):
     u_spat_period = 'u_spat_period'
     u_lin_velocity = 'u_lin_velocity'
 
-    params = {u_shape: None, u_direction:None, u_lin_velocity:None, u_spat_period:None}
+    parameters = {u_shape: None, u_direction:None, u_lin_velocity:None, u_spat_period:None}
 
     def __init__(self, *args, **params):
         """
@@ -70,9 +70,8 @@ class BlackAndWhiteGrating(PlanarVisual):
         if params.get(self.u_direction) is not None:
             params[self.u_direction] = self.parseDirection(params.get(self.u_direction))
 
-        self.params.update({k : p for k, p in params.items() if not(p is None)})
-        for k, p in self.params.items():
-
+        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.parameters.items():
             self.grating[k] = p
 
     def parseShape(self, shape):

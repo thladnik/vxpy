@@ -256,6 +256,7 @@ class AbstractRoutine:
             self._appendData(grp, key, value)
             self._appendData(grp, '{}_time'.format(key), self.buffer.time)
 
+
 class BufferDTypes:
     ### Unsigned integers
     uint8 = (ctypes.c_uint8, np.uint8)
@@ -272,6 +273,7 @@ class BufferDTypes:
     float64 = (ctypes.c_double, np.float64)
     ### Misc types
     dictionary = (dict, )
+
 
 class RingBuffer:
     """A simple ring buffer model. """

@@ -41,7 +41,7 @@ class FrameRoutine(AbstractRoutine):
         self.exposed.append(FrameRoutine.testbufferargs)
 
         ### Set up shared variables
-        frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
+        frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 1)
         self.buffer.frame = (BufferDTypes.uint8, frameSize)
 
         ### Setup frame timing stats
@@ -56,6 +56,8 @@ class FrameRoutine(AbstractRoutine):
 
     def _compute(self, frame):
 
+        frame = frame[:,:,1][:,:,np.newaxis]
+
         # Add FPS counter
         self.frametimes.append(perf_counter() - self.t)
         self.t = perf_counter()
@@ -64,7 +66,10 @@ class FrameRoutine(AbstractRoutine):
 
         ### Update shared attributes
         self.time = time()
-        self.buffer.frame = frame
+        if not(isinstance(frame, np.ndarray)):
+            self.buffer.frame = frame.get()[:,:,np.newaxis]
+        else:
+            self.buffer.frame = frame
 
     def _out(self):
         yield 'frame', self.buffer.frame

@@ -73,6 +73,10 @@ class Main(Process.AbstractProcess):
 
         self._checkScreenStatus = True
 
+        ### TODO: Future option to present visuals independently of a protocol.
+        #    Might be useful for calibrations
+        self.run_protocol_independent_visual = False
+
         ### Run event loop
         self.run(0.01)
 
@@ -104,14 +108,12 @@ class Main(Process.AbstractProcess):
         """
 
         self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
-        #gl.glClear(gl.GL_STENCIL_BUFFER_BIT)  # THIS HAS TO BE RIGHT HERE !!!
-        #gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
         gl.glStencilMask(0x00)
         gl.glStencilMask(gl.GL_TRUE)
         gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
         gl.glDisable(gl.GL_STENCIL_TEST)
         ### Call draw, if protocol is running
-        if self._runProtocol():
+        if self._runProtocol() or self.run_protocol_independent_visual:
             self.visual.draw(self.frame_idx, self.phase_time)
 
         # Update routines

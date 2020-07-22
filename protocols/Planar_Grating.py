@@ -33,3 +33,19 @@ class ShowSFRange(StaticProtocol):
                                 u_shape='rectangular',
                                 u_spat_period=sf,
                                 u_lin_velocity=1))
+
+
+class Stresstest(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+
+        for sf in range(1,20):
+
+            for v in range(10, 20):
+                self.newPhase(30)
+                self.addVisual(BlackAndWhiteGrating,
+                               dict(u_direction='horizontal',
+                                    u_shape='rectangular',
+                                    u_spat_period=sf,
+                                    u_lin_velocity=v/10))

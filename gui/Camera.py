@@ -46,7 +46,7 @@ class LiveCamera(QtWidgets.QWidget):
     def updateFrame(self):
         idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
         if not(frame is None):
-            self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
+            self.graphicsWidget.imageItem.setImage(np.rot90(np.repeat(frame, 3, axis=-1), -1))
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
