@@ -1,6 +1,5 @@
 """
-MappApp ./Protocol.py - Collection of protocol classes which
-are be used to concatenate and present successive visuals.
+MappApp ./Protocol.py - Collection of protocol classes.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -25,9 +24,7 @@ import Def
 import Logging
 
 class AbstractProtocol:
-    def draw(self, dt):
-        raise NotImplementedError('draw method not implemented in {}'
-                                  .format(self.__class__.__qualname__))
+    pass
 
 class StaticProtocol(AbstractProtocol):
     """Static experimental protocol which does NOT support closed-loop designs.
@@ -36,11 +33,6 @@ class StaticProtocol(AbstractProtocol):
     _name = None
 
     def __init__(self, process):
-        self.process = process
-
-        self._time = 0.0
-
-        self._current = None
 
         self._phases = list()
 
@@ -55,12 +47,3 @@ class StaticProtocol(AbstractProtocol):
 
     def addSignal(self, signal, kwargs, duration=None):
         self._phases[-1]['signals'].append((signal, kwargs, duration))
-
-    def setCurrentPhase(self, phase_id):
-        new_stimulus, kwargs, duration = self._phases[phase_id]['visuals'][0]
-        self._current = new_stimulus(self, self.process, **kwargs)
-        self._current.start()
-
-    def draw(self, dt):
-        self._time += dt
-        self._current.draw(dt)

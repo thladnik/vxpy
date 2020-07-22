@@ -8,7 +8,7 @@ uniform float u_small_side_size;
 uniform float u_glob_x_position;
 uniform float u_glob_y_position;
 
-varying vec2 v_position; // in mm
+varying vec2 v_position;
 
 void main() {
     gl_Position = vec4(

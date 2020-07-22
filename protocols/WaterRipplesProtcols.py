@@ -23,8 +23,6 @@ from visuals.WaterRipples import RipplesOnStaticBackground
 
 class Example(StaticProtocol):
 
-    _name = 'WRP_Example'
-
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
         import numpy as np
@@ -34,7 +32,7 @@ class Example(StaticProtocol):
                 for shape in ['normal', 'rect']:
                         for sign in [1, -1]:
                             for vel in [4.0, 8.0]:
-                                self.newPhase(duration=10)
+                                self.newPhase(duration=20)
                                 self.addVisual(RipplesOnStaticBackground,
                                                dict(u_mod_sign=sign,
                                                      u_mod_depth=depth,
@@ -45,8 +43,6 @@ class Example(StaticProtocol):
 
 class ElevationsExample(StaticProtocol):
 
-    _name = 'WRP_ElevationsExample'
-
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
         import numpy as np
@@ -54,7 +50,7 @@ class ElevationsExample(StaticProtocol):
         for depth in [0.7, 0.2]:
             for sign in [1, -1]:
                 for elev in [np.pi/8, 0.0, -np.pi/8, -np.pi/4]:
-                    self.newPhase(duration=10)
+                    self.newPhase(duration=20)
                     self.addVisual(RipplesOnStaticBackground,
                                    dict(u_mod_sign=sign,
                                          u_mod_depth=depth,
@@ -65,8 +61,6 @@ class ElevationsExample(StaticProtocol):
 
 class UpperFlashesExample(StaticProtocol):
 
-    _name = 'WRP_UpperFlashesExample'
-
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
         import numpy as np
@@ -74,7 +68,7 @@ class UpperFlashesExample(StaticProtocol):
 
         for depth in [0.7, 0.2]:
                 for vel in [1.0, 3.0, 5.0, 8.0]:
-                    self.newPhase(duration=10)
+                    self.newPhase(duration=20)
                     self.addVisual(RipplesOnStaticBackground,
                                    dict(u_mod_sign=1,
                                          u_mod_depth=depth,

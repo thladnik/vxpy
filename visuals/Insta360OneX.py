@@ -31,13 +31,13 @@ class Calibrated(SphericalVisual):
 
         self.i = 0
 
-    def render(self, dt):
+    def render(self):
         if self.i > 1000:
             self.i = 0
         import IPython
         #IPython.embed()
         #gl.glTexParameterf(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, gl.GL_NEAREST)
         #gl.glTexParameterf(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
-        self.setUniform('u_texture', np.flipud(self.video[self.i, :,:,:].T).copy())
+        self.setGlobalUniform('u_texture', np.flipud(self.video[self.i, :, :, :].T).copy())
         self.program.draw(gl.GL_TRIANGLES, self.model.indexBuffer)
         self.i += 1

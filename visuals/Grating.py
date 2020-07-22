@@ -49,7 +49,7 @@ class BlackWhiteGrating(SphericalVisual):
 
         self.update(shape=shape, orientation=orientation, velocity=velocity, num=num)
 
-    def render(self, dt):
+    def render(self):
         self.grating.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
     def update(self, shape=None, orientation=None, velocity=None, num=None):

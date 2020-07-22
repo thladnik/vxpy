@@ -45,13 +45,13 @@ class BlackWhiteCheckerboard(SphericalVisual):
 
         self.update(cols=cols, rows=rows)
 
-    def render(self, dt):
+    def render(self):
         self.checker.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
     def update(self, cols=None, rows=None):
 
         if cols is not None and cols > 0:
-            self.setUniform('u_checker_cols', cols)
+            self.setGlobalUniform('u_checker_cols', cols)
 
         if rows is not None and rows > 0:
-            self.setUniform('u_checker_rows', rows)
+            self.setGlobalUniform('u_checker_rows', rows)

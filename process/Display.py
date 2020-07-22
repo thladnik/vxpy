@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import app, glm
+from glumpy import app, gl
 import keyboard
 import logging
 import time
@@ -28,6 +28,7 @@ import IPC
 import Logging
 import Protocol
 import protocols
+import Visuals
 
 from routines import Camera
 if Def.Env == Def.EnvTypes.Dev:
@@ -36,6 +37,7 @@ if Def.Env == Def.EnvTypes.Dev:
 ### Set Glumpy to use pyglet backend
 # (If pylget throws an exception when moving/resizing the window -> update pyglet)
 app.use('pyglet')
+#app.use('qt5')
 from pyglet.window import key
 
 class Main(Process.AbstractProcess):
@@ -44,6 +46,7 @@ class Main(Process.AbstractProcess):
     _config   : dict                      = dict()
     _glWindow : app.window.Window         = None
     protocol  : Protocol.AbstractProtocol = None
+    visual    : Visuals.AbstractVisual    = None
 
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
@@ -71,7 +74,7 @@ class Main(Process.AbstractProcess):
         self._checkScreenStatus = True
 
         ### Run event loop
-        self.run()
+        self.run(0.01)
 
     ################
     ### Glumpy-called events
@@ -84,7 +87,10 @@ class Main(Process.AbstractProcess):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def _preparePhase(self):
-        self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
+        new_phase = self.protocol._phases[IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]]
+        new_visual, kwargs, duration = new_phase['visuals'][0]
+        self.visual = new_visual(self.protocol, self, **kwargs)
+        self.frame_idx = 0
 
     def _cleanupProtocol(self):
         pass
@@ -97,10 +103,19 @@ class Main(Process.AbstractProcess):
         :return:
         """
 
+        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+        #gl.glClear(gl.GL_STENCIL_BUFFER_BIT)  # THIS HAS TO BE RIGHT HERE !!!
+        #gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT | gl.GL_STENCIL_BUFFER_BIT)
+        gl.glStencilMask(0x00)
+        gl.glStencilMask(gl.GL_TRUE)
+        gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
+        gl.glDisable(gl.GL_STENCIL_TEST)
         ### Call draw, if protocol is running
         if self._runProtocol():
-            self.protocol.draw(dt)
+            self.visual.draw(self.frame_idx, self.phase_time)
 
+        # Update routines
+        IPC.Routines.Display.update(self.visual)
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event
@@ -132,21 +147,21 @@ class Main(Process.AbstractProcess):
             elif symbol == key.X:
                 while keyboard.is_pressed('X'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.pos_glob_x_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.glob_x_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Y position: Ctrl(+Shift)+Y
             elif symbol == key.Y:
                 while keyboard.is_pressed('Y'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.pos_glob_y_pos] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.glob_y_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Radial offset: Ctrl(+Shift)+R
             elif symbol == key.R:
                 while keyboard.is_pressed('R'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.pos_glob_radial_offset] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset] += sign * 0.001
                     time.sleep(continPressDelay)
 
 
@@ -154,29 +169,31 @@ class Main(Process.AbstractProcess):
             elif symbol == key.E:
                 while keyboard.is_pressed('E'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_elev_angle] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.sph_view_elev_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Azimuth: Ctrl(+Shift)+A
             elif symbol == key.A:
                 while keyboard.is_pressed('A'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_azim_angle] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.sph_view_azim_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Distance: Ctrl(+Shift)+D
             elif symbol == key.D:
                 while keyboard.is_pressed('D'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_distance] += sign * 0.1
+                    Config.Display[Def.DisplayCfg.sph_view_distance] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Scale: Ctrl(+Shift)+S
             elif symbol == key.S:
                 while keyboard.is_pressed('S'):
                     sign = +1 if (modifiers & key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.view_scale] += sign * 0.001
+                    Config.Display[Def.DisplayCfg.sph_view_scale] += sign * 0.001
                     time.sleep(continPressDelay)
+            else:
+                self._glWindow.on_key_press(symbol, modifiers)
 
     def _checkScreen(self, dt):
         if not(self._checkScreenStatus):

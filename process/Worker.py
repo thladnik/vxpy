@@ -38,7 +38,7 @@ class Main(Process.AbstractProcess):
         self._tasks = dict()
 
         ### Run event loop
-        self.run()
+        self.run(interval=0.5)
 
     def _loadTask(self, task_name):
         if not(task_name in self._tasks):

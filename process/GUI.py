@@ -34,7 +34,6 @@ import gui.Io
 import process.Controller
 import process.Camera
 import process.Display
-import process.Logger
 
 class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
     name = Def.Process.GUI
@@ -59,18 +58,10 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         #self._setupAddons()
 
         ### Run event loop
-        self.run()
+        self.run(interval=0.0001)
 
-    def run(self):
-        #Logging.write(logging.INFO, 'RUN GUI')
-        IPC.setState(Def.State.IDLE)
-        ### Set timer for handling of communication
-        self._tmr_handlePipe = QtCore.QTimer()
-        self._tmr_handlePipe.timeout.connect(self._handleInbox)
-        self._tmr_handlePipe.start(10)
-
-        ### Run QApplication event loop
-        self._app.exec_()
+    def main(self):
+        self._app.processEvents()
 
     def _setupUI(self):
 
@@ -95,18 +86,25 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self._grp_controls = gui.Integrated.Controls(self)
         self.centralWidget().layout().addWidget(self._grp_controls, 0, 0, 2, 2)
 
-        ## Add camera
-        self._grp_camera = gui.Integrated.Camera(self)
-        self.centralWidget().layout().addWidget(self._grp_camera, 0, 2)
+        ## Protocols
+        self.grp_protocols = gui.Integrated.Protocols(self)
+        self.centralWidget().layout().addWidget(self.grp_protocols, 0, 2)
 
-        ## Add topright
-        self._grp_topright = QtWidgets.QWidget()
-        self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
-        self._grp_topright.layout().addItem(hvSpacer)
-        self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
+        ## Camera
+        self.grp_camera = gui.Integrated.Camera(self)
+        #self.grp_camera.setMaximumHeight(int(Config.Camera[Def.CameraCfg.res_y] * 1.5))
+        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.5))
+        self.centralWidget().layout().addWidget(self.grp_camera, 0, 3)
+
+        #self._grp_topright = gui.Integrated.DisplayView(self)
+        #self._grp_topright.setMinimumWidth(500)
+        #self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
+        #self._grp_topright.layout().addWidget(self._grp_topright)
+        #self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
 
         ## Add IO monitor
         self._grp_io = QtWidgets.QGroupBox('I/O Monitor')
+        self._grp_io.setMinimumHeight(250)
         self._grp_io.setLayout(QtWidgets.QHBoxLayout())
         if Config.Io[Def.IoCfg.use]:
             self._wdgt_io_monitor = gui.Io.IoWidget(self)
@@ -115,17 +113,17 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
 
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
-        self._grp_processStatus.setMaximumHeight(300)
+        self._grp_processStatus.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self._grp_processStatus, 2, 0)
 
         ## Recordings
         self._grp_recordings = gui.Integrated.Recording(self)
-        self._grp_recordings.setMaximumHeight(300)
+        self._grp_recordings.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self._grp_recordings, 2, 1)
 
         ## Logger
         self._grp_log = gui.Integrated.Log(self)
-        self._grp_log.setMaximumHeight(300)
+        self._grp_log.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self._grp_log, 2, 2, 1, 2)
 
         ### Setup menubar

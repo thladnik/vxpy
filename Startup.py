@@ -305,7 +305,27 @@ class Recording(QtWidgets.QGroupBox):
 
 if __name__ == '__main__':
 
-    if not('--skip_setup' in sys.argv):
+    import process.Controller
+
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ini', action='store', dest='ini_file', type=str)
+    parser.add_argument('--skip_setup', action='store_true', dest='skip_setup', default=False)
+    args = parser.parse_args(sys.argv[1:])
+
+    if args.skip_setup:
+        # process.Controller.configfile = 'default.ini'
+        process.Controller.configfile = 'omr_behavior.ini'
+
+    if not(args.ini_file is None):
+        process.Controller.configfile = args.ini_file
+        args.skip_setup = True
+
+    if args.skip_setup:
+        ctrl = process.Controller()
+
+    else:
 
         configfile = None
         app = QtWidgets.QApplication([])
@@ -318,9 +338,4 @@ if __name__ == '__main__':
         import process.Controller
         process.Controller()
 
-    else:
-        # _configfile = 'default_TIS.ini'
-        import process.Controller
 
-        process.Controller.configfile = 'default.ini'
-        ctrl = process.Controller()

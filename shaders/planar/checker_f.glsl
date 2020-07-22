@@ -2,11 +2,11 @@
 
 const float c_pi = 3.14159265359;
 
-varying vec3 v_position;
+varying vec2 v_position;  // in mm
 
 void main() {
     // Construct checkerboard
-    float c = sin(c_pi * float(4) * v_position.x) * sin(c_pi * float(4) * v_position.y);
+    float c = sin(2.0 * c_pi * v_position.x) * sin(2.0 * c_pi * v_position.y);
 
     // Thresholding
     if (c > 0) {

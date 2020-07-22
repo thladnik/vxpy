@@ -59,6 +59,7 @@ class Process:
 
 class State:
     NA               = 0
+    SYNC             = 1
     STOPPED          = 99
     STARTING         = 10
     PREPARE_PROTOCOL = 30
@@ -71,6 +72,21 @@ class State:
     IDLE             = 20
     RUNNING          = 41
     STANDBY          = 42
+
+MapStateToStr = {State.NA : 'N\A',
+                 State.SYNC : 'Synchronizing',
+                 State.STOPPED : 'Stopped',
+                 State.STARTING : 'Starting',
+                 State.PREPARE_PROTOCOL : 'Prepare protocol',
+                 State.WAIT_FOR_PHASE : 'Wait for phase',
+                 State.PREPARE_PHASE : 'Preparing phase',
+                 State.READY : 'Ready',
+                 State.PHASE_END : 'Phase ended',
+                 State.PROTOCOL_ABORT : 'Abort protocol',
+                 State.PROTOCOL_END : 'Protocol ended',
+                 State.IDLE : 'Idle',
+                 State.RUNNING : 'Running',
+                 State.STANDBY : 'Standby',}
 
 ################################
 # IPC signals
@@ -129,16 +145,25 @@ class DisplayCfg:
     window_pos_x           = 'int_window_pos_x'
     window_pos_y           = 'int_window_pos_y'
 
-    # Calibration settings
-    pos_glob_x_pos         = 'float_pos_glob_x_pos'
-    pos_glob_y_pos         = 'float_pos_glob_y_pos'
-    pos_glob_radial_offset = 'float_pos_glob_radial_offset'
+    ## Calibration settings
+    # General
+    glob_x_pos         = 'float_glob_x_pos'
+    glob_y_pos         = 'float_glob_y_pos'
 
-    view_elev_angle        = 'float_view_elev_angle'
-    view_azim_angle        = 'float_view_azim_angle'
-    view_distance          = 'float_view_origin_distance'
-    view_scale             = 'float_view_scale'
+    # Spherical
+    sph_pos_glob_radial_offset = 'float_sph_pos_glob_radial_offset'
 
+    sph_view_elev_angle        = 'float_sph_view_elev_angle'
+    sph_view_azim_angle        = 'float_sph_view_azim_angle'
+    sph_view_distance          = 'float_sph_view_origin_distance'
+    sph_view_scale             = 'float_sph_view_scale'
+
+    # Planar
+    pla_xextent                = 'float_pla_xextent'
+    pla_yextent                = 'float_pla_yextent'
+    pla_small_side             = 'float_pla_small_side'
+
+    routines                   = 'list_routines'
 
 ########
 # GUI
@@ -188,7 +213,8 @@ class RecCfg:
 # General
 
 class GenCtrl:
-    min_sleep_time = 'min_sleep_time'
+    min_sleep_time    = 'min_sleep_time'
+    process_null_time = 'process_null_time'
 
 ########
 # Recording

@@ -112,7 +112,7 @@ class EyePositionDetector(QtWidgets.QWidget):
             self.imagePlot.hideAxis('left')
             self.imagePlot.hideAxis('bottom')
             self.imagePlot.setAspectLocked(True)
-            self.imagePlot.vb.setMouseEnabled(x=False, y=False)
+            #self.imagePlot.vb.setMouseEnabled(x=False, y=False)
             self.imagePlot.addItem(self.imageItem)
 
             self.imageItem.sigImageChanged.connect(self.updateRectSubplots)

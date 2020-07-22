@@ -21,7 +21,7 @@ import numpy as np
 from sklearn import metrics
 from time import perf_counter, time
 
-from Routine import AbstractRoutine
+from Routine import AbstractRoutine, BufferDTypes
 import Config
 import Def
 from helper import Geometry
@@ -30,7 +30,6 @@ import IPC
 import Process
 
 class FrameRoutine(AbstractRoutine):
-
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
@@ -43,7 +42,7 @@ class FrameRoutine(AbstractRoutine):
 
         ### Set up shared variables
         frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
-        self.buffer.frame = ('frame', 'Array', ctypes.c_uint8, frameSize)
+        self.buffer.frame = (BufferDTypes.uint8, frameSize)
 
         ### Setup frame timing stats
         self.frametimes = list()
@@ -84,8 +83,8 @@ class EyePosDetectRoutine(AbstractRoutine):
         self.ROIs = dict()
 
         ### Set up buffer
-        self.buffer.extractedRects = ('extractedRects', 'dict')
-        self.buffer.eyePositions = ('eyePositions', 'list')
+        self.buffer.extractedRects = ('test', )
+        self.buffer.eyePositions = ('test', )
 
     def setROI(self, id, params):
         self.ROIs[id] = params
@@ -289,7 +288,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         for id in self.buffer.extractedRects.keys():
 
-            yield 'eye_extracted_rect{}'.format(id), self.buffer.extractedRects[id]
+            #yield 'eye_extracted_rect{}'.format(id), self.buffer.extractedRects[id]
 
             if id in self.buffer.eyePositions:
                 yield 'ang_eye_pos{}_left'.format(id), self.buffer.eyePositions[id][0]

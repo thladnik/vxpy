@@ -30,9 +30,111 @@ import gui.Camera
 import IPC
 import Logging
 from process import GUI
+import protocols
+
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
+
+
+class Protocols(QtWidgets.QGroupBox):
+
+    def __init__(self, _main):
+        self.main = _main
+        QtWidgets.QGroupBox.__init__(self, 'Protocols', parent=_main)
+
+        ## Setup widget
+        self.setLayout(QtWidgets.QGridLayout())
+
+        ### File list
+        self._lwdgt_files = QtWidgets.QListWidget()
+        self._lwdgt_files.itemSelectionChanged.connect(self.updateFileList)
+        self.layout().addWidget(QtWidgets.QLabel('Files'), 0, 0)
+        self.layout().addWidget(self._lwdgt_files, 1, 0)
+        ### Protocol list
+        self.lwdgt_protocols = QtWidgets.QListWidget()
+        #self._lwdgt_protocols.itemSelectionChanged.connect(self._updateProtocolInfo)
+        self.layout().addWidget(QtWidgets.QLabel('Protocols'), 0, 1)
+        self.layout().addWidget(self.lwdgt_protocols, 1, 1)
+
+        ### Protocol (phase) progress
+        self.progress = QtWidgets.QProgressBar()
+        self.progress.setMinimum(0)
+        self.progress.setTextVisible(False)
+        self.layout().addWidget(self.progress, 0, 2)
+
+        ### Start button
+        self.wdgt_controls = QtWidgets.QWidget()
+        self.layout().addWidget(self.wdgt_controls, 1, 2)
+        self.wdgt_controls.setLayout(QtWidgets.QVBoxLayout())
+        self.wdgt_controls.btn_start = QtWidgets.QPushButton('Start protocol')
+        self.wdgt_controls.btn_start.clicked.connect(self.startProtocol)
+        self.wdgt_controls.layout().addWidget(self.wdgt_controls.btn_start)
+        ### Abort protocol button
+        self.wdgt_controls.btn_abort = QtWidgets.QPushButton('Abort protocol')
+        self.wdgt_controls.btn_abort.clicked.connect(self.abortProtocol)
+        self.wdgt_controls.layout().addWidget(self.wdgt_controls.btn_abort)
+
+
+        ### Spacer
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.wdgt_controls.layout().addItem(vSpacer)
+
+        ### Set update timer
+        self._tmr_update = QtCore.QTimer()
+        self._tmr_update.setInterval(200)
+        self._tmr_update.timeout.connect(self.updateGUI)
+        self._tmr_update.start()
+
+        ### Once set up: compile file list for first time
+        self._compileFileList()
+
+    def _compileFileList(self):
+        self._lwdgt_files.clear()
+        self.wdgt_controls.btn_start.setEnabled(False)
+
+        for file in protocols.all():
+            self._lwdgt_files.addItem(file)
+
+    def updateFileList(self):
+        self.lwdgt_protocols.clear()
+        self.wdgt_controls.btn_start.setEnabled(False)
+
+        for protocol in protocols.read(protocols.open(self._lwdgt_files.currentItem().text())):
+            self.lwdgt_protocols.addItem(protocol.__name__)
+
+    def updateGUI(self):
+
+        ### Enable/Disable control elements
+        ctrl_is_idle = IPC.inState(Def.State.IDLE, Def.Process.Controller)
+        self.wdgt_controls.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
+        self.lwdgt_protocols.setEnabled(ctrl_is_idle)
+        self._lwdgt_files.setEnabled(ctrl_is_idle)
+        protocol_is_running = bool(IPC.Control.Protocol[Def.ProtocolCtrl.name])
+        self.wdgt_controls.btn_abort.setEnabled(protocol_is_running)
+
+        ### Update progress
+        start_phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]
+        if not(start_phase is None):
+            self.progress.setEnabled(True)
+            phase_diff = time.time() - start_phase
+            self.progress.setMaximum(int((IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] - start_phase) * 10))
+            if phase_diff > 0.:
+                self.progress.setValue(int(phase_diff * 10))
+
+        if not(bool(IPC.Control.Protocol[Def.ProtocolCtrl.name])):
+            self.progress.setEnabled(False)
+
+
+    def startProtocol(self):
+        file_name = self._lwdgt_files.currentItem().text()
+        protocol_name = self.lwdgt_protocols.currentItem().text()
+
+        IPC.rpc(Def.Process.Controller, Controller.startProtocol,
+                      '.'.join([file_name, protocol_name]))
+
+    def abortProtocol(self):
+        IPC.rpc(Controller.name, Controller.abortProtocol)
 
 class ProcessMonitor(QtWidgets.QGroupBox):
 
@@ -83,20 +185,13 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Io), 4, 0)
         self.layout().addWidget(self._le_ioState, 4, 1)
 
-        ## Logger process status
-        self._le_loggerState = QtWidgets.QLineEdit('')
-        self._le_loggerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Logger), 5, 0)
-        self.layout().addWidget(self._le_loggerState, 5, 1)
-
         ## Worker process status
         self._le_workerState = QtWidgets.QLineEdit('')
         self._le_workerState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 6, 0)
-        self.layout().addWidget(self._le_workerState, 6, 1)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker), 5, 0)
+        self.layout().addWidget(self._le_workerState, 5, 1)
 
-        self.layout().addItem(vSpacer, 7, 0)
-
+        self.layout().addItem(vSpacer, 6, 0)
 
         ## Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
@@ -104,23 +199,10 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._tmr_updateGUI.timeout.connect(self._updateStates)
         self._tmr_updateGUI.start()
 
-    def _getProcessStateStr(self, code):
-        if code == Def.State.STOPPED:
-            return 'Stopped'
-        elif code == Def.State.READY:
-            return 'Ready'
-        elif code == Def.State.IDLE:
-            return 'Idle'
-        elif code ==Def.State.RUNNING:
-            return 'Running'
-        elif code == Def.State.STARTING:
-            return 'Starting'
-        else:
-            return 'N/A'
 
     def _setProcessState(self, le: QtWidgets.QLineEdit, code):
         ### Set text
-        le.setText(self._getProcessStateStr(code))
+        le.setText(Def.MapStateToStr[code] if code in Def.MapStateToStr else '')
 
         ### Set style
         if code == Def.State.IDLE:
@@ -131,8 +213,10 @@ class ProcessMonitor(QtWidgets.QGroupBox):
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
         elif code == Def.State.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
+        elif code == Def.State.RUNNING:
+            le.setStyleSheet('color: #deb737; font-weight:bold;')
         else:
-            le.setStyleSheet('color: #FF0000')
+            le.setStyleSheet('color: #000000')
 
     def _updateStates(self):
         """This method sets the process state according to the current global state variables.
@@ -144,7 +228,6 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._setProcessState(self._le_displayState, IPC.getState(Def.Process.Display))
         self._setProcessState(self._le_guiState, IPC.getState(Def.Process.GUI))
         self._setProcessState(self._le_ioState, IPC.getState(Def.Process.Io))
-        self._setProcessState(self._le_loggerState, IPC.getState(Def.Process.Logger))
         self._setProcessState(self._le_workerState, IPC.getState(Def.Process.Worker))
 
 
@@ -303,7 +386,7 @@ class Controls(QtWidgets.QTabWidget):
         QtWidgets.QTabWidget.__init__(self)
         self._main : GUI.Main = _main
 
-        ## Display Settings
+        ### Display Settings
         if Config.Display[Def.DisplayCfg.use]:
             if Config.Display[Def.DisplayCfg.type] == 'spherical':
                 self.tabWdgt_Display = gui.Controls.SphericalDisplaySettings(self)
@@ -316,8 +399,8 @@ class Controls(QtWidgets.QTabWidget):
             self.addPaddedTab(self.tabWdgt_Display, 'Display')
 
         ### Protocols
-        self.tabWdgt_Protocols = gui.Controls.Protocol(self)
-        self.addPaddedTab(self.tabWdgt_Protocols, 'Protocols')
+        #self.tabWdgt_Protocols = gui.Controls.Protocol(self)
+        #self.addPaddedTab(self.tabWdgt_Protocols, 'Protocols')
 
         ### Camera
         self.tabWdgt_Camera = gui.Controls.Camera(self)
@@ -330,7 +413,7 @@ class Controls(QtWidgets.QTabWidget):
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         wrapper.layout().addItem(vSpacer, 1, 0)
-        wrapper.layout().addItem(hSpacer, 0, 1)
+        #wrapper.layout().addItem(hSpacer, 0, 1)
         self.addTab(wrapper, name)
 
 class Camera(QtWidgets.QTabWidget):
@@ -339,7 +422,7 @@ class Camera(QtWidgets.QTabWidget):
         self.main = _main
         QtWidgets.QTabWidget.__init__(self)
 
-        self.streamFps = 30
+        self.streamFps = 10
 
         self._setupUI()
 
@@ -354,17 +437,22 @@ class Camera(QtWidgets.QTabWidget):
         #self.addTab(self._wdgt_plot, 'Live camera')
 
         ### Add camera addons
-        for addonName in ['LiveCamera', *Config.Gui[Def.GuiCfg.addons]]:
+        if Config.Gui[Def.GuiCfg.addons][0] == '':
+            addons = ['LiveCamera']
+        else:
+            addons = Config.Gui[Def.GuiCfg.addons]
+
+        for addon_name in addons:
         #for addonName in Config.Gui[Def.GuiCfg.addons]:
-            if not(bool(addonName)):
+            if not(bool(addon_name)):
                 continue
 
-            wdgt = getattr(gui.Camera, addonName)(self)
+            wdgt = getattr(gui.Camera, addon_name)(self)
             if not(wdgt.moduleIsActive):
                 Logging.write(logging.WARNING, 'Addon {} could not be activated'
-                              .format(addonName))
+                              .format(addon_name))
                 continue
-            self.addTab(wdgt, addonName)
+            self.addTab(wdgt, addon_name)
 
         ### Set frame update timer
         self.imTimer = QtCore.QTimer()
@@ -375,3 +463,61 @@ class Camera(QtWidgets.QTabWidget):
     def updateFrames(self):
         for idx in range(self.count()):
             self.widget(idx).updateFrame()
+
+class DisplayView(QtWidgets.QGroupBox):
+
+    def __init__(self, _main):
+        self.main = _main
+        QtWidgets.QGroupBox.__init__(self, 'Display View')
+        self.setCheckable(True)
+        self.toggled.connect(self.setTimer)
+
+        self.setLayout(QtWidgets.QVBoxLayout())
+        from glumpy import app
+        app.use('qt5')
+
+        self._glWindow = QtWidgets.QOpenGLWidget(self) # app.Window()#
+        #self.native_win = self._glWindow._native_window
+        self.layout().addWidget(self._glWindow)
+
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.updateGl)
+
+        self.current_protocol = None
+        self.current_phase_id = None
+        self.current_visual = None
+
+        self.setChecked(True)
+
+    def setTimer(self, bool):
+        if bool and not(self.timer.isActive()):
+            return
+            self.timer.start(1/20)
+        else:
+            if self.timer.isActive():
+                self.timer.stop()
+
+    def updateGl(self):
+        if self.current_protocol is None:
+
+            if IPC.Control.Protocol[Def.ProtocolCtrl.name] is None or not(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
+                return
+
+            print('SET protocol to {}'.format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
+
+            self.current_protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+            return
+
+        if self.current_phase_id != IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]:
+            self.current_phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+
+            new_phase = self.current_protocol._phases[self.current_phase_id]
+            new_visual, kwargs, duration = new_phase['visuals'][0]
+            self.current_visual = new_visual(self.current_protocol, self, **kwargs)
+
+        if self.current_visual is None:
+            return
+
+        print('draw?')
+        self.current_visual.draw(0, 0.0)

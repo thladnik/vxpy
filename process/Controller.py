@@ -20,10 +20,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import ctypes
 import logging
 import multiprocessing as mp
-import multiprocessing.connection
 import os
-import signal
-import sys
 import time
 
 import Routine
@@ -54,6 +51,14 @@ class Controller(AbstractProcess):
         IPC.Log.Queue = mp.Queue()
         IPC.Log.History = IPC.Manager.list()
         IPC.Log.File = IPC.Manager.Value(ctypes.c_char_p, '')
+        ## Set file to log to
+        if IPC.Log.File.value == '':
+            IPC.Log.File.value = '%s.log' % time.strftime('%Y-%m-%d-%H-%M-%S')
+        ## Set up logger, formatte and handler
+        self.logger = logging.getLogger('mylog')
+        h = logging.handlers.TimedRotatingFileHandler(os.path.join(Def.Path.Log, IPC.Log.File.value), 'd')
+        h.setFormatter(logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<'))
+        self.logger.addHandler(h)
 
         AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
                                              if not (k.startswith('_'))})
@@ -86,7 +91,6 @@ class Controller(AbstractProcess):
         IPC.State.Display    = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Gui        = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Io         = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
-        IPC.State.Logger     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Worker     = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
 
         ################################
@@ -102,6 +106,7 @@ class Controller(AbstractProcess):
             times.append(time.perf_counter()-t)
         IPC.Control.General.update({Def.GenCtrl.min_sleep_time : max(times)})
         Logging.write(logging.INFO, 'Minimum sleep period is {0:.3f}ms'.format(1000*max(times)))
+        IPC.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
 
         ### Check time precision on system
         dt = list()
@@ -136,13 +141,26 @@ class Controller(AbstractProcess):
         if Config.Camera[Def.CameraCfg.use]:
             import routines.Camera
             for routine_name in Config.Camera[Def.CameraCfg.routines]:
+                if not(bool(routine_name)):
+                    continue
                 IPC.Routines.Camera.addRoutine(getattr(routines.Camera, routine_name))
+
+        ## Display
+        IPC.Routines.Display = Routine.Routines(Def.Process.Display)
+        if Config.Display[Def.DisplayCfg.use]:
+            import routines.Display
+            for routine_name in Config.Display[Def.DisplayCfg.routines]:
+                if not(bool(routine_name)):
+                    continue
+                IPC.Routines.Display.addRoutine(getattr(routines.Display, routine_name))
 
         ## IO
         IPC.Routines.Io = Routine.Routines(Def.Process.Io)
         if Config.Io[Def.IoCfg.use]:
             import routines.Io
             for routine_name in Config.Io[Def.IoCfg.routines]:
+                if not(bool(routine_name)):
+                    continue
                 IPC.Routines.Io.addRoutine(getattr(routines.Io, routine_name))
 
         ### Set up processes
@@ -161,7 +179,7 @@ class Controller(AbstractProcess):
         if Config.Io[Def.IoCfg.use]:
             self._registerProcess(process.IO)
         ## Logger (always runs in background)
-        self._registerProcess(process.Logger)
+        #self._registerProcess(process.Logger)
 
         ### Set up protocol
         self.current_protocol = None
@@ -231,8 +249,18 @@ class Controller(AbstractProcess):
         for target, kwargs in self._registeredProcesses:
             self.initializeProcess(target, **kwargs)
 
+        ### Synchronize all processes to controller
+        ## Wait for all processes to be in sync state
+        while not(all([self.inState(Def.State.SYNC, target.name) for target, _ in self._registeredProcesses])):
+            time.sleep(1/100)
+
+        null_time = time.time() + 0.1
+        Logging.logger.log(logging.INFO, 'Set sync time to {}'.format(null_time))
+        ## Set synchronized start time
+        IPC.Control.General.update({Def.GenCtrl.process_null_time : null_time})
+
         ### Run controller
-        self.run()
+        self.run(interval=0.5)
 
         ### Pre-shutdown
         ## Update configurations that should persist
@@ -370,6 +398,20 @@ class Controller(AbstractProcess):
         self.setState(Def.State.PROTOCOL_END)
 
     def main(self):
+
+        ### Handle logging
+        while not(IPC.Log.Queue.empty()):
+
+            ## Fetch next record
+            record = IPC.Log.Queue.get()
+
+            try:
+                self.logger.handle(record)
+                IPC.Log.History.append(record)
+            except Exception:
+                import sys, traceback
+                print('Exception in Logger:', file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
 
         ### In state PREPARE_PROTOCOL
         if self.inState(Def.State.PREPARE_PROTOCOL):

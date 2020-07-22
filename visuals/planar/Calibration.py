@@ -25,8 +25,8 @@ from Shader import BasicFileShader
 
 class Checkerboard(PlanarVisual):
 
-    def __init__(self, protcol, display):
-        PlanarVisual.__init__(self, display=display, protocol=protcol)
+    def __init__(self, *args):
+        PlanarVisual.__init__(self, *args)
 
         self.plane = self.addModel('planar',
                                    BasicPlane.VerticalXYPlane)
@@ -38,5 +38,5 @@ class Checkerboard(PlanarVisual):
         self.checker.bind(self.plane.vertexBuffer)
 
 
-    def render(self, dt):
+    def render(self):
         self.checker.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
