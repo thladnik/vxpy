@@ -17,9 +17,9 @@ void main() {
 
     // Sinewave
     if (u_direction == 1) {
-        c = sin((1.0/u_spat_period * v_position.y + u_stime * u_lin_velocity) * 2.0 * c_pi);
+        c = sin((v_position.y + u_stime * u_lin_velocity)/u_spat_period * 2.0 * c_pi);
     } else {
-        c = sin((1.0/u_spat_period * v_position.x + u_stime * u_lin_velocity) * 2.0 * c_pi);
+        c = sin((v_position.x + u_stime * u_lin_velocity)/u_spat_period * 2.0 * c_pi);
     }
 
     // If shape is rectangular: threshold sinewave

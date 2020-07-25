@@ -27,9 +27,9 @@ class ShowSFRange(StaticProtocol):
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
 
-        for sf in range(1,5):
+        for sf in np.arange(10,40,10):
 
-            self.newPhase(10)
+            self.newPhase(5)
             self.addVisual(BlackAndWhiteGrating,
                            dict(u_direction='horizontal',
                                 u_shape='rectangular',
@@ -42,12 +42,12 @@ class Stresstest(StaticProtocol):
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
 
-        for sp in np.arange(1.0, 20.0, 4.0):
+        for sp in np.arange(10.0, 30.0, 4.0):
 
-            for v in range(10,11):
+            for v in np.arange(2, 10, 2):
                 self.newPhase(5)
                 self.addVisual(BlackAndWhiteGrating,
                                dict(u_direction='horizontal',
                                     u_shape='rectangular',
                                     u_spat_period=sp,
-                                    u_lin_velocity=v/10))
+                                    u_lin_velocity=v))
