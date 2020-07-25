@@ -33,8 +33,8 @@ class Checkerboard(PlanarVisual):
         self.plane.createBuffers()
 
         self.checker = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('checker_v.glsl', subdir='planar').read(),
-                                       BasicFileShader().addShaderFile('checker_f.glsl', subdir='planar').read())
+                                       BasicFileShader().addShaderFile('checker.vert', subdir='planar').read(),
+                                       BasicFileShader().addShaderFile('checker.frag', subdir='planar').read())
         self.checker.bind(self.plane.vertexBuffer)
 
 

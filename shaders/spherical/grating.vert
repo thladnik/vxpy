@@ -1,4 +1,4 @@
-// v_grating.glsl
+// grating.vert
 
 uniform mat2 u_mapcalib_aspectscale;
 uniform vec2 u_mapcalib_scale;

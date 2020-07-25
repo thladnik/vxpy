@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/Example01.py - Example protocol for demonstration.
+MappApp ./protocols/Spherical_Gratings.py - Example protocol for demonstration.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+
+import numpy as np
 
 from Protocol import StaticProtocol
 
@@ -32,7 +34,7 @@ class ShowSFRange(StaticProtocol):
                            dict(u_direction='horizontal',
                                 u_shape='rectangular',
                                 u_spat_period=sf,
-                                u_lin_velocity=1))
+                                u_lin_velocity=0))
 
 
 class Stresstest(StaticProtocol):
@@ -40,12 +42,12 @@ class Stresstest(StaticProtocol):
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
 
-        for sf in range(1,20):
+        for sp in np.arange(1.0, 20.0, 4.0):
 
-            for v in range(10, 20):
-                self.newPhase(30)
+            for v in range(10,11):
+                self.newPhase(5)
                 self.addVisual(BlackAndWhiteGrating,
                                dict(u_direction='horizontal',
                                     u_shape='rectangular',
-                                    u_spat_period=sf,
+                                    u_spat_period=sp,
                                     u_lin_velocity=v/10))

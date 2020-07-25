@@ -48,12 +48,11 @@ class BlackAndWhiteGrating(PlanarVisual):
         self.plane.createBuffers()
 
         self.grating = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('planar/grating_v.glsl').read(),
-                                       BasicFileShader().addShaderFile('planar/grating_f.glsl').read())
+                                       BasicFileShader().addShaderFile('planar/grating.vert').read(),
+                                       BasicFileShader().addShaderFile('planar/grating.frag').read())
         self.grating.bind(self.plane.vertexBuffer)
 
         self.update(**params)
-
 
         self.t = time.time()
 
@@ -76,7 +75,6 @@ class BlackAndWhiteGrating(PlanarVisual):
 
     def parseShape(self, shape):
         return 1 if shape == 'rectangular' else 2  # 'sinusoidal'
-
 
     def parseDirection(self, orientation):
         return 1 if orientation == 'vertical' else 2  # 'horizontal'

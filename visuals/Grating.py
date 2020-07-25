@@ -17,23 +17,25 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from glumpy import gl
+import time
 
 from Shader import BasicFileShader
 from Visuals import SphericalVisual
 from models import BasicSphere
 
+
 class BlackWhiteGrating(SphericalVisual):
 
-    def __init__(self, protocol, display, orientation, shape, velocity, num):
-        """
-        :param protocol: protocol of which stimulus is currently part of
+    u_shape = 'u_shape'
+    u_direction = 'u_direction'
+    u_spat_period = 'u_spat_period'
+    u_ang_velocity = 'u_ang_velocity'
 
-        :param orientation: orientation of grating; either 'vertical' or 'horizontal'
-        :param shape: shape of underlying func; either 'rectangular' or 'sinusoidal'
-        :param velocity:
-        :param num:
-        """
-        SphericalVisual.__init__(self, protocol, display)
+    parameters = {u_shape: None, u_direction:None, u_ang_velocity:None, u_spat_period:None}
+
+    def __init__(self, *args, **params):
+
+        SphericalVisual.__init__(self, *args)
 
         ### Set up model
         self.sphere = self.addModel('sphere',
@@ -43,37 +45,32 @@ class BlackWhiteGrating(SphericalVisual):
 
         ### Set up program
         self.grating = self.addProgram('grating',
-                                       BasicFileShader().addShaderFile('v_grating.glsl', subdir='spherical').read(),
-                                       BasicFileShader().addShaderFile('f_grating.glsl', subdir='spherical').read())
+                                       BasicFileShader().addShaderFile('spherical/grating.vert').read(),
+                                       BasicFileShader().addShaderFile('spherical/grating.frag').read())
         self.grating.bind(self.sphere.vertexBuffer)
 
-        self.update(shape=shape, orientation=orientation, velocity=velocity, num=num)
+        self.update(**params)
+
+        self.t = time.time()
 
     def render(self):
+        self.grating['u_stime'] = time.time() - self.t
         self.grating.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
-    def update(self, shape=None, orientation=None, velocity=None, num=None):
+    def update(self, **params):
 
-        if shape is not None:
-            self._setShape(shape)
+        if params.get(self.u_shape) is not None:
+            params[self.u_shape] = self.parseShape(params.get(self.u_shape))
 
-        if orientation is not None:
-            self._setOrientation(orientation)
+        if params.get(self.u_direction) is not None:
+            params[self.u_direction] = self.parseDirection(params.get(self.u_direction))
 
-        if velocity is not None:
-            self.grating['u_velocity'] = velocity
+        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.parameters.items():
+            self.grating[k] = p
 
-        if num is not None and num > 0:
-            self.grating['u_stripes_num'] = num
+    def parseShape(self, shape):
+        return 1 if shape == 'rectangular' else 2  # 'sinusoidal'
 
-    def _setShape(self, shape):
-        if shape == 'rectangular':
-            self.grating['u_shape'] = 1
-        elif shape == 'sinusoidal':
-            self.grating['u_shape'] = 2
-
-    def _setOrientation(self, orientation):
-        if orientation == 'vertical':
-            self.grating['u_orientation'] = 1
-        elif orientation == 'horizontal':
-            self.grating['u_orientation'] = 2
+    def parseDirection(self, orientation):
+        return 1 if orientation == 'vertical' else 2  # 'horizontal'
