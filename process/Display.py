@@ -53,6 +53,7 @@ class Main(Process.AbstractProcess):
 
         self._window_config = app.configuration.Configuration()
         self._window_config.stencil_size = 8
+        self._window_config.double_buffer = True
 
         ### Open OpenGL window
         self._glWindow = app.Window(width=Config.Display[Def.DisplayCfg.window_width],
@@ -112,12 +113,20 @@ class Main(Process.AbstractProcess):
         gl.glStencilMask(gl.GL_TRUE)
         gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
         gl.glDisable(gl.GL_STENCIL_TEST)
-        ### Call draw, if protocol is running
-        if self._runProtocol() or self.run_protocol_independent_visual:
-            self.visual.draw(self.frame_idx, self.phase_time)
 
-        # Update routines
-        IPC.Routines.Display.update(self.visual)
+        IPC.Routines.Display.handleFile()
+        ### Call draw, if protocol is running
+        #if self._runProtocol() or self.run_protocol_independent_visual:
+        if not(self.visual is None):
+            self.visual.draw(self.frame_idx, self.phase_time)
+        if self._runProtocol():
+
+            # Update routines
+            IPC.Routines.Display.update(self.visual)
+        else:
+            self._glWindow.clear(color=(0.0,0.0,0.0,1.0))
+
+        IPC.Routines.Display.handleFile()
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event

@@ -215,6 +215,7 @@ class RecCfg:
 class GenCtrl:
     min_sleep_time    = 'min_sleep_time'
     process_null_time = 'process_null_time'
+    process_syn_barrier       = 'process_sync_barrier'
 
 ########
 # Recording

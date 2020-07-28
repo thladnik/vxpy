@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+import argparse
 from configparser import ConfigParser
 import os
 import sys
@@ -26,8 +27,11 @@ from PyQt5 import QtCore, QtWidgets
 
 import Def
 from helper import Basic
+import process.Controller
 
 from devices.Camera import GetCamera
+
+import wres
 
 class StartupConfiguration(QtWidgets.QMainWindow):
 
@@ -305,37 +309,42 @@ class Recording(QtWidgets.QGroupBox):
 
 if __name__ == '__main__':
 
-    import process.Controller
+    from sys import platform
+    print(platform)
 
-    import argparse
+    if platform == 'win32':
+        ### Set windows timer precision as high as possible
+        minres, maxres, curres = wres.query_resolution()
+        print(curres)
+        with wres.set_resolution(maxres):
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--ini', action='store', dest='ini_file', type=str)
-    parser.add_argument('--skip_setup', action='store_true', dest='skip_setup', default=False)
-    args = parser.parse_args(sys.argv[1:])
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--ini', action='store', dest='ini_file', type=str)
+            parser.add_argument('--skip_setup', action='store_true', dest='skip_setup', default=False)
+            args = parser.parse_args(sys.argv[1:])
 
-    if args.skip_setup:
-        # process.Controller.configfile = 'default.ini'
-        process.Controller.configfile = 'omr_behavior.ini'
+            if args.skip_setup:
+                # process.Controller.configfile = 'default.ini'
+                process.Controller.configfile = 'omr_behavior.ini'
 
-    if not(args.ini_file is None):
-        process.Controller.configfile = args.ini_file
-        args.skip_setup = True
+            if not(args.ini_file is None):
+                process.Controller.configfile = args.ini_file
+                args.skip_setup = True
 
-    if args.skip_setup:
-        ctrl = process.Controller()
+            if args.skip_setup:
+                ctrl = process.Controller()
 
-    else:
+            else:
 
-        configfile = None
-        app = QtWidgets.QApplication([])
-        window = StartupConfiguration()
-        app.exec_()
+                configfile = None
+                app = QtWidgets.QApplication([])
+                window = StartupConfigurat1ion()
+                app.exec_()
 
-        if configfile is None:
-            exit()
+                if configfile is None:
+                    exit()
 
-        import process.Controller
-        process.Controller()
+                import process.Controller
+                process.Controller()
 
 

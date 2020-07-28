@@ -21,6 +21,7 @@ import logging
 import signal
 import sys
 import time
+import wres
 
 import Routine
 import Config
@@ -49,7 +50,7 @@ class AbstractProcess:
     _shutdown  : bool
 
     ### Protocol related
-    phase_start_ptime    : float = None
+    phase_start_time    : float = None
     phase_time           : float = None
 
     enable_idle_timeout  : bool = True
@@ -130,17 +131,28 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self._handleSIGINT)
 
     def run(self, interval):
+        Logging.write(logging.INFO, '{:35} {}'.
+                      format('Process {} started '.format(self.name),
+                             'at time {}'.format(time.time())))
+        if False:
+            ### Not necessary because global time is now used?
+            ### Synchronize process to controller
+            self.setState(Def.State.SYNC)
+            ## Wait
+            while IPC.Control.General[Def.GenCtrl.process_null_time] > time.time():
+                pass
+            ### Set process synchronization time
+            self.process_sync_time  = time.perf_counter()
+            ## Set time
+            t = time.time()
 
-        ### Synchronize process to controller
-        self.setState(Def.State.SYNC)
-        ## Wait
-        while IPC.Control.General[Def.GenCtrl.process_null_time] > time.time():
-            pass
-        ## Set time
-        t = time.time()
-        self.process_sync_time  = time.perf_counter()
+            Logging.write(logging.INFO, '{:35} {}'.
+                          format('Synchronized process {}'.format(self.name),
+                                 'at time {} to process time {}'.format(t, self.process_sync_time)))
 
-        Logging.write(logging.INFO, 'Synchronized process {} at time {}  to process time {}'.format(self.name, t, self.process_sync_time))
+        minres, maxres, curres = wres.query_resolution()
+        print(self.name, curres)
+
         ### Set state to running
         self._running = True
         self._shutdown = False
@@ -158,9 +170,9 @@ class AbstractProcess:
             dt = self.t + interval - time.perf_counter()
             if self.enable_idle_timeout and dt > 1.2 * min_sleep_time:
                 # Sleep to reduce CPU usage
-                time.sleep(dt)
+                time.sleep(0.9 * dt)
 
-            # Busy loop until next main execution
+            # Busy loop until next main execution for precise timing
             while self.t + interval - time.perf_counter() >= 0:
                 pass
             ## Set new time
@@ -210,7 +222,7 @@ class AbstractProcess:
                 return False
 
             ### Default: set phase time and execute protocol
-            self.phase_time = time.perf_counter() - self.phase_start_ptime
+            self.phase_time = time.time() - self.phase_start_time
             return True
 
         ########
@@ -241,6 +253,7 @@ class AbstractProcess:
 
             # Set next state
             self.setState(Def.State.READY)
+            return False
 
         ########
         ### READY
@@ -253,10 +266,12 @@ class AbstractProcess:
             # TODO: there is an issue where Process gets stuck on READY, when protocol is
             #       aborted while it is waiting in this loop. Fix: periodic checking? Might mess up timing?
             while self.inState(Def.State.RUNNING, Def.Process.Controller):
-                if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= time.time():
-                    Logging.write(logging.INFO, 'Start at {}'.format(time.time()))
+                ### TODO: sync of starts could also be done with multiprocessing.Barrier
+                t = time.time()
+                if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
+                    Logging.write(logging.INFO, 'Start at {}'.format(t))
                     self.setState(Def.State.RUNNING)
-                    self.phase_start_ptime = time.perf_counter()
+                    self.phase_start_time = t
                     break
 
             return False

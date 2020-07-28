@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
+import cv2
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
@@ -45,8 +46,10 @@ class LiveCamera(QtWidgets.QWidget):
 
     def updateFrame(self):
         idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        idx, frametime =IPC.Routines.Camera.readAttribute('FrameRoutine/frametime')
         if not(frame is None):
-            self.graphicsWidget.imageItem.setImage(np.rot90(np.repeat(frame, 3, axis=-1), -1))
+            self.graphicsWidget.imageItem.setImage(np.rot90(frame.squeeze(), -1))
+            self.graphicsWidget.textItem.setText('FPS {:.2f}'.format(1./frametime))
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
@@ -62,6 +65,9 @@ class LiveCamera(QtWidgets.QWidget):
             self.imagePlot.setAspectLocked(True)
             self.imagePlot.vb.setMouseEnabled(x=False, y=False)
             self.imagePlot.addItem(self.imageItem)
+
+            self.textItem = pg.TextItem('', color=(255,0,0))
+            self.imagePlot.addItem(self.textItem)
 
 
 ################################

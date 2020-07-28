@@ -21,7 +21,7 @@ import logging
 import multiprocessing as mp
 import numpy as np
 import os
-from time import perf_counter, time
+import time
 from typing import Union, Iterable
 
 import Config
@@ -75,15 +75,15 @@ class Routines:
         """To be called by controller (initialization of routines has to happen in parent process)"""
         self._routines[routine.__name__] = routine(self, **kwargs)
 
-    def update(self, frame):
-        t = perf_counter() - self.process.process_sync_time
+    def update(self, data):
+        t = time.time()#perf_counter() - self.process.process_sync_time
         for name in self._routines:
             ### Set time for current iteration
             self._routines[name].buffer.time = t
             ### Update the data in buffer
-            self._routines[name].update(frame)
+            self._routines[name].update(data)
             ### Stream new routine computation results to file (if active)
-            self._routines[name].streamToFile(self._openFile())
+            self._routines[name].streamToFile(self.handleFile())
             # Advance the associated buffer
             self._routines[name].buffer.next()
 
@@ -106,7 +106,7 @@ class Routines:
     def routines(self):
         return self._routines
 
-    def _openFile(self) -> Union[h5py.File, None]:
+    def handleFile(self) -> Union[h5py.File, None]:
         """Method checks if application is currently recording.
         Opens and closes output file if necessary and returns either a file object or a None value.
         """
@@ -159,7 +159,7 @@ class AbstractRoutine:
 
         self.exposed = list()
         self.buffer = RingBuffer()
-        self.currentTime = time()
+        self.currentTime = time.time()
 
         ### Set time attribute by default on all buffers
         self.buffer.time = (BufferDTypes.float64, )
@@ -238,9 +238,6 @@ class AbstractRoutine:
             Logging.write(logging.INFO, 'Create record group {}'.format(bufferName))
             file.create_group(bufferName)
         grp = file[bufferName]
-
-        ### Current time for entry
-        #self.currentTime = time()
 
         ## Iterate over data in group (buffer)
         for key, value in self._out():
