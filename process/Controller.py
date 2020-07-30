@@ -308,7 +308,7 @@ class Controller(AbstractProcess):
             IPC.Control.Recording[Def.RecCtrl.folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
         ### Create output folder
-        outPath = os.path.join(Def.Path.Output, IPC.Control.Recording[Def.RecCtrl.folder])
+        outPath = os.path.join(Config.Recording[Def.RecCfg.output_folder], IPC.Control.Recording[Def.RecCtrl.folder])
         Logging.write(logging.DEBUG, 'Set output folder {}'.format(outPath))
         if not(os.path.exists(outPath)):
             Logging.write(logging.DEBUG, 'Create output folder {}'.format(outPath))

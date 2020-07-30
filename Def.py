@@ -202,6 +202,8 @@ class RecCfg:
 
     enabled         = 'bool_enabled'
 
+    output_folder   = 'str_output_folder'
+
     # Active routines
     routines         = 'list_routines'
 

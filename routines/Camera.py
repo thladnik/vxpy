@@ -35,7 +35,7 @@ class FrameRoutine(AbstractRoutine):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
         ### Define list of exposed methods
-        # (These methods hook into the process instance - here Camera - and are thus
+        # (These methods h  ook into the process instance - here Camera - and are thus
         #  accessible from all other processes)
         self.exposed.append(FrameRoutine.testbuffer)
         self.exposed.append(FrameRoutine.testbufferargs)

@@ -123,9 +123,10 @@ class Routines:
                 return None
 
             ### If output folder is set: open file
-            filepath = os.path.join(Def.Path.Output,
+            filepath = os.path.join(Config.Recording[Def.RecCfg.output_folder],
                                     IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
+
             Logging.write(logging.DEBUG, 'Open new file {}'.format(filepath))
             self.h5File = h5py.File(filepath, 'w')
 
@@ -274,7 +275,6 @@ class BufferDTypes:
 
 class RingBuffer:
     """A simple ring buffer model. """
-    # TODO: try to use shared array instead of lists in order to increase speed?
 
     def __init__(self, buffer_length=1000):
         self.__dict__['_bufferLength'] = buffer_length
