@@ -46,10 +46,11 @@ class LiveCamera(QtWidgets.QWidget):
 
     def updateFrame(self):
         idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
-        idx, frametime =IPC.Routines.Camera.readAttribute('FrameRoutine/frametime')
+        _, frametimes = IPC.Routines.Camera.readAttribute('FrameRoutine/time', last=2)
+        dt = frametimes[1] - frametimes[0]
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame.squeeze(), -1))
-            self.graphicsWidget.textItem.setText('FPS {:.2f}'.format(1./frametime))
+            self.graphicsWidget.textItem.setText('FPS {:.2f}'.format(1./dt))
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):

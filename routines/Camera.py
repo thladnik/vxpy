@@ -45,9 +45,7 @@ class FrameRoutine(AbstractRoutine):
         self.buffer.frame = (BufferDTypes.uint8, frameSize)
         self.buffer.frametime = (BufferDTypes.float64, )
 
-
         ### Setup frame timing stats
-        self.frametimes = list()
         self.t = perf_counter()
 
     def testbuffer(self):
@@ -61,11 +59,10 @@ class FrameRoutine(AbstractRoutine):
         frame = frame[:,:,1][:,:,np.newaxis]
 
         # Add FPS counter
-        self.frametimes.append(perf_counter() - self.t)
-        self.t = perf_counter()
         #fps = 1. / np.mean(self.frametimes[-20:])
         #frame = cv2.putText(frame, 'FPS %.2f' % fps, (0, frame.shape[0]//20), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2)
-        self.buffer.frametime = self.frametimes[-1]
+        #self.buffer.time = perf_counter() - self.t
+        self.t = perf_counter()
 
         ### Update shared attributes
         self.time = time()
