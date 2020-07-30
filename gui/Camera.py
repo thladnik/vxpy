@@ -46,6 +46,8 @@ class LiveCamera(QtWidgets.QWidget):
 
     def updateFrame(self):
         idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        if frame is None:
+            return
         _, frametimes = IPC.Routines.Camera.readAttribute('FrameRoutine/time', last=2)
         dt = frametimes[1] - frametimes[0]
         if not(frame is None):
