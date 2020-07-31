@@ -16,18 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import importlib
-import os
 from PyQt5 import QtCore, QtWidgets
 
-import Def
 import Config
-from process import GUI
+import Def
 from helper.Basic import Conversion
-from process import Controller
 import IPC
-import protocols
-
+from process import Controller, Display, GUI
 
 
 class DisplaySettingsGlobal(QtWidgets.QGroupBox):
@@ -36,43 +31,104 @@ class DisplaySettingsGlobal(QtWidgets.QGroupBox):
         QtWidgets.QGroupBox.__init__(self, 'Global')
 
         self.setLayout(QtWidgets.QGridLayout())
-        # X Position
-        self._dspn_x_pos = QtWidgets.QDoubleSpinBox()
-        self._dspn_x_pos.setDecimals(3)
-        self._dspn_x_pos.setMinimum(-1.0)
-        self._dspn_x_pos.setMaximum(1.0)
-        self._dspn_x_pos.setSingleStep(.001)
-        self._dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos])
-        self.layout().addWidget(QtWidgets.QLabel('X-position'), 0, 0)
-        self.layout().addWidget(self._dspn_x_pos, 0, 1)
-        # Y position
-        self._dspn_y_pos = QtWidgets.QDoubleSpinBox()
-        self._dspn_y_pos.setDecimals(3)
-        self._dspn_y_pos.setMinimum(-1.0)
-        self._dspn_y_pos.setMaximum(1.0)
-        self._dspn_y_pos.setSingleStep(.001)
-        self._dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.glob_y_pos])
-        self.layout().addWidget(QtWidgets.QLabel('Y-position'), 1, 0)
-        self.layout().addWidget(self._dspn_y_pos, 1, 1)
+
+        # Reset button
+        self.btn_reset = QtWidgets.QPushButton('RESET')
+        #self.btn_reset.
+        self.layout().addWidget(self.btn_reset, 0, 2, 4, 1)
+
+        # Window x pos
+        self.spn_win_x = QtWidgets.QSpinBox()
+        self.spn_win_x.setMinimum(1)
+        self.spn_win_x.setMaximum(9999)
+        self.spn_win_x.setSingleStep(1)
+        self.spn_win_x.setValue(Config.Display[Def.DisplayCfg.window_pos_x])
+        self.layout().addWidget(QtWidgets.QLabel('Window x-Position'), 0, 0)
+        self.layout().addWidget(self.spn_win_x, 0, 1)
+
+        # Window y pos
+        self.spn_win_y = QtWidgets.QSpinBox()
+        self.spn_win_y.setMinimum(1)
+        self.spn_win_y.setMaximum(9999)
+        self.spn_win_y.setSingleStep(1)
+        self.spn_win_y.setValue(Config.Display[Def.DisplayCfg.window_pos_y])
+        self.layout().addWidget(QtWidgets.QLabel('Window y-Position'), 1, 0)
+        self.layout().addWidget(self.spn_win_y, 1, 1)
+
+        # Window width
+        self.spn_win_width = QtWidgets.QSpinBox()
+        self.spn_win_width.setMinimum(1)
+        self.spn_win_width.setMaximum(9999)
+        self.spn_win_width.setSingleStep(1)
+        self.spn_win_width.setValue(Config.Display[Def.DisplayCfg.window_width])
+        self.layout().addWidget(QtWidgets.QLabel('Window width'), 20, 0)
+        self.layout().addWidget(self.spn_win_width, 20, 1)
+
+        # Window height
+        self.spn_win_height = QtWidgets.QSpinBox()
+        self.spn_win_height.setMinimum(1)
+        self.spn_win_height.setMaximum(9999)
+        self.spn_win_height.setSingleStep(1)
+        self.spn_win_height.setValue(Config.Display[Def.DisplayCfg.window_height])
+        self.layout().addWidget(QtWidgets.QLabel('Window height'), 21, 0)
+        self.layout().addWidget(self.spn_win_height, 21, 1)
 
         # Screen ID
-        self._spn_screen_id = QtWidgets.QSpinBox()
-        self.layout().addWidget(QtWidgets.QLabel('Screen'), 2, 0)
-        self.layout().addWidget(self._spn_screen_id, 2, 1)
+        self.spn_screen_id = QtWidgets.QSpinBox()
+        self.layout().addWidget(QtWidgets.QLabel('Screen'), 30, 0)
+        self.layout().addWidget(self.spn_screen_id, 30, 1)
         # Fullscreen toggle
-        self._check_fullscreen = QtWidgets.QCheckBox('Fullscreen')
-        self._check_fullscreen.setTristate(False)
-        self.layout().addWidget(self._check_fullscreen, 2, 2)
+        self.check_fullscreen = QtWidgets.QCheckBox('Fullscreen')
+        self.check_fullscreen.setTristate(False)
+        self.layout().addWidget(self.check_fullscreen, 30, 2)
+
+        # X Position
+        self.dspn_x_pos = QtWidgets.QDoubleSpinBox()
+        self.dspn_x_pos.setDecimals(3)
+        self.dspn_x_pos.setMinimum(-1.0)
+        self.dspn_x_pos.setMaximum(1.0)
+        self.dspn_x_pos.setSingleStep(.001)
+        self.dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos])
+        self.layout().addWidget(QtWidgets.QLabel('X-position'), 40, 0)
+        self.layout().addWidget(self.dspn_x_pos, 40, 1)
+
+        # Y position
+        self.dspn_y_pos = QtWidgets.QDoubleSpinBox()
+        self.dspn_y_pos.setDecimals(3)
+        self.dspn_y_pos.setMinimum(-1.0)
+        self.dspn_y_pos.setMaximum(1.0)
+        self.dspn_y_pos.setSingleStep(.001)
+        self.dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.glob_y_pos])
+        self.layout().addWidget(QtWidgets.QLabel('Y-position'), 50, 0)
+        self.layout().addWidget(self.dspn_y_pos, 50, 1)
+
 
         ### Connect
-        self._dspn_x_pos.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.glob_x_pos, self._dspn_x_pos.value()))
-        self._dspn_y_pos.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.glob_y_pos, self._dspn_y_pos.value()))
-        self._spn_screen_id.valueChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.window_screen_id, self._spn_screen_id.value()))
-        self._check_fullscreen.stateChanged.connect(
-            lambda: self.setConfig(Def.DisplayCfg.window_fullscreen, Conversion.QtCheckstateToBool(self._check_fullscreen.checkState())))
+        self.spn_win_x.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.window_pos_x, self.spn_win_x.value())
+        )
+        self.spn_win_y.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.window_pos_y, self.spn_win_y.value())
+        )
+        self.spn_win_width.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.window_width, self.spn_win_width.value())
+        )
+        self.spn_win_height.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.window_height, self.spn_win_height.value())
+        )
+        self.dspn_x_pos.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.glob_x_pos, self.dspn_x_pos.value())
+        )
+        self.dspn_y_pos.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.glob_y_pos, self.dspn_y_pos.value())
+        )
+        self.spn_screen_id.valueChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.window_screen_id, self.spn_screen_id.value())
+        )
+        self.check_fullscreen.stateChanged.connect(
+            lambda: self.setConfig(Def.DisplayCfg.window_fullscreen,
+                                   Conversion.QtCheckstateToBool(self.check_fullscreen.checkState()))
+        )
 
         ### Set timer
         self._tmr_updateGUI = QtCore.QTimer()
@@ -80,27 +136,53 @@ class DisplaySettingsGlobal(QtWidgets.QGroupBox):
         self._tmr_updateGUI.timeout.connect(self.updateGUI)
         self._tmr_updateGUI.start()
 
+
     def setConfig(self, name, val):
         Config.Display[name] = val
 
+        if name in [Def.DisplayCfg.window_screen_id, Def.DisplayCfg.window_fullscreen]:
+            IPC.rpc(Def.Process.Controller, Controller.initializeProcess, Display)
+
+        if name in [Def.DisplayCfg.window_width, Def.DisplayCfg.window_height,
+                    Def.DisplayCfg.window_pos_x, Def.DisplayCfg.window_pos_y]:
+            IPC.rpc(Display.name, Display.updateWindow)
+
+
     def updateGUI(self):
-        _config = Config.Display
+        dconf = Config.Display
+        ddef = Def.DisplayCfg
 
-        if _config[Def.DisplayCfg.glob_x_pos] != self._dspn_x_pos.value():
-            self._dspn_x_pos.setValue(_config[Def.DisplayCfg.glob_x_pos])
+        # Win x pos
+        if dconf[ddef.window_pos_x] != self.spn_win_x.value():
+            self.spn_win_x.setValue(dconf[ddef.window_pos_x])
+        # Win y pos
+        if dconf[ddef.window_pos_y] != self.spn_win_y.value():
+            self.spn_win_y.setValue(dconf[ddef.window_pos_y])
 
-        if _config[Def.DisplayCfg.glob_y_pos] != self._dspn_y_pos.value():
-            self._dspn_y_pos.setValue(_config[Def.DisplayCfg.glob_y_pos])
+        # Win width
+        if dconf[ddef.window_width] != self.spn_win_width.value():
+            self.spn_win_width.setValue(dconf[ddef.window_width])
+        # Win height
+        if dconf[ddef.window_height] != self.spn_win_height.value():
+            self.spn_win_height.setValue(dconf[ddef.window_height])
+
+        # X pos
+        if dconf[ddef.glob_x_pos] != self.dspn_x_pos.value():
+            self.dspn_x_pos.setValue(dconf[ddef.glob_x_pos])
+
+        # Y pos
+        if dconf[ddef.glob_y_pos] != self.dspn_y_pos.value():
+            self.dspn_y_pos.setValue(dconf[ddef.glob_y_pos])
 
         #### Screen ID
-        if _config[Def.DisplayCfg.window_screen_id] != self._spn_screen_id.value():
-            self._spn_screen_id.setValue(_config[Def.DisplayCfg.window_screen_id])
+        if dconf[ddef.window_screen_id] != self.spn_screen_id.value():
+            self.spn_screen_id.setValue(dconf[ddef.window_screen_id])
 
         ### Fullscreen toggle
-        if _config[Def.DisplayCfg.window_fullscreen] != \
-                Conversion.QtCheckstateToBool(self._check_fullscreen.checkState()):
-            self._check_fullscreen.setCheckState(
-                Conversion.boolToQtCheckstate(_config[Def.DisplayCfg.window_fullscreen]))
+        if dconf[ddef.window_fullscreen] != \
+                Conversion.QtCheckstateToBool(self.check_fullscreen.checkState()):
+            self.check_fullscreen.setCheckState(
+                Conversion.boolToQtCheckstate(dconf[ddef.window_fullscreen]))
 
 
 class SphericalDisplaySettings(QtWidgets.QWidget):
@@ -329,7 +411,7 @@ class Camera(QtWidgets.QWidget):
 
         ### Set property update timer
         self.propTimer = QtCore.QTimer()
-        self.propTimer.setInterval(50)
+        self.propTimer.setInterval(250)
         self.propTimer.timeout.connect(self.updateProperties)
         self.propTimer.start()
 

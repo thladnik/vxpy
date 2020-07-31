@@ -301,7 +301,7 @@ class RingBuffer:
     def length(self):
         return self.__dict__['_bufferLength']
 
-    def read(self, name, last=1, last_idx=None):
+    def read(self, attr_name, last=1, last_idx=None):
         """Read **by consumer**: return last complete record(s) (_currentIdx-1)
         Returns a tuple of (index, record_dataset)
                         or (indices, record_datasets)
@@ -321,8 +321,9 @@ class RingBuffer:
         ### Multiple record
         elif last > 1:
             if last > self.length():
+
                 raise Exception('Trying to read more records than stored in buffer. '
-                                'Attribute \'{}\''.format(name))
+                                'Attribute \'{}\''.format(attr_name))
 
             idx_start = list_idx-last
             idx_end = list_idx
@@ -331,12 +332,14 @@ class RingBuffer:
 
         ### No entry: raise exception
         else:
-            raise Exception('Smallest possible record set size is 1')
+            Logging.write(logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
+            return None, None
+            #raise Exception('Smallest possible record set size is 1')
 
-        if isinstance(name, str):
-            return idcs, self._read(name, idx_start, idx_end)
+        if isinstance(attr_name, str):
+            return idcs, self._read(attr_name, idx_start, idx_end)
         else:
-            return idcs, {n: self._read(n, idx_start, idx_end) for n in name}
+            return idcs, {n: self._read(n, idx_start, idx_end) for n in attr_name}
 
     def _createAttribute(self, attr_name, dtype, shape=None):
         self.__dict__['_attributeList'].append(attr_name)

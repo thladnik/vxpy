@@ -66,6 +66,9 @@ class IoWidget(QtWidgets.QWidget):
                     routine_name,
                     last_idx=pin_data['last_idx'])
 
+                if newdata is None:
+                    continue
+
                 try:
                     pin_data['datat'].extend(newdata['time'])
                     pin_data['datay'].extend(newdata[pin_name])

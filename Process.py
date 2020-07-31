@@ -131,7 +131,7 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self._handleSIGINT)
 
     def run(self, interval):
-        Logging.write(logging.INFO, '{:35} {}'.
+        Logging.write(logging.INFO, '{:30} {}'.
                       format('Process {} started '.format(self.name),
                              'at time {}'.format(time.time())))
         if False:
