@@ -40,7 +40,6 @@ class BlackAndWhiteGrating(PlanarVisual):
         :param lin_velocity: <float> linear velocity of grating in [mm/s]
         :param spat_period: <float> spatial period of the grating in [mm]
         """
-        # TODO: add temporal velocity and do automatic conversion
         PlanarVisual.__init__(self, *args)
 
         self.plane = self.addModel('planar',

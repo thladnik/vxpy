@@ -25,7 +25,11 @@ from Shader import BasicFileShader
 
 class Checkerboard(PlanarVisual):
 
-    def __init__(self, *args):
+    u_spat_period = 'u_spat_period'
+
+    parameters = {u_spat_period:None}
+
+    def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
 
         self.plane = self.addModel('planar',
@@ -37,6 +41,14 @@ class Checkerboard(PlanarVisual):
                                        BasicFileShader().addShaderFile('checker.frag', subdir='planar').read())
         self.checker.bind(self.plane.vertexBuffer)
 
+        self.update(**params)
 
     def render(self):
         self.checker.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
+
+    def update(self, **params):
+
+        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.parameters.items():
+            self.checker[k] = p
+

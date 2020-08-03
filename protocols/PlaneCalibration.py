@@ -20,11 +20,44 @@ from Protocol import StaticProtocol
 
 from visuals.planar.Calibration import Checkerboard
 
-class CheckerboardProtocol(StaticProtocol):
-
-    _name = 'PlaneCalibration'
+class Checkerboard_1Period(StaticProtocol):
 
     def __init__(self, _glWindow):
-        super().__init__(_glWindow)
-        self.newPhase(10**4)
-        self.addVisual(Checkerboard, dict())
+        StaticProtocol.__init__(self, _glWindow)
+        self.newPhase(10 ** 8)
+        self.addVisual(Checkerboard, {Checkerboard.u_spat_period : 1})
+
+class Checkerboard_1_5Period(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+        self.newPhase(10 ** 8)
+        self.addVisual(Checkerboard, {Checkerboard.u_spat_period : 1.5})
+
+class Checkerboard_2Periods(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+        self.newPhase(10 ** 8)
+        self.addVisual(Checkerboard, {Checkerboard.u_spat_period : 2})
+
+class Checkerboard_3Periods(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+        self.newPhase(10 ** 8)
+        self.addVisual(Checkerboard, {Checkerboard.u_spat_period: 3})
+
+class Checkerboard_4Periods(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+        self.newPhase(10 ** 8)
+        self.addVisual(Checkerboard, {Checkerboard.u_spat_period: 4})
+
+class Checkerboard_8Periods(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+        self.newPhase(10 ** 8)
+        self.addVisual(Checkerboard, {Checkerboard.u_spat_period: 8})

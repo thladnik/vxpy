@@ -324,7 +324,7 @@ if __name__ == '__main__':
             args = parser.parse_args(sys.argv[1:])
 
             if args.skip_setup:
-                # process.Controller.configfile = 'default.ini'
+                # process.Controller.configfile = 'default_spherical.ini'
                 process.Controller.configfile = 'omr_behavior.ini'
 
             if not(args.ini_file is None):
