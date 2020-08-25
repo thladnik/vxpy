@@ -17,8 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from Routine import AbstractRoutine, BufferDTypes
-import Def
-import IPC
 
 class ParameterRoutine(AbstractRoutine):
 

@@ -39,7 +39,7 @@ class DisplaySettingsGlobal(QtWidgets.QGroupBox):
 
         # Window x pos
         self.spn_win_x = QtWidgets.QSpinBox()
-        self.spn_win_x.setMinimum(1)
+        self.spn_win_x.setMinimum(-9999)
         self.spn_win_x.setMaximum(9999)
         self.spn_win_x.setSingleStep(1)
         self.spn_win_x.setValue(Config.Display[Def.DisplayCfg.window_pos_x])
@@ -48,7 +48,7 @@ class DisplaySettingsGlobal(QtWidgets.QGroupBox):
 
         # Window y pos
         self.spn_win_y = QtWidgets.QSpinBox()
-        self.spn_win_y.setMinimum(1)
+        self.spn_win_y.setMinimum(-9999)
         self.spn_win_y.setMaximum(9999)
         self.spn_win_y.setSingleStep(1)
         self.spn_win_y.setValue(Config.Display[Def.DisplayCfg.window_pos_y])
@@ -141,7 +141,8 @@ class DisplaySettingsGlobal(QtWidgets.QGroupBox):
         Config.Display[name] = val
 
         if name in [Def.DisplayCfg.window_screen_id, Def.DisplayCfg.window_fullscreen]:
-            IPC.rpc(Def.Process.Controller, Controller.initializeProcess, Display)
+            #IPC.rpc(Def.Process.Controller, Controller.initializeProcess, Display)
+            IPC.rpc(Display.name, Display.toggleFullscreen)
 
         if name in [Def.DisplayCfg.window_width, Def.DisplayCfg.window_height,
                     Def.DisplayCfg.window_pos_x, Def.DisplayCfg.window_pos_y]:

@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from glumpy import app, gl
-import glfw
+from glumpy.app.window import window
 import keyboard
 import logging
 import time
@@ -36,8 +36,8 @@ from routines import Camera
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-### Set glumpy to use glfw backend
-app.use('glfw')
+### Set glumpy to use pyglet4 backend
+app.use('pyglet')
 
 class Main(Process.AbstractProcess):
     name = Def.Process.Display
@@ -55,14 +55,14 @@ class Main(Process.AbstractProcess):
         self._window_config.double_buffer = True
 
         ### Open OpenGL window
-        self._glWindow = app.Window(width=1,
-                                    height=1,
+        self._glWindow = app.Window(width=256,
+                                    height=256,
                                     color=(1, 1, 1, 1),
                                     title='Display',
                                     config=self._window_config,
                                     vsync=True,
-                                    fullscreen=Config.Display[Def.DisplayCfg.window_fullscreen])
-        self.updateWindow()
+                                    fullscreen=Config.Display[Def.DisplayCfg.window_fullscreen],
+                                    screen=Config.Display[Def.DisplayCfg.window_screen_id])
 
         ### Apply event wrapper
         self.on_draw = self._glWindow.event(self.on_draw)
@@ -70,8 +70,6 @@ class Main(Process.AbstractProcess):
         self.on_init = self._glWindow.event(self.on_init)
         self.on_key_press = self._glWindow.event(self.on_key_press)
         self.on_mouse_drag = self._glWindow.event(self.on_mouse_drag)
-
-        self._checkScreenStatus = True
 
         ### Run event loop
         self.run(0.01)
@@ -110,8 +108,8 @@ class Main(Process.AbstractProcess):
         gl.glDisable(gl.GL_STENCIL_TEST)
 
         IPC.Routines.Display.handleFile()
+
         ### Call draw, if protocol is running
-        #if self._runProtocol() or self.run_protocol_independent_visual:
         if not(self.visual is None):
             self.visual.draw(self.frame_idx, self.phase_time)
         if self._runProtocol():
@@ -149,67 +147,76 @@ class Main(Process.AbstractProcess):
     def on_mouse_drag(self, *args):
         print(args)
 
+    def toggleFullscreen(self):
+        if Config.Display[Def.DisplayCfg.window_fullscreen]:
+            #self._glWindow.set_fullscreen(True, screen=Config.Display[Def.DisplayCfg.window_screen_id])
+            pass
+            #IPC.rpc(Controller.name, Controller.initializeProcess, self.__class__)
+        else:
+            self._glWindow.set_position(0, 0)
+            self._glWindow.set_size(256, 256)
+
     def on_key_press(self, symbol, modifiers):
         print(symbol, modifiers)
         continPressDelay = 0.02
 
-        if modifiers & glfw.MOD_CONTROL:
-            if modifiers & glfw.MOD_ALT:
+        if modifiers & window.key.MOD_CTRL:
+            if modifiers & window.key.MOD_ALT:
                 ### Fullscreen toggle: Ctrl+Alt+F
-                if symbol == glfw.KEY_F:
+                if symbol == window.key.F:
                     Config.Display[Def.DisplayCfg.window_fullscreen] = \
                         not(Config.Display[Def.DisplayCfg.window_fullscreen])
-                    ## Restart display process
-                    IPC.rpc(Def.Process.Controller, Controller.initializeProcess, Main)
+                    self._glWindow.set_fullscreen(Config.Display[Def.DisplayCfg.window_fullscreen],
+                                                  screen=Config.Display[Def.DisplayCfg.window_screen_id])
 
 
             ### X position: Ctrl(+Shift)+X
-            elif symbol == glfw.KEY_X:
+            elif symbol == window.key.X:
                 while keyboard.is_pressed('X'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.glob_x_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Y position: Ctrl(+Shift)+Y
-            elif symbol == glfw.KEY_Y:
+            elif symbol == window.key.Y:
                 while keyboard.is_pressed('Y'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.glob_y_pos] += sign * 0.001
                     time.sleep(continPressDelay)
 
             ### Radial offset: Ctrl(+Shift)+R
-            elif symbol == glfw.KEY_R:
+            elif symbol == window.key.R:
                 while keyboard.is_pressed('R'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset] += sign * 0.001
                     time.sleep(continPressDelay)
 
 
             ### Elevation: Ctrl(+Shift)+E
-            elif symbol == glfw.KEY_E:
+            elif symbol == window.key.E:
                 while keyboard.is_pressed('E'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.sph_view_elev_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Azimuth: Ctrl(+Shift)+A
-            elif symbol == glfw.KEY_A:
+            elif symbol == window.key.A:
                 while keyboard.is_pressed('A'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.sph_view_azim_angle] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Distance: Ctrl(+Shift)+D
-            elif symbol == glfw.KEY_D:
+            elif symbol == window.key.D:
                 while keyboard.is_pressed('D'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.sph_view_distance] += sign * 0.1
                     time.sleep(continPressDelay)
 
             ### Scale: Ctrl(+Shift)+S
-            elif symbol == glfw.KEY_S:
+            elif symbol == window.key.S:
                 while keyboard.is_pressed('S'):
-                    sign = +1 if (modifiers & glfw.MOD_SHIFT) else -1
+                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
                     Config.Display[Def.DisplayCfg.sph_view_scale] += sign * 0.001
                     time.sleep(continPressDelay)
             else:
