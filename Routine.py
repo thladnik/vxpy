@@ -370,7 +370,11 @@ class RingBuffer:
 
     def __setattr__(self, name, value):
         if not('_data_{}'.format(name) in self.__dict__):
-            self._createAttribute(name, *value)
+            if isinstance(value, tuple):
+                self._createAttribute(name, *value)
+            else:
+                raise TypeError('Class {} needs to be provided a tuple '
+                                'for initialization of new attribute'.format(self.__class__.__name__))
         else:
             # TODO: add checks?
             self.__dict__['_data_{}'.format(name)][self.index() % self.length()] = value
