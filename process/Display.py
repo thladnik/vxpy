@@ -57,7 +57,7 @@ class Main(Process.AbstractProcess):
         ### Open OpenGL window
         self._glWindow = app.Window(width=256,
                                     height=256,
-                                    color=(1, 1, 1, 1),
+                                    color=(0, 0, 0, 1),
                                     title='Display',
                                     config=self._window_config,
                                     vsync=True,
@@ -101,11 +101,7 @@ class Main(Process.AbstractProcess):
         :return:
         """
 
-        self._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
-        gl.glStencilMask(0x00)
-        gl.glStencilMask(gl.GL_TRUE)
-        gl.glClear(gl.GL_STENCIL_BUFFER_BIT)
-        gl.glDisable(gl.GL_STENCIL_TEST)
+        self._glWindow.clear()
 
         IPC.Routines.Display.handleFile()
 
@@ -117,7 +113,7 @@ class Main(Process.AbstractProcess):
             # Update routines
             IPC.Routines.Display.update(self.visual)
         else:
-            self._glWindow.clear(color=(0.0,0.0,0.0,1.0))
+            self._glWindow.clear()
 
         IPC.Routines.Display.handleFile()
 
