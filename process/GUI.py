@@ -138,17 +138,20 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         # Restart display
         self._menu_process_redisp = QtWidgets.QAction('Restart display')
         self._menu_process_redisp.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Display))
+            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Display)
+        )
         self._menu_process.addAction(self._menu_process_redisp)
         # Restart camera
         self._menu_process_recam = QtWidgets.QAction('Restart camera')
         self._menu_process_recam.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Camera))
+            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Camera)
+        )
         self._menu_process.addAction(self._menu_process_recam)
         # Restart IO
         self._menu_process_relog = QtWidgets.QAction('Restart logger')
         self._menu_process_relog.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Logger))
+            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Logger)
+        )
         self._menu_process.addAction(self._menu_process_relog)
 
         # Bind shortcuts

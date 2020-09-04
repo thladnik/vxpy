@@ -1,13 +1,16 @@
-// f_grating.glsl
+// spherical/grating.frag
+
+const float c_pi = 3.14159265359;
 
 uniform float u_stime;
 uniform int u_shape;
-uniform int u_stripes_num;
-uniform float u_velocity;
-uniform int u_orientation;
+uniform float u_spat_period;
+uniform float u_ang_velocity;
+uniform int u_direction;
 
 varying float v_azimuth;
 varying float v_elevation;
+
 
 void main()
 {
@@ -15,10 +18,10 @@ void main()
     // Checkerboard
     float c;
     //
-    if (u_orientation == 1) {
-        c = sin(float(u_stripes_num) * v_azimuth + u_stime * u_velocity);
+    if (u_direction == 1) {
+        c = sin(1.0/(u_spat_period/360.0) * v_elevation + u_stime * u_ang_velocity/u_spat_period *  2.0 * c_pi);
     } else {
-        c = sin(float(u_stripes_num) * v_elevation + u_stime * u_velocity);
+        c = sin(1.0/(u_spat_period/360.0) * v_azimuth + u_stime * u_ang_velocity/u_spat_period * 2.0 * c_pi);
     }
 
     // If shape is rectangular: threshold sine wave

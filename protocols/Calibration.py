@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.Checkerboard import BlackWhiteCheckerboard
-from visuals.Grating import BlackWhiteGrating
+from visuals.spherical.Calibration import BlackWhiteCheckerboard
+
 
 class Calibration16x16(StaticProtocol):
 
@@ -29,7 +29,8 @@ class Calibration16x16(StaticProtocol):
         self.newPhase(duration=10**4)
 
         self.addVisual(BlackWhiteCheckerboard,
-                       dict(cols=16, rows=16))
+                       {BlackWhiteCheckerboard.u_rows : 16,
+                        BlackWhiteCheckerboard.u_cols : 16})
 
 
 class CalibrationMultiple(StaticProtocol):
@@ -38,7 +39,9 @@ class CalibrationMultiple(StaticProtocol):
         super().__init__(_glWindow)
 
 
-        for num in range(10):
+        for num in range(5):
             self.newPhase(duration=10)
+
             self.addVisual(BlackWhiteCheckerboard,
-                           dict(cols=8 + num, rows=8 + num))
+                           {BlackWhiteCheckerboard.u_rows: 4 * (1 + num),
+                            BlackWhiteCheckerboard.u_cols: 4 * (1 + num)})

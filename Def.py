@@ -26,6 +26,7 @@ class EnvTypes:
 
 Env = EnvTypes.Production
 
+Display_backend = 'qt5'
 
 ################################
 # Subfolder definitions
@@ -105,11 +106,13 @@ class Signal:
 ########
 # Camera
 
-class CameraCfg:
-    name = 'camera'
+class Cfg:
+    name = None
 
-    # Use camera
-    use          = 'bool_use'
+    use = 'bool_use'
+
+class CameraCfg(Cfg):
+    name = 'camera'
 
     # Camera configuration
     manufacturer = 'str_manufacturer'
@@ -128,13 +131,10 @@ class CameraCfg:
 ########
 # Display
 
-class DisplayCfg:
+class DisplayCfg(Cfg):
     name = 'display'
 
-    # Use display
-    use                    = 'bool_use'
     type                   = 'str_type'
-
     fps                    = 'int_fps'
 
     # Window settings
@@ -168,10 +168,8 @@ class DisplayCfg:
 ########
 # GUI
 
-class GuiCfg:
+class GuiCfg(Cfg):
     name = 'gui'
-
-    use         = 'bool_use'
 
     # Addons
     addons      = 'list_addons'
@@ -180,10 +178,9 @@ class GuiCfg:
 ########
 # IO
 
-class IoCfg:
+class IoCfg(Cfg):
     name = 'io'
 
-    use          = 'bool_use'
     device_type  = 'str_device_type'
     device_model = 'str_device_model'
     device_port  = 'str_device_comport'
@@ -197,10 +194,12 @@ class IoCfg:
 ########
 # Recording
 
-class RecCfg:
+class RecCfg(Cfg):
     name = 'recording'
 
     enabled         = 'bool_enabled'
+
+    output_folder   = 'str_output_folder'
 
     # Active routines
     routines         = 'list_routines'
@@ -215,6 +214,7 @@ class RecCfg:
 class GenCtrl:
     min_sleep_time    = 'min_sleep_time'
     process_null_time = 'process_null_time'
+    process_syn_barrier       = 'process_sync_barrier'
 
 ########
 # Recording

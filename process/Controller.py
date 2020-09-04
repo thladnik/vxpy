@@ -33,7 +33,6 @@ import process
 from Process import AbstractProcess
 import protocols
 
-
 class Controller(AbstractProcess):
     name = Def.Process.Controller
 
@@ -66,22 +65,35 @@ class Controller(AbstractProcess):
         IPC.Pipes[self.name] = mp.Pipe()
 
         ### Set configurations
-        self.configuration = Basic.Config(self.configfile)
-        # Camera
-        Config.Camera = IPC.Manager.dict()
-        Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
-        # Display
-        Config.Display = IPC.Manager.dict()
-        Config.Display.update(self.configuration.configuration(Def.DisplayCfg))
-        # Gui
-        Config.Gui = IPC.Manager.dict()
-        Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
-        # IO
-        Config.Io = IPC.Manager.dict()
-        Config.Io.update(self.configuration.configuration(Def.IoCfg))
-        # Recording
-        Config.Recording = IPC.Manager.dict()
-        Config.Recording.update(self.configuration.configuration(Def.RecCfg))
+        try:
+            Logging.write(logging.INFO, 'Using configuration from file {}'.format(self.configfile))
+            #self.configuration = Basic.Config(self.configfile)
+            self.configuration = Basic.ConfigParser()
+            self.configuration.read(self.configfile)
+            # Camera
+            Config.Camera = IPC.Manager.dict()
+            #Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
+            Config.Camera.update(self.configuration.getParsedSection(Def.CameraCfg.name))
+            # Display
+            Config.Display = IPC.Manager.dict()
+            #Config.Display.update(self.configuration.configuration(Def.DisplayCfg))
+            Config.Display.update(self.configuration.getParsedSection(Def.DisplayCfg.name))
+            # Gui
+            Config.Gui = IPC.Manager.dict()
+            #Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
+            Config.Gui.update(self.configuration.getParsedSection(Def.GuiCfg.name))
+            # IO
+            Config.Io = IPC.Manager.dict()
+            #Config.Io.update(self.configuration.configuration(Def.IoCfg))
+            Config.Io.update(self.configuration.getParsedSection(Def.IoCfg.name))
+            # Recording
+            Config.Recording = IPC.Manager.dict()
+            #Config.Recording.update(self.configuration.configuration(Def.RecCfg))
+            Config.Recording.update(self.configuration.getParsedSection(Def.RecCfg.name))
+        except Exception:
+            print('Loading of configuration file {} failed.'.format(self.configfile))
+            import traceback
+            traceback.print_exc()
 
         ################################
         ### Set up STATES
@@ -107,6 +119,7 @@ class Controller(AbstractProcess):
         IPC.Control.General.update({Def.GenCtrl.min_sleep_time : max(times)})
         Logging.write(logging.INFO, 'Minimum sleep period is {0:.3f}ms'.format(1000*max(times)))
         IPC.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
+        # qIPC.Control.General.update({Def.GenCtrl.process_syn_barrier : mp.Barrier(3)})
 
         ### Check time precision on system
         dt = list()
@@ -249,15 +262,17 @@ class Controller(AbstractProcess):
         for target, kwargs in self._registeredProcesses:
             self.initializeProcess(target, **kwargs)
 
-        ### Synchronize all processes to controller
-        ## Wait for all processes to be in sync state
-        while not(all([self.inState(Def.State.SYNC, target.name) for target, _ in self._registeredProcesses])):
-            time.sleep(1/100)
+        if False:
+            # not necessary anymore with global time?
+            ### Synchronize all processes to controller
+            ## Wait for all processes to be in sync state
+            while not(all([self.inState(Def.State.SYNC, target.name) for target, _ in self._registeredProcesses])):
+                time.sleep(1/100)
 
-        null_time = time.time() + 0.1
-        Logging.logger.log(logging.INFO, 'Set sync time to {}'.format(null_time))
-        ## Set synchronized start time
-        IPC.Control.General.update({Def.GenCtrl.process_null_time : null_time})
+            null_time = time.time() + 0.1
+            Logging.logger.log(logging.INFO, 'Set sync time to {}'.format(null_time))
+            ## Set synchronized start time
+            IPC.Control.General.update({Def.GenCtrl.process_null_time : null_time})
 
         ### Run controller
         self.run(interval=0.5)
@@ -306,7 +321,7 @@ class Controller(AbstractProcess):
             IPC.Control.Recording[Def.RecCtrl.folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
         ### Create output folder
-        outPath = os.path.join(Def.Path.Output, IPC.Control.Recording[Def.RecCtrl.folder])
+        outPath = os.path.join(Config.Recording[Def.RecCfg.output_folder], IPC.Control.Recording[Def.RecCtrl.folder])
         Logging.write(logging.DEBUG, 'Set output folder {}'.format(outPath))
         if not(os.path.exists(outPath)):
             Logging.write(logging.DEBUG, 'Create output folder {}'.format(outPath))

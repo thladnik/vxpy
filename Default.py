@@ -73,6 +73,7 @@ Configuration = {
 
     Def.RecCfg.name : {
         Def.RecCfg.enabled              : True,
-        Def.RecCfg.routines              : []
+        Def.RecCfg.routines             : [],
+        Def.RecCfg.output_folder        : 'output'
     }
 }

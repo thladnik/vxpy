@@ -1,5 +1,5 @@
 """
-MappApp ./visuals/planar/Grating.py -
+MappApp ./visuals/Grating.py - Grating visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,49 +16,46 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from Visuals import PlanarVisual
-from models import BasicPlane
-from Shader import BasicFileShader
-
 from glumpy import gl
 import time
-class BlackAndWhiteGrating(PlanarVisual):
+
+from Shader import BasicFileShader
+from Visuals import SphericalVisual
+from models import BasicSphere
+
+
+class BlackWhiteGrating(SphericalVisual):
 
     u_shape = 'u_shape'
     u_direction = 'u_direction'
     u_spat_period = 'u_spat_period'
-    u_lin_velocity = 'u_lin_velocity'
+    u_ang_velocity = 'u_ang_velocity'
 
-    parameters = {u_shape: None, u_direction:None, u_lin_velocity:None, u_spat_period:None}
+    parameters = {u_shape: None, u_direction:None, u_ang_velocity:None, u_spat_period:None}
 
     def __init__(self, *args, **params):
-        """
 
-        :param args: positional arguments to parent class
-        :param direction: movement direction of grating; either 'vertical' or 'horizontal'
-        :param shape: shape of grating; either 'rectangular' or 'sinusoidal'; rectangular is a zero-rectified sinusoidal
-        :param lin_velocity: <float> linear velocity of grating in [mm/s]
-        :param spat_period: <float> spatial period of the grating in [mm]
-        """
-        PlanarVisual.__init__(self, *args)
+        SphericalVisual.__init__(self, *args)
 
-        self.plane = self.addModel('planar',
-                                   BasicPlane.VerticalXYPlane)
-        self.plane.createBuffers()
+        ### Set up model
+        self.sphere = self.addModel('sphere',
+                                    BasicSphere.UVSphere,
+                                    theta_lvls=60, phi_lvls=30)
+        self.sphere.createBuffers()
 
-        self.grating = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('planar/grating.vert').read(),
-                                       BasicFileShader().addShaderFile('planar/grating.frag').read())
-        self.grating.bind(self.plane.vertexBuffer)
+        ### Set up program
+        self.grating = self.addProgram('grating',
+                                       BasicFileShader().addShaderFile('spherical/grating.vert').read(),
+                                       BasicFileShader().addShaderFile('spherical/grating.frag').read())
+        self.grating.bind(self.sphere.vertexBuffer)
 
         self.update(**params)
 
         self.t = time.time()
 
-
     def render(self):
         self.grating['u_stime'] = time.time() - self.t
-        self.grating.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
+        self.grating.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
 
     def update(self, **params):
 

@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/Example01.py - Example protocol for demonstration.
+MappApp ./protocols/Spherical_Gratings.py - Example protocol for demonstration.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.ContiguousMotionNoise import IcoCMN
-from visuals.Insta360OneX import Calibrated
+from visuals.spherical.ContiguousMotionNoise import IcoCMN
+
 
 class IcoCMNProtocol(StaticProtocol):
 

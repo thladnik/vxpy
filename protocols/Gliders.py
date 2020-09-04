@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.Glider import Glider2Point, Glider3Point
+from visuals.spherical.Glider import Glider2Point, Glider3Point
 
 class Glider2PPos(StaticProtocol):
 

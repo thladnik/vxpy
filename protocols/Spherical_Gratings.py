@@ -15,39 +15,40 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
 import numpy as np
 
 from Protocol import StaticProtocol
 
-from visuals.planar.Grating import BlackAndWhiteGrating
+from visuals.spherical.Grating import BlackWhiteGrating as BWG
 
-class ShowSFRange(StaticProtocol):
+
+class StaticGratingDemo(StaticProtocol):
 
     def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+        super().__init__(_glWindow)
 
-        for sf in np.arange(10,40,10):
+        for sp in np.arange(10,50,10):
 
             self.newPhase(5)
-            self.addVisual(BlackAndWhiteGrating,
-                           dict(u_direction='horizontal',
-                                u_shape='rectangular',
-                                u_spat_period=sf,
-                                u_lin_velocity=0))
+            self.addVisual(BWG,
+                           {BWG.u_shape: 'vertical',
+                            BWG.u_direction:'horizontal',
+                            BWG.u_ang_velocity:0,
+                            BWG.u_spat_period:sp}
+                           )
 
-
-class Stresstest(StaticProtocol):
+class MovingGratingDemo(StaticProtocol):
 
     def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+        super().__init__(_glWindow)
 
-        for sp in np.arange(10.0, 30.0, 4.0):
+        for sp in np.arange(10,50,10):
+            for v in np.arange(10,50,10):
 
-            for v in np.arange(2, 10, 2):
                 self.newPhase(5)
-                self.addVisual(BlackAndWhiteGrating,
-                               dict(u_direction='horizontal',
-                                    u_shape='rectangular',
-                                    u_spat_period=sp,
-                                    u_lin_velocity=v))
+                self.addVisual(BWG,
+                               {BWG.u_shape: 'vertical',
+                                BWG.u_direction:'horizontal',
+                                BWG.u_ang_velocity:v,
+                                BWG.u_spat_period:sp}
+                               )

@@ -18,7 +18,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Routine import AbstractRoutine, BufferDTypes
 
-
 class ParameterRoutine(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
@@ -29,11 +28,9 @@ class ParameterRoutine(AbstractRoutine):
 
     def _compute(self, data):
         ### Here data == visual
-
-        self.buffer.parameters = data.params
+        self.buffer.parameters = data.parameters
 
     def _out(self):
-        if self.buffer.parameters is None:
-            return
+
         for k, p in self.buffer.parameters.items():
             yield k, p

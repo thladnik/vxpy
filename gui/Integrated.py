@@ -429,21 +429,14 @@ class Camera(QtWidgets.QTabWidget):
     def _setupUI(self):
         self.setWindowTitle('Camera')
         self.setLayout(QtWidgets.QVBoxLayout())
-        #self.setFixedSize(800, 600)
-
-        ### Use default PlotWidget
-        #self._wdgt_plot = Camera.CameraWidget(parent=self)
-        #self._wdgt_plot.setFixedSize(self.size())
-        #self.addTab(self._wdgt_plot, 'Live camera')
 
         ### Add camera addons
-        if Config.Gui[Def.GuiCfg.addons][0] == '':
+        if len(Config.Gui[Def.GuiCfg.addons]) == 0:
             addons = ['LiveCamera']
         else:
             addons = Config.Gui[Def.GuiCfg.addons]
 
         for addon_name in addons:
-        #for addonName in Config.Gui[Def.GuiCfg.addons]:
             if not(bool(addon_name)):
                 continue
 
@@ -520,4 +513,4 @@ class DisplayView(QtWidgets.QGroupBox):
             return
 
         print('draw?')
-        self.current_visual.draw(0, 0.0)
+        self.current_visual.triggerOnDraw(0, 0.0)

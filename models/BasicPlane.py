@@ -27,7 +27,7 @@ from Model import PlaneModel
 
 class VerticalXYPlane(PlaneModel):
 
-    def __init__(self, sample_rate = 100, **kwargs):
+    def __init__(self, sample_rate = 10, **kwargs):
         PlaneModel.__init__(self, **kwargs)
 
         x = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)

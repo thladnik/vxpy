@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.WaterRipples import RipplesOnStaticBackground
+from visuals.spherical.WaterRipples import RipplesOnStaticBackground
 
 class Example(StaticProtocol):
 
@@ -63,8 +63,6 @@ class UpperFlashesExample(StaticProtocol):
 
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
-        import numpy as np
-
 
         for depth in [0.7, 0.2]:
                 for vel in [1.0, 3.0, 5.0, 8.0]:

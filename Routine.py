@@ -21,7 +21,7 @@ import logging
 import multiprocessing as mp
 import numpy as np
 import os
-from time import perf_counter, time
+import time
 from typing import Union, Iterable
 
 import Config
@@ -75,15 +75,15 @@ class Routines:
         """To be called by controller (initialization of routines has to happen in parent process)"""
         self._routines[routine.__name__] = routine(self, **kwargs)
 
-    def update(self, frame):
-        t = perf_counter() - self.process.process_sync_time
+    def update(self, data):
+        t = time.time()#perf_counter() - self.process.process_sync_time
         for name in self._routines:
             ### Set time for current iteration
             self._routines[name].buffer.time = t
             ### Update the data in buffer
-            self._routines[name].update(frame)
+            self._routines[name].update(data)
             ### Stream new routine computation results to file (if active)
-            self._routines[name].streamToFile(self._openFile())
+            self._routines[name].streamToFile(self.handleFile())
             # Advance the associated buffer
             self._routines[name].buffer.next()
 
@@ -106,7 +106,7 @@ class Routines:
     def routines(self):
         return self._routines
 
-    def _openFile(self) -> Union[h5py.File, None]:
+    def handleFile(self) -> Union[h5py.File, None]:
         """Method checks if application is currently recording.
         Opens and closes output file if necessary and returns either a file object or a None value.
         """
@@ -123,9 +123,10 @@ class Routines:
                 return None
 
             ### If output folder is set: open file
-            filepath = os.path.join(Def.Path.Output,
+            filepath = os.path.join(Config.Recording[Def.RecCfg.output_folder],
                                     IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
+
             Logging.write(logging.DEBUG, 'Open new file {}'.format(filepath))
             self.h5File = h5py.File(filepath, 'w')
 
@@ -159,7 +160,7 @@ class AbstractRoutine:
 
         self.exposed = list()
         self.buffer = RingBuffer()
-        self.currentTime = time()
+        self.currentTime = time.time()
 
         ### Set time attribute by default on all buffers
         self.buffer.time = (BufferDTypes.float64, )
@@ -239,9 +240,6 @@ class AbstractRoutine:
             file.create_group(bufferName)
         grp = file[bufferName]
 
-        ### Current time for entry
-        #self.currentTime = time()
-
         ## Iterate over data in group (buffer)
         for key, value in self._out():
 
@@ -255,6 +253,7 @@ class AbstractRoutine:
 
             self._appendData(grp, key, value)
             self._appendData(grp, '{}_time'.format(key), self.buffer.time)
+
 
 class BufferDTypes:
     ### Unsigned integers
@@ -273,9 +272,9 @@ class BufferDTypes:
     ### Misc types
     dictionary = (dict, )
 
+
 class RingBuffer:
     """A simple ring buffer model. """
-    # TODO: try to use shared array instead of lists in order to increase speed?
 
     def __init__(self, buffer_length=1000):
         self.__dict__['_bufferLength'] = buffer_length
@@ -302,7 +301,7 @@ class RingBuffer:
     def length(self):
         return self.__dict__['_bufferLength']
 
-    def read(self, name, last=1, last_idx=None):
+    def read(self, attr_name, last=1, last_idx=None):
         """Read **by consumer**: return last complete record(s) (_currentIdx-1)
         Returns a tuple of (index, record_dataset)
                         or (indices, record_datasets)
@@ -322,8 +321,9 @@ class RingBuffer:
         ### Multiple record
         elif last > 1:
             if last > self.length():
+
                 raise Exception('Trying to read more records than stored in buffer. '
-                                'Attribute \'{}\''.format(name))
+                                'Attribute \'{}\''.format(attr_name))
 
             idx_start = list_idx-last
             idx_end = list_idx
@@ -332,12 +332,14 @@ class RingBuffer:
 
         ### No entry: raise exception
         else:
-            raise Exception('Smallest possible record set size is 1')
+            Logging.write(logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
+            return None, None
+            #raise Exception('Smallest possible record set size is 1')
 
-        if isinstance(name, str):
-            return idcs, self._read(name, idx_start, idx_end)
+        if isinstance(attr_name, str):
+            return idcs, self._read(attr_name, idx_start, idx_end)
         else:
-            return idcs, {n: self._read(n, idx_start, idx_end) for n in name}
+            return idcs, {n: self._read(n, idx_start, idx_end) for n in attr_name}
 
     def _createAttribute(self, attr_name, dtype, shape=None):
         self.__dict__['_attributeList'].append(attr_name)
@@ -368,7 +370,11 @@ class RingBuffer:
 
     def __setattr__(self, name, value):
         if not('_data_{}'.format(name) in self.__dict__):
-            self._createAttribute(name, *value)
+            if isinstance(value, tuple):
+                self._createAttribute(name, *value)
+            else:
+                raise TypeError('Class {} needs to be provided a tuple '
+                                'for initialization of new attribute'.format(self.__class__.__name__))
         else:
             # TODO: add checks?
             self.__dict__['_data_{}'.format(name)][self.index() % self.length()] = value

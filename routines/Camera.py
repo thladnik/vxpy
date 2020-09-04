@@ -35,17 +35,17 @@ class FrameRoutine(AbstractRoutine):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
         ### Define list of exposed methods
-        # (These methods hook into the process instance - here Camera - and are thus
+        # (These methods h  ook into the process instance - here Camera - and are thus
         #  accessible from all other processes)
         self.exposed.append(FrameRoutine.testbuffer)
         self.exposed.append(FrameRoutine.testbufferargs)
 
         ### Set up shared variables
-        frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 3)
+        frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 1)
         self.buffer.frame = (BufferDTypes.uint8, frameSize)
+        self.buffer.frametime = (BufferDTypes.float64, )
 
         ### Setup frame timing stats
-        self.frametimes = list()
         self.t = perf_counter()
 
     def testbuffer(self):
@@ -56,15 +56,20 @@ class FrameRoutine(AbstractRoutine):
 
     def _compute(self, frame):
 
+        frame = frame[:,:,1][:,:,np.newaxis]
+
         # Add FPS counter
-        self.frametimes.append(perf_counter() - self.t)
+        #fps = 1. / np.mean(self.frametimes[-20:])
+        #frame = cv2.putText(frame, 'FPS %.2f' % fps, (0, frame.shape[0]//20), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2)
+        #self.buffer.time = perf_counter() - self.t
         self.t = perf_counter()
-        fps = 1. / np.mean(self.frametimes[-20:])
-        frame = cv2.putText(frame, 'FPS %.2f' % fps, (0, frame.shape[0]//20), cv2.FONT_HERSHEY_SIMPLEX, 1.0, 255, 2)
 
         ### Update shared attributes
         self.time = time()
-        self.buffer.frame = frame
+        if not(isinstance(frame, np.ndarray)):
+            self.buffer.frame = frame.get()[:,:,np.newaxis]
+        else:
+            self.buffer.frame = frame
 
     def _out(self):
         yield 'frame', self.buffer.frame
@@ -294,80 +299,3 @@ class EyePosDetectRoutine(AbstractRoutine):
                 yield 'ang_eye_pos{}_left'.format(id), self.buffer.eyePositions[id][0]
                 yield 'ang_eye_pos{}_right'.format(id), self.buffer.eyePositions[id][1]
 
-
-
-class TailDeflectionDetector(AbstractRoutine):
-
-    def __init__(self, *args, **kwargs):
-        AbstractRoutine.__init__(self, *args, **kwargs)
-
-        self.recording = False
-
-        self.fishMarkerRects = IPC.Manager.dict()
-        self.extractedRects = IPC.Manager.dict()
-        self.tailDeflectionAngles = IPC.Manager.list()
-
-
-    def coordsPg2Cv(self, point, asType : type = np.float32):
-        return [asType(point[0]), asType(Config.Camera[Def.CameraCfg.res_y] - point[1])]
-
-    def default(self, rect):
-
-        _, thresh = cv2.threshold(rect, 130, 255, cv2.THRESH_BINARY)
-
-
-        return thresh
-
-    def _compute(self, frame):
-        newframe = frame.copy()
-
-        ### If fish were marked: iterate over rects and extract tail deflection angles
-        if bool(self.fishMarkerRects):
-
-            for id, rectParams in self.fishMarkerRects.items():
-
-                ## Draw contour points of rect
-                rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
-                # For debugging: draw rectangle
-                #box = cv2.boxPoints(rect)
-                #box = np.int0(box)
-                #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
-
-                ## Get rect and frame parameters
-                center, size, angle = rect[0], rect[1], rect[2]
-                center, size = tuple(map(int, center)), tuple(map(int, size))
-                height, width = newframe.shape[0], newframe.shape[1]
-
-                ## Rotate
-                M = cv2.getRotationMatrix2D(center, angle, 1)
-                rotFrame = cv2.warpAffine(newframe, M, (width, height))
-
-                ## Crop rect from frame
-                cropRect = cv2.getRectSubPix(rotFrame, size, center)
-
-                ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
-                center = (size[0]/2, size[1]/2)
-                width, height = size
-                M = cv2.getRotationMatrix2D(center, 90, 1)
-                absCos = abs(M[0, 0])
-                absSin = abs(M[0, 1])
-
-                # New bound width/height
-                wBound = int(height * absSin + width * absCos)
-                hBound = int(height * absCos + width * absSin)
-
-                # Subtract old image center
-                M[0, 2] += wBound / 2 - center[0]
-                M[1, 2] += hBound / 2 - center[1]
-                # Rotate
-                rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
-
-                ## Apply detection function on cropped rect which contains eyes
-                newRect = self.default(rotRect)
-
-                # Debug: write to file
-                #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
-
-                self.extractedRects[id] = newRect
-
-        return newframe

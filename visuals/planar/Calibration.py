@@ -1,5 +1,5 @@
 """
-MappApp ./visuals/Checkerboard.py - Checkerboard visuals
+MappApp ./visuals/Calibration.py - Checkerboard visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -25,18 +25,31 @@ from Shader import BasicFileShader
 
 class Checkerboard(PlanarVisual):
 
-    def __init__(self, *args):
+    u_rows = 'u_rows'
+    u_cols = 'u_cols'
+
+    parameters = {u_rows: None,
+                  u_cols: None}
+
+    def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
 
-        self.plane = self.addModel('planar',
-                                   BasicPlane.VerticalXYPlane)
+        self.plane = self.addModel('planar', BasicPlane.VerticalXYPlane)
         self.plane.createBuffers()
 
         self.checker = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('checker_v.glsl', subdir='planar').read(),
-                                       BasicFileShader().addShaderFile('checker_f.glsl', subdir='planar').read())
+                                       BasicFileShader().addShaderFile('planar/checker.vert').read(),
+                                       BasicFileShader().addShaderFile('planar/checker.frag').read())
         self.checker.bind(self.plane.vertexBuffer)
 
+        self.update(**params)
 
     def render(self):
         self.checker.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
+
+    def update(self, **params):
+
+        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.parameters.items():
+            self.checker[k] = p
+
