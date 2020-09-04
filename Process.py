@@ -134,24 +134,7 @@ class AbstractProcess:
         Logging.write(logging.INFO, '{:30} {}'.
                       format('Process {} started '.format(self.name),
                              'at time {}'.format(time.time())))
-        if False:
-            ### Not necessary because global time is now used?
-            ### Synchronize process to controller
-            self.setState(Def.State.SYNC)
-            ## Wait
-            while IPC.Control.General[Def.GenCtrl.process_null_time] > time.time():
-                pass
-            ### Set process synchronization time
-            self.process_sync_time  = time.perf_counter()
-            ## Set time
-            t = time.time()
 
-            Logging.write(logging.INFO, '{:35} {}'.
-                          format('Synchronized process {}'.format(self.name),
-                                 'at time {} to process time {}'.format(t, self.process_sync_time)))
-
-        minres, maxres, curres = wres.query_resolution()
-        print(self.name, curres)
 
         ### Set state to running
         self._running = True

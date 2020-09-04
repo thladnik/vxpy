@@ -27,12 +27,12 @@ from models import BasicSphere
 
 class Glider2Point(SphericalVisual):
 
-    def __init__(self, protocol, display, p_parity):
+    def __init__(self, *args, p_parity):
         """
         :param protocol: protocol of which stimulus is currently part of
 
         """
-        SphericalVisual.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, *args)
 
         ### Set up model
         self.sphere = self.addModel('sphere',

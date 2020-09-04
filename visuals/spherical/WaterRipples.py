@@ -31,12 +31,12 @@ from Shader import BasicFileShader
 
 class RipplesOnStaticBackground(SphericalVisual):
 
-    def __init__(self, protocol, display, u_mod_sign, u_mod_depth, u_mod_shape, u_mod_vel, u_mod_width,
+    def __init__(self, *args, u_mod_sign, u_mod_depth, u_mod_shape, u_mod_vel, u_mod_width,
                  u_mod_min_elev=-np.pi/2, u_mod_max_elev=+np.pi/2, u_upper_field_flash=0):
         """
 
         """
-        SphericalVisual.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, *args)
 
         ### Create model
         self.sphere_model = self.addModel('sphere',
@@ -120,7 +120,7 @@ class RipplesOnStaticBackground(SphericalVisual):
                 continue
 
             # Draw ripple
-            prog.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
+            prog.triggerOnDraw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         gl.glDisable(gl.GL_ALPHA_TEST)
 

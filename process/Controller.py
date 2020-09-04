@@ -65,22 +65,35 @@ class Controller(AbstractProcess):
         IPC.Pipes[self.name] = mp.Pipe()
 
         ### Set configurations
-        self.configuration = Basic.Config(self.configfile)
-        # Camera
-        Config.Camera = IPC.Manager.dict()
-        Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
-        # Display
-        Config.Display = IPC.Manager.dict()
-        Config.Display.update(self.configuration.configuration(Def.DisplayCfg))
-        # Gui
-        Config.Gui = IPC.Manager.dict()
-        Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
-        # IO
-        Config.Io = IPC.Manager.dict()
-        Config.Io.update(self.configuration.configuration(Def.IoCfg))
-        # Recording
-        Config.Recording = IPC.Manager.dict()
-        Config.Recording.update(self.configuration.configuration(Def.RecCfg))
+        try:
+            Logging.write(logging.INFO, 'Using configuration from file {}'.format(self.configfile))
+            #self.configuration = Basic.Config(self.configfile)
+            self.configuration = Basic.ConfigParser()
+            self.configuration.read(self.configfile)
+            # Camera
+            Config.Camera = IPC.Manager.dict()
+            #Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
+            Config.Camera.update(self.configuration.getParsedSection(Def.CameraCfg.name))
+            # Display
+            Config.Display = IPC.Manager.dict()
+            #Config.Display.update(self.configuration.configuration(Def.DisplayCfg))
+            Config.Display.update(self.configuration.getParsedSection(Def.DisplayCfg.name))
+            # Gui
+            Config.Gui = IPC.Manager.dict()
+            #Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
+            Config.Gui.update(self.configuration.getParsedSection(Def.GuiCfg.name))
+            # IO
+            Config.Io = IPC.Manager.dict()
+            #Config.Io.update(self.configuration.configuration(Def.IoCfg))
+            Config.Io.update(self.configuration.getParsedSection(Def.IoCfg.name))
+            # Recording
+            Config.Recording = IPC.Manager.dict()
+            #Config.Recording.update(self.configuration.configuration(Def.RecCfg))
+            Config.Recording.update(self.configuration.getParsedSection(Def.RecCfg.name))
+        except Exception:
+            print('Loading of configuration file {} failed.'.format(self.configfile))
+            import traceback
+            traceback.print_exc()
 
         ################################
         ### Set up STATES

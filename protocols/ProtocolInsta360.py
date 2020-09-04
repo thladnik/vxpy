@@ -18,8 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.ContiguousMotionNoise import IcoCMN
-from visuals.Insta360OneX import Calibrated
+from visuals.spherical.Insta360OneX import Calibrated
 
 class Insta360Protocol(StaticProtocol):
 
