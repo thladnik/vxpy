@@ -1,5 +1,5 @@
 """
-MappApp ./visuals/Checkerboard.py - Checkerboard visuals
+MappApp ./visuals/Calibration.py - Checkerboard visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -25,20 +25,21 @@ from Shader import BasicFileShader
 
 class Checkerboard(PlanarVisual):
 
-    u_spat_period = 'u_spat_period'
+    u_rows = 'u_rows'
+    u_cols = 'u_cols'
 
-    parameters = {u_spat_period:None}
+    parameters = {u_rows: None,
+                  u_cols: None}
 
     def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
 
-        self.plane = self.addModel('planar',
-                                   BasicPlane.VerticalXYPlane)
+        self.plane = self.addModel('planar', BasicPlane.VerticalXYPlane)
         self.plane.createBuffers()
 
         self.checker = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('checker.vert', subdir='planar').read(),
-                                       BasicFileShader().addShaderFile('checker.frag', subdir='planar').read())
+                                       BasicFileShader().addShaderFile('planar/checker.vert').read(),
+                                       BasicFileShader().addShaderFile('planar/checker.frag').read())
         self.checker.bind(self.plane.vertexBuffer)
 
         self.update(**params)

@@ -37,10 +37,9 @@ class AbstractVisual:
 
     parameters = dict()
 
-    def __init__(self, protocol, display):
+    def __init__(self, _glwindow):
         self.frame_time = None
-        self.protocol = protocol
-        self.display = display
+        self.glwindow = _glwindow
 
     def program(self, pname) -> gloo.Program:
         return self._programs[self.__class__][pname]
@@ -58,7 +57,7 @@ class AbstractVisual:
                 if sign in self._warns:
                     continue
                 self._warns.append(sign)
-                Logging.logger.log(logging.DEBUG, 'Trying to set undefined uniform {} on program {} in class {}'
+                Logging.write(logging.DEBUG, 'Trying to set undefined uniform {} on program {} in class {}'
                                    .format(name, pname, self.__class__))
 
     def addProgram(self, pname, vertex_shader, fragment_shader, geometry_shader=None) -> gloo.Program:
@@ -83,6 +82,7 @@ class AbstractVisual:
 
     def addModel(self, mname, model_class, **kwargs) -> Union[Model.AbstractModel,
                                                               Model.SphereModel]:
+
         if self.__class__ not in self._models:
             self._models[self.__class__] = dict()
         if mname not in self._models[self.__class__]:
@@ -98,12 +98,19 @@ class AbstractVisual:
     def render(self):
         raise NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
 
-    def update(self, **kwargs):
+    def update(self, **params):
         """
         Method that is called by default to update stimulus parameters.
+        """
 
-        Has to be re-implemented in child class if stimulus contains
-        uniforms which can be manipulated externally.
+        ### TODO: find general solution for updating uniforms on all programs (e.g. layered dictionary "paramters"?)
+        """
+        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.parameters.items():
+            if hasattr(self, 'parse_{}'.format(k)):
+                self.checker[k] = getattr(self, 'parse_{}'.format(k))(p)
+            else:
+                self.checker[k] = p
         """
         Logging.write(logging.WARNING, 'Update method called but not implemented for stimulus {}'.format(self.__class__))
 
@@ -189,18 +196,19 @@ class SphericalVisual(AbstractVisual):
         self._out_prog = gloo.Program(vertex_out, frag_out, count=4)
         self._out_prog['a_position'] = square
 
-        self._mask_depth_buffer = gloo.DepthBuffer(self.display._glWindow.width, self.display._glWindow.height)
-        self._mask_texture = np.zeros((self.display._glWindow.height, self.display._glWindow.width, 4), np.uint8).view(gloo.Texture2D)
+        self._mask_depth_buffer = gloo.DepthBuffer(self.glwindow.width, self.glwindow.height)
+        self._mask_texture = np.zeros((self.glwindow.height, self.glwindow.width, 4), np.uint8).view(gloo.Texture2D)
         self._mask_fb = gloo.FrameBuffer(color=self._mask_texture, depth=self._mask_depth_buffer)
 
-        self._raw_texture = np.zeros((self.display._glWindow.height, self.display._glWindow.width, 4), np.float32).view(gloo.TextureFloat2D)
-        self._raw_depth_buffer = gloo.DepthBuffer(self.display._glWindow.width, self.display._glWindow.height)
+        self._raw_texture = np.zeros((self.glwindow.height, self.glwindow.width, 4), np.float32).view(gloo.TextureFloat2D)
+        self._raw_depth_buffer = gloo.DepthBuffer(self.glwindow.width, self.glwindow.height)
         self._raw_fb = gloo.FrameBuffer(color=self._raw_texture, depth=self._raw_depth_buffer)
 
-
-        self._display_texture = np.zeros((self.display._glWindow.height, self.display._glWindow.width, 4), np.uint8).view(gloo.Texture2D)
+        self._display_texture = np.zeros((self.glwindow.height, self.glwindow.width, 4), np.uint8).view(gloo.Texture2D)
         self._display_fb = gloo.FrameBuffer(color=self._display_texture)
 
+    #def addProgram(self, pname, vertex_shader, fragment_shader, geometry_shader=None) -> gloo.Program:
+    #    pass
 
     def draw(self, frame_idx, frame_time):
 
@@ -232,15 +240,18 @@ class SphericalVisual(AbstractVisual):
         ### Calculate elevation rotation
         rotate_elev_3d = glm.rotate(np.eye(4), -90 + Config.Display[Def.DisplayCfg.sph_view_elev_angle], 1, 0, 0)
 
+        ### Make sure stencil testing is disabled and depth testing is enabled
         glDisable(GL_STENCIL_TEST)
         glEnable(GL_DEPTH_TEST)
 
+        ### Clear raw stimulus framebuffer
         self._raw_fb.activate()
-        self.display._glWindow.clear()
+        self.glwindow.clear()
         self._raw_fb.deactivate()
 
+        ### Clear mask framebuffer
         self._mask_fb.activate()
-        self.display._glWindow.clear()
+        self.glwindow.clear()
         self._mask_fb.deactivate()
 
         for i in range(4):
@@ -255,32 +266,27 @@ class SphericalVisual(AbstractVisual):
             xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos], Config.Display[Def.DisplayCfg.glob_y_pos]])
             self.setGlobalUniform('u_mapcalib_translate2d', radial_offset + xy_offset)
 
-            ### Draw mask
+            ### Draw 90 degree mask
             self._mask_fb.activate()
             self._mask_program.draw(GL_TRIANGLES, self._mask_model.indexBuffer)
             self._mask_fb.deactivate()
-            self.display._glWindow.clear()
+            self.glwindow.clear()
 
-
-            ### Apply 90*i degree rotation for rendering different parts of actual sphere
+            ### Apply 90*i degree rotation for rendering different parts of sphere
             azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
             self.setGlobalUniform('u_mapcalib_rotate3d', glm.rotate(np.eye(4), 90 * i + azim_angle, 0, 0, 1) @ rotate_elev_3d)
 
-            ### Call the rendering function of the subclass (render actual stimulus)
+            ### Call the rendering function of subclass (render actual stimulus)
             self._raw_fb.activate()
             self.render()
             self._raw_fb.deactivate()
-            self.display._glWindow.clear()
+            self.glwindow.clear()
 
 
-            ### Combine mask and raw texture + add display texture
+            ### Combine mask and raw texture
             self._display_prog['u_raw_texture'] = self._raw_texture
             self._display_prog['u_mask_texture'] = self._mask_texture
             self._display_prog.draw(GL_TRIANGLE_STRIP)
-
-
-
-
 
 
 
@@ -294,7 +300,7 @@ class PlanarVisual(AbstractVisual):
         AbstractVisual.__init__(self, *args)
 
     def draw(self, frame_idx, frame_time):
-        self.display._glWindow.clear(color=(0.0, 0.0, 0.0, 1.0))
+        self.glwindow.clear(color=(0.0, 0.0, 0.0, 1.0))
 
         ### Construct vertices
         height = Config.Display[Def.DisplayCfg.window_height]
@@ -311,10 +317,6 @@ class PlanarVisual(AbstractVisual):
         ### Set 2d translation
         self.u_glob_x_position = Config.Display[Def.DisplayCfg.glob_x_pos]
         self.u_glob_y_position = Config.Display[Def.DisplayCfg.glob_y_pos]
-
-        ### Scale
-        #self.u_mapcalib_xscale *= Config.Display[Def.DisplayCfg.pla_xextent]
-        #self.u_mapcalib_yscale *= Config.Display[Def.DisplayCfg.pla_yextent]
 
         ### Extents
         self.u_mapcalib_xextent = Config.Display[Def.DisplayCfg.pla_xextent]

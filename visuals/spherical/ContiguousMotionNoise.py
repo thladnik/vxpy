@@ -31,8 +31,8 @@ from models import CMNSpheres
 class IcoCMN(SphericalVisual):
 
 
-    def __init__(self, protocol, display):
-        SphericalVisual.__init__(self, protocol, display)
+    def __init__(self, *args):
+        SphericalVisual.__init__(self, *args)
 
         ### Set up model
         self.sphere = self.addModel('sphere',

@@ -11,8 +11,8 @@ from Shader import BasicFileShader
 
 class Calibrated(SphericalVisual):
 
-    def __init__(self, protocol, display, filename):
-        SphericalVisual.__init__(self, protocol, display)
+    def __init__(self, *args, filename):
+        SphericalVisual.__init__(self, *args)
 
         self.filename = '{}.mat'.format(filename)
 

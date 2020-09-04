@@ -1,15 +1,16 @@
-// planar/f_checkerboard.glsl
+// planar/checkerboard.frag
 
 const float c_pi = 3.14159265359;
 
-uniform float u_spat_period;
+uniform float u_rows;
+uniform float u_cols;
 
 varying vec2 v_position;  // in mm
 
 void main() {
     // Construct checkerboard
-    float c = sin(u_spat_period * 2.0 * c_pi * v_position.x)
-                * sin(u_spat_period * 2.0 * c_pi * v_position.y);
+    float c = sin(u_cols * c_pi * v_position.x)
+                * sin(u_rows * c_pi * v_position.y);
 
     // Thresholding
     if (c > 0) {

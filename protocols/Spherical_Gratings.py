@@ -19,7 +19,7 @@ import numpy as np
 
 from Protocol import StaticProtocol
 
-from visuals.Grating import BlackWhiteGrating as BWG
+from visuals.spherical.Grating import BlackWhiteGrating as BWG
 
 
 class StaticGratingDemo(StaticProtocol):
