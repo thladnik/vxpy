@@ -95,6 +95,7 @@ class DisplayWidget(ModuleWidget):
 
     def __init__(self, parent):
         ModuleWidget.__init__(self, Def.DisplayCfg.name, parent=parent)
+        global current_config
 
         from glumpy import app
 
@@ -123,8 +124,22 @@ class DisplayWidget(ModuleWidget):
         self.setLayout(QtWidgets.QGridLayout())
 
         ### Screen settings
+        def buttonReset():
+            btn_reset_normal = QtWidgets.QPushButton('Reset to normal')
+            btn_reset_normal.clicked.connect(self.glwindow._native_window.showNormal)
+            btn_reset_normal.clicked.connect(
+                lambda: self.glwindow._native_window.resize(512, 512))
+            btn_reset_normal.clicked.connect(
+                lambda: current_config.setParsed(Def.DisplayCfg.name, Def.DisplayCfg.window_fullscreen, False))
+            return btn_reset_normal
+
+        self.fullscreen_select = QtWidgets.QGroupBox('Fullscreen selection')
+        self.layout().addWidget(self.fullscreen_select, 0, 0, 1, 2)
+        self.fullscreen_select.setLayout(QtWidgets.QGridLayout())
+        self.fullscreen_select.btn_reset_normal = buttonReset()
+        self.fullscreen_select.layout().addWidget(self.fullscreen_select.btn_reset_normal, 0, 1)
         self.screen_settings = DisplayScreenSelection(self)
-        self.layout().addWidget(self.screen_settings, 0, 0, 1, 2)
+        self.fullscreen_select.layout().addWidget(self.screen_settings, 1, 0, 1, 2)
 
         self.calibration = DisplayCalibration(self)
         self.layout().addWidget(self.calibration, 0, 2)
@@ -202,7 +217,7 @@ class DisplayWidget(ModuleWidget):
                     import IPython
                     IPython.embed()
 
-            """
+            meh = """
             ### X position: Ctrl(+Shift)+X
             elif symbol == window.key.X:
                 print('hello')
@@ -280,25 +295,25 @@ class DisplayScreenSelection(QtWidgets.QGroupBox):
             rect = QtCore.QRectF(*screen_norm)
 
             if rect.contains(QtCore.QPoint(args[0].x(), args[0].y())):
-                self.main.global_settings.spn_win_x.setValue(0)
-                self.main.global_settings.spn_win_y.setValue(0)
-                self.main.global_settings.spn_win_width.setValue(256)
-                self.main.global_settings.spn_win_height.setValue(256)
-
-                winapp.processEvents()
-
-                wgeo = self.main.glwindow._native_window.geometry()
-                fgeo = self.main.glwindow._native_window.frameGeometry()
-
-                xdiff = fgeo.width()-wgeo.width()
-                ydiff = fgeo.height()-wgeo.height()
 
                 print('Set display to fullscreen on screen {}'.format(i))
-                self.main.global_settings.spn_win_x.setValue(screen[0]-xdiff/2)
-                self.main.global_settings.spn_win_y.setValue(screen[1]-ydiff-1)
-                self.main.global_settings.spn_win_width.setValue(screen[2]+xdiff/2)
-                self.main.global_settings.spn_win_height.setValue(screen[3]+ydiff-1)
-                return
+                global current_config, winapp
+
+                scr_handle = self.main.glwindow._native_app.screens()[i]
+
+                ### Update window settings
+                self.main.global_settings.spn_win_x.setValue(screen[0])
+                self.main.global_settings.spn_win_y.setValue(screen[1])
+                self.main.global_settings.spn_win_width.setValue(screen[2])
+                self.main.global_settings.spn_win_height.setValue(screen[3])
+                winapp.processEvents()
+
+                ### Set fullscreen
+                self.main.glwindow._native_window.windowHandle().setScreen(scr_handle)
+                self.main.glwindow._native_window.showFullScreen()
+
+                current_config.setParsed(Def.DisplayCfg.name, Def.DisplayCfg.window_fullscreen, True)
+
 
     def paintEvent(self, QPaintEvent):
         if len(self.screens) == 0:
