@@ -33,8 +33,6 @@ import Def
 from helper import Basic
 import process.Controller
 
-from devices.Camera import GetCamera
-
 import wres
 
 current_config = Basic.ConfigParser()
@@ -885,7 +883,9 @@ if __name__ == '__main__':
 
     from sys import platform
 
+
     if platform == 'win32':
+
         ### Set windows timer precision as high as possible
         minres, maxres, curres = wres.query_resolution()
         print(curres)

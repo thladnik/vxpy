@@ -25,7 +25,6 @@ import time
 import Config
 from process.Controller import Controller
 import Def
-import gui.Controls
 import gui.Camera
 import IPC
 import Logging

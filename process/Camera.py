@@ -16,10 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-import numpy as np
-import time
-
 import Config
 import Process
 import Def
@@ -36,26 +32,24 @@ class Camera(Process.AbstractProcess):
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
 
-        ### Set recording parameters
-        self.frameDims = (int(Config.Camera[Def.CameraCfg.res_y]),
-                          int(Config.Camera[Def.CameraCfg.res_x]))
-
         ### Get selected camera
         try:
             self.camera = devices.Camera.GetCamera(1)
+            ### TODO:
+            #    Move camera setup into this process class, instead of just calling GetCamera
 
-            Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
+            Logging.logger.log(Logging.INFO, 'Using camera {}>>{}'
                            .format(Config.Camera[Def.CameraCfg.manufacturer],
                                    Config.Camera[Def.CameraCfg.model]))
         except Exception as exc:
-            Logging.logger.log(logging.INFO, 'Unable to use camera {}>>{} // Exception: {}'
+            Logging.logger.log(Logging.INFO, 'Unable to use camera {}>>{} // Exception: {}'
                                .format(Config.Camera[Def.CameraCfg.manufacturer],
                                        Config.Camera[Def.CameraCfg.model],
                                        exc))
 
 
         if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./Config.Camera[Def.CameraCfg.fps]:
-            Logging.write(logging.WARNING, 'Mininum sleep period is ABOVE '
+            Logging.write(Logging.WARNING, 'Mininum sleep period is ABOVE '
                                            'average target frametime of 1/{}s.'
                                             'This will cause increased CPU usage.'
                                             .format(Config.Camera[Def.CameraCfg.fps]))
@@ -64,13 +58,6 @@ class Camera(Process.AbstractProcess):
         self.run(interval=1/Config.Camera[Def.CameraCfg.fps])
 
     def main(self):
-        # Update camera settings
-        # All camera settings with the "*_prop_*" substring
-        # are considered properties which may be changed online
-        # (Please don't touch the rest)
-        for setting, value in Config.Camera.items():
-            if setting.find('_prop_') >= 0:
-                self.camera.updateProperty(setting, value)
 
         # Update routines
         IPC.Routines.Camera.update(self.camera.getImage())

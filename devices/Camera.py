@@ -16,14 +16,27 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import cv2
+import logging
 import numpy as np
 import os
-import logging
+import platform
 
 import Config
 import Def
-from lib.pyapi import tisgrabber as IC
 import Logging
+
+### Import camera APIs
+# Add application's DLL path on Windows
+if platform == 'win32':
+    os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.Path.Libdll))
+
+    from lib.pyapi import tisgrabber as IC
+# MAC OS
+elif platform == 'darwin':
+    IC = None
+# Assume it's Linux
+else:
+    IC = None
 
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed

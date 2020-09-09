@@ -71,7 +71,7 @@ class Display(Process.AbstractProcess):
             self.glwindow._native_window.showFullScreen()
 
         ###
-        #self.glwindow._native_window.setSizePoliy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        self.glwindow._native_window.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
 
         ### Apply event wrapper
         self.on_draw = self.glwindow.event(self.on_draw)
