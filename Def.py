@@ -37,6 +37,7 @@ class Path:
     Model    = 'models'
     Output   = 'output'
     Protocol = 'protocols'
+    Routines = 'routines'
     Sample   = 'samples'
     Shader   = 'shaders'
     Task     = 'tasks'
@@ -112,7 +113,7 @@ class Cfg:
     use = 'bool_use'
 
 class CameraCfg(Cfg):
-    name = 'camera'
+    name = Process.Camera.lower()
 
     # Camera configuration
     manufacturer = 'str_manufacturer'
@@ -125,14 +126,14 @@ class CameraCfg(Cfg):
     gain         = 'float_prop_gain'
 
     # Buffers
-    routines      = 'list_routines'
+    routines      = 'json_routines'
 
 
 ########
 # Display
 
 class DisplayCfg(Cfg):
-    name = 'display'
+    name = Process.Display.lower()
 
     type                   = 'str_type'
     fps                    = 'int_fps'
@@ -163,32 +164,32 @@ class DisplayCfg(Cfg):
     pla_yextent                = 'float_pla_yextent'
     pla_small_side             = 'float_pla_small_side'
 
-    routines                   = 'list_routines'
+    routines                   = 'json_routines'
 
 ########
 # GUI
 
 class GuiCfg(Cfg):
-    name = 'gui'
+    name = Process.GUI.lower()
 
     # Addons
-    addons      = 'list_addons'
+    addons      = 'json_addons'
 
 
 ########
 # IO
 
 class IoCfg(Cfg):
-    name = 'io'
+    name = Process.Io.lower()
 
     device_type  = 'str_device_type'
     device_model = 'str_device_model'
     device_port  = 'str_device_comport'
     sample_rate  = 'int_sample_rate'
-    pins         = 'list_pins'
-    analog_pins  = 'list_analog_pins'
+    pins         = 'json_pins'
+    analog_pins  = 'json_analog_pins'
 
-    routines = 'list_routines'
+    routines = 'json_routines'
 
 
 ########
@@ -202,7 +203,7 @@ class RecCfg(Cfg):
     output_folder   = 'str_output_folder'
 
     # Active routines
-    routines         = 'list_routines'
+    routines         = 'json_routines'
 
 
 ################################
@@ -212,9 +213,9 @@ class RecCfg(Cfg):
 # General
 
 class GenCtrl:
-    min_sleep_time    = 'min_sleep_time'
-    process_null_time = 'process_null_time'
-    process_syn_barrier       = 'process_sync_barrier'
+    min_sleep_time      = 'min_sleep_time'
+    process_null_time   = 'process_null_time'
+    process_syn_barrier = 'process_sync_barrier'
 
 ########
 # Recording

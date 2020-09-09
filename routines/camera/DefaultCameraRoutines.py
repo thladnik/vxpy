@@ -1,5 +1,5 @@
 """
-MappApp ./routines/Camera.py - Custom processing routine implementations for the camera process.
+MappApp ./routines/DefaultCameraRoutines.py - Custom processing routine implementations for the camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

@@ -1,5 +1,5 @@
 """
-MappApp ./process/Display.py - Process which handles rendering of visual visuals.
+MappApp ./process/DefaultDisplayRoutines.py - Process which handles rendering of visual visuals.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,25 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import app, gl
-from glumpy.app.window import window
-import keyboard
-import logging
-import time
+from glumpy import app
 
 import Config
 import Def
 import IPC
-import Logging
 import Process
-from process import Controller
 import Protocol
 import protocols
 import Visuals
 
-from routines import Camera
 if Def.Env == Def.EnvTypes.Dev:
-    from IPython import embed
+    pass
 
 ### Set glumpy to use pyglet4 backend
 app.use(Def.Display_backend)

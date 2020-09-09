@@ -39,12 +39,20 @@ class Routines:
 
     process : Process.AbstractProcess = None
 
-    def __init__(self, name):
+    def __init__(self, name, routines=None):
         self.name = name
         self.h5File = None
-        self.vidFile = None
-
+        self._routine_paths = dict()
         self._routines = dict()
+
+        ### Automatically add routines, if provided
+        if not(routines is None) and isinstance(routines, dict):
+            for routine_file, routine_list in routines.items():
+                module = __import__('{}.{}.{}'.format(Def.Path.Routines, self.name.lower(), routine_file),
+                                    fromlist=routine_list)
+                for routine_name in routine_list:
+                    self.addRoutine(getattr(module, routine_name))
+
 
     def createHooks(self, instance):
         """Method is called by process immediately after initialization.
@@ -73,6 +81,10 @@ class Routines:
 
     def addRoutine(self, routine, **kwargs):
         """To be called by controller (initialization of routines has to happen in parent process)"""
+        if routine.__name__ in self._routine_paths:
+            raise Exception('Routine \"{}\" exists already from path \"{}\"'.format(routine.__name__, self._routine_paths[routine.__name__])
+                            + 'Unable to add routine of same name from path \"{}\"'.format(routine.__module__))
+        self._routine_paths[routine.__name__] = routine.__module__
         self._routines[routine.__name__] = routine(self, **kwargs)
 
     def update(self, data):
@@ -92,10 +104,10 @@ class Routines:
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>
         :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
-                                routine_name can be either str or list[str]
 
         :return: value of the buffer
         """
+
         if routine_name is None:
             parts = attr_name.split('/')
             attr_name = parts[1]

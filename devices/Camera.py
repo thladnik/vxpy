@@ -1,5 +1,5 @@
 """
-MappApp .devices/Camera.py - Camera device abstraction layer. New camera types may be added here.
+MappApp .devices/DefaultCameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

@@ -26,7 +26,6 @@ import Def
 
 
 
-
 class ConfigParser(configparser.ConfigParser):
 
     class ConfigTypeError(TypeError):
@@ -62,7 +61,7 @@ class ConfigParser(configparser.ConfigParser):
             value = self.getfloat(section, option)
         elif dtype == 'bool':
             value = self.getboolean(section, option)
-        elif dtype == 'list':
+        elif dtype == 'json':
             value = json.loads(self.get(section, option))
         else:
             value = self.get(section, option)
@@ -86,67 +85,6 @@ class ConfigParser(configparser.ConfigParser):
             parsed[option] = self.getParsed(section, option)
 
         return parsed
-
-
-
-class Config:
-
-    def __init__(self, _configfile=None):
-        self._configfile = _configfile
-        self.data = configparser.ConfigParser()
-
-        if not(self._configfile is None):
-            self.data.read(os.path.join(Def.Path.Config, self._configfile))
-
-    def _parsedSection(self, section):
-        parsed = dict()
-        for option in self.data[section]:
-            dtype = option.split('_')[0]
-            if dtype == 'int':
-                value = self.data.getint(section, option)
-            elif dtype == 'float':
-                value = self.data.getfloat(section, option)
-            elif dtype == 'bool':
-                value = self.data.getboolean(section, option)
-            elif dtype == 'list':
-                value = self.data.get(section, option).split(',')
-            else:
-                value = self.data.get(section, option)
-            parsed[option] = value
-
-        return parsed
-
-    def configuration(self, config, property = None):
-        # If section does not exist: create it and set to defaults
-        if not(self.data.has_section(config.name)):
-            self.data.add_section(config.name)
-            for option in Default.Configuration[config.name]:
-                self.data.set(config.name,
-                              option,
-                              str(Default.Configuration[config.name][option]))
-
-        # Return display settings
-        if property is not None:
-            return self._parsedSection(config.name)[property]
-        return self._parsedSection(config.name)
-
-    def updateConfiguration(self, config, **settings):
-        # If section does not exist, create it
-        if not(self.data.has_section(config.name)):
-            self.configuration(config)
-
-        # Update settings
-        for option, value in settings.items():
-            #self.data[config.name].update(**{option : str(settings[option]) for option in settings})
-            dtype = option.split('_')[0]
-            if dtype == 'list':
-                value = ','.join(value)
-            self.data[config.name][option] = str(value)
-
-    def saveToFile(self):
-        with open(os.path.join(Def.Path.Config, self._configfile), 'w') as fobj:
-            self.data.write(fobj)
-            fobj.close()
 
 
 class Conversion:

@@ -1,5 +1,5 @@
 """
-MappApp ./gui/Camera.py - Custom addons which handle UI and visualization with camera process.
+MappApp ./gui/DefaultCameraRoutines.py - Custom addons which handle UI and visualization with camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import cv2
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
 import pyqtgraph as pg
@@ -25,7 +24,7 @@ import Config
 import Def
 from helper import Geometry
 import IPC
-import routines.Camera
+import routines.camera.DefaultCameraRoutines
 
 ################################
 # Live Camera Widget
@@ -248,7 +247,7 @@ class EyePositionDetector(QtWidgets.QWidget):
             ### Set updates ROI parameters
             self.parent.ROIs[self.id] = self.rect
             ### Send update to detector routine
-            IPC.rpc(Def.Process.Camera, routines.Camera.EyePosDetectRoutine.setROI, self.id, self.rect)
+            IPC.rpc(Def.Process.Camera, routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setROI, self.id, self.rect)
 
 
 ################################

@@ -1,5 +1,5 @@
 """
-MappApp ./gui/Io.py - Custom addons which handle UI and visualization of IO.
+MappApp ./gui/DefaultIoRoutines.py - Custom addons which handle UI and visualization of IO.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ import pyqtgraph as pg
 import Config
 import Def
 import IPC
-import routines.Io
+import routines.io.DefaultIoRoutines
 
 class IoWidget(QtWidgets.QWidget):
     def __init__(self, parent, **kwargs):
@@ -35,18 +35,17 @@ class IoWidget(QtWidgets.QWidget):
 
         ### Build up data structure
         self.data = dict()
-        for routine_name in Config.Io[Def.IoCfg.routines]:
-            if not(bool(routine_name)):
-                continue
+        for routine_file, routine_list in Config.Display[Def.DisplayCfg.routines].items():
+            for routine_name in routine_list:
 
-            routine = getattr(routines.Io, routine_name)
+                routine = getattr(routines.io.DefaultIoRoutines, routine_name)
 
-            self.data[routine_name] = dict()
+                self.data[routine_name] = dict()
 
-            for pin_descr in routine.pins:
-                pin_name, pnum, ptype = pin_descr.split(':')
+                for pin_descr in routine.pins:
+                    pin_name, pnum, ptype = pin_descr.split(':')
 
-                self.data[routine_name][pin_name] = dict(datat=list(), datay=list(), last_idx=0)
+                    self.data[routine_name][pin_name] = dict(datat=list(), datay=list(), last_idx=0)
 
         ### Start timer
         self._tmr_update = QtCore.QTimer()

@@ -149,32 +149,22 @@ class Controller(AbstractProcess):
 
         ### Set up routines
         ## Camera
-        IPC.Routines.Camera = Routine.Routines(Def.Process.Camera)
-        # Add camera routines if camera is activated
-        if Config.Camera[Def.CameraCfg.use]:
-            import routines.Camera
-            for routine_name in Config.Camera[Def.CameraCfg.routines]:
-                if not(bool(routine_name)):
-                    continue
-                IPC.Routines.Camera.addRoutine(getattr(routines.Camera, routine_name))
+        IPC.Routines.Camera = Routine.Routines(
+            Def.Process.Camera,
+            routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
+        )
 
         ## Display
-        IPC.Routines.Display = Routine.Routines(Def.Process.Display)
-        if Config.Display[Def.DisplayCfg.use]:
-            import routines.Display
-            for routine_name in Config.Display[Def.DisplayCfg.routines]:
-                if not(bool(routine_name)):
-                    continue
-                IPC.Routines.Display.addRoutine(getattr(routines.Display, routine_name))
+        IPC.Routines.Display = Routine.Routines(
+            Def.Process.Display,
+            routines=Config.Display[Def.DisplayCfg.routines] if Config.Display[Def.DisplayCfg.use] else None
+        )
 
         ## IO
-        IPC.Routines.Io = Routine.Routines(Def.Process.Io)
-        if Config.Io[Def.IoCfg.use]:
-            import routines.Io
-            for routine_name in Config.Io[Def.IoCfg.routines]:
-                if not(bool(routine_name)):
-                    continue
-                IPC.Routines.Io.addRoutine(getattr(routines.Io, routine_name))
+        IPC.Routines.Io = Routine.Routines(
+            Def.Process.Io,
+            routines=Config.Io[Def.IoCfg.routines] if Config.Io[Def.IoCfg.use] else None
+        )
 
         ### Set up processes
         ## Worker
