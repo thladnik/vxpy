@@ -35,7 +35,7 @@ import process.Controller
 import process.Camera
 import process.Display
 
-class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
+class GUI(QtWidgets.QMainWindow, Process.AbstractProcess):
     name = Def.Process.GUI
 
     _app : QtWidgets.QApplication
@@ -69,7 +69,11 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.setWindowTitle('MappApp')
         self.move(0, 0)
         self.screenGeo = self._app.primaryScreen().geometry()
-        self.resize(self.screenGeo.width()-2, self.screenGeo.height()//3)
+        w, h = self.screenGeo.width(), self.screenGeo.height()
+        if w > 1920 and h > 1080:
+            self.resize(1920, 1080)
+        else:
+            self.resize(w,h)
 
         ### Setup central widget
         self._centralwidget = QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget)
@@ -81,26 +85,14 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         #self.hSplitter = QtWidgets.QSplitter()
 
-        ### Add integrated addons
-        ## Add controls
-        self._grp_controls = gui.Integrated.Controls(self)
-        self.centralWidget().layout().addWidget(self._grp_controls, 0, 0, 2, 2)
-
         ## Protocols
         self.grp_protocols = gui.Integrated.Protocols(self)
-        self.centralWidget().layout().addWidget(self.grp_protocols, 0, 2)
+        self.centralWidget().layout().addWidget(self.grp_protocols, 0, 0, 1, 3)
 
         ## Camera
         self.grp_camera = gui.Integrated.Camera(self)
-        #self.grp_camera.setMaximumHeight(int(Config.Camera[Def.CameraCfg.res_y] * 1.5))
-        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.5))
-        self.centralWidget().layout().addWidget(self.grp_camera, 0, 3)
-
-        #self._grp_topright = gui.Integrated.DisplayView(self)
-        #self._grp_topright.setMinimumWidth(500)
-        #self._grp_topright.setLayout(QtWidgets.QHBoxLayout())
-        #self._grp_topright.layout().addWidget(self._grp_topright)
-        #self.centralWidget().layout().addWidget(self._grp_topright, 0, 3)
+        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.1))
+        self.centralWidget().layout().addWidget(self.grp_camera, 0, 3, 2, 1)
 
         ## Add IO monitor
         self._grp_io = QtWidgets.QGroupBox('I/O Monitor')
@@ -109,7 +101,7 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         if Config.Io[Def.IoCfg.use]:
             self._wdgt_io_monitor = gui.Io.IoWidget(self)
             self._grp_io.layout().addWidget(self._wdgt_io_monitor)
-        self.centralWidget().layout().addWidget(self._grp_io, 1, 2, 1, 2)
+        self.centralWidget().layout().addWidget(self._grp_io, 1, 0, 1, 3)
 
         ## Process monitor
         self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
@@ -157,7 +149,8 @@ class Main(QtWidgets.QMainWindow, Process.AbstractProcess):
         # Bind shortcuts
         self._bindShortcuts()
 
-        self.showMaximized()
+        #self.showMaximized()
+        self.show()
 
     def _bindShortcuts(self):
 

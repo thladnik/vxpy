@@ -44,8 +44,8 @@ class LiveCamera(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
-        _, frametimes = IPC.Routines.Camera.readAttribute('FrameRoutine/time', last=2)
+        idx, frame = IPC.Routines.Camera.read('FrameRoutine/frame')
+        _, frametimes = IPC.Routines.Camera.read('FrameRoutine/time', last=2)
         if frametimes[0] is None or frametimes[1] is None:
             return
         dt = frametimes[1] - frametimes[0]
@@ -94,7 +94,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        idx, frame = IPC.Routines.Camera.readAttribute('FrameRoutine/frame')
+        idx, frame = IPC.Routines.Camera.read('FrameRoutine/frame')
 
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
@@ -195,7 +195,7 @@ class EyePositionDetector(QtWidgets.QWidget):
                 self.newMarker = None
 
         def updateRectSubplots(self):
-            idx, extractedRects = IPC.Routines.Camera.readAttribute('EyePosDetectRoutine/extractedRects')
+            idx, extractedRects = IPC.Routines.Camera.read('EyePosDetectRoutine/extractedRects')
             if extractedRects is None:
                 return
 
@@ -273,7 +273,7 @@ class TailDeflectionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        frame = IPC.Routines.Camera.readAttribute('FrameBuffer/frame')
+        frame = IPC.Routines.Camera.read('FrameBuffer/frame')
         self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
 
 

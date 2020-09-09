@@ -99,7 +99,7 @@ class Routines:
             # Advance the associated buffer
             self._routines[name].buffer.next()
 
-    def readAttribute(self, attr_name, routine_name=None, **kwargs):
+    def read(self, attr_name, routine_name=None, **kwargs):
         """Read shared attribute from buffer.
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>

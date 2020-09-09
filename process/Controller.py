@@ -252,28 +252,8 @@ class Controller(AbstractProcess):
         for target, kwargs in self._registeredProcesses:
             self.initializeProcess(target, **kwargs)
 
-        if False:
-            # not necessary anymore with global time?
-            ### Synchronize all processes to controller
-            ## Wait for all processes to be in sync state
-            while not(all([self.inState(Def.State.SYNC, target.name) for target, _ in self._registeredProcesses])):
-                time.sleep(1/100)
-
-            null_time = time.time() + 0.1
-            Logging.logger.log(logging.INFO, 'Set sync time to {}'.format(null_time))
-            ## Set synchronized start time
-            IPC.Control.General.update({Def.GenCtrl.process_null_time : null_time})
-
         ### Run controller
-        self.run(interval=0.5)
-
-        ### Pre-shutdown
-        ## Update configurations that should persist
-        Logging.logger.log(logging.INFO, 'Save configuration to file {}'.format(self.configfile))
-        self.configuration.updateConfiguration(Def.CameraCfg, **{k : v for k, v in Config.Camera.items() if k.find('_prop_') >= 0})
-        self.configuration.updateConfiguration(Def.DisplayCfg, **Config.Display)
-        self.configuration.updateConfiguration(Def.RecCfg, **Config.Recording)
-        self.configuration.saveToFile()
+        self.run(interval=0.001)
 
         ### Shutdown procedure
         Logging.logger.log(logging.DEBUG, 'Wait for processes to terminate')

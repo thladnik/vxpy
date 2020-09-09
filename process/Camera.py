@@ -30,7 +30,7 @@ import Logging
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-class Main(Process.AbstractProcess):
+class Camera(Process.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):

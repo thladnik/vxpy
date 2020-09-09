@@ -36,6 +36,7 @@ class AbstractVisual:
     _warns = list()
 
     parameters = dict()
+    frame = None
 
     def __init__(self, _glwindow):
         self.frame_time = None

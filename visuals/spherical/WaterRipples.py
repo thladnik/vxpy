@@ -120,7 +120,7 @@ class RipplesOnStaticBackground(SphericalVisual):
                 continue
 
             # Draw ripple
-            prog.triggerOnDraw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
+            prog.draw(gl.GL_TRIANGLES, self.sphere_model.indexBuffer)
 
         gl.glDisable(gl.GL_ALPHA_TEST)
 

@@ -26,7 +26,7 @@ import Process
 import Def
 import Logging
 
-class Main(Process.AbstractProcess):
+class Worker(Process.AbstractProcess):
     name = Def.Process.Worker
 
     def __init__(self, **kwargs):

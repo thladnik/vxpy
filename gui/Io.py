@@ -60,7 +60,7 @@ class IoWidget(QtWidgets.QWidget):
 
         for routine_name, pins in self.data.items():
             for pin_name, pin_data in pins.items():
-                idcs, newdata = IPC.Routines.Io.readAttribute(
+                idcs, newdata = IPC.Routines.Io.read(
                     ['time', pin_name],
                     routine_name,
                     last_idx=pin_data['last_idx'])

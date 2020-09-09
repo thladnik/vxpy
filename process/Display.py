@@ -32,7 +32,7 @@ if Def.Env == Def.EnvTypes.Dev:
 ### Set glumpy to use pyglet4 backend
 app.use(Def.Display_backend)
 
-class Main(Process.AbstractProcess):
+class Display(Process.AbstractProcess):
     name = Def.Process.Display
 
     _config   : dict                      = dict()

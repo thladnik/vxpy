@@ -26,7 +26,7 @@ import Logging
 import Process
 import protocols
 
-class Main(Process.AbstractProcess):
+class Io(Process.AbstractProcess):
     name = Def.Process.Io
 
     def __init__(self, **kwargs):
