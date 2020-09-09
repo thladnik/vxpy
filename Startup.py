@@ -709,7 +709,6 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
         self.setWindowTitle('MappApp - Startup configuration')
 
-        self.configuration = Basic.Config()
         self._configfile = None
         self._currentConfigChanged = False
 

@@ -29,7 +29,7 @@ import gui.Controls
 import gui.Camera
 import IPC
 import Logging
-from process import GUI
+from process import Gui
 import protocols
 
 
@@ -140,7 +140,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Process monitor')
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         self._setupUi()
 
@@ -238,7 +238,7 @@ class Recording(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Recordings')
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
         self.setObjectName('RecGroupBox')
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -348,7 +348,7 @@ class Log(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Log')
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -384,7 +384,7 @@ class Controls(QtWidgets.QTabWidget):
 
     def __init__(self, _main):
         QtWidgets.QTabWidget.__init__(self)
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         ### Display Settings
         if Config.Display[Def.DisplayCfg.use]:

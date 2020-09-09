@@ -25,6 +25,12 @@ import IPC
 logger = None
 write = None
 
+DEBUG   = logging.DEBUG
+INFO    = logging.INFO
+WARN    = logging.WARN
+WARNING = logging.WARNING
+ERROR   = logging.ERROR
+
 def setupLogger(_name):
     global logger, write
     # Set up logging

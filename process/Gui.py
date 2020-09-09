@@ -1,5 +1,5 @@
 """
-MappApp .process/GUI.py - Graphical user interface for easier UX.
+MappApp .process/Gui.py - Graphical user interface for easier UX.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -35,7 +35,7 @@ import process.Controller
 import process.Camera
 import process.Display
 
-class GUI(QtWidgets.QMainWindow, Process.AbstractProcess):
+class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
     name = Def.Process.GUI
 
     _app : QtWidgets.QApplication

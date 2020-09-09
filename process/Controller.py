@@ -171,7 +171,7 @@ class Controller(AbstractProcess):
         self._registerProcess(process.Worker)
         ## GUI
         if Config.Gui[Def.GuiCfg.use]:
-            self._registerProcess(process.GUI)
+            self._registerProcess(process.Gui)
         ## Camera
         if Config.Camera[Def.CameraCfg.use]:
             self._registerProcess(process.Camera)
@@ -180,7 +180,7 @@ class Controller(AbstractProcess):
             self._registerProcess(process.Display)
         ## IO
         if Config.Io[Def.IoCfg.use]:
-            self._registerProcess(process.IO)
+            self._registerProcess(process.Io)
         ## Logger (always runs in background)
         #self._registerProcess(process.Logger)
 

@@ -22,7 +22,7 @@ import Config
 import Def
 from helper.Basic import Conversion
 import IPC
-from process import Controller, Display, GUI
+from process import Controller, Display, Gui
 
 
 class DisplaySettingsGlobal(QtWidgets.QGroupBox):
@@ -190,7 +190,7 @@ class SphericalDisplaySettings(QtWidgets.QWidget):
 
     def __init__(self, _main):
         QtWidgets.QWidget.__init__(self, parent=_main, flags=QtCore.Qt.Window)
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         self._setupUi()
 
@@ -307,7 +307,7 @@ class PlanarDisplaySettings(QtWidgets.QWidget):
 
     def __init__(self, _main):
         QtWidgets.QWidget.__init__(self, parent=_main, flags=QtCore.Qt.Window)
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         self._setupUi()
 

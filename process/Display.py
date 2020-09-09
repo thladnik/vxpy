@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from glumpy import app
-
+from PyQt5 import QtWidgets
 import Config
 import Def
 import IPC
@@ -47,14 +47,32 @@ class Display(Process.AbstractProcess):
         self._window_config.double_buffer = True
 
         ### Open OpenGL window
-        self.glwindow = app.Window(width=Config.Display[Def.DisplayCfg.window_width],
-                                   height=Config.Display[Def.DisplayCfg.window_height],
+        self.glwindow = app.Window(width=256,
+                                   height=256,
                                    color=(0, 0, 0, 1),
                                    title='Display',
                                    config=self._window_config,
                                    vsync=True)
+
+        ### Set position
         self.glwindow.set_position(Config.Display[Def.DisplayCfg.window_pos_x],
                                    Config.Display[Def.DisplayCfg.window_pos_y])
+
+        ### Set window size
+        self.glwindow.set_size(Config.Display[Def.DisplayCfg.window_width],
+                               Config.Display[Def.DisplayCfg.window_height])
+
+        ### Set screen
+        scr_handle = self.glwindow._native_app.screens()[Config.Display[Def.DisplayCfg.window_screen_id]]
+        self.glwindow._native_window.windowHandle().setScreen(scr_handle)
+
+        ### Set fullscreen
+        if Config.Display[Def.DisplayCfg.window_fullscreen]:
+            self.glwindow._native_window.showFullScreen()
+
+        ###
+        #self.glwindow._native_window.setSizePoliy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+
         ### Apply event wrapper
         self.on_draw = self.glwindow.event(self.on_draw)
         self.on_init = self.glwindow.event(self.on_init)
@@ -101,13 +119,6 @@ class Display(Process.AbstractProcess):
             IPC.Routines.Display.update(self.visual)
         else:
             self.glwindow.clear()
-
-    def updateWindow(self):
-        return
-        self._glWindow.set_size(Config.Display[Def.DisplayCfg.window_width],
-                                Config.Display[Def.DisplayCfg.window_height])
-        self._glWindow.set_position(Config.Display[Def.DisplayCfg.window_pos_x],
-                                    Config.Display[Def.DisplayCfg.window_pos_y])
 
     def on_resize(self, width: int, height: int):
         """Glumpy on_resize event
