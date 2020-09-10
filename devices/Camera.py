@@ -41,13 +41,8 @@ else:
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-def GetCamera(id):
-    # TODO: id switches between different cameras for future multi camera use in one session.
-    #       This also needs to be reflected in the configuration
-    if Config.Camera[Def.CameraCfg.manufacturer] == 'TIS':
-        return CAM_TIS()
-    elif Config.Camera[Def.CameraCfg.manufacturer] == 'virtual':
-        return CAM_Virtual()
+
+# TODO: add abstract CAM class
 
 class CAM_Virtual:
 
@@ -60,9 +55,9 @@ class CAM_Virtual:
     _sampleFile = {'Multi_Fish_Eyes_Cam' : 'Fish_eyes_multiple_fish_30s.avi',
                    'Single_Fish_Eyes_Cam' : 'Fish_eyes_spontaneous_saccades_40s.avi'}
 
-    def __init__(self):
-        self._model = Config.Camera[Def.CameraCfg.model]
-        self._format = Config.Camera[Def.CameraCfg.format]
+    def __init__(self, model, format):
+        self._model = model#Config.Camera[Def.CameraCfg.model]
+        self._format = format#Config.Camera[Def.CameraCfg.format]
         self.vid = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self._model]))
 
     @classmethod
@@ -75,6 +70,9 @@ class CAM_Virtual:
     def getFormats(self):
         return self.__class__._formats[self._model]
 
+    def snapImage(self):
+        pass
+
     def getImage(self):
         ret, frame = self.vid.read()
         if ret:
@@ -85,12 +83,12 @@ class CAM_Virtual:
 
 class CAM_TIS:
 
-    def __init__(self):
+    def __init__(self, model, format):
         from lib.pyapi import tisgrabber as IC
         self._device = IC.TIS_CAM()
 
-        self._device.open(Config.Camera[Def.CameraCfg.model])
-        self._device.SetVideoFormat(Config.Camera[Def.CameraCfg.format])
+        self._device.open(model)#Config.Camera[Def.CameraCfg.model])
+        self._device.SetVideoFormat(format)#Config.Camera[Def.CameraCfg.format])
 
         ### TODO: maybe something here is involved in potential screen-tearing issues?
         #self._device.SetFrameRate(Config.Camera[Definition.Camera.fps])
@@ -119,6 +117,7 @@ class CAM_TIS:
             self._device.SetPropertyAbsoluteValue('Gain', 'Value', float(value))
 
 
+
     @staticmethod
     def getModels():
         return IC.TIS_CAM().GetDevices()
@@ -128,6 +127,9 @@ class CAM_TIS:
         device.open(model)
         return device.GetVideoFormats()
 
-    def getImage(self):
+    def snapImage(self):
         self._device.SnapImage()
+
+    def getImage(self):
+        #self._device.SnapImage()
         return self._device.GetImage()

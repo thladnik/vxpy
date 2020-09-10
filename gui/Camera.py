@@ -30,28 +30,51 @@ import routines.camera.DefaultCameraRoutines
 # Live Camera Widget
 
 class LiveCamera(QtWidgets.QWidget):
+
     def __init__(self, parent, **kwargs):
         ### Set module always to active
         self.moduleIsActive = True
         QtWidgets.QWidget.__init__(self, parent, **kwargs)
+
         self.setWindowTitle('Live camera')
-        baseSize = (Config.Camera[Def.CameraCfg.res_x], 1.5 * Config.Camera[Def.CameraCfg.res_y])
-        self.setMinimumSize(*baseSize)
-        self.resize(*baseSize)
+
         self.setLayout(QtWidgets.QGridLayout())
 
-        self.graphicsWidget = LiveCamera.GraphicsWidget(parent=self)
-        self.layout().addWidget(self.graphicsWidget, 0, 0)
+        self.fps_counter = QtWidgets.QLineEdit('FPS')
+        self.fps_counter.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.layout().addWidget(self.fps_counter, 0, 0)
+        hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.layout().addItem(hspacer, 0, 1)
+
+        self.tab_camera_views = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_camera_views, 1, 0, 1, 2)
+
+        self.view_wdgts = dict()
+        for device_id, res_x in zip(Config.Camera[Def.CameraCfg.device_id],
+                             Config.Camera[Def.CameraCfg.res_x]):
+
+            self.view_wdgts[device_id] = LiveCamera.GraphicsWidget(parent=self)
+            self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
+
 
     def updateFrame(self):
-        idx, frame = IPC.Routines.Camera.read('FrameRoutine/frame')
-        _, frametimes = IPC.Routines.Camera.read('FrameRoutine/time', last=2)
-        if frametimes[0] is None or frametimes[1] is None:
+
+        ### Update current frame
+        for device_id, wdgt in self.view_wdgts.items():
+            _, frame = IPC.Routines.Camera.read('FrameRoutine/{}_frame'.format(device_id))
+
+            if frame is None:
+                continue
+
+            wdgt.imageItem.setImage(np.rot90(frame.squeeze(), -1))
+
+        ### Print fps
+        _, frametimes = IPC.Routines.Camera.read('FrameRoutine/time', last=50)
+        if frametimes[0] is None:
             return
-        dt = frametimes[1] - frametimes[0]
-        if not(frame is None):
-            self.graphicsWidget.imageItem.setImage(np.rot90(frame.squeeze(), -1))
-            self.graphicsWidget.textItem.setText('FPS {:.2f}'.format(1./dt))
+
+        fps = 1./np.mean(np.diff(frametimes))
+        self.fps_counter.setText('FPS {:.2f}'.format(fps))
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
@@ -85,7 +108,7 @@ class EyePositionDetector(QtWidgets.QWidget):
 
         QtWidgets.QWidget.__init__(self, parent, flags=QtCore.Qt.Window, **kwargs)
         self.setWindowTitle('Eye position detector')
-        baseSize = (Config.Camera[Def.CameraCfg.res_x], 1.5 * Config.Camera[Def.CameraCfg.res_y])
+        baseSize = (Config.Camera[Def.CameraCfg.res_x][0], 1.5 * Config.Camera[Def.CameraCfg.res_y][0])
         self.setMinimumSize(*baseSize)
         self.resize(*baseSize)
         self.setLayout(QtWidgets.QGridLayout())
@@ -94,7 +117,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget, 0, 0)
 
     def updateFrame(self):
-        idx, frame = IPC.Routines.Camera.read('FrameRoutine/frame')
+        idx, frame = IPC.Routines.Camera.read('FrameRoutine/behavior_frame')
 
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))

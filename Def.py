@@ -117,15 +117,15 @@ class CameraCfg(Cfg):
     name = Process.Camera.lower()
 
     # Camera configuration
-    device_id    = 'str_device_id'
-    manufacturer = 'str_manufacturer'
-    model        = 'str_model'
-    format       = 'str_format'
-    res_x        = 'int_resolution_x'
-    res_y        = 'int_resolution_y'
+    device_id    = 'json_device_id'
+    manufacturer = 'json_manufacturer'
+    model        = 'json_model'
+    format       = 'json_format'
+    res_x        = 'json_resolution_x'
+    res_y        = 'json_resolution_y'
     fps          = 'int_fps'
-    exposure     = 'float_exposure'
-    gain         = 'float_gain'
+    exposure     = 'json_exposure'
+    gain         = 'json_gain'
 
     # Buffers
     routines      = 'json_routines'

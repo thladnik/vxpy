@@ -60,6 +60,10 @@ class ModuleWidget(QtWidgets.QWidget):
         global current_config
         current_config.setParsed(self.module_name, option, value)
 
+    def closedMainWindow(self):
+        """Method called by default in MainWindow on closeEvent"""
+        pass
+
 
 ################################
 ### CAMERA
@@ -182,6 +186,8 @@ class DisplayWidget(ModuleWidget):
                current_config.getParsed(section, Def.DisplayCfg.window_pos_y)
         self.glwindow.set_position(x, y)
 
+    def closedMainWindow(self):
+        self.glwindow.close()
 
     def on_draw(self, dt):
         self.glwindow.clear((0., 0., 0., 1.))
@@ -194,6 +200,7 @@ class DisplayWidget(ModuleWidget):
 
         return
 
+        # <editor-fold desc="Key press options for later... maybe">
         ###
         # Key event handling here sucks
 
@@ -216,7 +223,7 @@ class DisplayWidget(ModuleWidget):
                     import IPython
                     IPython.embed()
 
-            meh = """
+
             ### X position: Ctrl(+Shift)+X
             elif symbol == window.key.X:
                 print('hello')
@@ -271,7 +278,8 @@ class DisplayWidget(ModuleWidget):
                     time.sleep(continPressDelay)
             else:
                 self._glWindow.on_key_press(symbol, modifiers)
-            """
+        # </editor-fold>
+
 
 class DisplayScreenSelection(QtWidgets.QGroupBox):
 
@@ -711,10 +719,10 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self._configfile = None
         self._currentConfigChanged = False
 
-        self._setupUI()
+        self.setupUI()
 
 
-    def _setupUI(self):
+    def setupUI(self):
         global current_config
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         hSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -864,6 +872,11 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                 global current_config
                 current_config.saveToFile()
 
+        ### Close widgetts
+        for wdgt_name, wdgt in self.module_widgets.items():
+            wdgt.closedMainWindow()
+
+        ### Close MainWindow
         event.accept()
 
     def saveAndStartApplication(self):

@@ -87,13 +87,17 @@ class Routines:
         self._routine_paths[routine.__name__] = routine.__module__
         self._routines[routine.__name__] = routine(self, **kwargs)
 
-    def update(self, data):
-        t = time.time()#perf_counter() - self.process.process_sync_time
+    def update(self, *args, **kwargs):
+
+        if not(bool(args)) and not(bool(kwargs)):
+            return
+
+        t = time.time()
         for name in self._routines:
             ### Set time for current iteration
             self._routines[name].buffer.time = t
             ### Update the data in buffer
-            self._routines[name].update(data)
+            self._routines[name].update(*args, **kwargs)
             ### Stream new routine computation results to file (if active)
             self._routines[name].streamToFile(self.handleFile())
             # Advance the associated buffer
@@ -177,7 +181,7 @@ class AbstractRoutine:
         ### Set time attribute by default on all buffers
         self.buffer.time = (BufferDTypes.float64, )
 
-    def _compute(self, data):
+    def _compute(self, *args, **kwargs):
         """Compute method is called on data updates (so in the producer process).
         Every buffer needs to implement this method."""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
@@ -194,21 +198,13 @@ class AbstractRoutine:
     def read(self, attr_name, *args, **kwargs):
         return self.buffer.read(attr_name, *args, **kwargs)
 
-    def update(self, data):
+    def update(self, *args, **kwargs):
         """Method is called on every iteration of the producer.
 
         :param data: input data to be updated
         """
 
-        ### Set time for current iteration
-        #self.buffer.time = time()
-        ### Call compute method
-        #self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
-        #                            (TODO: I don't think this copying works as intended, yet)
-        if data is None:
-            return
-
-        self._compute(data)
+        self._compute(*args, **kwargs)
 
 
     def _appendData(self, grp, key, value):

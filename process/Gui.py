@@ -90,7 +90,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
 
         ## Camera
         self.grp_camera = gui.Integrated.Camera(self)
-        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x] * 1.1))
+        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.1))
         self.centralWidget().layout().addWidget(self.grp_camera, 0, 3, 2, 1)
 
         ## Add IO monitor
