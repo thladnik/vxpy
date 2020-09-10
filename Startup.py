@@ -97,8 +97,9 @@ class DisplayWidget(ModuleWidget):
 
         from glumpy import app
 
-        ### Set universal MappApp backend
-        app.use('{} (GL 4.6 core)'.format(Def.Display_backend))
+        ### Set universal MappApp backend (use qt5 with GL 4.6 core by default here)
+        # TODO: make this based on a configuration in the future?
+        app.use('qt5 (GL 4.6 core)')
 
         ### Create glumpy window and context
         self.glwindow = app.Window(color=(0., 0., 0., 1.))

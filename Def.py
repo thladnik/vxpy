@@ -117,14 +117,15 @@ class CameraCfg(Cfg):
     name = Process.Camera.lower()
 
     # Camera configuration
+    device_id    = 'str_device_id'
     manufacturer = 'str_manufacturer'
     model        = 'str_model'
     format       = 'str_format'
     res_x        = 'int_resolution_x'
     res_y        = 'int_resolution_y'
-    fps          = 'int_prop_fps'
-    exposure     = 'float_prop_exposure'
-    gain         = 'float_prop_gain'
+    fps          = 'int_fps'
+    exposure     = 'float_exposure'
+    gain         = 'float_gain'
 
     # Buffers
     routines      = 'json_routines'
@@ -136,10 +137,15 @@ class CameraCfg(Cfg):
 class DisplayCfg(Cfg):
     name = Process.Display.lower()
 
+    ## General
     type                   = 'str_type'
     fps                    = 'int_fps'
+    window_backend         = 'str_window_backend'
+    gl_version_major       = 'int_gl_version_major'
+    gl_version_minor       = 'int_gl_version_minor'
+    gl_profile             = 'str_gl_profile'
 
-    # Window settings
+    ## Window settings
     window_screen_id       = 'int_window_screen_id'
     window_fullscreen      = 'bool_window_fullscreen'
     window_width           = 'int_window_width'
@@ -154,7 +160,6 @@ class DisplayCfg(Cfg):
 
     # Spherical
     sph_pos_glob_radial_offset = 'float_sph_pos_glob_radial_offset'
-
     sph_view_elev_angle        = 'float_sph_view_elev_angle'
     sph_view_azim_angle        = 'float_sph_view_azim_angle'
     sph_view_distance          = 'float_sph_view_origin_distance'

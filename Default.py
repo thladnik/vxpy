@@ -23,6 +23,7 @@ Configuration = {
     Def.CameraCfg.name: {
         Def.CameraCfg.use                     : True,
 
+        Def.CameraCfg.device_id               : '',
         Def.CameraCfg.manufacturer            : 'virtual',
         Def.CameraCfg.model                   : 'cam01',
         Def.CameraCfg.format                  : 'RGB (600, 400)',
@@ -37,8 +38,11 @@ Configuration = {
     Def.DisplayCfg.name : {
         Def.DisplayCfg.use                    : True,
         Def.DisplayCfg.type                   : 'spherical',
-
         Def.DisplayCfg.fps                    : 60,
+        Def.DisplayCfg.window_backend         : 'qt5',
+        Def.DisplayCfg.gl_version_major       : 4,
+        Def.DisplayCfg.gl_version_minor       : 6,
+        Def.DisplayCfg.gl_profile             : 'core',
 
         # Window
         Def.DisplayCfg.window_screen_id       : 0,

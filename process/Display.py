@@ -30,12 +30,11 @@ if Def.Env == Def.EnvTypes.Dev:
     pass
 
 ### Set glumpy to use pyglet4 backend
-app.use(Def.Display_backend)
+#app.use(Def.Display_backend)
 
 class Display(Process.AbstractProcess):
     name = Def.Process.Display
 
-    _config   : dict                      = dict()
     glwindow  : app.window.Window         = None
     protocol  : Protocol.AbstractProtocol = None
     visual    : Visuals.AbstractVisual    = None
@@ -43,16 +42,26 @@ class Display(Process.AbstractProcess):
     def __init__(self,**kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
 
+        app.use('{} (GL {}.{} {})'.format(Config.Display[Def.DisplayCfg.window_backend],
+                                          Config.Display[Def.DisplayCfg.gl_version_major],
+                                          Config.Display[Def.DisplayCfg.gl_version_minor],
+                                          Config.Display[Def.DisplayCfg.gl_profile]))
+
         self._window_config = app.configuration.Configuration()
         self._window_config.double_buffer = True
 
         ### Open OpenGL window
         self.glwindow = app.Window(width=256,
                                    height=256,
-                                   color=(0, 0, 0, 1),
+                                   color=(0., 0., 0., 1),
                                    title='Display',
                                    config=self._window_config,
                                    vsync=True)
+
+        ### (Manually) Configure glumpy eventloop
+        self.glumpy_backend = app.__backend__
+        self.glumpy_clock = app.__init__(backend=self.glumpy_backend)
+        self.glumpy_count = len(self.glumpy_backend.windows())
 
         ### Set position
         self.glwindow.set_position(Config.Display[Def.DisplayCfg.window_pos_x],
@@ -78,10 +87,8 @@ class Display(Process.AbstractProcess):
         self.on_init = self.glwindow.event(self.on_init)
 
         ### Run event loop
-        self.run(0.01)
+        self.run(1./Config.Display[Def.DisplayCfg.fps])
 
-    ################
-    ### Glumpy-called events
 
     def on_init(self):
         """Glumpy on_init event"""
@@ -120,34 +127,16 @@ class Display(Process.AbstractProcess):
         else:
             self.glwindow.clear()
 
-    def on_resize(self, width: int, height: int):
-        """Glumpy on_resize event
-
-        :param width: new pixel width of window
-        :param height: new pixel height of window
-        :return:
-        """
-
-        return
-
-        ### Fix for (many different) glumpy backends:
-        self._glWindow._width = width
-        self._glWindow._height = height
-        # Update size and position in configuration
-        Config.Display[Def.DisplayCfg.window_width] = width
-        Config.Display[Def.DisplayCfg.window_height] = height
-        Config.Display[Def.DisplayCfg.window_pos_x] = self._glWindow.get_position()[0]
-        Config.Display[Def.DisplayCfg.window_pos_y] = self._glWindow.get_position()[1]
-
-
-
     def _startShutdown(self):
         self.glwindow.close()
         Process.AbstractProcess._startShutdown(self)
 
     def main(self):
-        app.clock.schedule_interval(self._handleInbox, 0.01)
+        if self.glumpy_count:
+            self.glumpy_count = self.glumpy_backend.process(self.glumpy_clock.tick())
 
+        ## OLD
+        #app.clock.schedule_interval(self._handleInbox, 0.01)
         # Run Glumpy event loop
-        app.run(framerate=Config.Display[Def.DisplayCfg.fps])
+        #app.run(framerate=Config.Display[Def.DisplayCfg.fps])
 
