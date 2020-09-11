@@ -11,8 +11,8 @@ varying float v_elevation;
 void main() {
 
     // Construct checkerboard
-    float c1 = sin(float(u_cols) * v_azimuth);
-    float c2 = sin(float(u_rows) * v_elevation);
+    float c1 = cos(float(u_cols) * v_azimuth);
+    float c2 = cos(float(u_rows) * v_elevation);
 
     // Thresholding
     float c;
