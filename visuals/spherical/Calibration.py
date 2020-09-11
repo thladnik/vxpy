@@ -62,3 +62,36 @@ class BlackWhiteCheckerboard(SphericalVisual):
             else:
                 self.checker[k] = p
 
+
+class RegularMesh(SphericalVisual):
+
+    u_rows = 'u_rows'
+    u_cols = 'u_cols'
+
+    parameters = {u_rows: None, u_cols: None}
+
+    def __init__(self, *args, **params):
+        SphericalVisual.__init__(self, *args)
+
+        self.sphere = self.addModel('sphere',
+                                    BasicSphere.UVSphere,
+                                    theta_lvls=100, phi_lvls=50, theta_range=2 * np.pi, upper_phi=np.pi / 2)
+        self.sphere.createBuffers()
+        self.checker = self.addProgram('sphere',
+                                       BasicFileShader().addShaderFile('spherical/checkerboard.vert').read(),
+                                       BasicFileShader().addShaderFile('spherical/regular_mesh.frag').read())
+        self.checker.bind(self.sphere.vertexBuffer)
+
+        self.update(**params)
+
+    def render(self):
+        self.checker.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
+
+    def update(self, **params):
+
+        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        for k, p in self.parameters.items():
+            if hasattr(self, 'parse_{}'.format(k)):
+                self.checker[k] = getattr(self, 'parse_{}'.format(k))(p)
+            else:
+                self.checker[k] = p

@@ -93,6 +93,7 @@ class EyePosDetectRoutine(AbstractRoutine):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
         ### Set accessible methods
+        self.exposed.append(EyePosDetectRoutine.setThreshold)
         self.exposed.append(EyePosDetectRoutine.setROI)
 
         ### Get camera specs
@@ -102,10 +103,15 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         ### Set up shared variables
         self.ROIs = dict()
+        self.thresh = None
 
         ### Set up buffer
         self.buffer.extractedRects = ('test', )
         self.buffer.eyePositions = ('test', )
+
+    def setThreshold(self, thresh):
+        #if thresh in range(1,256):
+        self.thresh = thresh
 
     def setROI(self, id, params):
         self.ROIs[id] = params
@@ -240,7 +246,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
     def _compute(self, **frames):
 
-        frame = frames.get('behavior')
+        frame = frames.get(self.camera_device_id)
 
         if frame is None:
             return
