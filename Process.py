@@ -50,10 +50,11 @@ class AbstractProcess:
     _shutdown  : bool
 
     ### Protocol related
-    phase_start_time    : float = None
-    phase_time           : float = None
+    phase_start_time      : float = None
+    phase_time            : float = None
 
-    enable_idle_timeout  : bool = True
+    enable_idle_timeout   : bool = True
+    _registered_callbacks : dict = dict()
 
     def __init__(self,
                  _configurations=None,
@@ -317,31 +318,49 @@ class AbstractProcess:
     def _isRunning(self):
         return self._running and not(self._shutdown)
 
+    def registerRPCCallback(self, instance, fun_str, fun):
+        if fun_str not in self._registered_callbacks:
+            self._registered_callbacks[fun_str] = (instance, fun)
+        else:
+            Logging.write(Logging.WARNING, 'Trying to register callback \"{}\" more than once'.format(fun_str))
+
+
     ################################
     ### Private functions
 
-    def _executeRPC(self, fun: str, *args, **kwargs):
+    def _executeRPC(self, fun_str: str, *args, **kwargs):
         """Execute a remote call to the specified function and pass *args, **kwargs
 
-        :param fun: function name
+        :param fun_str: function name
         :param args: list of arguments
         :param kwargs: dictionary of keyword arguments
         :return:
         """
-        fun_path = fun.split('.')
+        fun_path = fun_str.split('.')
+
+        ### RPC on process class
         if fun_path[0] == self.__class__.__name__:
             fun_str = fun_path[1]
-        else:
-            fun_str = '_'.join(fun_path)
 
-        try:
-            Logging.logger.log(logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'
-                               .format(fun_str, args, kwargs))
-            getattr(self, fun_str)(*args, **kwargs)
-        except Exception as exc:
-            Logging.logger.log(logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
-                                                '// Exception: {}'.
-                                                format(fun_str, args, kwargs, exc))
+            try:
+                Logging.logger.log(logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'
+                                   .format(fun_str, args, kwargs))
+                getattr(self, fun_str)(*args, **kwargs)
+
+            except Exception as exc:
+                Logging.logger.log(logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
+                                                    '// Exception: {}'.
+                                   format(fun_str, args, kwargs, exc))
+
+        ### RPC on registered callback
+        elif fun_str in self._registered_callbacks:
+            self._registered_callbacks[fun_str][1](self._registered_callbacks[fun_str][0], *args, **kwargs)
+            #fun_str = '_'.join(fun_path)
+
+        else:
+            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
+
+
 
 
     def _handleInbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval

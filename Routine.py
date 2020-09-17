@@ -65,15 +65,10 @@ class Routines:
         """
         self.process = instance
 
-        for name, routine in self._routines.items():
-            for method in routine.exposed:
-                fun_path = method.__qualname__.split('.')
-                fun_str = '_'.join(fun_path)
-                if not(hasattr(instance, fun_str)):
-                    # This is probably my weirdest programming construct yet...
-                    setattr(instance, fun_str, lambda *args, **kwargs: method(routine, *args, **kwargs))
-                else:
-                    print('Oh no, routine method already set. NOT GOOD!')
+        for name, instance in self._routines.items():
+            for fun in instance.exposed:
+                fun_str = fun.__qualname__
+                self.process.registerRPCCallback(instance, fun_str, fun)
 
     def initializeBuffers(self):
         for name, routine in self._routines.items():

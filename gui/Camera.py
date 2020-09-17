@@ -97,8 +97,37 @@ class LiveCamera(QtWidgets.QWidget):
 
 ################################
 # Eye Position Detector Widget
+from routines.camera import DefaultCameraRoutines
+
+class SliderWidget(QtWidgets.QWidget):
+
+    def __init__(self, slider_name, min_val, max_val, default_val, *args, **kwargs):
+        QtWidgets.QWidget.__init__(self, *args, **kwargs)
+
+        self.setLayout(QtWidgets.QGridLayout())
+
+        self.layout().addWidget(QtWidgets.QLabel(slider_name), 0, 0)
+        self.lineedit = QtWidgets.QLineEdit()
+        self.lineedit.setEnabled(False)
+        self.layout().addWidget(self.lineedit, 0, 1)
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        #self.slider.setTickInterval(int(max_val - min_val / 10))
+        self.slider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
+        self.slider.setMinimum(min_val)
+        self.slider.setMaximum(max_val)
+        self.slider.valueChanged.connect(lambda: self.lineedit.setText(str(self.slider.value())))
+
+        self.slider.setValue(default_val)
+        self.layout().addWidget(self.slider, 1, 0, 1, 2)
+
+    def emitValueChanged(self):
+        self.slider.valueChanged.emit(self.slider.value())
+
 
 class EyePositionDetector(QtWidgets.QWidget):
+
+    camera_device_id = DefaultCameraRoutines.EyePosDetectRoutine.camera_device_id
+
     def __init__(self, parent, **kwargs):
         ### Check if camera is being used (since detector relies on camera input)
         if not(Config.Camera[Def.CameraCfg.use]):
@@ -106,18 +135,63 @@ class EyePositionDetector(QtWidgets.QWidget):
             return
         self.moduleIsActive = True
 
-        QtWidgets.QWidget.__init__(self, parent, flags=QtCore.Qt.Window, **kwargs)
-        self.setWindowTitle('Eye position detector')
-        baseSize = (Config.Camera[Def.CameraCfg.res_x][0], 1.5 * Config.Camera[Def.CameraCfg.res_y][0])
-        self.setMinimumSize(*baseSize)
-        self.resize(*baseSize)
-        self.setLayout(QtWidgets.QGridLayout())
+        QtWidgets.QWidget.__init__(self, parent, **kwargs)
+        self.setLayout(QtWidgets.QHBoxLayout())
 
+        ### Panel
+        self.panel_wdgt = QtWidgets.QWidget(parent=self)
+        self.panel_wdgt.setSizePolicy(QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.Expanding)
+        self.panel_wdgt.setMinimumWidth(200)
+        self.panel_wdgt.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self.panel_wdgt)
+
+        ## Threshold
+        self.panel_wdgt.thresh = SliderWidget('Threshold', 1, 255, 60)
+        self.panel_wdgt.thresh.slider.valueChanged.connect(lambda:
+                                                    IPC.rpc(Def.Process.Camera,
+                                                            routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setThreshold,
+                                                            self.panel_wdgt.thresh.slider.value()))
+        self.panel_wdgt.layout().addWidget(self.panel_wdgt.thresh)
+        self.panel_wdgt.thresh.emitValueChanged()
+        ## Min particle size
+        self.panel_wdgt.minSize = SliderWidget('Min. particle size', 1, 1000, 20)
+        self.panel_wdgt.minSize.slider.valueChanged.connect(lambda:
+                                                IPC.rpc(Def.Process.Camera,
+                                                        routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setMinParticleSize,
+                                                        self.panel_wdgt.minSize.slider.value()))
+        self.panel_wdgt.layout().addWidget(self.panel_wdgt.minSize)
+        self.panel_wdgt.minSize.emitValueChanged()
+
+        self.panel_wdgt.layout().addItem(QtWidgets.QSpacerItem(1, 1,
+                                                                 QtWidgets.QSizePolicy.Maximum,
+                                                                 QtWidgets.QSizePolicy.MinimumExpanding))
+
+        # self.panel_wdgt.layout().addWidget(QtWidgets.QLabel('Threshold'), 0, 0)
+        # self.le_thresh = QtWidgets.QLineEdit()
+        # self.le_thresh.setEnabled(False)
+        # self.panel_wdgt.layout().addWidget(self.le_thresh, 0, 1)
+        # self.panel_wdgt.slider_thresh = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        # self.panel_wdgt.slider_thresh.setTickPosition(QtWidgets.QSlider.TicksBothSides)
+        # self.panel_wdgt.slider_thresh.setMinimum(1)
+        # self.panel_wdgt.slider_thresh.setMaximum(255)
+        # self.panel_wdgt.slider_thresh.valueChanged.connect(lambda: self.le_thresh.setText(str(self.panel_wdgt.slider_thresh.value())))
+        # self.panel_wdgt.slider_thresh.valueChanged.connect(lambda:
+        #                                            IPC.rpc(Def.Process.Camera,
+        #                                                    routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setThreshold,
+        #                                                    self.panel_wdgt.slider_thresh.value()))
+        # self.panel_wdgt.slider_thresh.setValue(60)
+        # self.panel_wdgt.layout().addWidget(self.panel_wdgt.slider_thresh, 1, 0, 1, 2)
+
+        ## Particle size filter
+
+
+        ### Image plot
         self.graphicsWidget = EyePositionDetector.GraphicsWidget(parent=self)
-        self.layout().addWidget(self.graphicsWidget, 0, 0)
+        self.graphicsWidget.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Expanding)
+        self.layout().addWidget(self.graphicsWidget)
 
     def updateFrame(self):
-        idx, frame = IPC.Routines.Camera.read('FrameRoutine/behavior_frame')
+        idx, frame = IPC.Routines.Camera.read('FrameRoutine/{}_frame'.format(self.camera_device_id))
 
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))

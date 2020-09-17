@@ -19,6 +19,7 @@ import ctypes
 import cv2
 import numpy as np
 from sklearn import metrics
+from scipy.spatial import distance
 from time import perf_counter, time
 
 from Routine import AbstractRoutine, BufferDTypes
@@ -94,6 +95,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         ### Set accessible methods
         self.exposed.append(EyePosDetectRoutine.setThreshold)
+        self.exposed.append(EyePosDetectRoutine.setMinParticleSize)
         self.exposed.append(EyePosDetectRoutine.setROI)
 
         ### Get camera specs
@@ -104,19 +106,203 @@ class EyePosDetectRoutine(AbstractRoutine):
         ### Set up shared variables
         self.ROIs = dict()
         self.thresh = None
+        self.minSize = None
 
         ### Set up buffer
         self.buffer.extractedRects = ('test', )
         self.buffer.eyePositions = ('test', )
+        #self.buffer.frame = (BufferDTypes.uint8, (self.res_y, self.res_x, 3))
 
     def setThreshold(self, thresh):
         #if thresh in range(1,256):
         self.thresh = thresh
 
+    def setMinParticleSize(self, size):
+        self.minSize = size
+
     def setROI(self, id, params):
         self.ROIs[id] = params
 
-    def default(self, rect):
+    def minAreaRect(self, rect):
+
+        rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
+
+        _, thresh = cv2.threshold(rect[:,:,0], self.thresh, 255, cv2.THRESH_BINARY_INV)
+
+        cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+        areas = list()
+        centroids = list()
+        hulls = list()
+        feret_points = list()
+        brects = list()
+        i = 0
+        while i < len(cnts):
+
+            cnt = cnts[i]
+            M = cv2.moments(cnt)
+            A = M['m00']
+
+            ### Discard if contour has no area
+            if A < self.minSize:
+                del cnts[i]
+                continue
+
+            center = (int(M['m10']/A), int(M['m01']/A))
+            hull = cv2.convexHull(cnt).squeeze()
+
+            areas.append(A)
+            centroids.append(center)
+            hulls.append(hull)
+
+            brect = cv2.minAreaRect(hull)
+            box = cv2.boxPoints(brect)  # cv2.boxPoints(rect) for OpenCV 3.x
+            box = np.int0(box)
+            brects.append(box)
+            feret_points.append((hull[np.argmin(hull[:,1])], hull[np.argmax(hull[:,1])]))
+
+            i += 1
+
+
+        #import IPython
+        #IPython.embed()
+
+
+        ### Draw everthing
+
+        ## Formatting
+        line_thickness = np.ceil(np.mean(rect.shape[:2]) / 100).astype(int)
+        if line_thickness == 0: line_thickness = 1
+        marker_size = line_thickness * 10
+
+        ## Draws
+        #cv2.drawContours(rect, cnts, -1, (255,0,0), line_thickness)
+        cv2.drawContours(rect, hulls, -1, (128,128,0), line_thickness)
+        for center, fpoints, brect in zip(centroids, feret_points, brects):
+            cv2.drawMarker(rect, center, (0, 0, 255), cv2.MARKER_CROSS, marker_size, line_thickness)
+            cv2.drawContours(rect, [brect], 0, (255,0,0), line_thickness)
+            for point in fpoints:
+                cv2.drawMarker(rect, tuple(point), (0, 128, 128), cv2.MARKER_CROSS, marker_size, line_thickness)
+        cv2.drawMarker(rect, rect_center, (0, 255, 0), cv2.MARKER_DIAMOND, marker_size, line_thickness)
+
+    def feretDiameter_new(self, frame, rect_params):
+
+        # For deburaw rectangle
+        box = cv2.boxPoints(rect_params)
+        box = np.int0(box)
+        cv2.drawContours(frame, [box], 0, (255, 0, 0), 1)
+
+        return None, None
+
+    def feretDiameter(self, rect):
+        """Method for extracting angular fish eye position estimates using the Feret diameter.
+
+        :param rect: 2d image which contains both of the fish's eyes.
+                     Upward image direction if assumed to be forward fish direction.
+                     Rect center is assumed to be located between both eyes.
+
+        :return:
+            angular eye positions for left and right eye in degree
+            modified 2d image for parameter debugging
+        """
+
+
+        ## Formatting for drawing
+        line_thickness = np.ceil(np.mean(rect.shape[:2]) / 100).astype(int)
+        if line_thickness == 0: line_thickness = 1
+        marker_size = line_thickness * 5
+
+        rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
+
+        _, thresh = cv2.threshold(rect[:,:,0], self.thresh, 255, cv2.THRESH_BINARY_INV)
+
+        cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+        thresh = np.stack((thresh, thresh, thresh), axis=-1)
+
+        areas = list()
+        centroids = list()
+        hulls = list()
+        feret_points = list()
+        eye_axis = list()
+        dists = list()
+        i = 0
+        while i < len(cnts):
+
+            cnt = cnts[i]
+            M = cv2.moments(cnt)
+            A = M['m00']
+
+            ### Discard if contour has no area
+            if A < self.minSize:
+                del cnts[i]
+                continue
+
+            center = (int(M['m10']/A), int(M['m01']/A))
+            hull = cv2.convexHull(cnt).squeeze()
+
+            areas.append(A)
+            centroids.append(center)
+            dists.append(distance.euclidean(center, rect_center))
+            hulls.append(hull)
+
+            feret_points.append((hull[np.argmin(hull[:,1])], hull[np.argmax(hull[:,1])]))
+
+
+            i += 1
+
+
+        ### Additional filtering of particles to idenfity both eyes if more than 2
+        if len(cnts) > 2:
+            dists, areas, centroids, hulls, feret_points = list(zip(*sorted(list(zip(dists,
+                                                                                     areas,
+                                                                                     centroids,
+                                                                                     hulls,
+                                                                                     feret_points)))[:2]))
+
+
+
+
+        ## Draw rect center and midline marker for debugging
+        cv2.drawMarker(thresh, rect_center, (0, 255, 0), cv2.MARKER_DIAMOND, marker_size * 2, line_thickness)
+        cv2.line(thresh, (rect_center[0], 0), (rect_center[0], thresh.shape[0]), (0, 255, 0), line_thickness)
+
+        ## Draw hull contours for debugging (before possible premature return)
+        cv2.drawContours(thresh, hulls, -1, (128,128,0), line_thickness)
+
+        ### If less than two particles, return
+        if len(cnts) < 2:
+            return None, thresh
+
+        ### At this point there should only be 2 particles left
+        le_idx = 0 if (centroids[0][0] < rect_center[0]) else 1
+        re_idx = 1 if (centroids[0][0] < rect_center[0]) else 0
+
+
+        le_axis = feret_points[le_idx][0] - feret_points[le_idx][1]
+        le_axis_norm = le_axis / np.linalg.norm(le_axis)
+        le_ortho = np.array([le_axis_norm[1], -le_axis_norm[0]])
+        re_axis = feret_points[re_idx][0] - feret_points[re_idx][1]
+        re_axis_norm = re_axis / np.linalg.norm(re_axis)
+        re_ortho = np.array([-re_axis_norm[1], re_axis_norm[0]])
+
+
+        ### Draw eyes and axes
+        ## LE
+        cv2.line(thresh, tuple(feret_points[le_idx][0]), tuple(feret_points[le_idx][1]), (0, 0, 255), line_thickness)
+        cv2.drawMarker(thresh, centroids[le_idx], (0, 0, 255), cv2.MARKER_CROSS, marker_size, line_thickness)
+        le_draw_ortho = tuple((np.array(rect_center) + le_ortho * 0.5 * np.sqrt(np.dot(le_axis, le_axis))).astype(int))
+        cv2.line(thresh, rect_center, le_draw_ortho, (0, 0, 255), line_thickness)
+        ## RE
+        cv2.line(thresh, tuple(feret_points[re_idx][0]), tuple(feret_points[re_idx][1]), (255, 0, 0), line_thickness)
+        cv2.drawMarker(thresh, centroids[re_idx], (255, 0, 0), cv2.MARKER_CROSS, marker_size, line_thickness)
+        re_draw_ortho = tuple((np.array(rect_center) + re_ortho *  0.5 * np.sqrt(np.dot(re_axis, re_axis))).astype(int))
+        cv2.line(thresh, rect_center, re_draw_ortho, (255, 0, 0), line_thickness)
+
+        ### Return result
+        return None, thresh
+
+    def largestDistance(self, rect):
         """Default function for extracting fish eyes' angular position.
 
         :param rect: 2d image (usually the rectangular ROI around the eyes)
@@ -130,7 +316,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         ################
         ### Extract right eye angular position
-        _, reThresh = cv2.threshold(re[:,:,0], 60, 255, cv2.THRESH_BINARY_INV)
+        _, reThresh = cv2.threshold(re[:,:,0], self.thresh, 255, cv2.THRESH_BINARY_INV)
         reCnts, _ = cv2.findContours(reThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         if len(reCnts) == 0:
@@ -187,7 +373,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         ################
         ### Extract left eye angular position
-        _, leThresh = cv2.threshold(le[:,:,0], 60, 255, cv2.THRESH_BINARY_INV)
+        _, leThresh = cv2.threshold(le[:,:,0], self.thresh, 255, cv2.THRESH_BINARY_INV)
         leCnts, _ = cv2.findContours(leThresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
 
         if len(leCnts) == 0:
@@ -257,69 +443,70 @@ class EyePosDetectRoutine(AbstractRoutine):
         if bool(self.ROIs):
 
             ### If eyes were marked: iterate over rects and extract eye positions
-            for id, rectParams in self.ROIs.items():
+            for id, rect_params in self.ROIs.items():
 
-                try:
-                    ## Draw contour points of rect
-                    rect = (tuple(self.coordsPg2Cv(rectParams[0])), tuple(rectParams[1]), -rectParams[2],)
-                    # For debugging: draw rectangle
-                    #box = cv2.boxPoints(rect)
-                    #box = np.int0(box)
-                    #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
+                ## Convert from pyqtgraph image coordinates to openCV
+                rect_params = (tuple(self.coordsPg2Cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
 
-                    ## Get rect and frame parameters
-                    center, size, angle = rect[0], rect[1], rect[2]
-                    center, size = tuple(map(int, center)), tuple(map(int, size))
-                    height, width = frame.shape[0], frame.shape[1]
+                #eye_pos, new_rect = self.feretDiameter_new(frame, rect_params)
+
+                # For debugging: draw rectangle
+                #box = cv2.boxPoints(rect)
+                #box = np.int0(box)
+                #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
+
+                ## Get rect and frame parameters
+                center, size, angle = rect_params[0], rect_params[1], rect_params[2]
+                center, size = tuple(map(int, center)), tuple(map(int, size))
+                height, width = frame.shape[0], frame.shape[1]
 
 
-                    ## Rotate
-                    M = cv2.getRotationMatrix2D(center, angle, 1)
-                    rotFrame = cv2.warpAffine(frame, M, (width, height))
+                ## Rotate
+                M = cv2.getRotationMatrix2D(center, angle, 1)
+                rotFrame = cv2.warpAffine(frame, M, (width, height))
 
-                    ## Crop rect from frame
-                    cropRect = cv2.getRectSubPix(rotFrame, size, center)
+                ## Crop rect from frame
+                cropRect = cv2.getRectSubPix(rotFrame, size, center)
 
-                    ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
-                    center = (size[0]/2, size[1]/2)
-                    width, height = size
-                    M = cv2.getRotationMatrix2D(center, 90, 1)
-                    absCos = abs(M[0, 0])
-                    absSin = abs(M[0, 1])
+                ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
+                center = (size[0]/2, size[1]/2)
+                width, height = size
+                M = cv2.getRotationMatrix2D(center, 90, 1)
+                absCos = abs(M[0, 0])
+                absSin = abs(M[0, 1])
 
-                    # New bound width/height
-                    wBound = int(height * absSin + width * absCos)
-                    hBound = int(height * absCos + width * absSin)
+                # New bound width/height
+                wBound = int(height * absSin + width * absCos)
+                hBound = int(height * absCos + width * absSin)
 
-                    # Subtract old image center
-                    M[0, 2] += wBound / 2 - center[0]
-                    M[1, 2] += hBound / 2 - center[1]
-                    # Rotate
-                    rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
+                # Subtract old image center
+                M[0, 2] += wBound / 2 - center[0]
+                M[1, 2] += hBound / 2 - center[1]
+                # Rotate
+                rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-                    ## Apply detection function on cropped rect which contains eyes
-                    self.segmentationMode = 'implemented_in_future'
-                    if self.segmentationMode == 'something':
-                        eyePos, newRect = [], []
-                    else:  # default
-                        eyePos, newRect = self.default(rotRect)
+                ## Apply detection function on cropped rect which contains eyes
+                self.segmentationMode = 'feretDiameter'
+                if self.segmentationMode == 'feretDiameter':
+                    eye_pos, new_rect = self.feretDiameter(rotRect)
+                elif self.segmentationMode == 'longestDistance':  # default
+                    eye_pos, new_rect = self.largestDistance(rotRect)
 
-                    # Debug: write to file
-                    #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
+                # Debug: write to file
+                #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
-                    ### Append angular eye positions to shared list
-                    if eyePos is not None:
-                        eyePositions[id] = eyePos
+                ### Append angular eye positions to shared list
+                if eye_pos is not None:
+                    eyePositions[id] = eye_pos
 
-                    ### Set current rect ROI data
-                    extractedRects[id] = newRect
-                except:
-                    import IPython
-                    IPython.embed()
+                ### Set current rect ROI data
+                extractedRects[id] = new_rect
+
 
         ### Update buffer (Always set)
         self.buffer.extractedRects = extractedRects
         self.buffer.eyePositions = eyePositions
+        #self.buffer.frame = frame
 
     def _out(self):
 
