@@ -163,6 +163,7 @@ class DisplayCfg(Cfg):
     sph_view_elev_angle        = 'float_sph_view_elev_angle'
     sph_view_azim_angle        = 'float_sph_view_azim_angle'
     sph_view_distance          = 'float_sph_view_origin_distance'
+    sph_view_fov               = 'float_sph_view_fov'
     sph_view_scale             = 'float_sph_view_scale'
 
     # Planar

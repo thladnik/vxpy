@@ -61,6 +61,7 @@ Configuration = {
         Def.DisplayCfg.sph_view_elev_angle        : 0.0,
         Def.DisplayCfg.sph_view_azim_angle        : 0.0,
         Def.DisplayCfg.sph_view_distance          : 5.0,
+        Def.DisplayCfg.sph_view_fov                    : 80.0,
         Def.DisplayCfg.sph_view_scale             : 1.0,
 
         # Planar

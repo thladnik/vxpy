@@ -233,9 +233,9 @@ class SphericalVisual(AbstractVisual):
 
         ### Set 3D transform
         distance = Config.Display[Def.DisplayCfg.sph_view_distance]
-        fov = 240.0/distance
+        fov = Config.Display[Def.DisplayCfg.sph_view_fov]#240.0/distance
         translate3d = glm.translation(0, 0, -distance)
-        project3d = glm.perspective(fov, 1, 2.0, 100.0)
+        project3d = glm.perspective(fov, 1, 0.1, 200.0)
         self.setGlobalUniform('u_mapcalib_transform3d', translate3d @ project3d)
 
         ### Calculate elevation rotation

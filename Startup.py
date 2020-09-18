@@ -613,6 +613,19 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.layout().addWidget(self.dspn_view_distance, 15, 1)
 
         # View scale
+        self.dspn_view_fov = QtWidgets.QDoubleSpinBox()
+        self.dspn_view_fov.setDecimals(1)
+        self.dspn_view_fov.setMinimum(1)
+        self.dspn_view_fov.setMaximum(360)
+        self.dspn_view_fov.setSingleStep(0.1)
+        self.dspn_view_fov.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
+                                                                                   Def.DisplayCfg.sph_view_fov,
+                                                                                   self.dspn_view_fov.value()))
+        self.dspn_view_fov.valueChanged.connect(self.main.updateWindow)
+        self.layout().addWidget(QtWidgets.QLabel('FOV [deg]'), 17, 0)
+        self.layout().addWidget(self.dspn_view_fov, 17, 1)
+
+        # View scale
         self.dspn_view_scale = QtWidgets.QDoubleSpinBox()
         self.dspn_view_scale.setDecimals(3)
         self.dspn_view_scale.setSingleStep(0.001)
@@ -631,6 +644,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_elev_angle.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_elev_angle))
         self.dspn_view_azim_angle.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_azim_angle))
         self.dspn_view_distance.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_distance))
+        self.dspn_view_fov.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_fov))
         self.dspn_view_scale.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_scale))
 
 
