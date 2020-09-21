@@ -29,9 +29,6 @@ import Visuals
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
-### Set glumpy to use pyglet4 backend
-#app.use(Def.Display_backend)
-
 class Display(Process.AbstractProcess):
     name = Def.Process.Display
 

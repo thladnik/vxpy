@@ -145,6 +145,17 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.setLayout(QtWidgets.QVBoxLayout())
         self.layout().addWidget(self.panel_wdgt)
 
+        ## Mode
+        self.panel_wdgt.layout().addWidget(QtWidgets.QLabel('Detection mode'))
+        self.panel_wdgt.mode = QtWidgets.QComboBox()
+        self.panel_wdgt.mode.currentTextChanged.connect(lambda:
+                                                    IPC.rpc(Def.Process.Camera,
+                                                            routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setDetectionMode,
+                                                            self.panel_wdgt.mode.currentText()))
+        self.panel_wdgt.layout().addWidget(self.panel_wdgt.mode)
+        self.panel_wdgt.mode.addItems([routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.feretDiameter.__name__,
+                                       routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.largestDistance.__name__])
+
         ## Threshold
         self.panel_wdgt.thresh = SliderWidget('Threshold', 1, 255, 60)
         self.panel_wdgt.thresh.slider.valueChanged.connect(lambda:
@@ -153,6 +164,16 @@ class EyePositionDetector(QtWidgets.QWidget):
                                                             self.panel_wdgt.thresh.slider.value()))
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.thresh)
         self.panel_wdgt.thresh.emitValueChanged()
+
+        ## Max value
+        self.panel_wdgt.maxImValue = SliderWidget('Max. value', 1, 255, 255)
+        self.panel_wdgt.maxImValue.slider.valueChanged.connect(lambda:
+                                                    IPC.rpc(Def.Process.Camera,
+                                                            routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setMaxImValue,
+                                                            self.panel_wdgt.maxImValue.slider.value()))
+        self.panel_wdgt.layout().addWidget(self.panel_wdgt.maxImValue)
+        self.panel_wdgt.maxImValue.emitValueChanged()
+
         ## Min particle size
         self.panel_wdgt.minSize = SliderWidget('Min. particle size', 1, 1000, 20)
         self.panel_wdgt.minSize.slider.valueChanged.connect(lambda:
@@ -165,25 +186,6 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.layout().addItem(QtWidgets.QSpacerItem(1, 1,
                                                                  QtWidgets.QSizePolicy.Maximum,
                                                                  QtWidgets.QSizePolicy.MinimumExpanding))
-
-        # self.panel_wdgt.layout().addWidget(QtWidgets.QLabel('Threshold'), 0, 0)
-        # self.le_thresh = QtWidgets.QLineEdit()
-        # self.le_thresh.setEnabled(False)
-        # self.panel_wdgt.layout().addWidget(self.le_thresh, 0, 1)
-        # self.panel_wdgt.slider_thresh = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        # self.panel_wdgt.slider_thresh.setTickPosition(QtWidgets.QSlider.TicksBothSides)
-        # self.panel_wdgt.slider_thresh.setMinimum(1)
-        # self.panel_wdgt.slider_thresh.setMaximum(255)
-        # self.panel_wdgt.slider_thresh.valueChanged.connect(lambda: self.le_thresh.setText(str(self.panel_wdgt.slider_thresh.value())))
-        # self.panel_wdgt.slider_thresh.valueChanged.connect(lambda:
-        #                                            IPC.rpc(Def.Process.Camera,
-        #                                                    routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setThreshold,
-        #                                                    self.panel_wdgt.slider_thresh.value()))
-        # self.panel_wdgt.slider_thresh.setValue(60)
-        # self.panel_wdgt.layout().addWidget(self.panel_wdgt.slider_thresh, 1, 0, 1, 2)
-
-        ## Particle size filter
-
 
         ### Image plot
         self.graphicsWidget = EyePositionDetector.GraphicsWidget(parent=self)

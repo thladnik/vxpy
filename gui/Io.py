@@ -49,7 +49,7 @@ class IoWidget(QtWidgets.QWidget):
 
         ### Start timer
         self._tmr_update = QtCore.QTimer()
-        self._tmr_update.setInterval(100)
+        self._tmr_update.setInterval(50)
         self._tmr_update.timeout.connect(self.updateData)
         self._tmr_update.start()
 

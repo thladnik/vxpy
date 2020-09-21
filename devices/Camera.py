@@ -56,8 +56,8 @@ class CAM_Virtual:
                    'Single_Fish_Eyes_Cam' : 'Fish_eyes_spontaneous_saccades_40s.avi'}
 
     def __init__(self, model, format):
-        self._model = model#Config.Camera[Def.CameraCfg.model]
-        self._format = format#Config.Camera[Def.CameraCfg.format]
+        self._model = model
+        self._format = format
         self.vid = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self._model]))
 
     @classmethod
