@@ -40,14 +40,9 @@ class Camera(Process.AbstractProcess):
             ### Get selected camera
             try:
 
-                if manufacturer == 'TIS':
-                    from devices.Camera import CAM_TIS
-                    cam = CAM_TIS(model, format)
-                elif manufacturer == 'virtual':
-                    from devices.Camera import CAM_Virtual
-                    cam = CAM_Virtual(model, format)
-
-                self.cameras[device_id] = cam
+                import devices.Camera
+                cam = getattr(devices.Camera, manufacturer)
+                self.cameras[device_id] = cam(model, format)
 
                 Logging.logger.log(Logging.INFO, 'Using camera {}>>{} ({}) as \"{}\"'
                                .format(manufacturer,

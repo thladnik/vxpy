@@ -70,9 +70,7 @@ class ConfigParser(configparser.ConfigParser):
 
     def setParsed(self, section, option, value):
         dtype = option.split('_')[0]
-        if dtype == 'list':
-            if not(isinstance(value, list)):
-                raise ConfigParser.ConfigTypeError
+        if dtype == 'json':
             self.set(section, option, json.dumps(value))
 
         else:

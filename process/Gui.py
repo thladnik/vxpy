@@ -53,11 +53,8 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         ### Setup basic UI
         self._setupUI()
 
-        ### Setup addons
-        #self._setupAddons()
-
         ### Run event loop
-        self.run(interval=0.0001)
+        self.run(interval=0.005)
 
     def main(self):
         self._app.processEvents()
@@ -82,7 +79,6 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         ### Add spacers
         hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        #self.hSplitter = QtWidgets.QSplitter()
 
         ## Protocols
         self.grp_protocols = gui.Integrated.Protocols(self)
@@ -137,32 +133,21 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self._menu_process_recam.triggered.connect(
             lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Camera)
         )
-        self._menu_process.addAction(self._menu_process_recam)
-        # Restart IO
-        self._menu_process_relog = QtWidgets.QAction('Restart logger')
-        self._menu_process_relog.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Logger)
-        )
-        self._menu_process.addAction(self._menu_process_relog)
 
         # Bind shortcuts
         self._bindShortcuts()
 
-        #self.showMaximized()
         self.show()
 
     def _bindShortcuts(self):
 
         ### Restart display process
-        self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+m')
+        self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
         self._menu_process_redisp.setAutoRepeat(False)
         ### Restart camera process
         if Config.Camera[Def.CameraCfg.use]:
             self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
             self._menu_process_recam.setAutoRepeat(False)
-        ### Restart display process
-        self._menu_process_relog.setShortcut('Ctrl+Alt+Shift+l')
-        self._menu_process_relog.setAutoRepeat(False)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         ### Inform controller of close event

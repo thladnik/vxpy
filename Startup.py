@@ -22,14 +22,17 @@ from configparser import ConfigParser
 import os
 import sys
 import time
+from typing import Union
 import keyboard
 from glumpy.app.window import window
 import numpy as np
+import pyqtgraph as pg
 
 
 from PyQt5 import QtCore, QtWidgets
 
 import Def
+import Default
 from helper import Basic
 import process.Controller
 
@@ -64,6 +67,10 @@ class ModuleWidget(QtWidgets.QWidget):
         """Method called by default in MainWindow on closeEvent"""
         pass
 
+    def loadSettingsFromConfig(self):
+        """Method called by default in MainWindow when selecting new configuration"""
+        pass
+
 
 ################################
 ### CAMERA
@@ -73,19 +80,221 @@ class CameraWidget(ModuleWidget):
 
     def __init__(self, parent):
         ModuleWidget.__init__(self, Def.CameraCfg.name, parent=parent)
+        self.setLayout(QtWidgets.QGridLayout())
+        self.camera = None
 
-        self.setLayout(QtWidgets.QHBoxLayout())
+        ### Add new camera
+        self.btn_add_new = QtWidgets.QPushButton('Add camera')
+        self.btn_add_new.clicked.connect(self.addCamera)
+        self.layout().addWidget(self.btn_add_new, 0, 0, 1, 2)
 
-        self._vbox_cameras = QtWidgets.QWidget()
-        self._vbox_cameras.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self._vbox_cameras)
+        ### Camera list
+        self.camera_list = QtWidgets.QListWidget()
+        self.layout().addWidget(QtWidgets.QLabel('Camera devices'), 1, 0)
+        self.layout().addWidget(self.camera_list, 2, 0)
+        self.camera_list.doubleClicked.connect(self.editCamera)
+        self.camera_list.clicked.connect(self.openStream)
 
-        self._listw_cameras = QtWidgets.QListWidget()
-        self._vbox_cameras.layout().addWidget(QtWidgets.QLabel('Camera types'))
-        self._vbox_cameras.layout().addWidget(self._listw_cameras)
-        for name in Camera.__dict__:
-            if name.startswith('CAM_'):
-                self._listw_cameras.addItem(name)
+        ### Camera stream
+        self.camera_stream = QtWidgets.QGroupBox('Camera stream')
+        self.camera_stream.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().addWidget(self.camera_stream, 1, 1, 3, 1)
+        self.imview = pg.GraphicsView(parent=self)
+        self.imitem = pg.ImageItem()
+        self.imview.addItem(self.imitem)
+        self.camera_stream.layout().addWidget(self.imview)
+
+        self.stream_timer = QtCore.QTimer()
+        self.stream_timer.setInterval(50)
+        self.stream_timer.timeout.connect(self.updateStream)
+        self.stream_timer.start()
+
+    def loadSettingsFromConfig(self):
+        self.updateCameraList()
+
+    def updateCameraList(self):
+        global current_config
+
+        self.camera_list.clear()
+        self.camera_list.addItems(current_config.getParsed(Def.CameraCfg.name, Def.CameraCfg.device_id))
+
+    def addCamera(self):
+        row_idx = self.camera_list.count()
+
+        self.editCamera(row_idx)
+
+    def editCamera(self, idx: Union[int, QtCore.QModelIndex]):
+        global current_config
+        if isinstance(idx, QtCore.QModelIndex):
+            row_idx = idx.row()
+        else:
+            row_idx = idx
+
+        ### Open dialog
+        dialog = EditCameraWidget(row_idx)
+        if not(dialog.exec_() == QtWidgets.QDialog.Accepted):
+            return
+
+        ### Update configuration
+        section = current_config.getParsedSection(Def.CameraCfg.name)
+        ## Add new camera
+        if row_idx >= len(section[Def.CameraCfg.device_id]):
+            action = 'Add'
+            for key, value in dialog.data.items():
+                if not(key in section):
+                    continue
+                section[key].append(value)
+        ## Update existing camera
+        else:
+            action = 'Update'
+            for key, value in dialog.data.items():
+                if not(key in section):
+                    continue
+                section[key][row_idx] = value
+
+        print('{} camera {}: {}'.format(action, dialog.data[Def.CameraCfg.device_id], dialog.data))
+
+        for key, value in section.items():
+            current_config.setParsed(Def.CameraCfg.name, key, value)
+
+        self.updateCameraList()
+
+    def openStream(self, idx: Union[int, QtCore.QModelIndex]):
+        global current_config
+        if isinstance(idx, QtCore.QModelIndex):
+            row_idx = idx.row()
+        else:
+            row_idx = idx
+
+        section = current_config.getParsedSection(Def.CameraCfg.name)
+
+        import devices.Camera
+        cam = getattr(devices.Camera, section[Def.CameraCfg.manufacturer][row_idx])
+        self.camera = cam(section[Def.CameraCfg.model][row_idx], section[Def.CameraCfg.format][row_idx])
+        self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx], section[Def.CameraCfg.res_y][row_idx]
+        self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx]+30)
+
+    def updateStream(self):
+        if self.camera is None:
+            return
+
+        self.camera.snapImage()
+        im = self.camera.getImage()
+        im = im[:self.res_y, :self.res_x, :]
+        self.imitem.setImage(im)
+
+class EditCameraWidget(QtWidgets.QDialog):
+
+    def __init__(self, camera_idx):
+        QtWidgets.QDialog.__init__(self, flags=QtCore.Qt.WindowStaysOnTopHint)
+        self.camera_idx = camera_idx
+
+        self.setLayout(QtWidgets.QGridLayout())
+        self.setWindowTitle('Camera properties')
+
+        ### Add fields
+        ## Device ID
+        self.layout().addWidget(QtWidgets.QLabel('Device ID'), 0, 0)
+        self.device_id = QtWidgets.QLineEdit()
+        self.layout().addWidget(self.device_id, 0, 1)
+        ## Manufacturer
+        self.layout().addWidget(QtWidgets.QLabel('Manufacturer'), 5, 0)
+        self.manufacturer = QtWidgets.QComboBox()
+        self.manufacturer.addItems([Camera.CAM_TIS.__name__, Camera.CAM_Virtual.__name__])
+        self.manufacturer.currentTextChanged.connect(self.updateModelsCB)
+        self.layout().addWidget(self.manufacturer, 5, 1)
+        ## Models
+        self.layout().addWidget(QtWidgets.QLabel('Model'), 10, 0)
+        self.model = QtWidgets.QComboBox()
+        self.model.currentTextChanged.connect(self.updateFormatCB)
+        self.layout().addWidget(self.model, 10, 1)
+        ## Formats
+        self.layout().addWidget(QtWidgets.QLabel('Format'), 15, 0)
+        self.vidformat = QtWidgets.QComboBox()
+        self.layout().addWidget(self.vidformat, 15, 1)
+        ## Exposure
+        self.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 20, 0)
+        self.exposure = QtWidgets.QDoubleSpinBox()
+        self.exposure.setMinimum(0.001)
+        self.exposure.setMaximum(9999)
+        self.layout().addWidget(self.exposure, 20, 1)
+        ## Exposure
+        self.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 25, 0)
+        self.gain = QtWidgets.QDoubleSpinBox()
+        self.gain.setMinimum(0.001)
+        self.gain.setMaximum(9999)
+        self.layout().addWidget(self.gain, 25, 1)
+
+
+        ### Add buttons
+        self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel,
+                                             QtCore.Qt.Horizontal, self)
+        self.buttons.accepted.connect(self.checkFields)
+        self.buttons.rejected.connect(self.reject)
+
+        self.layout().addWidget(self.buttons, 50, 0, 1, 2)
+
+        self.updateFields()
+
+        self.show()
+
+    def updateModelsCB(self):
+        self.model.clear()
+        #print(getattr(Camera, self.manufacturer.currentText()))
+        self.model.addItems(getattr(Camera, self.manufacturer.currentText()).getModels())
+
+    def updateFormatCB(self):
+        self.vidformat.clear()
+        model = self.model.currentText()
+
+        self.vidformat.addItems(getattr(Camera, self.manufacturer.currentText()).getFormats(model))
+
+    def updateFields(self):
+        global current_config
+        section = current_config.getParsedSection(Def.CameraCfg.name)
+
+        if self.camera_idx >= len(section[Def.CameraCfg.device_id]):
+            self.exposure.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.exposure])
+            self.gain.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.gain])
+            return
+
+        self.device_id.setText(section[Def.CameraCfg.device_id][self.camera_idx])
+        self.manufacturer.setCurrentText(section[Def.CameraCfg.manufacturer][self.camera_idx])
+        self.model.setCurrentText(section[Def.CameraCfg.model][self.camera_idx])
+        self.vidformat.setCurrentText(section[Def.CameraCfg.format][self.camera_idx])
+        self.exposure.setValue(section[Def.CameraCfg.exposure][self.camera_idx])
+        self.gain.setValue(section[Def.CameraCfg.gain][self.camera_idx])
+
+    def checkFields(self):
+
+        data = dict()
+        data[Def.CameraCfg.device_id] = self.device_id.text()
+        data[Def.CameraCfg.manufacturer] = self.manufacturer.currentText()
+        data[Def.CameraCfg.model] = self.model.currentText()
+        data[Def.CameraCfg.format] = self.vidformat.currentText()
+        data[Def.CameraCfg.exposure] = self.exposure.value()
+        data[Def.CameraCfg.gain] = self.gain.value()
+
+        check = True
+        check &= bool(data[Def.CameraCfg.device_id])
+        check &= bool(data[Def.CameraCfg.manufacturer])
+        check &= bool(data[Def.CameraCfg.model])
+        check &= bool(data[Def.CameraCfg.format])
+        check &= not(data[Def.CameraCfg.exposure] == 0.0)
+        check &= not(data[Def.CameraCfg.gain] == 0.0)
+
+        ### Extract resolution from format
+        import re
+        s = re.search('\((.*?)x(.*?)\)', data[Def.CameraCfg.format])
+        data[Def.CameraCfg.res_x] = int(s.group(1))
+        data[Def.CameraCfg.res_y] = int(s.group(2))
+
+        if check:
+            self.data = data
+            self.accept()
+        else:
+            print('Camera configuration faulty.')
+
 
 
 ################################
@@ -916,7 +1125,6 @@ if __name__ == '__main__':
 
         ### Set windows timer precision as high as possible
         minres, maxres, curres = wres.query_resolution()
-        print(curres)
         with wres.set_resolution(maxres):
 
             skip_setup = False

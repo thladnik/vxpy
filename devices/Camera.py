@@ -25,18 +25,20 @@ import Config
 import Def
 import Logging
 
-### Import camera APIs
-# Add application's DLL path on Windows
-if platform == 'win32':
-    os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.Path.Libdll))
 
-    from lib.pyapi import tisgrabber as IC
-# MAC OS
-elif platform == 'darwin':
-    IC = None
-# Assume it's Linux
-else:
-    IC = None
+if False:
+    ### Import camera APIs
+    # Add application's DLL path on Windows
+    if platform == 'win32':
+        os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.Path.Libdll))
+
+        from lib.pyapi import tisgrabber as IC
+    # MAC OS
+    elif platform == 'darwin':
+        IC = None
+    # Assume it's Linux
+    else:
+        IC = None
 
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
@@ -49,8 +51,8 @@ class CAM_Virtual:
     _models = ['Multi_Fish_Eyes_Cam',
                 'Single_Fish_Eyes_Cam']
 
-    _formats = {'Multi_Fish_Eyes_Cam' : ['RGB8 (752x480)'],
-                'Single_Fish_Eyes_Cam' : ['RGB8 (640x480)']}
+    _formats = {'Multi_Fish_Eyes_Cam' : ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)', 'RGB8 (480x480)', 'Y800 (480x480)'],
+                'Single_Fish_Eyes_Cam' : ['RGB8 (640x480)', 'Y800 (752x480)', 'Y800 (600x380)', 'RGB8 (600x380)']}
 
     _sampleFile = {'Multi_Fish_Eyes_Cam' : 'Fish_eyes_multiple_fish_30s.avi',
                    'Single_Fish_Eyes_Cam' : 'Fish_eyes_spontaneous_saccades_40s.avi'}
@@ -67,8 +69,9 @@ class CAM_Virtual:
     def updateProperty(self, propName, value):
         pass
 
-    def getFormats(self):
-        return self.__class__._formats[self._model]
+    @staticmethod
+    def getFormats(model):
+        return CAM_Virtual._formats[model]
 
     def snapImage(self):
         pass
@@ -81,11 +84,14 @@ class CAM_Virtual:
             self.vid.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return self.getImage()
 
+#from lib.pyapi import tisgrabber as IC
 class CAM_TIS:
 
     def __init__(self, model, format):
         from lib.pyapi import tisgrabber as IC
         self._device = IC.TIS_CAM()
+        self.model = model
+        self.format = format
 
         self._device.open(model)#Config.Camera[Def.CameraCfg.model])
         self._device.SetVideoFormat(format)#Config.Camera[Def.CameraCfg.format])
@@ -120,9 +126,13 @@ class CAM_TIS:
 
     @staticmethod
     def getModels():
-        return IC.TIS_CAM().GetDevices()
+        from lib.pyapi import tisgrabber as IC
+        cam = IC.TIS_CAM()
+        return cam.GetDevices()
 
-    def getFormats(self, model):
+    @staticmethod
+    def getFormats(model):
+        from lib.pyapi import tisgrabber as IC
         device = IC.TIS_CAM()
         device.open(model)
         return device.GetVideoFormats()

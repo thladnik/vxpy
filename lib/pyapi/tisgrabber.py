@@ -4,6 +4,15 @@ Created on Mon Nov 21 09:44:40 2016
 
 @author: Daniel Vassmer, Stefan_Geissler
 """
+
+####
+## Compat with MappApp:
+import os
+import Def
+os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.Path.Libdll))
+##
+####
+
 from enum import Enum
 import ctypes as C
 import sys

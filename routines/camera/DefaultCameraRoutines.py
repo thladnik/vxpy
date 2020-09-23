@@ -45,12 +45,9 @@ class FrameRoutine(AbstractRoutine):
         for device_id, res_x, res_y in zip(Config.Camera[Def.CameraCfg.device_id],
                                            Config.Camera[Def.CameraCfg.res_x],
                                            Config.Camera[Def.CameraCfg.res_y]):
-            #frameSize = (Config.Camera[Def.CameraCfg.res_y], Config.Camera[Def.CameraCfg.res_x], 1)
+
             ### Dynamically set a frame attribute per camera device
             setattr(self.buffer, '{}_frame'.format(device_id), (BufferDTypes.uint8, (res_y, res_x)))
-            #setattr(self.buffer, '{}_frametime'.format(device_id), (BufferDTypes.float64, ))
-            #self.buffer.frame = (BufferDTypes.uint8, (res_y, res_x))
-            #self.buffer.frametime = (BufferDTypes.float64, )
 
         ### Setup frame timing stats
         self.t = perf_counter()
@@ -67,19 +64,18 @@ class FrameRoutine(AbstractRoutine):
 
         for device_id, frame in frames.items():
 
-        #frame = frames.get('behavior')  # behavior here is the camera's device_id
+            idx = Config.Camera[Def.CameraCfg.device_id].index(device_id)
+            res_x, res_y = Config.Camera[Def.CameraCfg.res_x][idx], Config.Camera[Def.CameraCfg.res_y][idx]
 
             if frame is None:
                 continue
 
-            #frame = frame[:,:,1][:,:,np.newaxis]
-
             ### Update shared attributes
             self.time = time()
             if not(isinstance(frame, np.ndarray)):
-                setattr(self.buffer, '{}_frame'.format(device_id), frame.get()[:,:,np.newaxis])
+                setattr(self.buffer, '{}_frame'.format(device_id), frame.get()[:res_y,:res_x,np.newaxis])
             else:
-                setattr(self.buffer, '{}_frame'.format(device_id), frame[:,:,0])
+                setattr(self.buffer, '{}_frame'.format(device_id), frame[:res_y,:res_x,0])
 
     def _out(self):
         yield 'frame', self.buffer.frame
