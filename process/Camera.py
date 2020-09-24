@@ -72,7 +72,7 @@ class Camera(Process.AbstractProcess):
 
         ### Snap image
         for device_id, cam in self.cameras.items():
-            cam.snapImage()
+            cam.snap_image()
 
         # Update routines
-        IPC.Routines.Camera.update(**{device_id : cam.getImage() for device_id, cam in self.cameras.items()})
+        IPC.Routines.Camera.update(**{device_id : cam.get_image() for device_id, cam in self.cameras.items()})

@@ -175,8 +175,8 @@ class CameraWidget(ModuleWidget):
             self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx], section[Def.CameraCfg.res_y][row_idx]
             self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx]+30)
             ### Provoke exception
-            self.camera.snapImage()
-            self.camera.getImage()
+            self.camera.snap_image()
+            self.camera.get_image()
         except Exception as exc:
             print('Could not access device {}. Exception: {}'.format(section[Def.CameraCfg.device_id][row_idx], exc))
             self.camera = self.res_x = self.res_y = None
@@ -185,8 +185,8 @@ class CameraWidget(ModuleWidget):
         if self.camera is None:
             return
 
-        self.camera.snapImage()
-        im = self.camera.getImage()
+        self.camera.snap_image()
+        im = self.camera.get_image()
         im = im[:self.res_y, :self.res_x, :]
         self.imitem.setImage(im)
 
@@ -207,7 +207,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         ## Manufacturer
         self.layout().addWidget(QtWidgets.QLabel('Manufacturer'), 5, 0)
         self.manufacturer = QtWidgets.QComboBox()
-        self.manufacturer.addItems([Camera.CAM_TIS.__name__, Camera.CAM_Virtual.__name__])
+        self.manufacturer.addItems([Camera.TISCamera.__name__, Camera.VirtualCamera.__name__])
         self.manufacturer.currentTextChanged.connect(self.updateModelsCB)
         self.layout().addWidget(self.manufacturer, 5, 1)
         ## Models
@@ -253,13 +253,13 @@ class EditCameraWidget(QtWidgets.QDialog):
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
-        models = getattr(Camera, self.manufacturer.currentText()).getModels()
+        models = getattr(Camera, self.manufacturer.currentText()).get_models()
         self.model.addItems(models)
         if not(section[Def.CameraCfg.model][self.camera_idx] in models):
             self.model.addItem(section[Def.CameraCfg.model][self.camera_idx])
 
     def checkModel(self, m):
-        if m in getattr(Camera, self.manufacturer.currentText()).getModels():
+        if m in getattr(Camera, self.manufacturer.currentText()).get_models():
             self.model.setStyleSheet('')
         else:
             self.model.setStyleSheet('QComboBox {color: red;}')
@@ -271,7 +271,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
-        formats = getattr(Camera, self.manufacturer.currentText()).getFormats(self.model.currentText())
+        formats = getattr(Camera, self.manufacturer.currentText()).get_formats(self.model.currentText())
         if not(section[Def.CameraCfg.format][self.camera_idx] in formats):
             #self.vidformat.setStyleSheet('QComboBox {color: red;}')
             formats.append(section[Def.CameraCfg.format][self.camera_idx])
@@ -280,10 +280,10 @@ class EditCameraWidget(QtWidgets.QDialog):
 
 
     def checkFormat(self, f):
-        if f in getattr(Camera, self.manufacturer.currentText()).getFormats(self.model.currentText()):
-            self.model.setStyleSheet('')
+        if f in getattr(Camera, self.manufacturer.currentText()).get_formats(self.model.currentText()):
+            self.vidformat.setStyleSheet('')
         else:
-            self.model.setStyleSheet('QComboBox {color: red;}')
+            self.vidformat.setStyleSheet('QComboBox {color: red;}')
 
     def updateFields(self):
         global current_config

@@ -90,6 +90,8 @@ class IoWidget(QtWidgets.QWidget):
                                                                     pin_data['datay'][-idx_range:])
                 #self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'], pin_data['datay'])
 
+                print(len(pin_data['datat']))
+
         ### Move display range
         if not(pin_data is None):
 

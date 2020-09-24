@@ -38,8 +38,7 @@ class FrameRoutine(AbstractRoutine):
         ### Define list of exposed methods
         # (These methods h  ook into the process instance - here Camera - and are thus
         #  accessible from all other processes)
-        self.exposed.append(FrameRoutine.testbuffer)
-        self.exposed.append(FrameRoutine.testbufferargs)
+        #self.exposed.append(FrameRoutine.testmethod)
 
         ### Set up shared variables
         for device_id, res_x, res_y in zip(Config.Camera[Def.CameraCfg.device_id],
@@ -51,12 +50,6 @@ class FrameRoutine(AbstractRoutine):
 
         ### Setup frame timing stats
         self.t = perf_counter()
-
-    def testbuffer(self):
-        print('it is the buffer!')
-
-    def testbufferargs(self, arg1):
-        print('it is the buffer!', arg1)
 
     def _compute(self, **frames):
 
