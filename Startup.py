@@ -169,10 +169,17 @@ class CameraWidget(ModuleWidget):
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
         import devices.Camera
-        cam = getattr(devices.Camera, section[Def.CameraCfg.manufacturer][row_idx])
-        self.camera = cam(section[Def.CameraCfg.model][row_idx], section[Def.CameraCfg.format][row_idx])
-        self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx], section[Def.CameraCfg.res_y][row_idx]
-        self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx]+30)
+        try:
+            cam = getattr(devices.Camera, section[Def.CameraCfg.manufacturer][row_idx])
+            self.camera = cam(section[Def.CameraCfg.model][row_idx], section[Def.CameraCfg.format][row_idx])
+            self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx], section[Def.CameraCfg.res_y][row_idx]
+            self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx]+30)
+            ### Provoke exception
+            self.camera.snapImage()
+            self.camera.getImage()
+        except Exception as exc:
+            print('Could not access device {}. Exception: {}'.format(section[Def.CameraCfg.device_id][row_idx], exc))
+            self.camera = self.res_x = self.res_y = None
 
     def updateStream(self):
         if self.camera is None:
@@ -206,11 +213,13 @@ class EditCameraWidget(QtWidgets.QDialog):
         ## Models
         self.layout().addWidget(QtWidgets.QLabel('Model'), 10, 0)
         self.model = QtWidgets.QComboBox()
+        self.model.currentTextChanged.connect(self.checkModel)
         self.model.currentTextChanged.connect(self.updateFormatCB)
         self.layout().addWidget(self.model, 10, 1)
         ## Formats
         self.layout().addWidget(QtWidgets.QLabel('Format'), 15, 0)
         self.vidformat = QtWidgets.QComboBox()
+        self.vidformat.currentTextChanged.connect(self.checkFormat)
         self.layout().addWidget(self.vidformat, 15, 1)
         ## Exposure
         self.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 20, 0)
@@ -240,29 +249,68 @@ class EditCameraWidget(QtWidgets.QDialog):
 
     def updateModelsCB(self):
         self.model.clear()
-        #print(getattr(Camera, self.manufacturer.currentText()))
-        self.model.addItems(getattr(Camera, self.manufacturer.currentText()).getModels())
+
+        global current_config
+        section = current_config.getParsedSection(Def.CameraCfg.name)
+
+        models = getattr(Camera, self.manufacturer.currentText()).getModels()
+        self.model.addItems(models)
+        if not(section[Def.CameraCfg.model][self.camera_idx] in models):
+            self.model.addItem(section[Def.CameraCfg.model][self.camera_idx])
+
+    def checkModel(self, m):
+        if m in getattr(Camera, self.manufacturer.currentText()).getModels():
+            self.model.setStyleSheet('')
+        else:
+            self.model.setStyleSheet('QComboBox {color: red;}')
 
     def updateFormatCB(self):
+        #self.vidformat.setStyleSheet('')
         self.vidformat.clear()
-        model = self.model.currentText()
 
-        self.vidformat.addItems(getattr(Camera, self.manufacturer.currentText()).getFormats(model))
+        global current_config
+        section = current_config.getParsedSection(Def.CameraCfg.name)
+
+        formats = getattr(Camera, self.manufacturer.currentText()).getFormats(self.model.currentText())
+        if not(section[Def.CameraCfg.format][self.camera_idx] in formats):
+            #self.vidformat.setStyleSheet('QComboBox {color: red;}')
+            formats.append(section[Def.CameraCfg.format][self.camera_idx])
+
+        self.vidformat.addItems(formats)
+
+
+    def checkFormat(self, f):
+        if f in getattr(Camera, self.manufacturer.currentText()).getFormats(self.model.currentText()):
+            self.model.setStyleSheet('')
+        else:
+            self.model.setStyleSheet('QComboBox {color: red;}')
 
     def updateFields(self):
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
+        ### If this is a new camera (index not in range)
         if self.camera_idx >= len(section[Def.CameraCfg.device_id]):
             self.exposure.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.exposure])
             self.gain.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.gain])
             return
 
+        ### Set current value
+        ## Device ID
         self.device_id.setText(section[Def.CameraCfg.device_id][self.camera_idx])
-        self.manufacturer.setCurrentText(section[Def.CameraCfg.manufacturer][self.camera_idx])
+        ## Manufacturer
+        if self.manufacturer.currentText() != section[Def.CameraCfg.manufacturer][self.camera_idx]:
+            self.manufacturer.setCurrentText(section[Def.CameraCfg.manufacturer][self.camera_idx])
+        else:
+            # Manually emit to trigger consecutive list updates
+            self.manufacturer.currentTextChanged.emit(section[Def.CameraCfg.manufacturer][self.camera_idx])
+        ## Model
         self.model.setCurrentText(section[Def.CameraCfg.model][self.camera_idx])
+        ## Format
         self.vidformat.setCurrentText(section[Def.CameraCfg.format][self.camera_idx])
+        ## Exposure
         self.exposure.setValue(section[Def.CameraCfg.exposure][self.camera_idx])
+        ## Gain
         self.gain.setValue(section[Def.CameraCfg.gain][self.camera_idx])
 
     def checkFields(self):
