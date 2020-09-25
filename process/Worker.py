@@ -57,9 +57,9 @@ class Worker(Process.AbstractProcess):
         self._task_intervals.append(task_interval)
 
     def runTask(self, task_name, *args, **kwargs):
-        self.setState(Def.State.RUNNING)
+        self.set_state(Def.State.RUNNING)
         self._loadTask(task_name).run(*args, **kwargs)
-        self.setState(Def.State.IDLE)
+        self.set_state(Def.State.IDLE)
 
     def main(self):
         for i, task_name, task_time, task_interval in enumerate(zip(self._scheduled_tasks,

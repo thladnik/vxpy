@@ -21,15 +21,11 @@ import logging
 import signal
 import sys
 import time
-import wres
 
-import Routine
 import Config
 import Def
-from helper import Basic
 import IPC
 import Logging
-import process
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -39,22 +35,21 @@ if Def.Env == Def.EnvTypes.Dev:
 
 class AbstractProcess:
     """AbstractProcess class, which is inherited by all processes.
+
     All processes **need to** implement the "main" method, which is called once on
     each iteration of the event loop.
-
-
     """
-    name       : str
+    name: str
 
-    _running   : bool
-    _shutdown  : bool
+    _running: bool
+    _shutdown: bool
 
     ### Protocol related
-    phase_start_time      : float = None
-    phase_time            : float = None
+    phase_start_time: float = None
+    phase_time: float = None
 
-    enable_idle_timeout   : bool = True
-    _registered_callbacks : dict = dict()
+    enable_idle_timeout: bool = True
+    _registered_callbacks: dict = dict()
 
     def __init__(self,
                  _configurations=None,
@@ -74,7 +69,7 @@ class AbstractProcess:
                 if not(routines is None):
                     ## Create method hooks in process class instance
                     try:
-                        routines.createHooks(self)
+                        routines.create_hooks(self)
                     except:
                         # This is a workaround. Please do not remove or you'll break the GUI.
                         # In order for some IPC features to work the, AbstractProcess init has to be
@@ -88,7 +83,7 @@ class AbstractProcess:
                         pass
 
                     ## Initialize buffers
-                    routines.initializeBuffers()
+                    routines.initialize_buffers()
 
         ### Set configurations
         if not(_configurations is None):
@@ -119,17 +114,17 @@ class AbstractProcess:
             setattr(self, key, value)
 
         ### Set process name in IPC
-        IPC.State.localName = self.name
+        IPC.State.local_name = self.name
 
         ### Set process state
         if not(getattr(IPC.State, self.name) is None):
-            IPC.setState(Def.State.STARTING)
+            IPC.set_state(Def.State.STARTING)
 
         ### Setup logging
-        Logging.setupLogger(self.name)
+        Logging.setup_logger(self.name)
 
         ### Bind signals
-        signal.signal(signal.SIGINT, self._handleSIGINT)
+        signal.signal(signal.SIGINT, self.handle_SIGINT)
 
     def run(self, interval):
         Logging.write(logging.INFO, '{:30} {}'.
@@ -142,13 +137,13 @@ class AbstractProcess:
         self._shutdown = False
 
         ### Set process state
-        IPC.setState(Def.State.IDLE)
+        IPC.set_state(Def.State.IDLE)
 
         min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
         ### Run event loop
         self.t = time.perf_counter()
-        while self._isRunning():
-            self._handleInbox()
+        while self._is_running():
+            self.handle_inbox()
 
             ## Wait until interval time is up
             dt = self.t + interval - time.perf_counter()
@@ -174,22 +169,22 @@ class AbstractProcess:
     ################################
     ### PROTOCOL RESPONSE
 
-    def _prepareProtocol(self):
+    def _prepare_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
         raise NotImplementedError('Method "_prepareProtocol not implemented in {}.'
                                   .format(self.name))
 
-    def _preparePhase(self):
+    def _prepare_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         raise NotImplementedError('Method "_preparePhase" not implemented in {}.'
                                   .format(self.name))
 
-    def _cleanupProtocol(self):
+    def _cleanup_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
         raise NotImplementedError('Method "_cleanupProtocol" not implemented in {}.'
                                   .format(self.name))
 
-    def _runProtocol(self):
+    def _run_protocol(self):
         """Method can be called by all processes that in some way respond to
         the protocol control states.
 
@@ -198,11 +193,11 @@ class AbstractProcess:
 
         ########
         ### RUNNING
-        if self.inState(Def.State.RUNNING):
+        if self.in_state(Def.State.RUNNING):
 
             ## If phase stoptime is exceeded: end phase
             if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                self.setState(Def.State.PHASE_END)
+                self.set_state(Def.State.PHASE_END)
                 return False
 
             ### Default: set phase time and execute protocol
@@ -211,15 +206,15 @@ class AbstractProcess:
 
         ########
         ### IDLE
-        elif self.inState(Def.State.IDLE):
+        elif self.in_state(Def.State.IDLE):
 
             ## Ctrl PREPARE_PROTOCOL
-            if self.inState(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
+            if self.in_state(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
 
-                self._prepareProtocol()
+                self._prepare_protocol()
 
                 # Set next state
-                self.setState(Def.State.WAIT_FOR_PHASE)
+                self.set_state(Def.State.WAIT_FOR_PHASE)
                 return False
 
             ### Fallback, timeout during IDLE operation
@@ -228,33 +223,33 @@ class AbstractProcess:
 
         ########
         ### WAIT_FOR_PHASE
-        elif self.inState(Def.State.WAIT_FOR_PHASE):
+        elif self.in_state(Def.State.WAIT_FOR_PHASE):
 
-            if not(self.inState(Def.State.PREPARE_PHASE, Def.Process.Controller)):
+            if not(self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller)):
                 return False
 
-            self._preparePhase()
+            self._prepare_phase()
 
             # Set next state
-            self.setState(Def.State.READY)
+            self.set_state(Def.State.READY)
             return False
 
         ########
         ### READY
-        elif self.inState(Def.State.READY):
+        elif self.in_state(Def.State.READY):
             ### If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not(self.inState(Def.State.RUNNING, Def.Process.Controller)):
+            if not(self.in_state(Def.State.RUNNING, Def.Process.Controller)):
                 return False
 
             ### Wait for go time
             # TODO: there is an issue where Process gets stuck on READY, when protocol is
             #       aborted while it is waiting in this loop. Fix: periodic checking? Might mess up timing?
-            while self.inState(Def.State.RUNNING, Def.Process.Controller):
+            while self.in_state(Def.State.RUNNING, Def.Process.Controller):
                 ### TODO: sync of starts could also be done with multiprocessing.Barrier
                 t = time.time()
                 if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
                     Logging.write(logging.INFO, 'Start at {}'.format(t))
-                    self.setState(Def.State.RUNNING)
+                    self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
                     break
 
@@ -262,19 +257,19 @@ class AbstractProcess:
 
         ########
         ### PHASE_END
-        elif self.inState(Def.State.PHASE_END):
+        elif self.in_state(Def.State.PHASE_END):
 
             ####
             ## Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.inState(Def.State.PREPARE_PHASE, Def.Process.Controller):
-                self.setState(Def.State.WAIT_FOR_PHASE)
+            if self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller):
+                self.set_state(Def.State.WAIT_FOR_PHASE)
 
 
-            elif self.inState(Def.State.PROTOCOL_END, Def.Process.Controller):
+            elif self.in_state(Def.State.PROTOCOL_END, Def.Process.Controller):
 
-                self._cleanupProtocol()
+                self._cleanup_protocol()
 
-                self.setState(Def.State.IDLE)
+                self.set_state(Def.State.IDLE)
             else:
                 pass
 
@@ -291,34 +286,34 @@ class AbstractProcess:
             time.sleep(IPC.Control.General[Def.GenCtrl.min_sleep_time])
 
 
-    def getState(self, process=None):
+    def get_state(self, process=None):
         """Convenience function for access in process class"""
         return IPC.getState()
 
-    def setState(self, code):
+    def set_state(self, code):
         """Convenience function for access in process class"""
-        IPC.setState(code)
+        IPC.set_state(code)
 
-    def inState(self, code, process_name=None):
+    def in_state(self, code, process_name=None):
         """Convenience function for access in process class"""
         if process_name is None:
             process_name = self.name
         return IPC.inState(code, process_name)
 
-    def _startShutdown(self):
+    def _start_shutdown(self):
         # Handle all pipe messages before shutdown
         while IPC.Pipes[self.name][1].poll():
-            self._handleInbox()
+            self.handle_inbox()
 
         ### Set process state
-        self.setState(Def.State.STOPPED)
+        self.set_state(Def.State.STOPPED)
 
         self._shutdown = True
 
-    def _isRunning(self):
+    def _is_running(self):
         return self._running and not(self._shutdown)
 
-    def registerRPCCallback(self, instance, fun_str, fun):
+    def register_rpc_callback(self, instance, fun_str, fun):
         if fun_str not in self._registered_callbacks:
             self._registered_callbacks[fun_str] = (instance, fun)
         else:
@@ -328,15 +323,15 @@ class AbstractProcess:
     ################################
     ### Private functions
 
-    def _executeRPC(self, fun_str: str, *args, **kwargs):
+    def _execute_rpc(self, fun: str, *args, **kwargs):
         """Execute a remote call to the specified function and pass *args, **kwargs
 
-        :param fun_str: function name
+        :param fun: function name
         :param args: list of arguments
         :param kwargs: dictionary of keyword arguments
         :return:
         """
-        fun_path = fun_str.split('.')
+        fun_path = fun.split('.')
 
         ### RPC on process class
         if fun_path[0] == self.__class__.__name__:
@@ -353,17 +348,13 @@ class AbstractProcess:
                                    format(fun_str, args, kwargs, exc))
 
         ### RPC on registered callback
-        elif fun_str in self._registered_callbacks:
-            self._registered_callbacks[fun_str][1](self._registered_callbacks[fun_str][0], *args, **kwargs)
-            #fun_str = '_'.join(fun_path)
+        elif fun in self._registered_callbacks:
+            self._registered_callbacks[fun][1](self._registered_callbacks[fun][0], *args, **kwargs)
 
         else:
-            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
+            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun))
 
-
-
-
-    def _handleInbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
+    def handle_inbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
 
         # Poll pipe
         if not(IPC.Pipes[self.name][1].poll()):
@@ -378,12 +369,12 @@ class AbstractProcess:
         signal, args, kwargs = msg
 
         if signal == Def.Signal.Shutdown:
-            self._startShutdown()
+            self._start_shutdown()
 
         ### RPC calls
         elif signal == Def.Signal.RPC:
-            self._executeRPC(*args, **kwargs)
+            self._execute_rpc(*args, **kwargs)
 
-    def _handleSIGINT(self, sig, frame):
-        print('> SIGINT event handled in  %s' % self.__class__)
+    def handle_SIGINT(self, sig, frame):
+        print('> SIGINT handled in  {}'.format(self.__class__))
         sys.exit(0)

@@ -31,7 +31,7 @@ WARN    = logging.WARN
 WARNING = logging.WARNING
 ERROR   = logging.ERROR
 
-def setupLogger(_name):
+def setup_logger(_name):
     global logger, write
     # Set up logging
     h = logging.handlers.QueueHandler(IPC.Log.Queue)

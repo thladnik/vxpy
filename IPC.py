@@ -28,7 +28,7 @@ Manager : managers.SyncManager
 # States
 
 class State:
-    localName  : str = None
+    local_name  : str = None
 
     Camera     : int = None
     Controller : int = None
@@ -38,18 +38,18 @@ class State:
     Logger     : int = None
     Worker     : int = None
 
-def setState(new_state):
-    getattr(State, State.localName).value = new_state
+def set_state(new_state):
+    getattr(State, State.local_name).value = new_state
 
 def getState(process_name=None):
     if process_name is None:
-        process_name = State.localName
+        process_name = State.local_name
 
     return getattr(State, process_name).value
 
 def inState(state, process_name=None):
     if process_name is None:
-        process_name = State.localName
+        process_name = State.local_name
 
     return getState(process_name) == state
 

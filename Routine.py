@@ -36,8 +36,9 @@ import Process
 class Routines:
     """Wrapper class for routines
     """
+    # TODO: Routines class may be moved into Process.AbstractProcess in future
 
-    process : Process.AbstractProcess = None
+    process: Process.AbstractProcess = None
 
     def __init__(self, name, routines=None):
         self.name = name
@@ -48,36 +49,57 @@ class Routines:
         ### Automatically add routines, if provided
         if not(routines is None) and isinstance(routines, dict):
             for routine_file, routine_list in routines.items():
-                module = __import__('{}.{}.{}'.format(Def.Path.Routines, self.name.lower(), routine_file),
+                module = __import__('{}.{}.{}'.format(Def.Path.Routines,
+                                                      self.name.lower(),
+                                                      routine_file),
                                     fromlist=routine_list)
                 for routine_name in routine_list:
-                    self.addRoutine(getattr(module, routine_name))
+                    self.add_routine(getattr(module, routine_name))
 
 
-    def createHooks(self, instance):
-        """Method is called by process immediately after initialization.
-        For each method listed in the routines 'exposed' attribute, it
-        sets a reference on the process instance to said routine method,
-        thus making it accessible via RPC calls.
-        Attribute reference: <Buffer name>_<Buffer method name>
+    def create_hooks(self, process):
+        """Provide process instance with callback signatures for RPC.
 
-        :arg instance: instance object of the current process
+        Method is called by process immediately after initialization on fork.
+        For each method listed in the routines 'exposed' attribute,
+        a callback reference is provided to the process instance.
+        This makes routine methods accessible via RPC.
+
+        :arg process: instance object of the current process
         """
-        self.process = instance
 
-        for name, instance in self._routines.items():
-            for fun in instance.exposed:
+        self.process = process
+
+        for name, process in self._routines.items():
+            for fun in process.exposed:
                 fun_str = fun.__qualname__
-                self.process.registerRPCCallback(instance, fun_str, fun)
+                self.process.register_rpc_callback(process, fun_str, fun)
 
-    def initializeBuffers(self):
+    def initialize_buffers(self):
+        """Initialize each buffer after subprocess fork.
+
+        This call the RingBuffer.initialize method in each routine which can
+        be used for operations that have to happen
+        after forking the process (e.g. ctype mapped numpy arrays)
+        """
+
         for name, routine in self._routines.items():
             routine.buffer.initialize()
 
-    def addRoutine(self, routine, **kwargs):
-        """To be called by controller (initialization of routines has to happen in parent process)"""
+    def add_routine(self, routine, **kwargs):
+        """To be called by Controller.
+
+        Creates an instance of the provided routine class (which
+        has to happen before subprocess fork).
+
+        :arg routine: class object of routine
+        :**kwargs: keyword arguments to be passed upon initialization of routine
+        """
+
         if routine.__name__ in self._routine_paths:
-            raise Exception('Routine \"{}\" exists already from path \"{}\"'.format(routine.__name__, self._routine_paths[routine.__name__])
+            raise Exception('Routine \"{}\" exists already from path \"{}\"'
+                            .format(routine.__name__,
+                                    self._routine_paths[routine.__name__])
                             + 'Unable to add routine of same name from path \"{}\"'.format(routine.__module__))
         self._routine_paths[routine.__name__] = routine.__module__
         self._routines[routine.__name__] = routine(self, **kwargs)

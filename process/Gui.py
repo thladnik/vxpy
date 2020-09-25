@@ -86,7 +86,8 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
 
         ## Camera
         self.grp_camera = gui.Integrated.Camera(self)
-        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.1))
+        self.grp_camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
+        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
         self.centralWidget().layout().addWidget(self.grp_camera, 0, 3, 2, 1)
 
         ## Add IO monitor
@@ -125,13 +126,13 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         # Restart display
         self._menu_process_redisp = QtWidgets.QAction('Restart display')
         self._menu_process_redisp.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Display)
+            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Display)
         )
         self._menu_process.addAction(self._menu_process_redisp)
         # Restart camera
         self._menu_process_recam = QtWidgets.QAction('Restart camera')
         self._menu_process_recam.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initializeProcess, process.Camera)
+            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Camera)
         )
 
         # Bind shortcuts
@@ -154,4 +155,4 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         IPC.send(Def.Process.Controller, Def.Signal.Shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
-        IPC.setState(Def.State.STOPPED)
+        IPC.set_state(Def.State.STOPPED)

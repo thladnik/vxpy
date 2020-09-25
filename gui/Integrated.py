@@ -129,7 +129,7 @@ class Protocols(QtWidgets.QGroupBox):
         file_name = self._lwdgt_files.currentItem().text()
         protocol_name = self.lwdgt_protocols.currentItem().text()
 
-        IPC.rpc(Def.Process.Controller, Controller.startProtocol,
+        IPC.rpc(Def.Process.Controller, Controller.start_protocol,
                       '.'.join([file_name, protocol_name]))
 
     def abortProtocol(self):
@@ -306,10 +306,10 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Finally: stop recording
         print('Stop recording...')
-        IPC.rpc(Def.Process.Controller, Controller.stopRecording)
+        IPC.rpc(Def.Process.Controller, Controller.stop_recording)
 
     def toggleEnable(self, newstate):
-        IPC.rpc(Def.Process.Controller, Controller.toggleEnableRecording, newstate)
+        IPC.rpc(Def.Process.Controller, Controller.toggle_enable_recording, newstate)
 
     def updateGui(self):
         """(Periodically) update UI based on shared configuration"""

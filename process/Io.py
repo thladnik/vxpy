@@ -49,7 +49,7 @@ class Io(Process.AbstractProcess):
         except Exception as exc:
             Logging.logger.log(logging.WARNING, 'Could not connect to device. // Exception: {}'
                                .format(exc))
-            self.setState(Def.State.STOPPED)
+            self.set_state(Def.State.STOPPED)
 
 
         ### Disable timeout during idle
@@ -59,14 +59,14 @@ class Io(Process.AbstractProcess):
         if run:
             self.run(interval=1./Config.Io[Def.IoCfg.sample_rate])
 
-    def _prepareProtocol(self):
+    def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
-    def _preparePhase(self):
+    def _prepare_phase(self):
         return
         self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
 
-    def _cleanupProtocol(self):
+    def _cleanup_protocol(self):
         print('Just cleanin\'')
 
 
@@ -75,6 +75,6 @@ class Io(Process.AbstractProcess):
         # Update routines
         IPC.Routines.Io.update(self.device.readAll())
 
-        if self._runProtocol():
+        if self._run_protocol():
             pass
 

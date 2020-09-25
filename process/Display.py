@@ -91,16 +91,16 @@ class Display(Process.AbstractProcess):
         """Glumpy on_init event"""
         pass
 
-    def _prepareProtocol(self):
+    def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
-    def _preparePhase(self):
+    def _prepare_phase(self):
         new_phase = self.protocol._phases[IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]]
         new_visual, kwargs, duration = new_phase['visuals'][0]
         self.visual = new_visual(self.glwindow, **kwargs)
         self.frame_idx = 0
 
-    def _cleanupProtocol(self):
+    def _cleanup_protocol(self):
         pass
 
     def on_draw(self, dt):
@@ -118,15 +118,15 @@ class Display(Process.AbstractProcess):
         if not(self.visual is None):
             self.visual.draw(self.frame_idx, self.phase_time)
 
-        if self._runProtocol():
+        if self._run_protocol():
             # Update routines
             IPC.Routines.Display.update(self.visual)
         else:
             self.glwindow.clear()
 
-    def _startShutdown(self):
+    def _start_shutdown(self):
         self.glwindow.close()
-        Process.AbstractProcess._startShutdown(self)
+        Process.AbstractProcess._start_shutdown(self)
 
     def main(self):
         if self.glumpy_count:
