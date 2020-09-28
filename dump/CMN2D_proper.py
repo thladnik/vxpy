@@ -88,7 +88,7 @@ def on_draw(dt):
     tidx = np.mod(self.t,99)
     motmat_R   = cen2square(self.motmat_x_R[:,tidx],self.motmat_y_R[:,tidx],0).reshape([-1,2])
     self.V['texcoord'] += motmat_R[textface]/300
-    self.patchMat.triggerOnDraw(gl.GL_TRIANGLES, I)
+    self.patchMat.trigger_on_draw(gl.GL_TRIANGLES, I)
     self.t+=1
     print(dt)
 

@@ -512,4 +512,4 @@ class DisplayView(QtWidgets.QGroupBox):
             return
 
         print('draw?')
-        self.current_visual.triggerOnDraw(0, 0.0)
+        self.current_visual.trigger_on_draw(0, 0.0)

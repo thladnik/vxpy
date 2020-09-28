@@ -55,19 +55,19 @@ class ModuleWidget(QtWidgets.QWidget):
 
         self.module_name = module_name
 
-    def getSetting(self, option_name):
+    def get_setting(self, option_name):
         global current_config
         return current_config.getParsed(self.module_name, option_name)
 
-    def updateSetting(self, option, value):
+    def update_setting(self, option, value):
         global current_config
         current_config.setParsed(self.module_name, option, value)
 
-    def closedMainWindow(self):
+    def closed_main_window(self):
         """Method called by default in MainWindow on closeEvent"""
         pass
 
-    def loadSettingsFromConfig(self):
+    def load_settings_from_config(self):
         """Method called by default in MainWindow when selecting new configuration"""
         pass
 
@@ -103,8 +103,8 @@ class CameraWidget(ModuleWidget):
         self.camera_list = QtWidgets.QListWidget()
         self.layout().addWidget(QtWidgets.QLabel('Camera devices'), 1, 0, 1, 3)
         self.layout().addWidget(self.camera_list, 2, 0, 1, 3)
-        self.camera_list.doubleClicked.connect(self.editCamera)
-        self.camera_list.clicked.connect(self.openStream)
+        self.camera_list.doubleClicked.connect(self.edit_camera)
+        self.camera_list.clicked.connect(self.open_stream)
         self.camera_list.currentTextChanged.connect(self.toggle_remove_btn)
 
         ### Camera stream
@@ -118,15 +118,15 @@ class CameraWidget(ModuleWidget):
 
         self.stream_timer = QtCore.QTimer()
         self.stream_timer.setInterval(50)
-        self.stream_timer.timeout.connect(self.updateStream)
+        self.stream_timer.timeout.connect(self.update_stream)
         self.stream_timer.start()
 
-    def loadSettingsFromConfig(self):
+    def load_settings_from_config(self):
         self.camera = self.res_x = self.res_y = None
-        self.updateCameraList()
-        self.updateStream()
+        self.update_camera_list()
+        self.update_stream()
 
-    def updateCameraList(self):
+    def update_camera_list(self):
         global current_config
 
         self.camera_list.clear()
@@ -186,14 +186,14 @@ class CameraWidget(ModuleWidget):
         current_config.setParsed(name, Def.CameraCfg.gain, gain)
         current_config.setParsed(name, Def.CameraCfg.exposure, exposure)
 
-        self.updateCameraList()
+        self.update_camera_list()
 
     def add_camera(self):
         row_idx = self.camera_list.count()
 
-        self.editCamera(row_idx)
+        self.edit_camera(row_idx)
 
-    def editCamera(self, idx: Union[int, QtCore.QModelIndex]):
+    def edit_camera(self, idx: Union[int, QtCore.QModelIndex]):
         global current_config
         if isinstance(idx, QtCore.QModelIndex):
             row_idx = idx.row()
@@ -229,9 +229,9 @@ class CameraWidget(ModuleWidget):
         for key, value in section.items():
             current_config.setParsed(Def.CameraCfg.name, key, value)
 
-        self.updateCameraList()
+        self.update_camera_list()
 
-    def openStream(self, idx: Union[int, QtCore.QModelIndex]):
+    def open_stream(self, idx: Union[int, QtCore.QModelIndex]):
         global current_config
         if isinstance(idx, QtCore.QModelIndex):
             row_idx = idx.row()
@@ -253,7 +253,7 @@ class CameraWidget(ModuleWidget):
             print('Could not access device {}. Exception: {}'.format(section[Def.CameraCfg.device_id][row_idx], exc))
             self.camera = self.res_x = self.res_y = None
 
-    def updateStream(self):
+    def update_stream(self):
         if self.camera is None:
             self.imitem.setImage(np.zeros((1,1)))
             return
@@ -281,18 +281,18 @@ class EditCameraWidget(QtWidgets.QDialog):
         self.layout().addWidget(QtWidgets.QLabel('Manufacturer'), 5, 0)
         self.manufacturer = QtWidgets.QComboBox()
         self.manufacturer.addItems([Camera.TISCamera.__name__, Camera.VirtualCamera.__name__])
-        self.manufacturer.currentTextChanged.connect(self.updateModelsCB)
+        self.manufacturer.currentTextChanged.connect(self.update_models)
         self.layout().addWidget(self.manufacturer, 5, 1)
         ## Models
         self.layout().addWidget(QtWidgets.QLabel('Model'), 10, 0)
         self.model = QtWidgets.QComboBox()
-        self.model.currentTextChanged.connect(self.checkModel)
-        self.model.currentTextChanged.connect(self.updateFormatCB)
+        self.model.currentTextChanged.connect(self.check_model)
+        self.model.currentTextChanged.connect(self.update_format)
         self.layout().addWidget(self.model, 10, 1)
         ## Formats
         self.layout().addWidget(QtWidgets.QLabel('Format'), 15, 0)
         self.vidformat = QtWidgets.QComboBox()
-        self.vidformat.currentTextChanged.connect(self.checkFormat)
+        self.vidformat.currentTextChanged.connect(self.check_format)
         self.layout().addWidget(self.vidformat, 15, 1)
         ## Exposure
         self.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 20, 0)
@@ -311,16 +311,16 @@ class EditCameraWidget(QtWidgets.QDialog):
         ### Add buttons
         self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel,
                                              QtCore.Qt.Horizontal, self)
-        self.buttons.accepted.connect(self.checkFields)
+        self.buttons.accepted.connect(self.check_fields)
         self.buttons.rejected.connect(self.reject)
 
         self.layout().addWidget(self.buttons, 50, 0, 1, 2)
 
-        self.updateFields()
+        self.update_fields()
 
         self.show()
 
-    def updateModelsCB(self):
+    def update_models(self):
         self.model.clear()
 
         global current_config
@@ -331,13 +331,13 @@ class EditCameraWidget(QtWidgets.QDialog):
         if not(section[Def.CameraCfg.model][self.camera_idx] in models):
             self.model.addItem(section[Def.CameraCfg.model][self.camera_idx])
 
-    def checkModel(self, m):
+    def check_model(self, m):
         if m in getattr(Camera, self.manufacturer.currentText()).get_models():
             self.model.setStyleSheet('')
         else:
             self.model.setStyleSheet('QComboBox {color: red;}')
 
-    def updateFormatCB(self):
+    def update_format(self):
         #self.vidformat.setStyleSheet('')
         self.vidformat.clear()
 
@@ -352,13 +352,13 @@ class EditCameraWidget(QtWidgets.QDialog):
         self.vidformat.addItems(formats)
 
 
-    def checkFormat(self, f):
+    def check_format(self, f):
         if f in getattr(Camera, self.manufacturer.currentText()).get_formats(self.model.currentText()):
             self.vidformat.setStyleSheet('')
         else:
             self.vidformat.setStyleSheet('QComboBox {color: red;}')
 
-    def updateFields(self):
+    def update_fields(self):
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
@@ -386,7 +386,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         ## Gain
         self.gain.setValue(section[Def.CameraCfg.gain][self.camera_idx])
 
-    def checkFields(self):
+    def check_fields(self):
 
         data = dict()
         data[Def.CameraCfg.device_id] = self.device_id.text()
@@ -445,12 +445,11 @@ class DisplayWidget(ModuleWidget):
 
         ### (Manually) Decorate on_draw method
         self.on_draw = self.glwindow.event(self.on_draw)
-        self.on_key_press = self.glwindow.event(self.on_key_press)
 
         ### Set timer for glumpy window updates
         self.tmr_glwindow = QtCore.QTimer()
         self.tmr_glwindow.setInterval(100)
-        self.tmr_glwindow.timeout.connect(self.triggerOnDraw)
+        self.tmr_glwindow.timeout.connect(self.trigger_on_draw)
         self.tmr_glwindow.start()
 
         ### Set layout
@@ -490,17 +489,17 @@ class DisplayWidget(ModuleWidget):
         self.layout().addWidget(self.planar_settings, 1, 2)
 
 
-    def triggerOnDraw(self):
+    def trigger_on_draw(self):
         if self.glumpy_count:
             self.glumpy_count = self.glumpy_backend.process(self.glumpy_clock.tick())
 
-    def loadSettingsFromConfig(self):
-        self.global_settings.loadSettingsFromConfig()
-        self.spherical_settings.loadSettingsFromConfig()
-        self.planar_settings.loadSettingsFromConfig()
-        self.updateWindow()
+    def load_settings_from_config(self):
+        self.global_settings.load_settings_from_config()
+        self.spherical_settings.load_settings_from_config()
+        self.planar_settings.load_settings_from_config()
+        self.update_window()
 
-    def updateWindow(self):
+    def update_window(self):
         section = Def.DisplayCfg.name
         global current_config
 
@@ -516,7 +515,7 @@ class DisplayWidget(ModuleWidget):
                current_config.getParsed(section, Def.DisplayCfg.window_pos_y)
         self.glwindow.set_position(x, y)
 
-    def closedMainWindow(self):
+    def closed_main_window(self):
         self.glwindow.close()
 
     def on_draw(self, dt):
@@ -526,94 +525,9 @@ class DisplayWidget(ModuleWidget):
             self.visual.draw(0, 0.0)
 
 
-    def on_key_press(self, symbol, modifiers):
-
-        return
-
-        # <editor-fold desc="Key press options for later... maybe">
-        ###
-        # Key event handling here sucks
-
-        continPressDelay = 0.02
-        print(window.key.X, symbol)
-
-        if modifiers & window.key.MOD_ALT:
-            if modifiers & window.key.MOD_SHIFT:
-                ### Fullscreen toggle: Ctrl+Alt+F
-                if symbol == window.key.F:
-                    Config.Display[Def.DisplayCfg.window_fullscreen] = not(Config.Display[Def.DisplayCfg.window_fullscreen])
-
-
-            sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-
-            if keyboard.is_pressed('X'):
-                try:
-                    self.global_settings.dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos] + sign * 0.001)
-                except:
-                    import IPython
-                    IPython.embed()
-
-
-            ### X position: Ctrl(+Shift)+X
-            elif symbol == window.key.X:
-                print('hello')
-                while keyboard.is_pressed('X'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    #Config.Display[Def.DisplayCfg.glob_x_pos] += sign * 0.001
-                    self.global_settings.dspn_x_pos.setValue(Config.Display[Def.DisplayCfg.glob_x_pos] + sign * 0.001)
-                    time.sleep(continPressDelay)
-
-            ### Y position: Ctrl(+Shift)+Y
-            elif symbol == window.key.Y:
-                while keyboard.is_pressed('Y'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    #Config.Display[Def.DisplayCfg.glob_y_pos] += sign * 0.001
-                    self.global_settings.dspn_y_pos.setValue(Config.Display[Def.DisplayCfg.glob_y_pos] + sign * 0.001)
-                    time.sleep(continPressDelay)
-
-            ### Radial offset: Ctrl(+Shift)+R
-            elif symbol == window.key.R:
-                while keyboard.is_pressed('R'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset] += sign * 0.001
-                    time.sleep(continPressDelay)
-
-
-            ### Elevation: Ctrl(+Shift)+E
-            elif symbol == window.key.E:
-                while keyboard.is_pressed('E'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_view_elev_angle] += sign * 0.1
-                    time.sleep(continPressDelay)
-
-            ### Azimuth: Ctrl(+Shift)+A
-            elif symbol == window.key.A:
-                while keyboard.is_pressed('A'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_view_azim_angle] += sign * 0.1
-                    time.sleep(continPressDelay)
-
-            ### Distance: Ctrl(+Shift)+D
-            elif symbol == window.key.D:
-                while keyboard.is_pressed('D'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_view_distance] += sign * 0.1
-                    time.sleep(continPressDelay)
-
-            ### Scale: Ctrl(+Shift)+S
-            elif symbol == window.key.S:
-                while keyboard.is_pressed('S'):
-                    sign = +1 if (modifiers & window.key.MOD_SHIFT) else -1
-                    Config.Display[Def.DisplayCfg.sph_view_scale] += sign * 0.001
-                    time.sleep(continPressDelay)
-            else:
-                self._glWindow.on_key_press(symbol, modifiers)
-        # </editor-fold>
-
-
 class DisplayScreenSelection(QtWidgets.QGroupBox):
 
-    def __init__(self, parent : DisplayWidget):
+    def __init__(self, parent: DisplayWidget):
         QtWidgets.QGroupBox.__init__(self, 'Fullscreen selection (double click)')
         self.main = parent
 
@@ -722,8 +636,8 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         ## Show button
         self.grp_pla_checker.btn_show = QtWidgets.QPushButton('Show')
         self.grp_pla_checker.btn_show.clicked.connect(
-            lambda: self.showPlanarCheckerboard(self.grp_pla_checker.dspn_rows.value(),
-                                                   self.grp_pla_checker.dspn_cols.value())
+            lambda: self.show_planar_checkerboard(self.grp_pla_checker.dspn_rows.value(),
+                                                  self.grp_pla_checker.dspn_cols.value())
         )
         self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.btn_show, 2, 0, 1, 2)
 
@@ -744,15 +658,15 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         ## Show button
         self.grp_sph_checker.btn_show = QtWidgets.QPushButton('Show')
         self.grp_sph_checker.btn_show.clicked.connect(
-            lambda: self.showSphericalCheckerboard(self.grp_sph_checker.dspn_rows.value(),
-                                                   self.grp_sph_checker.dspn_cols.value())
+            lambda: self.show_spherical_checkerboard(self.grp_sph_checker.dspn_rows.value(),
+                                                     self.grp_sph_checker.dspn_cols.value())
         )
         self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.btn_show, 2, 0, 1, 2)
 
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(vSpacer)
 
-    def showPlanarCheckerboard(self, rows, cols):
+    def show_planar_checkerboard(self, rows, cols):
         from Protocol import StaticProtocol
         from visuals.planar.Calibration import Checkerboard
         protocol = StaticProtocol(None)
@@ -760,7 +674,7 @@ class DisplayCalibration(QtWidgets.QGroupBox):
                                                                 Checkerboard.u_cols : cols})
 
 
-    def showSphericalCheckerboard(self, rows, cols):
+    def show_spherical_checkerboard(self, rows, cols):
         from Protocol import StaticProtocol
         from visuals.spherical.Calibration import BlackWhiteCheckerboard
         protocol = StaticProtocol(None)
@@ -790,7 +704,7 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.spn_win_x.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.window_pos_x,
                                                                              self.spn_win_x.value()))
-        self.spn_win_x.valueChanged.connect(self.main.updateWindow)
+        self.spn_win_x.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(self.spn_win_x, 0, 1)
 
         # Window y pos
@@ -802,7 +716,7 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.spn_win_y.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.window_pos_y,
                                                                              self.spn_win_y.value()))
-        self.spn_win_y.valueChanged.connect(self.main.updateWindow)
+        self.spn_win_y.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(self.spn_win_y, 1, 1)
 
         # Window width
@@ -814,7 +728,7 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.spn_win_width.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.window_width,
                                                                              self.spn_win_width.value()))
-        self.spn_win_width.valueChanged.connect(self.main.updateWindow)
+        self.spn_win_width.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(self.spn_win_width, 20, 1)
 
         # Window height
@@ -826,11 +740,11 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.spn_win_height.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.window_height,
                                                                              self.spn_win_height.value()))
-        self.spn_win_height.valueChanged.connect(self.main.updateWindow)
+        self.spn_win_height.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(self.spn_win_height, 21, 1)
 
         self.btn_use_current_window = QtWidgets.QPushButton('Use current window settings')
-        self.btn_use_current_window.clicked.connect(self.useCurrentWindowSettings)
+        self.btn_use_current_window.clicked.connect(self.use_current_window_settings)
         self.layout().addWidget(self.btn_use_current_window, 25, 0, 1, 2)
 
         # X Position
@@ -843,7 +757,7 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_x_pos.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.glob_x_pos,
                                                                              self.dspn_x_pos.value()))
-        self.dspn_x_pos.valueChanged.connect(self.main.updateWindow)
+        self.dspn_x_pos.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(self.dspn_x_pos, 40, 1)
 
         # Y position
@@ -856,11 +770,11 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_y_pos.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.glob_y_pos,
                                                                              self.dspn_y_pos.value()))
-        self.dspn_y_pos.valueChanged.connect(self.main.updateWindow)
+        self.dspn_y_pos.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(self.dspn_y_pos, 50, 1)
 
 
-    def useCurrentWindowSettings(self):
+    def use_current_window_settings(self):
 
         geo = self.main.glwindow._native_window.geometry()
         fgeo = self.main.glwindow._native_window.frameGeometry()
@@ -871,7 +785,7 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.spn_win_x.setValue(fgeo.x())
         self.spn_win_y.setValue(fgeo.y())
 
-    def loadSettingsFromConfig(self):
+    def load_settings_from_config(self):
         section = Def.DisplayCfg.name
         global current_config
 
@@ -901,7 +815,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_radial_offset.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_pos_glob_radial_offset,
                                                                              self.dspn_radial_offset.value()))
-        self.dspn_radial_offset.valueChanged.connect(self.main.updateWindow)
+        self.dspn_radial_offset.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Radial offset'), 0, 0)
         self.layout().addWidget(self.dspn_radial_offset, 0, 1)
 
@@ -914,7 +828,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_elev_angle.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_view_elev_angle,
                                                                              self.dspn_view_elev_angle.value()))
-        self.dspn_view_elev_angle.valueChanged.connect(self.main.updateWindow)
+        self.dspn_view_elev_angle.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Elevation [deg]'), 5, 0)
         self.layout().addWidget(self.dspn_view_elev_angle, 5, 1)
 
@@ -927,7 +841,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_azim_angle.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_view_azim_angle,
                                                                              self.dspn_view_azim_angle.value()))
-        self.dspn_view_azim_angle.valueChanged.connect(self.main.updateWindow)
+        self.dspn_view_azim_angle.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Azimuth [deg]'), 10, 0)
         self.layout().addWidget(self.dspn_view_azim_angle, 10, 1)
 
@@ -938,7 +852,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_distance.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_view_distance,
                                                                              self.dspn_view_distance.value()))
-        self.dspn_view_distance.valueChanged.connect(self.main.updateWindow)
+        self.dspn_view_distance.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Distance [a.u.]'), 15, 0)
         self.layout().addWidget(self.dspn_view_distance, 15, 1)
 
@@ -951,7 +865,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_fov.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                                    Def.DisplayCfg.sph_view_fov,
                                                                                    self.dspn_view_fov.value()))
-        self.dspn_view_fov.valueChanged.connect(self.main.updateWindow)
+        self.dspn_view_fov.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('FOV [deg]'), 17, 0)
         self.layout().addWidget(self.dspn_view_fov, 17, 1)
 
@@ -962,11 +876,11 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_scale.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_view_scale,
                                                                              self.dspn_view_scale.value()))
-        self.dspn_view_scale.valueChanged.connect(self.main.updateWindow)
+        self.dspn_view_scale.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Scale [a.u.]'), 20, 0)
         self.layout().addWidget(self.dspn_view_scale, 20, 1)
 
-    def loadSettingsFromConfig(self):
+    def load_settings_from_config(self):
         section = Def.DisplayCfg.name
         global current_config
 
@@ -994,7 +908,7 @@ class PlanarDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_x_extent.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.pla_xextent,
                                                                              self.dspn_x_extent.value()))
-        self.dspn_x_extent.valueChanged.connect(self.main.updateWindow)
+        self.dspn_x_extent.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('X-Extent [rel]'), 0, 0)
         self.layout().addWidget(self.dspn_x_extent, 0, 1)
         # Y extent
@@ -1005,7 +919,7 @@ class PlanarDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_y_extent.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.pla_yextent,
                                                                              self.dspn_y_extent.value()))
-        self.dspn_y_extent.valueChanged.connect(self.main.updateWindow)
+        self.dspn_y_extent.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Y-Extent [rel]'), 1, 0)
         self.layout().addWidget(self.dspn_y_extent, 1, 1)
         # Small side dimensions
@@ -1015,11 +929,11 @@ class PlanarDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_small_side.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.pla_small_side,
                                                                              self.dspn_small_side.value()))
-        self.dspn_small_side.valueChanged.connect(self.main.updateWindow)
+        self.dspn_small_side.valueChanged.connect(self.main.update_window)
         self.layout().addWidget(QtWidgets.QLabel('Small side [mm]'), 2, 0)
         self.layout().addWidget(self.dspn_small_side, 2, 1)
 
-    def loadSettingsFromConfig(self):
+    def load_settings_from_config(self):
         section = Def.DisplayCfg.name
         global current_config
 
@@ -1038,9 +952,9 @@ class ModuleCheckbox(QtWidgets.QCheckBox):
         QtWidgets.QCheckBox.__init__(self, module_name.upper(), *_args)
         self.module_name = module_name
 
-        self.toggled.connect(self.reactToToggle)
+        self.toggled.connect(self.react_to_toggle)
 
-    def reactToToggle(self, bool):
+    def react_to_toggle(self, bool):
         print('Set module \"{}\" usage to {}'.format(self.text(), bool))
         global current_config
         current_config.setParsed(self.module_name, Def.Cfg.use, bool)
@@ -1063,10 +977,10 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self._configfile = None
         self._currentConfigChanged = False
 
-        self.setupUI()
+        self.setup_ui()
 
 
-    def setupUI(self):
+    def setup_ui(self):
         global current_config
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         hSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -1087,15 +1001,15 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         # Selection
         self.gb_select.layout().addWidget(QtWidgets.QLabel('Select configuration file: '))
         self.gb_select.cb_select = QtWidgets.QComboBox()
-        self.gb_select.cb_select.currentTextChanged.connect(self.openConfigfile)
+        self.gb_select.cb_select.currentTextChanged.connect(self.open_configfile)
         self.gb_select.layout().addWidget(self.gb_select.cb_select)
         # New
         self.gb_select.btn_new = QtWidgets.QPushButton('Add new...')
-        self.gb_select.btn_new.clicked.connect(self._addConfigfile)
+        self.gb_select.btn_new.clicked.connect(self._add_configfile)
         self.gb_select.layout().addWidget(self.gb_select.btn_new)
         # Use
         self.gb_select.btn_use = QtWidgets.QPushButton('Use')
-        self.gb_select.btn_use.clicked.connect(self.startApplication)
+        self.gb_select.btn_use.clicked.connect(self.start_application)
         self.gb_select.layout().addWidget(self.gb_select.btn_use)
 
 
@@ -1145,19 +1059,19 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self.gb_edit.layout().addWidget(self.btn_save_config, 1, 1)
 
         self.btn_start_app = QtWidgets.QPushButton('Save and start')
-        self.btn_start_app.clicked.connect(self.saveAndStartApplication)
+        self.btn_start_app.clicked.connect(self.save_and_start_application)
         self.gb_edit.layout().addWidget(self.btn_start_app, 1, 2)
 
         # Update and show
-        self.updateConfigfileList()
+        self.update_configfile_list()
         self.show()
 
-    def updateConfigfileList(self):
+    def update_configfile_list(self):
         self.gb_select.cb_select.clear()
         for fname in os.listdir(Def.Path.Config):
             self.gb_select.cb_select.addItem(fname[:-4])
 
-    def _addConfigfile(self):
+    def _add_configfile(self):
         name, confirmed = QtWidgets.QInputDialog.getText(self, 'Create new configs file', 'Config name', QtWidgets.QLineEdit.Normal, '')
 
         if confirmed and name != '':
@@ -1171,11 +1085,11 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                 with open(os.path.join(Def.Path.Config, fname), 'w') as fobj:
                     parser = ConfigParser()
                     parser.write(fobj)
-            self.updateConfigfileList()
+            self.update_configfile_list()
             self.gb_select.cb_select.setCurrentText(name)
 
 
-    def openConfigfile(self):
+    def open_configfile(self):
 
         name = self.gb_select.cb_select.currentText()
 
@@ -1199,9 +1113,9 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
         ### Update module settings
         for module_name, wdgt in self.module_widgets.items():
-            if hasattr(wdgt, 'loadSettingsFromConfig'):
+            if hasattr(wdgt, 'load_settings_from_config'):
                 print('Load settings for module \"{}\" from config file'.format(module_name))
-                wdgt.loadSettingsFromConfig()
+                wdgt.load_settings_from_config()
             else:
                 print('Could not load settings for module \"{}\" from config file'.format(module_name))
 
@@ -1218,17 +1132,17 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
         ### Close widgetts
         for wdgt_name, wdgt in self.module_widgets.items():
-            wdgt.closedMainWindow()
+            wdgt.closed_main_window()
 
         ### Close MainWindow
         event.accept()
 
-    def saveAndStartApplication(self):
+    def save_and_start_application(self):
         global current_config
         current_config.saveToFile()
-        self.startApplication()
+        self.start_application()
 
-    def startApplication(self):
+    def start_application(self):
         print('Start application')
         global configfile
         configfile = self._configfile
@@ -1250,7 +1164,6 @@ if __name__ == '__main__':
 
             parser = argparse.ArgumentParser()
             parser.add_argument('--ini', action='store', dest='ini_file', type=str)
-            #parser.add_argument('--skip_setup', action='store_true', dest='skip_setup', default=False)
             args = parser.parse_args(sys.argv[1:])
 
             if not(args.ini_file is None):
