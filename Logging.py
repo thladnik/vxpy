@@ -25,11 +25,18 @@ import IPC
 logger = None
 write = None
 
-def setupLogger(_name):
+DEBUG = logging.DEBUG
+INFO = logging.INFO
+WARN = logging.WARN
+WARNING = logging.WARNING
+ERROR = logging.ERROR
+
+def setup_logger(_name):
     global logger, write
     # Set up logging
-    h = logging.handlers.QueueHandler(IPC.Log.Queue)
     logger = logging.getLogger(_name)
-    logger.addHandler(h)
-    logger.setLevel(logging.DEBUG)
-    write = logging.getLogger(_name).log
+    if not(logger.handlers):
+        h = logging.handlers.QueueHandler(IPC.Log.Queue)
+        logger.addHandler(h)
+        logger.setLevel(logging.DEBUG)
+        write = logging.getLogger(_name).log

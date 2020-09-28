@@ -1,5 +1,5 @@
 """
-MappApp ./process/Camera.py - Handles camera interaction and writes to the camera routines.
+MappApp ./process/DefaultCameraRoutines.py - Handles camera interaction and writes to the camera routines.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,61 +16,75 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-import numpy as np
-import time
-
 import Config
 import Process
 import Def
-import devices.Camera
 import IPC
 import Logging
 
 if Def.Env == Def.EnvTypes.Dev:
-    from IPython import embed
+    pass
 
-class Main(Process.AbstractProcess):
+class Camera(Process.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
 
-        ### Set recording parameters
-        self.frameDims = (int(Config.Camera[Def.CameraCfg.res_y]),
-                          int(Config.Camera[Def.CameraCfg.res_x]))
+        self.cameras = dict()
+        for device_id, manufacturer, model, format in zip(Config.Camera[Def.CameraCfg.device_id],
+                                                          Config.Camera[Def.CameraCfg.manufacturer],
+                                                          Config.Camera[Def.CameraCfg.model],
+                                                          Config.Camera[Def.CameraCfg.format]):
+            ### Get selected camera
+            try:
 
-        ### Get selected camera
-        try:
-            self.camera = devices.Camera.GetCamera(1)
+                import devices.Camera
+                cam = getattr(devices.Camera, manufacturer)
+                self.cameras[device_id] = cam(model, format)
 
-            Logging.logger.log(logging.INFO, 'Using camera {}>>{}'
-                           .format(Config.Camera[Def.CameraCfg.manufacturer],
-                                   Config.Camera[Def.CameraCfg.model]))
-        except Exception as exc:
-            Logging.logger.log(logging.INFO, 'Unable to use camera {}>>{} // Exception: {}'
-                               .format(Config.Camera[Def.CameraCfg.manufacturer],
-                                       Config.Camera[Def.CameraCfg.model],
-                                       exc))
+                Logging.write(Logging.INFO, 'Using camera {}>>{} ({}) as \"{}\"'
+                              .format(manufacturer,
+                                      model,
+                                      format,
+                                      device_id))
+            except Exception as exc:
+                Logging.write(Logging.INFO,
+                              'Unable to use camera {}>>{} ({}) // Exception: {}'
+                              .format(manufacturer,
+                                      model,
+                                      format,
+                                      exc))
 
 
-        if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./Config.Camera[Def.CameraCfg.fps]:
-            Logging.write(logging.WARNING, 'Mininum sleep period is ABOVE '
-                                           'average target frametime of 1/{}s.'
-                                            'This will cause increased CPU usage.'
-                                            .format(Config.Camera[Def.CameraCfg.fps]))
+        target_fps = Config.Camera[Def.CameraCfg.fps]
+
+        if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
+            Logging.write(Logging.WARNING,
+                          'Mininum sleep period is ABOVE '
+                          'average target frametime of 1/{}s.'
+                          'This will cause increased CPU usage.'
+                          .format(target_fps))
 
         ### Run event loop
-        self.run(interval=1/Config.Camera[Def.CameraCfg.fps])
+        self.run(interval=1/target_fps)
+
+    def _prepare_protocol(self):
+        pass
+
+    def _prepare_phase(self):
+        pass
+
+    def _cleanup_protocol(self):
+        pass
 
     def main(self):
-        # Update camera settings
-        # All camera settings with the "*_prop_*" substring
-        # are considered properties which may be changed online
-        # (Please don't touch the rest)
-        for setting, value in Config.Camera.items():
-            if setting.find('_prop_') >= 0:
-                self.camera.updateProperty(setting, value)
+
+        self._run_protocol()
+
+        ### Snap image
+        for device_id, cam in self.cameras.items():
+            cam.snap_image()
 
         # Update routines
-        IPC.Routines.Camera.update(self.camera.getImage())
+        IPC.Routines.Camera.update(**{device_id : cam.get_image() for device_id, cam in self.cameras.items()})

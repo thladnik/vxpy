@@ -1,5 +1,5 @@
 """
-MappApp ./process/Io.py - General purpose digital/analog input/output process.
+MappApp ./process/DefaultIoRoutines.py - General purpose digital/analog input/output process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import logging
-import time
 
 import Config
 import Def
@@ -26,7 +25,7 @@ import Logging
 import Process
 import protocols
 
-class Main(Process.AbstractProcess):
+class Io(Process.AbstractProcess):
     name = Def.Process.Io
 
     def __init__(self, **kwargs):
@@ -36,8 +35,8 @@ class Main(Process.AbstractProcess):
         ### Set up device
         self.device = None
         if Config.Io[Def.IoCfg.device_type] == 'Arduino':
-            import devices.microcontrollers.Arduino
-            self.device = devices.microcontrollers.Arduino.Device()
+            import devices.Arduino
+            self.device = devices.Arduino.Device()
 
         run = False
         try:
@@ -47,9 +46,9 @@ class Main(Process.AbstractProcess):
                 run = self.device.connect() and self.device.setup()
 
         except Exception as exc:
-            Logging.logger.log(logging.WARNING, 'Could not connect to device. // Exception: {}'
-                               .format(exc))
-            self.setState(Def.State.STOPPED)
+            Logging.logger.log_display(logging.WARNING, 'Could not connect to device. // Exception: {}'
+                                       .format(exc))
+            self.set_state(Def.State.STOPPED)
 
 
         ### Disable timeout during idle
@@ -59,15 +58,15 @@ class Main(Process.AbstractProcess):
         if run:
             self.run(interval=1./Config.Io[Def.IoCfg.sample_rate])
 
-    def _prepareProtocol(self):
+    def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
-    def _preparePhase(self):
+    def _prepare_phase(self):
         return
         self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
 
-    def _cleanupProtocol(self):
-        print('Just cleanin\'')
+    def _cleanup_protocol(self):
+        pass
 
 
     def main(self):
@@ -75,6 +74,6 @@ class Main(Process.AbstractProcess):
         # Update routines
         IPC.Routines.Io.update(self.device.readAll())
 
-        if self._runProtocol():
+        if self._run_protocol():
             pass
 

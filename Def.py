@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
+import os
 
 ################################
 # Environment settings
@@ -33,10 +33,12 @@ Display_backend = 'qt5'
 
 class Path:
     Config   = 'configs'
+    Libdll   = os.path.join('lib', 'dll')
     Log      = 'logs'
     Model    = 'models'
     Output   = 'output'
     Protocol = 'protocols'
+    Routines = 'routines'
     Sample   = 'samples'
     Shader   = 'shaders'
     Task     = 'tasks'
@@ -112,32 +114,38 @@ class Cfg:
     use = 'bool_use'
 
 class CameraCfg(Cfg):
-    name = 'camera'
+    name = Process.Camera.lower()
 
     # Camera configuration
-    manufacturer = 'str_manufacturer'
-    model        = 'str_model'
-    format       = 'str_format'
-    res_x        = 'int_resolution_x'
-    res_y        = 'int_resolution_y'
-    fps          = 'int_prop_fps'
-    exposure     = 'float_prop_exposure'
-    gain         = 'float_prop_gain'
+    device_id    = 'json_device_id'
+    manufacturer = 'json_manufacturer'
+    model        = 'json_model'
+    format       = 'json_format'
+    res_x        = 'json_resolution_x'
+    res_y        = 'json_resolution_y'
+    fps          = 'int_fps'
+    exposure     = 'json_exposure'
+    gain         = 'json_gain'
 
     # Buffers
-    routines      = 'list_routines'
+    routines      = 'json_routines'
 
 
 ########
 # Display
 
 class DisplayCfg(Cfg):
-    name = 'display'
+    name = Process.Display.lower()
 
+    ## General
     type                   = 'str_type'
     fps                    = 'int_fps'
+    window_backend         = 'str_window_backend'
+    gl_version_major       = 'int_gl_version_major'
+    gl_version_minor       = 'int_gl_version_minor'
+    gl_profile             = 'str_gl_profile'
 
-    # Window settings
+    ## Window settings
     window_screen_id       = 'int_window_screen_id'
     window_fullscreen      = 'bool_window_fullscreen'
     window_width           = 'int_window_width'
@@ -152,10 +160,10 @@ class DisplayCfg(Cfg):
 
     # Spherical
     sph_pos_glob_radial_offset = 'float_sph_pos_glob_radial_offset'
-
     sph_view_elev_angle        = 'float_sph_view_elev_angle'
     sph_view_azim_angle        = 'float_sph_view_azim_angle'
     sph_view_distance          = 'float_sph_view_origin_distance'
+    sph_view_fov               = 'float_sph_view_fov'
     sph_view_scale             = 'float_sph_view_scale'
 
     # Planar
@@ -163,32 +171,32 @@ class DisplayCfg(Cfg):
     pla_yextent                = 'float_pla_yextent'
     pla_small_side             = 'float_pla_small_side'
 
-    routines                   = 'list_routines'
+    routines                   = 'json_routines'
 
 ########
 # GUI
 
 class GuiCfg(Cfg):
-    name = 'gui'
+    name = Process.GUI.lower()
 
     # Addons
-    addons      = 'list_addons'
+    addons      = 'json_addons'
 
 
 ########
 # IO
 
 class IoCfg(Cfg):
-    name = 'io'
+    name = Process.Io.lower()
 
     device_type  = 'str_device_type'
     device_model = 'str_device_model'
     device_port  = 'str_device_comport'
     sample_rate  = 'int_sample_rate'
-    pins         = 'list_pins'
-    analog_pins  = 'list_analog_pins'
+    pins         = 'json_pins'
+    analog_pins  = 'json_analog_pins'
 
-    routines = 'list_routines'
+    routines = 'json_routines'
 
 
 ########
@@ -202,7 +210,7 @@ class RecCfg(Cfg):
     output_folder   = 'str_output_folder'
 
     # Active routines
-    routines         = 'list_routines'
+    routines         = 'json_routines'
 
 
 ################################
@@ -212,9 +220,9 @@ class RecCfg(Cfg):
 # General
 
 class GenCtrl:
-    min_sleep_time    = 'min_sleep_time'
-    process_null_time = 'process_null_time'
-    process_syn_barrier       = 'process_sync_barrier'
+    min_sleep_time      = 'min_sleep_time'
+    process_null_time   = 'process_null_time'
+    process_syn_barrier = 'process_sync_barrier'
 
 ########
 # Recording

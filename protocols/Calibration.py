@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from Protocol import StaticProtocol
 
-from visuals.spherical.Calibration import BlackWhiteCheckerboard
+from visuals.spherical.Calibration import BlackWhiteCheckerboard, RegularMesh
 
 
 class Calibration16x16(StaticProtocol):
@@ -45,3 +45,14 @@ class CalibrationMultiple(StaticProtocol):
             self.addVisual(BlackWhiteCheckerboard,
                            {BlackWhiteCheckerboard.u_rows: 4 * (1 + num),
                             BlackWhiteCheckerboard.u_cols: 4 * (1 + num)})
+
+class RegularMesh16x16(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+
+        self.newPhase(duration=10**4)
+
+        self.addVisual(RegularMesh,
+                       {RegularMesh.u_rows : 16,
+                        RegularMesh.u_cols : 16})

@@ -1,5 +1,5 @@
 """
-MappApp ./gui/Io.py - Custom addons which handle UI and visualization of IO.
+MappApp ./gui/DefaultIoRoutines.py - Custom addons which handle UI and visualization of IO.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,13 +21,13 @@ import pyqtgraph as pg
 import Config
 import Def
 import IPC
-import routines.Io
+import routines.io.DefaultIoRoutines
 
-class IoWidget(QtWidgets.QWidget):
-    def __init__(self, parent, **kwargs):
+class IoWidget(QtWidgets.QGroupBox):
+    def __init__(self, parent):
         ### Set module always to active
         self.moduleIsActive = True
-        QtWidgets.QWidget.__init__(self, parent, **kwargs)
+        QtWidgets.QGroupBox.__init__(self, 'Plotter', parent=parent)
         self.setLayout(QtWidgets.QGridLayout())
 
         self.graphicsWidget = IoWidget.GraphicsWidget(parent=self)
@@ -35,22 +35,21 @@ class IoWidget(QtWidgets.QWidget):
 
         ### Build up data structure
         self.data = dict()
-        for routine_name in Config.Io[Def.IoCfg.routines]:
-            if not(bool(routine_name)):
-                continue
+        for routine_file, routine_list in Config.Display[Def.DisplayCfg.routines].items():
+            for routine_name in routine_list:
 
-            routine = getattr(routines.Io, routine_name)
+                routine = getattr(routines.io.DefaultIoRoutines, routine_name)
 
-            self.data[routine_name] = dict()
+                self.data[routine_name] = dict()
 
-            for pin_descr in routine.pins:
-                pin_name, pnum, ptype = pin_descr.split(':')
+                for pin_descr in routine.pins:
+                    pin_name, pnum, ptype = pin_descr.split(':')
 
-                self.data[routine_name][pin_name] = dict(datat=list(), datay=list(), last_idx=0)
+                    self.data[routine_name][pin_name] = dict(datat=list(), datay=list(), last_idx=0)
 
         ### Start timer
         self._tmr_update = QtCore.QTimer()
-        self._tmr_update.setInterval(100)
+        self._tmr_update.setInterval(50)
         self._tmr_update.timeout.connect(self.updateData)
         self._tmr_update.start()
 
@@ -61,7 +60,7 @@ class IoWidget(QtWidgets.QWidget):
 
         for routine_name, pins in self.data.items():
             for pin_name, pin_data in pins.items():
-                idcs, newdata = IPC.Routines.Io.readAttribute(
+                idcs, newdata = IPC.Routines.Io.read(
                     ['time', pin_name],
                     routine_name,
                     last_idx=pin_data['last_idx'])
@@ -90,6 +89,8 @@ class IoWidget(QtWidgets.QWidget):
                     self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'][-idx_range:],
                                                                     pin_data['datay'][-idx_range:])
                 #self.graphicsWidget.dataItems[pin_name].setData(pin_data['datat'], pin_data['datay'])
+
+                print(len(pin_data['datat']))
 
         ### Move display range
         if not(pin_data is None):

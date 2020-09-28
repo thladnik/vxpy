@@ -1,5 +1,5 @@
 """
-MappApp ./Shader.py - Custom shader classes used in display process (./process/Display.py).
+MappApp ./Shader.py - Custom shader classes used in display process (./process/DefaultDisplayRoutines.py).
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

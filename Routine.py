@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import ctypes
 import h5py
-import logging
 import multiprocessing as mp
 import numpy as np
 import os
@@ -36,66 +35,99 @@ import Process
 class Routines:
     """Wrapper class for routines
     """
+    # TODO: Routines class may be moved into Process.AbstractProcess in future
 
-    process : Process.AbstractProcess = None
+    process: Process.AbstractProcess = None
 
-    def __init__(self, name):
+    def __init__(self, name, routines=None):
         self.name = name
         self.h5File = None
-        self.vidFile = None
-
+        self._routine_paths = dict()
         self._routines = dict()
 
-    def createHooks(self, instance):
-        """Method is called by process immediately after initialization.
-        For each method listed in the routines 'exposed' attribute, it
-        sets a reference on the process instance to said routine method,
-        thus making it accessible via RPC calls.
-        Attribute reference: <Buffer name>_<Buffer method name>
+        ### Automatically add routines, if provided
+        if not(routines is None) and isinstance(routines, dict):
+            for routine_file, routine_list in routines.items():
+                module = __import__('{}.{}.{}'.format(Def.Path.Routines,
+                                                      self.name.lower(),
+                                                      routine_file),
+                                    fromlist=routine_list)
+                for routine_name in routine_list:
+                    self.add_routine(getattr(module, routine_name))
 
-        :arg instance: instance object of the current process
+
+    def create_hooks(self, process):
+        """Provide process instance with callback signatures for RPC.
+
+        Method is called by process immediately after initialization on fork.
+        For each method listed in the routines 'exposed' attribute,
+        a callback reference is provided to the process instance.
+        This makes routine methods accessible via RPC.
+
+        :arg process: instance object of the current process
         """
-        self.process = instance
 
-        for name, routine in self._routines.items():
-            for method in routine.exposed:
-                fun_path = method.__qualname__.split('.')
-                fun_str = '_'.join(fun_path)
-                if not(hasattr(instance, fun_str)):
-                    # This is probably my weirdest programming construct yet...
-                    setattr(instance, fun_str, lambda *args, **kwargs: method(routine, *args, **kwargs))
-                else:
-                    print('Oh no, routine method already set. NOT GOOD!')
+        self.process = process
 
-    def initializeBuffers(self):
+        for name, process in self._routines.items():
+            for fun in process.exposed:
+                fun_str = fun.__qualname__
+                self.process.register_rpc_callback(process, fun_str, fun)
+
+    def initialize_buffers(self):
+        """Initialize each buffer after subprocess fork.
+
+        This call the RingBuffer.initialize method in each routine which can
+        be used for operations that have to happen
+        after forking the process (e.g. ctype mapped numpy arrays)
+        """
+
         for name, routine in self._routines.items():
             routine.buffer.initialize()
 
-    def addRoutine(self, routine, **kwargs):
-        """To be called by controller (initialization of routines has to happen in parent process)"""
+    def add_routine(self, routine, **kwargs):
+        """To be called by Controller.
+
+        Creates an instance of the provided routine class (which
+        has to happen before subprocess fork).
+
+        :arg routine: class object of routine
+        :**kwargs: keyword arguments to be passed upon initialization of routine
+        """
+
+        if routine.__name__ in self._routine_paths:
+            raise Exception('Routine \"{}\" exists already from path \"{}\"'
+                            .format(routine.__name__,
+                                    self._routine_paths[routine.__name__])
+                            + 'Unable to add routine of same name from path \"{}\"'.format(routine.__module__))
+        self._routine_paths[routine.__name__] = routine.__module__
         self._routines[routine.__name__] = routine(self, **kwargs)
 
-    def update(self, data):
-        t = time.time()#perf_counter() - self.process.process_sync_time
+    def update(self, *args, **kwargs):
+
+        if not(bool(args)) and not(bool(kwargs)):
+            return
+
+        t = time.time()
         for name in self._routines:
             ### Set time for current iteration
             self._routines[name].buffer.time = t
             ### Update the data in buffer
-            self._routines[name].update(data)
+            self._routines[name].update(*args, **kwargs)
             ### Stream new routine computation results to file (if active)
             self._routines[name].streamToFile(self.handleFile())
             # Advance the associated buffer
             self._routines[name].buffer.next()
 
-    def readAttribute(self, attr_name, routine_name=None, **kwargs):
+    def read(self, attr_name, routine_name=None, **kwargs):
         """Read shared attribute from buffer.
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>
         :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
-                                routine_name can be either str or list[str]
 
         :return: value of the buffer
         """
+
         if routine_name is None:
             parts = attr_name.split('/')
             attr_name = parts[1]
@@ -119,7 +151,7 @@ class Routines:
         elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5File is None:
             ## If output folder is not set: log warning and return None
             if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
-                Logging.write(logging.WARNING, 'Recording has been started but output folder is not set.')
+                Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
                 return None
 
             ### If output folder is set: open file
@@ -127,7 +159,7 @@ class Routines:
                                     IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
 
-            Logging.write(logging.DEBUG, 'Open new file {}'.format(filepath))
+            Logging.write(Logging.DEBUG, 'Open new file {}'.format(filepath))
             self.h5File = h5py.File(filepath, 'w')
 
             return self.h5File
@@ -165,7 +197,7 @@ class AbstractRoutine:
         ### Set time attribute by default on all buffers
         self.buffer.time = (BufferDTypes.float64, )
 
-    def _compute(self, data):
+    def _compute(self, *args, **kwargs):
         """Compute method is called on data updates (so in the producer process).
         Every buffer needs to implement this method."""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
@@ -182,21 +214,13 @@ class AbstractRoutine:
     def read(self, attr_name, *args, **kwargs):
         return self.buffer.read(attr_name, *args, **kwargs)
 
-    def update(self, data):
+    def update(self, *args, **kwargs):
         """Method is called on every iteration of the producer.
 
         :param data: input data to be updated
         """
 
-        ### Set time for current iteration
-        #self.buffer.time = time()
-        ### Call compute method
-        #self._compute(data.copy())  # Copy to avoid detrimental pythonic side effects
-        #                            (TODO: I don't think this copying works as intended, yet)
-        if data is None:
-            return
-
-        self._compute(data)
+        self._compute(*args, **kwargs)
 
 
     def _appendData(self, grp, key, value):
@@ -209,14 +233,14 @@ class AbstractRoutine:
         ## Create dataset if it doesn't exist
         if not(key in grp):
             try:
-                Logging.write(logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
+                Logging.write(Logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
                 grp.create_dataset(key,
                                    shape=(0, *dshape,),
                                    dtype=dtype,
                                    maxshape=(None, *dshape,),
                                    chunks=(1, *dshape,), )  # compression='lzf')
             except:
-                Logging.write(logging.WARNING, 'Failed to create record dset "{}/{}"'.format(grp.name, key))
+                Logging.write(Logging.WARNING, 'Failed to create record dset "{}/{}"'.format(grp.name, key))
 
             grp[key].attrs.create('Position', self.currentTime, dtype=np.float64)
 
@@ -236,7 +260,7 @@ class AbstractRoutine:
 
         ## Each buffer writes to it's own group
         if not(bufferName in file):
-            Logging.write(logging.INFO, 'Create record group {}'.format(bufferName))
+            Logging.write(Logging.INFO, 'Create record group {}'.format(bufferName))
             file.create_group(bufferName)
         grp = file[bufferName]
 
@@ -332,7 +356,7 @@ class RingBuffer:
 
         ### No entry: raise exception
         else:
-            Logging.write(logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
+            Logging.write(Logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
             return None, None
             #raise Exception('Smallest possible record set size is 1')
 

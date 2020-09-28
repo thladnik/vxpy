@@ -1,5 +1,5 @@
 """
-MappApp ./routines/Display.py - Custom processing routine implementations for the display process.
+MappApp ./routines/DefaultDisplayRoutines.py - Custom processing routine implementations for the display process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from Routine import AbstractRoutine, BufferDTypes
 
 class ParameterRoutine(AbstractRoutine):
+    """Save all registered parameters of """
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)

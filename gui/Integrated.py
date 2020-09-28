@@ -25,11 +25,10 @@ import time
 import Config
 from process.Controller import Controller
 import Def
-import gui.Controls
 import gui.Camera
 import IPC
 import Logging
-from process import GUI
+from process import Gui
 import protocols
 
 
@@ -106,7 +105,7 @@ class Protocols(QtWidgets.QGroupBox):
     def updateGUI(self):
 
         ### Enable/Disable control elements
-        ctrl_is_idle = IPC.inState(Def.State.IDLE, Def.Process.Controller)
+        ctrl_is_idle = IPC.in_state(Def.State.IDLE, Def.Process.Controller)
         self.wdgt_controls.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
         self.lwdgt_protocols.setEnabled(ctrl_is_idle)
         self._lwdgt_files.setEnabled(ctrl_is_idle)
@@ -130,7 +129,7 @@ class Protocols(QtWidgets.QGroupBox):
         file_name = self._lwdgt_files.currentItem().text()
         protocol_name = self.lwdgt_protocols.currentItem().text()
 
-        IPC.rpc(Def.Process.Controller, Controller.startProtocol,
+        IPC.rpc(Def.Process.Controller, Controller.start_protocol,
                       '.'.join([file_name, protocol_name]))
 
     def abortProtocol(self):
@@ -140,7 +139,7 @@ class ProcessMonitor(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Process monitor')
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         self._setupUi()
 
@@ -223,12 +222,12 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         Additionally it modifies 
         """
 
-        self._setProcessState(self._le_controllerState, IPC.getState(Def.Process.Controller))
-        self._setProcessState(self._le_cameraState, IPC.getState(Def.Process.Camera))
-        self._setProcessState(self._le_displayState, IPC.getState(Def.Process.Display))
-        self._setProcessState(self._le_guiState, IPC.getState(Def.Process.GUI))
-        self._setProcessState(self._le_ioState, IPC.getState(Def.Process.Io))
-        self._setProcessState(self._le_workerState, IPC.getState(Def.Process.Worker))
+        self._setProcessState(self._le_controllerState, IPC.get_state(Def.Process.Controller))
+        self._setProcessState(self._le_cameraState, IPC.get_state(Def.Process.Camera))
+        self._setProcessState(self._le_displayState, IPC.get_state(Def.Process.Display))
+        self._setProcessState(self._le_guiState, IPC.get_state(Def.Process.GUI))
+        self._setProcessState(self._le_ioState, IPC.get_state(Def.Process.Io))
+        self._setProcessState(self._le_workerState, IPC.get_state(Def.Process.Worker))
 
 
 ################################
@@ -238,7 +237,7 @@ class Recording(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Recordings')
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
         self.setObjectName('RecGroupBox')
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -307,10 +306,10 @@ class Recording(QtWidgets.QGroupBox):
 
         ### Finally: stop recording
         print('Stop recording...')
-        IPC.rpc(Def.Process.Controller, Controller.stopRecording)
+        IPC.rpc(Def.Process.Controller, Controller.stop_recording)
 
     def toggleEnable(self, newstate):
-        IPC.rpc(Def.Process.Controller, Controller.toggleEnableRecording, newstate)
+        IPC.rpc(Def.Process.Controller, Controller.toggle_enable_recording, newstate)
 
     def updateGui(self):
         """(Periodically) update UI based on shared configuration"""
@@ -334,7 +333,7 @@ class Recording(QtWidgets.QGroupBox):
         ### Set buttons dis-/enabled
         ## Start
         self._btn_start.setEnabled(not(active) and enabled)
-        self._btn_start.setText('Start' if IPC.inState(Def.State.IDLE, Def.Process.Controller) else 'Resume')
+        self._btn_start.setText('Start' if IPC.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
         ## Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self._btn_pause.setEnabled(False)
@@ -348,7 +347,7 @@ class Log(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Log')
-        self._main : GUI.Main = _main
+        self._main: Gui.Main = _main
 
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -373,9 +372,9 @@ class Log(QtWidgets.QGroupBox):
 
         if len(IPC.Log.History) > self.logccount:
             for record in IPC.Log.History[self.logccount:]:
-                if record.levelno > 10:
+                if record['levelno'] > 10:
                     line = '{} : {:10} : {:10} : {}'\
-                        .format(record.asctime, record.name, record.levelname, record.msg)
+                        .format(record['asctime'], record['name'], record['levelname'], record['msg'])
                     self._txe_log.append(line)
 
                 self.logccount += 1
@@ -384,7 +383,7 @@ class Controls(QtWidgets.QTabWidget):
 
     def __init__(self, _main):
         QtWidgets.QTabWidget.__init__(self)
-        self._main : GUI.Main = _main
+        self._main : Gui.Main = _main
 
         ### Display Settings
         if Config.Display[Def.DisplayCfg.use]:
@@ -513,4 +512,4 @@ class DisplayView(QtWidgets.QGroupBox):
             return
 
         print('draw?')
-        self.current_visual.triggerOnDraw(0, 0.0)
+        self.current_visual.trigger_on_draw(0, 0.0)

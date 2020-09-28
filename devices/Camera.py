@@ -1,5 +1,5 @@
 """
-MappApp .devices/Camera.py - Camera device abstraction layer. New camera types may be added here.
+MappApp .devices/DefaultCameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,105 +16,153 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import cv2
+import logging
 import numpy as np
 import os
-import logging
+import platform
 
-import Config
 import Def
-from lib.pyapi import tisgrabber as IC
 import Logging
+
+
+if False:
+    ### Import camera APIs
+    # Add application's DLL path on Windows
+    if platform == 'win32':
+        os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.Path.Libdll))
+
+        from lib.pyapi import tisgrabber as IC
+    # MAC OS
+    elif platform == 'darwin':
+        IC = None
+    # Assume it's Linux
+    else:
+        IC = None
 
 if Def.Env == Def.EnvTypes.Dev:
     from IPython import embed
 
-def GetCamera(id):
-    # TODO: id switches between different cameras for future multi camera use in one session.
-    #       This also needs to be reflected in the configuration
-    if Config.Camera[Def.CameraCfg.manufacturer] == 'TIS':
-        return CAM_TIS()
-    elif Config.Camera[Def.CameraCfg.manufacturer] == 'virtual':
-        return CAM_Virtual()
+class AbstractCamera:
 
-class CAM_Virtual:
+    def __init__(self, model: str, format_: str):
+        self.model = model
+        self.format = format_
+
+    @staticmethod
+    def get_models():
+        raise NotImplementedError('')
+
+    @staticmethod
+    def get_formats(model):
+        raise NotImplementedError('')
+
+    def set_exposure(self, value: float):
+        raise NotImplementedError('')
+
+    def set_gain(self, value: float):
+        raise NotImplementedError('')
+
+    def snap_image(self):
+        raise NotImplementedError('')
+
+    def get_image(self):
+        raise NotImplementedError('')
+
+
+class VirtualCamera(AbstractCamera):
 
     _models = ['Multi_Fish_Eyes_Cam',
                 'Single_Fish_Eyes_Cam']
 
-    _formats = {'Multi_Fish_Eyes_Cam' : ['RGB8 (752x480)'],
-                'Single_Fish_Eyes_Cam' : ['RGB8 (640x480)']}
+    _formats = {'Multi_Fish_Eyes_Cam' : ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)', 'RGB8 (480x480)', 'Y800 (480x480)'],
+                'Single_Fish_Eyes_Cam' : ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)']}
 
     _sampleFile = {'Multi_Fish_Eyes_Cam' : 'Fish_eyes_multiple_fish_30s.avi',
                    'Single_Fish_Eyes_Cam' : 'Fish_eyes_spontaneous_saccades_40s.avi'}
 
-    def __init__(self):
-        self._model = Config.Camera[Def.CameraCfg.model]
-        self._format = Config.Camera[Def.CameraCfg.format]
-        self.vid = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self._model]))
+    def __init__(self, *args):
+        AbstractCamera.__init__(self, *args)
 
-    @classmethod
-    def getModels(cls):
-        return cls._models
+        self._device = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self.model]))
 
-    def updateProperty(self, propName, value):
+    @staticmethod
+    def get_models():
+        return VirtualCamera._models
+
+    @staticmethod
+    def get_formats(model):
+        if model in VirtualCamera._formats:
+            return VirtualCamera._formats[model]
+        return []
+
+    def set_exposure(self, value: float):
         pass
 
-    def getFormats(self):
-        return self.__class__._formats[self._model]
+    def set_gain(self, value: float):
+        pass
 
-    def getImage(self):
-        ret, frame = self.vid.read()
+    def snap_image(self):
+        pass
+
+    def get_image(self):
+        ret, frame = self._device.read()
         if ret:
             return frame
         else:
-            self.vid.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            return self.getImage()
+            self._device.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            return self.get_image()
 
-class CAM_TIS:
 
-    def __init__(self):
-        from lib.pyapi import tisgrabber as IC
-        self._device = IC.TIS_CAM()
+class TISCamera(AbstractCamera):
 
-        self._device.open(Config.Camera[Def.CameraCfg.model])
-        self._device.SetVideoFormat(Config.Camera[Def.CameraCfg.format])
+    def __init__(self, *args):
+        AbstractCamera.__init__(self, *args)
+        from lib.pyapi import tisgrabber
 
-        ### TODO: maybe something here is involved in potential screen-tearing issues?
-        #self._device.SetFrameRate(Config.Camera[Definition.Camera.fps])
-        #self._device.SetContinuousMode(0)
+        self._device = tisgrabber.TIS_CAM()
+        self._device.open(self.model)
+        self._device.SetVideoFormat(self.format)
 
-        ### Disable auto settings
+        ### Disable auto setting of gain and exposure
         self._device.SetPropertySwitch('Gain', 'Auto', 0)
         self._device.enableCameraAutoProperty(4, 0)  # Disable auto exposure (for REAL)
 
         ### Enable frame acquisition
         self._device.StartLive(0)
 
-    def updateProperty(self, propName, value):
-        ### Fetch current exposure
-        currExposure = [0.]
-        self._device.GetPropertyAbsoluteValue('Exposure', 'Value', currExposure)
-        currGain = [0.]
-        self._device.GetPropertyAbsoluteValue('Gain', 'Value', currGain)
+    def set_exposure(self, value: float):
+        curr_exposure = [0.]
+        self._device.GetPropertyAbsoluteValue('Exposure', 'Value', curr_exposure)
 
-        if propName == Def.CameraCfg.exposure and not(np.isclose(value, currExposure[0] * 1000, atol=0.001)):
-            Logging.write(logging.DEBUG, 'Set exposure from {} to {} ms'.format(currExposure[0] * 1000, value))
-            self._device.SetPropertyAbsoluteValue('Exposure', 'Value', float(value)/1000)
+        if not(np.isclose(value, curr_exposure[0] * 1000, atol=0.001)):
+            Logging.write(logging.DEBUG, 'Set exposure from {} to {} ms'.format(curr_exposure[0] * 1000, value))
+            self._device.SetPropertyAbsoluteValue('Exposure', 'Value', float(value) / 1000)
 
-        elif propName == Def.CameraCfg.gain and not (np.isclose(value, currGain[0], atol=0.001)):
-            Logging.write(logging.DEBUG, 'Set gain from {} to {}'.format(currGain[0], value))
+    def set_gain(self, value: float):
+        curr_gain = [0.]
+        self._device.GetPropertyAbsoluteValue('Gain', 'Value', curr_gain)
+
+        if not(np.isclose(value, curr_gain[0], atol=0.001)):
+            Logging.write(logging.DEBUG, 'Set gain from {} to {}'.format(curr_gain[0], value))
             self._device.SetPropertyAbsoluteValue('Gain', 'Value', float(value))
 
+    @staticmethod
+    def get_models():
+        from lib.pyapi import tisgrabber
+
+        cam = tisgrabber.TIS_CAM()
+        return cam.GetDevices()
 
     @staticmethod
-    def getModels():
-        return IC.TIS_CAM().GetDevices()
+    def get_formats(model):
+        from lib.pyapi import tisgrabber
 
-    def getFormats(self, model):
-        device = IC.TIS_CAM()
+        device = tisgrabber.TIS_CAM()
         device.open(model)
         return device.GetVideoFormats()
 
-    def getImage(self):
+    def snap_image(self):
         self._device.SnapImage()
+
+    def get_image(self):
         return self._device.GetImage()
