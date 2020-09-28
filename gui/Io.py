@@ -23,11 +23,11 @@ import Def
 import IPC
 import routines.io.DefaultIoRoutines
 
-class IoWidget(QtWidgets.QWidget):
-    def __init__(self, parent, **kwargs):
+class IoWidget(QtWidgets.QGroupBox):
+    def __init__(self, parent):
         ### Set module always to active
         self.moduleIsActive = True
-        QtWidgets.QWidget.__init__(self, parent, **kwargs)
+        QtWidgets.QGroupBox.__init__(self, 'Plotter', parent=parent)
         self.setLayout(QtWidgets.QGridLayout())
 
         self.graphicsWidget = IoWidget.GraphicsWidget(parent=self)

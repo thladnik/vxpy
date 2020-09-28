@@ -109,8 +109,11 @@ class CameraWidget(ModuleWidget):
         self.stream_timer.timeout.connect(self.updateStream)
         self.stream_timer.start()
 
+
     def loadSettingsFromConfig(self):
+        self.camera = self.res_x = self.res_y = None
         self.updateCameraList()
+        self.updateStream()
 
     def updateCameraList(self):
         global current_config
@@ -183,6 +186,7 @@ class CameraWidget(ModuleWidget):
 
     def updateStream(self):
         if self.camera is None:
+            self.imitem.setImage(np.zeros((1,1)))
             return
 
         self.camera.snap_image()
@@ -1160,8 +1164,6 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         global configfile
         configfile = self._configfile
         self.close()
-
-
 
 
 if __name__ == '__main__':

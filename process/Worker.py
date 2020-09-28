@@ -40,7 +40,7 @@ class Worker(Process.AbstractProcess):
         ### Run event loop
         self.run(interval=0.5)
 
-    def _loadTask(self, task_name):
+    def _load_task(self, task_name):
         if not(task_name in self._tasks):
             module = '.'.join([Def.Path.Task, task_name])
             try:
@@ -51,14 +51,14 @@ class Worker(Process.AbstractProcess):
 
         return self._tasks[task_name]
 
-    def scheduleTask(self, task_name, task_interval=1. / 2):
+    def schedule_task(self, task_name, task_interval=1. / 2):
         self._scheduled_tasks.append(task_name)
         self._scheduled_times.append(time() + task_interval)
         self._task_intervals.append(task_interval)
 
-    def runTask(self, task_name, *args, **kwargs):
+    def run_task(self, task_name, *args, **kwargs):
         self.set_state(Def.State.RUNNING)
-        self._loadTask(task_name).run(*args, **kwargs)
+        self._load_task(task_name).run(*args, **kwargs)
         self.set_state(Def.State.IDLE)
 
     def main(self):
@@ -70,7 +70,7 @@ class Worker(Process.AbstractProcess):
                 Logging.write(logging.DEBUG, 'Run task {}'.format(task_time))
 
                 # Run
-                self.runTask(task_name)
+                self.run_task(task_name)
 
                 ## Set next time
                 task_idx = self._scheduled_tasks.index(task_name)

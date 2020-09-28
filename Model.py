@@ -53,7 +53,7 @@ class AbstractModel:
         if self.isBuilt():
             return
         if self.a_position is None:
-            Logging.logger.log(logging.WARNING,
+            Logging.logger.log_display(logging.WARNING,
                                'Creation of vertex buffer failed in model {}. '
                                'a_position is not set on model.'.format(self.__class__))
             return
@@ -67,8 +67,8 @@ class AbstractModel:
         ### Set attribute data
         for attribute in self.activeAttributes:
             if not(hasattr(self, attribute[0])):
-                Logging.logger.log(logging.WARNING, 'Attribute {} not set on model {}'
-                                   .format(str(attribute), self.__class__))
+                Logging.logger.log_display(logging.WARNING, 'Attribute {} not set on model {}'
+                                           .format(str(attribute), self.__class__))
                 continue
             self.vertexBuffer[attribute[0]] = AbstractModel.reshapeArray(getattr(self, attribute[0]))
 

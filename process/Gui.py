@@ -37,13 +37,13 @@ import process.Display
 class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
     name = Def.Process.GUI
 
-    _app : QtWidgets.QApplication
+    app : QtWidgets.QApplication
 
     def __init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs):
         ### Create application
-        self._app = _app
+        self.app = _app
 
-        ### Set up superclasses
+        ### Set up parents
         Process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
@@ -51,20 +51,20 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
 
         ### Setup basic UI
-        self._setupUI()
+        self.setup_ui()
 
         ### Run event loop
         self.run(interval=0.005)
 
     def main(self):
-        self._app.processEvents()
+        self.app.processEvents()
 
-    def _setupUI(self):
+    def setup_ui(self):
 
         ### Set up main window
         self.setWindowTitle('MappApp')
         self.move(0, 0)
-        self.screenGeo = self._app.primaryScreen().geometry()
+        self.screenGeo = self.app.primaryScreen().geometry()
         w, h = self.screenGeo.width(), self.screenGeo.height()
         if w > 1920 and h > 1080:
             self.resize(1920, 1080)
@@ -72,83 +72,84 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
             self.resize(w,h)
 
         ### Setup central widget
-        self._centralwidget = QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget)
-        self._centralwidget.setLayout(QtWidgets.QGridLayout())
-        self.setCentralWidget(self._centralwidget)
+        self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
+        self.centralWidget().setLayout(QtWidgets.QGridLayout())
 
         ### Add spacers
         hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
 
         ## Protocols
-        self.grp_protocols = gui.Integrated.Protocols(self)
-        self.centralWidget().layout().addWidget(self.grp_protocols, 0, 0, 1, 3)
+        self.protocols = gui.Integrated.Protocols(self)
+        self.centralWidget().layout().addWidget(self.protocols, 0, 0, 1, 3)
 
         ## Camera
-        self.grp_camera = gui.Integrated.Camera(self)
-        self.grp_camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
-        self.grp_camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
-        self.centralWidget().layout().addWidget(self.grp_camera, 0, 3, 2, 1)
+        self.camera = gui.Integrated.Camera(self)
+        self.camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
+        self.camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
+        self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
 
-        ## Add IO monitor
-        self._grp_io = QtWidgets.QGroupBox('I/O Monitor')
-        self._grp_io.setMinimumHeight(250)
-        self._grp_io.setLayout(QtWidgets.QHBoxLayout())
-        if Config.Io[Def.IoCfg.use]:
-            self._wdgt_io_monitor = gui.Io.IoWidget(self)
-            self._grp_io.layout().addWidget(self._wdgt_io_monitor)
-        self.centralWidget().layout().addWidget(self._grp_io, 1, 0, 1, 3)
+        ## Add Plotter
+        self.plotter = gui.Io.IoWidget(self)
+        self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
 
         ## Process monitor
-        self._grp_processStatus = gui.Integrated.ProcessMonitor(self)
-        self._grp_processStatus.setMaximumHeight(500)
-        self.centralWidget().layout().addWidget(self._grp_processStatus, 2, 0)
+        self.process_monitor = gui.Integrated.ProcessMonitor(self)
+        self.process_monitor.setMaximumHeight(500)
+        self.centralWidget().layout().addWidget(self.process_monitor, 2, 0)
 
         ## Recordings
-        self._grp_recordings = gui.Integrated.Recording(self)
-        self._grp_recordings.setMaximumHeight(500)
-        self.centralWidget().layout().addWidget(self._grp_recordings, 2, 1)
+        self.recordings = gui.Integrated.Recording(self)
+        self.recordings.setMaximumHeight(500)
+        self.centralWidget().layout().addWidget(self.recordings, 2, 1)
 
         ## Logger
-        self._grp_log = gui.Integrated.Log(self)
-        self._grp_log.setMaximumHeight(500)
-        self.centralWidget().layout().addWidget(self._grp_log, 2, 2, 1, 2)
+        self.log_display = gui.Integrated.Log(self)
+        self.log_display.setMaximumHeight(500)
+        self.centralWidget().layout().addWidget(self.log_display, 2, 2, 1, 2)
 
         ### Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
         ## Menu windows
-        self._menu_windows = QtWidgets.QMenu('Windows')
-        self.menuBar().addMenu(self._menu_windows)
+        self.menu_windows = QtWidgets.QMenu('Windows')
+        self.menuBar().addMenu(self.menu_windows)
         ## Menu processes
-        self._menu_process = QtWidgets.QMenu('Processes')
-        self.menuBar().addMenu(self._menu_process)
-        self.menuBar().addMenu(self._menu_windows)
-        # Restart display
-        self._menu_process_redisp = QtWidgets.QAction('Restart display')
-        self._menu_process_redisp.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Display)
-        )
-        self._menu_process.addAction(self._menu_process_redisp)
+        self.menu_process = QtWidgets.QMenu('Processes')
+        self.menuBar().addMenu(self.menu_process)
+        self.menuBar().addMenu(self.menu_windows)
         # Restart camera
-        self._menu_process_recam = QtWidgets.QAction('Restart camera')
-        self._menu_process_recam.triggered.connect(
-            lambda: IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Camera)
-        )
+        self.menu_process.restart_camera = QtWidgets.QAction('Restart camera')
+        self.menu_process.restart_camera.triggered.connect(self.restart_camera)
+        self.menu_process.addAction(self.menu_process.restart_camera)
+        # Restart display
+        self.menu_process.restart_display = QtWidgets.QAction('Restart display')
+        self.menu_process.restart_display.triggered.connect(self.restart_display)
+        self.menu_process.addAction(self.menu_process.restart_display)
 
         # Bind shortcuts
         self._bindShortcuts()
 
         self.show()
 
+    def restart_camera(self):
+        IPC.rpc(Def.Process.Controller,
+                process.Controller.initialize_process,
+                process.Camera)
+
+    def restart_display(self):
+        IPC.rpc(Def.Process.Controller,
+                process.Controller.initialize_process,
+                process.Display)
+
     def _bindShortcuts(self):
 
         ### Restart display process
-        self._menu_process_redisp.setShortcut('Ctrl+Alt+Shift+d')
-        self._menu_process_redisp.setAutoRepeat(False)
+        self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
+        self.menu_process.restart_display.setAutoRepeat(False)
         ### Restart camera process
         if Config.Camera[Def.CameraCfg.use]:
-            self._menu_process_recam.setShortcut('Ctrl+Alt+Shift+c')
-            self._menu_process_recam.setAutoRepeat(False)
+            self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
+            self.menu_process.restart_camera.setAutoRepeat(False)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         ### Inform controller of close event

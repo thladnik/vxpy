@@ -38,9 +38,12 @@ class Controller(AbstractProcess):
 
     configfile = None
 
+    _processes : dict = dict()
     _registered_processes = list()
 
-    _processes : dict = dict()
+    #_protocolled_processes = [Def.Process.Camera,
+    #                          Def.Process.Display,
+    #                          ]
 
     def __init__(self):
         ### Set up manager
@@ -261,7 +264,7 @@ class Controller(AbstractProcess):
         self.run(interval=0.001)
 
         ### Shutdown procedure
-        Logging.logger.log(Logging.DEBUG, 'Wait for processes to terminate')
+        Logging.write(Logging.DEBUG, 'Wait for processes to terminate')
         while True:
             ## Complete shutdown if all processes are deleted
             if not(bool(self._processes)):
@@ -330,9 +333,9 @@ class Controller(AbstractProcess):
         #TODO: compose proper metadata, append sessiondata and save to file
 
         ### Let worker compose all individual recordings into one data structure
-        IPC.rpc(Def.Process.Worker, process.Worker.runTask,
+        IPC.rpc(Def.Process.Worker, process.Worker.run_task,
                  'ComposeRecordings',
-                 IPC.Control.Recording[Def.RecCtrl.folder])
+                IPC.Control.Recording[Def.RecCtrl.folder])
 
         Logging.write(Logging.INFO, 'Stop recording')
         self.set_state(Def.State.IDLE)
@@ -486,7 +489,7 @@ class Controller(AbstractProcess):
             time.sleep(0.05)
 
     def _start_shutdown(self):
-        Logging.logger.log(Logging.DEBUG, 'Shut down processes')
+        Logging.write(Logging.DEBUG, 'Shut down processes')
         self._shutdown = True
         for process_name in self._processes:
             IPC.send(process_name, Def.Signal.Shutdown)

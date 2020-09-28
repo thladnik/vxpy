@@ -17,7 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
 import signal
 import sys
 import time
@@ -127,7 +126,7 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self.handle_SIGINT)
 
     def run(self, interval):
-        Logging.write(logging.INFO, '{:30} {}'.
+        Logging.write(Logging.INFO, '{:30} {}'.
                       format('Process {} started '.format(self.name),
                              'at time {}'.format(time.time())))
 
@@ -248,7 +247,7 @@ class AbstractProcess:
                 ### TODO: sync of starts could also be done with multiprocessing.Barrier
                 t = time.time()
                 if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
-                    Logging.write(logging.INFO, 'Start at {}'.format(t))
+                    Logging.write(Logging.INFO, 'Start at {}'.format(t))
                     self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
                     break
@@ -338,14 +337,14 @@ class AbstractProcess:
             fun_str = fun_path[1]
 
             try:
-                Logging.logger.log(logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'
-                                   .format(fun_str, args, kwargs))
+                Logging.write(Logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'
+                                           .format(fun_str, args, kwargs))
                 getattr(self, fun_str)(*args, **kwargs)
 
             except Exception as exc:
-                Logging.logger.log(logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
+                Logging.write(Logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
                                                     '// Exception: {}'.
-                                   format(fun_str, args, kwargs, exc))
+                                           format(fun_str, args, kwargs, exc))
 
         ### RPC on registered callback
         elif fun in self._registered_callbacks:
@@ -362,8 +361,8 @@ class AbstractProcess:
 
         msg = IPC.Pipes[self.name][1].recv()
 
-        Logging.logger.log(logging.DEBUG, 'Received message: {}'.
-                           format(msg))
+        Logging.write(Logging.DEBUG, 'Received message: {}'.
+                                   format(msg))
 
         ### Unpack message
         signal, args, kwargs = msg

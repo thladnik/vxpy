@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import logging
-import time
 
 import Config
 import Def
@@ -36,8 +35,8 @@ class Io(Process.AbstractProcess):
         ### Set up device
         self.device = None
         if Config.Io[Def.IoCfg.device_type] == 'Arduino':
-            import devices.microcontrollers.Arduino
-            self.device = devices.microcontrollers.Arduino.Device()
+            import devices.Arduino
+            self.device = devices.Arduino.Device()
 
         run = False
         try:
@@ -47,8 +46,8 @@ class Io(Process.AbstractProcess):
                 run = self.device.connect() and self.device.setup()
 
         except Exception as exc:
-            Logging.logger.log(logging.WARNING, 'Could not connect to device. // Exception: {}'
-                               .format(exc))
+            Logging.logger.log_display(logging.WARNING, 'Could not connect to device. // Exception: {}'
+                                       .format(exc))
             self.set_state(Def.State.STOPPED)
 
 
@@ -67,7 +66,7 @@ class Io(Process.AbstractProcess):
         self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
 
     def _cleanup_protocol(self):
-        print('Just cleanin\'')
+        pass
 
 
     def main(self):

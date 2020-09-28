@@ -18,6 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from glumpy import app
 from PyQt5 import QtWidgets
+import time
+
 import Config
 import Def
 import IPC
@@ -29,30 +31,32 @@ import Visuals
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
+
 class Display(Process.AbstractProcess):
     name = Def.Process.Display
 
-    glwindow  : app.window.Window         = None
-    protocol  : Protocol.AbstractProtocol = None
-    visual    : Visuals.AbstractVisual    = None
+    glwindow: app.window.Window = None
+    protocol: Protocol.AbstractProtocol = None
+    visual: Visuals.AbstractVisual = None
 
     def __init__(self,**kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)
 
-        app.use('{} (GL {}.{} {})'.format(Config.Display[Def.DisplayCfg.window_backend],
-                                          Config.Display[Def.DisplayCfg.gl_version_major],
-                                          Config.Display[Def.DisplayCfg.gl_version_minor],
-                                          Config.Display[Def.DisplayCfg.gl_profile]))
+        app.use('{} (GL {}.{} {})'
+                .format(Config.Display[Def.DisplayCfg.window_backend],
+                        Config.Display[Def.DisplayCfg.gl_version_major],
+                        Config.Display[Def.DisplayCfg.gl_version_minor],
+                        Config.Display[Def.DisplayCfg.gl_profile]))
 
-        self._window_config = app.configuration.Configuration()
-        self._window_config.double_buffer = True
+        self._glwindow_config = app.configuration.Configuration()
+        self._glwindow_config.double_buffer = True
 
         ### Open OpenGL window
         self.glwindow = app.Window(width=256,
                                    height=256,
                                    color=(0., 0., 0., 1),
                                    title='Display',
-                                   config=self._window_config,
+                                   config=self._glwindow_config,
                                    vsync=True)
 
         ### (Manually) Configure glumpy eventloop
@@ -76,7 +80,7 @@ class Display(Process.AbstractProcess):
         if Config.Display[Def.DisplayCfg.window_fullscreen]:
             self.glwindow._native_window.showFullScreen()
 
-        ###
+        ### Set window size fixed
         self.glwindow._native_window.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
 
         ### Apply event wrapper
@@ -84,6 +88,7 @@ class Display(Process.AbstractProcess):
         self.on_init = self.glwindow.event(self.on_init)
 
         ### Run event loop
+        self.tt = time.perf_counter()
         self.run(1./Config.Display[Def.DisplayCfg.fps])
 
 
@@ -101,7 +106,7 @@ class Display(Process.AbstractProcess):
         self.frame_idx = 0
 
     def _cleanup_protocol(self):
-        pass
+        self.visual = None
 
     def on_draw(self, dt):
         """Glumpy on_draw event.
@@ -109,6 +114,9 @@ class Display(Process.AbstractProcess):
         :param dt: elapsed time since last call in [s]. This is usually ~1/FPS
         :return:
         """
+
+        #print(time.perf_counter()-self.tt)
+        self.tt = time.perf_counter()
 
         self.glwindow.clear()
 
@@ -118,11 +126,9 @@ class Display(Process.AbstractProcess):
         if not(self.visual is None):
             self.visual.draw(self.frame_idx, self.phase_time)
 
+        # Update routines
         if self._run_protocol():
-            # Update routines
             IPC.Routines.Display.update(self.visual)
-        else:
-            self.glwindow.clear()
 
     def _start_shutdown(self):
         self.glwindow.close()
@@ -131,9 +137,3 @@ class Display(Process.AbstractProcess):
     def main(self):
         if self.glumpy_count:
             self.glumpy_count = self.glumpy_backend.process(self.glumpy_clock.tick())
-
-        ## OLD
-        #app.clock.schedule_interval(self._handleInbox, 0.01)
-        # Run Glumpy event loop
-        #app.run(framerate=Config.Display[Def.DisplayCfg.fps])
-

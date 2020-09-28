@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import ctypes
 import h5py
-import logging
 import multiprocessing as mp
 import numpy as np
 import os
@@ -152,7 +151,7 @@ class Routines:
         elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5File is None:
             ## If output folder is not set: log warning and return None
             if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
-                Logging.write(logging.WARNING, 'Recording has been started but output folder is not set.')
+                Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
                 return None
 
             ### If output folder is set: open file
@@ -160,7 +159,7 @@ class Routines:
                                     IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
 
-            Logging.write(logging.DEBUG, 'Open new file {}'.format(filepath))
+            Logging.write(Logging.DEBUG, 'Open new file {}'.format(filepath))
             self.h5File = h5py.File(filepath, 'w')
 
             return self.h5File
@@ -234,14 +233,14 @@ class AbstractRoutine:
         ## Create dataset if it doesn't exist
         if not(key in grp):
             try:
-                Logging.write(logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
+                Logging.write(Logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
                 grp.create_dataset(key,
                                    shape=(0, *dshape,),
                                    dtype=dtype,
                                    maxshape=(None, *dshape,),
                                    chunks=(1, *dshape,), )  # compression='lzf')
             except:
-                Logging.write(logging.WARNING, 'Failed to create record dset "{}/{}"'.format(grp.name, key))
+                Logging.write(Logging.WARNING, 'Failed to create record dset "{}/{}"'.format(grp.name, key))
 
             grp[key].attrs.create('Position', self.currentTime, dtype=np.float64)
 
@@ -261,7 +260,7 @@ class AbstractRoutine:
 
         ## Each buffer writes to it's own group
         if not(bufferName in file):
-            Logging.write(logging.INFO, 'Create record group {}'.format(bufferName))
+            Logging.write(Logging.INFO, 'Create record group {}'.format(bufferName))
             file.create_group(bufferName)
         grp = file[bufferName]
 
@@ -357,7 +356,7 @@ class RingBuffer:
 
         ### No entry: raise exception
         else:
-            Logging.write(logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
+            Logging.write(Logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
             return None, None
             #raise Exception('Smallest possible record set size is 1')
 

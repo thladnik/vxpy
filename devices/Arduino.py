@@ -53,14 +53,14 @@ class Device:
 
         return True
 
-    def readDigitals(self):
+    def read_digitals(self):
         return {name : self._digital_pins[name].read() for name in self._digin_pins}
 
     def readAnalogs(self):
         return {name : self._digital_pins[name].read() for name in self._digin_pins}
 
     def readAll(self):
-        return {**self.readDigitals()}#, **self.readAnalogs()}
+        return {**self.read_digitals()}#, **self.readAnalogs()}
 
 class Virtual:
 

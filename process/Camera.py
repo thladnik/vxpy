@@ -19,12 +19,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import Config
 import Process
 import Def
-import devices.Camera
 import IPC
 import Logging
 
 if Def.Env == Def.EnvTypes.Dev:
-    from IPython import embed
+    pass
 
 class Camera(Process.AbstractProcess):
     name = Def.Process.Camera
@@ -44,26 +43,28 @@ class Camera(Process.AbstractProcess):
                 cam = getattr(devices.Camera, manufacturer)
                 self.cameras[device_id] = cam(model, format)
 
-                Logging.logger.log(Logging.INFO, 'Using camera {}>>{} ({}) as \"{}\"'
-                               .format(manufacturer,
-                                       model,
-                                       format,
-                                       device_id))
+                Logging.write(Logging.INFO, 'Using camera {}>>{} ({}) as \"{}\"'
+                              .format(manufacturer,
+                                      model,
+                                      format,
+                                      device_id))
             except Exception as exc:
-                Logging.logger.log(Logging.INFO, 'Unable to use camera {}>>{} ({}) // Exception: {}'
-                                   .format(manufacturer,
-                                           model,
-                                           format,
-                                           exc))
+                Logging.write(Logging.INFO,
+                              'Unable to use camera {}>>{} ({}) // Exception: {}'
+                              .format(manufacturer,
+                                      model,
+                                      format,
+                                      exc))
 
 
         target_fps = Config.Camera[Def.CameraCfg.fps]
 
         if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
-            Logging.write(Logging.WARNING, 'Mininum sleep period is ABOVE '
-                                           'average target frametime of 1/{}s.'
-                                            'This will cause increased CPU usage.'
-                                            .format(target_fps))
+            Logging.write(Logging.WARNING,
+                          'Mininum sleep period is ABOVE '
+                          'average target frametime of 1/{}s.'
+                          'This will cause increased CPU usage.'
+                          .format(target_fps))
 
         ### Run event loop
         self.run(interval=1/target_fps)
