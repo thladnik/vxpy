@@ -105,7 +105,7 @@ class Protocols(QtWidgets.QGroupBox):
     def updateGUI(self):
 
         ### Enable/Disable control elements
-        ctrl_is_idle = IPC.inState(Def.State.IDLE, Def.Process.Controller)
+        ctrl_is_idle = IPC.in_state(Def.State.IDLE, Def.Process.Controller)
         self.wdgt_controls.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
         self.lwdgt_protocols.setEnabled(ctrl_is_idle)
         self._lwdgt_files.setEnabled(ctrl_is_idle)
@@ -222,12 +222,12 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         Additionally it modifies 
         """
 
-        self._setProcessState(self._le_controllerState, IPC.getState(Def.Process.Controller))
-        self._setProcessState(self._le_cameraState, IPC.getState(Def.Process.Camera))
-        self._setProcessState(self._le_displayState, IPC.getState(Def.Process.Display))
-        self._setProcessState(self._le_guiState, IPC.getState(Def.Process.GUI))
-        self._setProcessState(self._le_ioState, IPC.getState(Def.Process.Io))
-        self._setProcessState(self._le_workerState, IPC.getState(Def.Process.Worker))
+        self._setProcessState(self._le_controllerState, IPC.get_state(Def.Process.Controller))
+        self._setProcessState(self._le_cameraState, IPC.get_state(Def.Process.Camera))
+        self._setProcessState(self._le_displayState, IPC.get_state(Def.Process.Display))
+        self._setProcessState(self._le_guiState, IPC.get_state(Def.Process.GUI))
+        self._setProcessState(self._le_ioState, IPC.get_state(Def.Process.Io))
+        self._setProcessState(self._le_workerState, IPC.get_state(Def.Process.Worker))
 
 
 ################################
@@ -333,7 +333,7 @@ class Recording(QtWidgets.QGroupBox):
         ### Set buttons dis-/enabled
         ## Start
         self._btn_start.setEnabled(not(active) and enabled)
-        self._btn_start.setText('Start' if IPC.inState(Def.State.IDLE, Def.Process.Controller) else 'Resume')
+        self._btn_start.setText('Start' if IPC.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
         ## Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self._btn_pause.setEnabled(False)

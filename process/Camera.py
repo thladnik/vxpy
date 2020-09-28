@@ -69,7 +69,18 @@ class Camera(Process.AbstractProcess):
         ### Run event loop
         self.run(interval=1/target_fps)
 
+    def _prepare_protocol(self):
+        pass
+
+    def _prepare_phase(self):
+        pass
+
+    def _cleanup_protocol(self):
+        pass
+
     def main(self):
+
+        self._run_protocol()
 
         ### Snap image
         for device_id, cam in self.cameras.items():

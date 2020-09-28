@@ -38,16 +38,16 @@ class Worker(Process.AbstractProcess):
         self._tasks = dict()
 
         ### Run event loop
-        self.run(interval=0.5)
+        self.run(interval=1./100)
 
     def _load_task(self, task_name):
         if not(task_name in self._tasks):
             module = '.'.join([Def.Path.Task, task_name])
             try:
-                Logging.write(logging.DEBUG, 'Import task {}'.format(module))
+                Logging.write(Logging.DEBUG, 'Import task {}'.format(module))
                 self._tasks[task_name] = importlib.import_module(module)
             except:
-                Logging.write(logging.WARNING, 'Failed to import task {}'.format(module))
+                Logging.write(Logging.WARNING, 'Failed to import task {}'.format(module))
 
         return self._tasks[task_name]
 
@@ -61,13 +61,25 @@ class Worker(Process.AbstractProcess):
         self._load_task(task_name).run(*args, **kwargs)
         self.set_state(Def.State.IDLE)
 
+    def _prepare_protocol(self):
+        pass
+
+    def _prepare_phase(self):
+        pass
+
+    def _cleanup_protocol(self):
+        pass
+
     def main(self):
+
+        self._run_protocol()
+
         for i, task_name, task_time, task_interval in enumerate(zip(self._scheduled_tasks,
                                                                     self._scheduled_times,
                                                                     self._task_intervals)):
             ### If scheduled time is now
             if task_time <= time():
-                Logging.write(logging.DEBUG, 'Run task {}'.format(task_time))
+                Logging.write(Logging.DEBUG, 'Run task {}'.format(task_time))
 
                 # Run
                 self.run_task(task_name)

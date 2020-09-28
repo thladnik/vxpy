@@ -126,10 +126,8 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self.handle_SIGINT)
 
     def run(self, interval):
-        Logging.write(Logging.INFO, '{:30} {}'.
-                      format('Process {} started '.format(self.name),
-                             'at time {}'.format(time.time())))
-
+        Logging.write(Logging.INFO,
+                      'Process {} started at time {}'.format(self.name, time.time()))
 
         ### Set state to running
         self._running = True
@@ -170,17 +168,17 @@ class AbstractProcess:
 
     def _prepare_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
-        raise NotImplementedError('Method "_prepareProtocol not implemented in {}.'
+        raise NotImplementedError('Method "_prepare_protocol not implemented in {}.'
                                   .format(self.name))
 
     def _prepare_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
-        raise NotImplementedError('Method "_preparePhase" not implemented in {}.'
+        raise NotImplementedError('Method "_prepare_phase" not implemented in {}.'
                                   .format(self.name))
 
     def _cleanup_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
-        raise NotImplementedError('Method "_cleanupProtocol" not implemented in {}.'
+        raise NotImplementedError('Method "_cleanup_protocol" not implemented in {}.'
                                   .format(self.name))
 
     def _run_protocol(self):
@@ -287,7 +285,7 @@ class AbstractProcess:
 
     def get_state(self, process=None):
         """Convenience function for access in process class"""
-        return IPC.getState()
+        return IPC.get_state()
 
     def set_state(self, code):
         """Convenience function for access in process class"""
@@ -297,7 +295,7 @@ class AbstractProcess:
         """Convenience function for access in process class"""
         if process_name is None:
             process_name = self.name
-        return IPC.inState(code, process_name)
+        return IPC.in_state(code, process_name)
 
     def _start_shutdown(self):
         # Handle all pipe messages before shutdown

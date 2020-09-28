@@ -38,12 +38,14 @@ class Controller(AbstractProcess):
 
     configfile = None
 
-    _processes : dict = dict()
-    _registered_processes = list()
+    _processes: dict = dict()
+    _registered_processes:list = list()
 
-    #_protocolled_processes = [Def.Process.Camera,
-    #                          Def.Process.Display,
-    #                          ]
+    _protocol_processes: list = [Def.Process.Camera,
+                                 Def.Process.Display,
+                                 Def.Process.Io,
+                                 Def.Process.Worker]
+    _active_protocols: list = []
 
     def __init__(self):
         ### Set up manager
@@ -76,28 +78,22 @@ class Controller(AbstractProcess):
         try:
             Logging.write(Logging.INFO,
                           'Using configuration from file {}'.format(self.configfile))
-            #self.configuration = Basic.Config(self.configfile)
             self.configuration = Basic.ConfigParser()
             self.configuration.read(self.configfile)
             # Camera
             Config.Camera = IPC.Manager.dict()
-            #Config.Camera.update(self.configuration.configuration(Def.CameraCfg))
             Config.Camera.update(self.configuration.getParsedSection(Def.CameraCfg.name))
             # Display
             Config.Display = IPC.Manager.dict()
-            #Config.Display.update(self.configuration.configuration(Def.DisplayCfg))
             Config.Display.update(self.configuration.getParsedSection(Def.DisplayCfg.name))
             # Gui
             Config.Gui = IPC.Manager.dict()
-            #Config.Gui.update(self.configuration.configuration(Def.GuiCfg))
             Config.Gui.update(self.configuration.getParsedSection(Def.GuiCfg.name))
             # IO
             Config.Io = IPC.Manager.dict()
-            #Config.Io.update(self.configuration.configuration(Def.IoCfg))
             Config.Io.update(self.configuration.getParsedSection(Def.IoCfg.name))
             # Recording
             Config.Recording = IPC.Manager.dict()
-            #Config.Recording.update(self.configuration.configuration(Def.RecCfg))
             Config.Recording.update(self.configuration.getParsedSection(Def.RecCfg.name))
         except Exception:
             print('Loading of configuration file {} failed.'.format(self.configfile))
@@ -190,6 +186,13 @@ class Controller(AbstractProcess):
         if Config.Io[Def.IoCfg.use]:
             self._register_process(process.Io)
 
+        ### Select subset of registered processes which should implement
+        # the _run_protocol method
+        self._active_protocols = list(set([p[0].__name__ for p in self._registered_processes])
+                                      & set(self._protocol_processes))
+        Logging.write(Logging.INFO,
+                      'Protocolled processes: {}'.format(str(self._active_protocols)))
+
         ### Set up protocol
         self.current_protocol = None
 
@@ -270,7 +273,7 @@ class Controller(AbstractProcess):
             if not(bool(self._processes)):
                 break
 
-            ## Check process stati
+            ## Check status of processes until last one is stopped
             for process_name in list(self._processes):
                 if not(getattr(IPC.State, process_name).value == Def.State.STOPPED):
                     continue
@@ -392,11 +395,13 @@ class Controller(AbstractProcess):
 
     def main(self):
 
-        ### Handle logging
+        ########
+        # First: handle logging
         while not(IPC.Log.Queue.empty()):
 
-            ## Fetch next record
+            # Fetch next record
             record = IPC.Log.Queue.get()
+            print(record)
 
             try:
                 self.logger.handle(record)
@@ -406,77 +411,88 @@ class Controller(AbstractProcess):
                 print('Exception in Logger:', file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
 
-        ### In state PREPARE_PROTOCOL
+        ########
+        # PREPARE_PROTOCOL
         if self.in_state(Def.State.PREPARE_PROTOCOL):
 
             self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
-            ### Wait for children to WAIT_FOR_PHASE (if they are not stopped)
-            if (not(self.in_state(Def.State.WAIT_FOR_PHASE, Def.Process.Display))
-                and not(self.in_state(Def.State.STOPPED, Def.Process.Display))) \
-                    or \
-                (not(self.in_state(Def.State.WAIT_FOR_PHASE, Def.Process.Io))
-                 and not(self.in_state(Def.State.STOPPED, Def.Process.Io))):
+            # Wait for processes to WAIT_FOR_PHASE (if they are not stopped)
+            check = [not(IPC.in_state(Def.State.WAIT_FOR_PHASE, process_name))
+                     for process_name in self._active_protocols]
+            if any(check):
                 return
 
-            ### Set next phase
+            # Set next phase
             self.start_protocol_phase()
 
-            ### Set next state
+            # Set PREPARE_PHASE
             self.set_state(Def.State.PREPARE_PHASE)
 
         ########
-        ### PREPARE_PHASE
+        # PREPARE_PHASE
         if self.in_state(Def.State.PREPARE_PHASE):
-            ### IF Display READY or STOPPED _and_ IO READY or STOPPED
-            if (self.in_state(Def.State.READY, Def.Process.Display)
-                or self.in_state(Def.State.STOPPED, Def.Process.Display))\
-                    and \
-                (self.in_state(Def.State.READY, Def.Process.Io)
-                 or self.in_state(Def.State.STOPPED, Def.Process.Io)):
 
-                phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-                duration = self.protocol._phases[phase_id]['duration']
+            # Wait for processes to be ready (have phase prepared)
+            check = [not(IPC.in_state(Def.State.READY, process_name))
+                     for process_name in self._active_protocols]
+            if any(check):
+                return
 
-                fixed_delay = 0.1
-                IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] = time.time() + fixed_delay
-                IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time() + duration + fixed_delay
+            # Start phase
+            phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+            duration = self.protocol._phases[phase_id]['duration']
 
-                Logging.write(Logging.INFO, 'Run phase {}. Set start time to {}'
-                      .format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id],
-                              IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]))
-                self.set_state(Def.State.RUNNING)
+            fixed_delay = 0.1
+            IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] = time.time() + fixed_delay
+            IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time() + duration + fixed_delay
+
+            Logging.write(Logging.INFO,
+                          'Run phase {}. Set start time to {}'
+                          .format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id],
+                                  IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]))
+
+            # Set to running
+            self.set_state(Def.State.RUNNING)
 
         ########
-        ### RUNNING
+        # RUNNING
         elif self.in_state(Def.State.RUNNING):
-            ## If stop time is not reached
+
+            # If stop time is reached, set PHASE_END
             if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                Logging.write(Logging.INFO, 'End phase {}.'.format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]))
+                Logging.write(Logging.INFO,
+                              'End phase {}.'
+                              .format(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]))
+
                 self.set_state(Def.State.PHASE_END)
+
                 return
 
         ########
-        ### PHASE_END
+        # PHASE_END
         elif self.in_state(Def.State.PHASE_END):
 
+            # If there are no further phases, end protocol
             if (IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1) >= self.protocol.phaseCount():
                 self.set_state(Def.State.PROTOCOL_END)
                 return
 
+            # Else, continue with next phase
             self.start_protocol_phase()
 
+            # Move to PREPARE_PHASE (again)
             self.set_state(Def.State.PREPARE_PHASE)
 
         ########
-        ### PROTOCOL_END
+        ## PROTOCOL_END
         elif self.in_state(Def.State.PROTOCOL_END):
 
-            if (self.in_state(Def.State.IDLE, Def.Process.Display)
-                or self.in_state(Def.State.STOPPED, Def.Process.Display)) \
-                    and \
-                (self.in_state(Def.State.IDLE, Def.Process.Io)
-                 or self.in_state(Def.State.STOPPED, Def.Process.Io)):
+            # When all processes are in IDLE again, stop recording and
+            # move Controller to IDLE
+            check = [IPC.in_state(Def.State.IDLE, process_name)
+                     for process_name in self._active_protocols]
+            if all(check):
 
                 self.stop_recording()
 
