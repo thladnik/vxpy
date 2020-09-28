@@ -347,7 +347,7 @@ class Log(QtWidgets.QGroupBox):
 
     def __init__(self, _main):
         QtWidgets.QGroupBox.__init__(self, 'Log')
-        self._main : Gui.Main = _main
+        self._main: Gui.Main = _main
 
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -372,9 +372,9 @@ class Log(QtWidgets.QGroupBox):
 
         if len(IPC.Log.History) > self.logccount:
             for record in IPC.Log.History[self.logccount:]:
-                if record.levelno > 10:
+                if record['levelno'] > 10:
                     line = '{} : {:10} : {:10} : {}'\
-                        .format(record.asctime, record.name, record.levelname, record.msg)
+                        .format(record['asctime'], record['name'], record['levelname'], record['msg'])
                     self._txe_log.append(line)
 
                 self.logccount += 1

@@ -48,33 +48,34 @@ class Controller(AbstractProcess):
     _active_protocols: list = []
 
     def __init__(self):
-        ### Set up manager
+        # Set up manager
         IPC.Manager = mp.Manager()
 
-        ### Set up logging
+        # Set up logging
         IPC.Log.Queue = mp.Queue()
         IPC.Log.History = IPC.Manager.list()
         IPC.Log.File = IPC.Manager.Value(ctypes.c_char_p, '')
 
-        ## Set file to log to
+        # Set file to log to
         if IPC.Log.File.value == '':
-            IPC.Log.File.value = '%s.log' % time.strftime('%Y-%m-%d-%H-%M-%S')
+            IPC.Log.File.value = '{}.log'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
-        ## Set up logger, formatte and handler
+        # Set up logger, formatte and handler
         self.logger = logging.getLogger('mylog')
         h = logging.handlers.TimedRotatingFileHandler(
-            os.path.join(Def.Path.Log, IPC.Log.File.value), 'd')
+            os.path.join(Def.Path.Log, IPC.Log.File.value), 
+            'd')
         h.setFormatter(logging.Formatter(
             '%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<'))
         self.logger.addHandler(h)
 
-        ### Initialize AbstractProcess
+        # Initialize AbstractProcess
         AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
                                              if not (k.startswith('_'))})
-        ### Manually set up pipe for controller
+        # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
 
-        ### Set configurations
+        # Set configurations
         try:
             Logging.write(Logging.INFO,
                           'Using configuration from file {}'.format(self.configfile))
@@ -101,7 +102,7 @@ class Controller(AbstractProcess):
             traceback.print_exc()
 
         ################################
-        ### Set up STATES
+        # Set up STATES
 
         IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Camera = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
@@ -111,9 +112,9 @@ class Controller(AbstractProcess):
         IPC.State.Worker = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
 
         ################################
-        ### Set up CONTROLS
+        # Set up CONTROLS
 
-        ## General
+        # General
         IPC.Control.General = IPC.Manager.dict()
         # Set avg. minimum sleep period
         times = list()
@@ -125,7 +126,7 @@ class Controller(AbstractProcess):
         Logging.write(Logging.INFO, 'Minimum sleep period is {0:.3f}ms'.format(1000*max(times)))
         IPC.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
 
-        ### Check time precision on system
+        # Check time precision on system
         dt = list()
         t0 = time.time()
         while len(dt) < 100:
@@ -140,63 +141,63 @@ class Controller(AbstractProcess):
             msg_type = Logging.INFO
         Logging.write(msg_type, msg)
 
-        ### Recording
+        # Recording
         IPC.Control.Recording = IPC.Manager.dict()
         IPC.Control.Recording.update({Def.RecCtrl.active: False,
                                       Def.RecCtrl.folder: ''})
 
-        ### Protocol
+        # Protocol
         IPC.Control.Protocol = IPC.Manager.dict({Def.ProtocolCtrl.name: None,
                                                  Def.ProtocolCtrl.phase_id: None,
                                                  Def.ProtocolCtrl.phase_start: None,
                                                  Def.ProtocolCtrl.phase_stop: None})
 
-        ### Set up routines
-        ## Camera
+        # Set up routines
+        # Camera
         IPC.Routines.Camera = Routine.Routines(
             Def.Process.Camera,
             routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
         )
 
-        ## Display
+        # Display
         IPC.Routines.Display = Routine.Routines(
             Def.Process.Display,
             routines=Config.Display[Def.DisplayCfg.routines] if Config.Display[Def.DisplayCfg.use] else None
         )
 
-        ## IO
+        # IO
         IPC.Routines.Io = Routine.Routines(
             Def.Process.Io,
             routines=Config.Io[Def.IoCfg.routines] if Config.Io[Def.IoCfg.use] else None
         )
 
-        ### Set up processes
-        ## Worker
+        # Set up processes
+        # Worker
         self._register_process(process.Worker)
-        ## GUI
+        # GUI
         if Config.Gui[Def.GuiCfg.use]:
             self._register_process(process.Gui)
-        ## Camera
+        # Camera
         if Config.Camera[Def.CameraCfg.use]:
             self._register_process(process.Camera)
-        ## Display
+        # Display
         if Config.Display[Def.DisplayCfg.use]:
             self._register_process(process.Display)
-        ## IO
+        # IO
         if Config.Io[Def.IoCfg.use]:
             self._register_process(process.Io)
 
-        ### Select subset of registered processes which should implement
+        # Select subset of registered processes which should implement
         # the _run_protocol method
         self._active_protocols = list(set([p[0].__name__ for p in self._registered_processes])
                                       & set(self._protocol_processes))
         Logging.write(Logging.INFO,
                       'Protocolled processes: {}'.format(str(self._active_protocols)))
 
-        ### Set up protocol
+        # Set up protocol
         self.current_protocol = None
 
-        ### Run event loop
+        # Run event loop
         self.start()
 
     def _register_process(self, target, **kwargs):
@@ -212,18 +213,18 @@ class Controller(AbstractProcess):
         process_name = target.name
 
         if process_name in self._processes:
-            ### Terminate process
+            # Terminate process
             Logging.write(Logging.INFO, 'Restart process {}'.format(process_name))
             self._processes[process_name].terminate()
 
-            ### Set process state
+            # Set process state
             # (this is the ONLY instance where a process state may be set externally)
             getattr(IPC.State, process_name).value = Def.State.STOPPED
 
-            ### Delete references
+            # Delete references
             del self._processes[process_name]
 
-        ### Update keyword args
+        # Update keyword args
         kwargs.update(dict(
                           _pipes=IPC.Pipes,
                           _configurations={k: v for k, v
@@ -243,37 +244,37 @@ class Controller(AbstractProcess):
                                 if not (k.startswith('_'))}
                       ))
 
-        ### Create subprocess
+        # Create subprocess
         self._processes[process_name] = mp.Process(target=target,
                                                   name=process_name,
                                                   kwargs=kwargs)
 
-        ### Start subprocess
+        # Start subprocess
         self._processes[process_name].start()
 
-        ### Set state to IDLE
+        # Set state to IDLE
         self.set_state(Def.State.IDLE)
 
     def start(self):
-        ### Initialize all pipes
+        # Initialize all pipes
         for target, kwargs in self._registered_processes:
             IPC.Pipes[target.name] = mp.Pipe()
 
-        ### Initialize all processes
+        # Initialize all processes
         for target, kwargs in self._registered_processes:
             self.initialize_process(target, **kwargs)
 
-        ### Run controller
+        # Run controller
         self.run(interval=0.001)
 
-        ### Shutdown procedure
+        # Shutdown procedure
         Logging.write(Logging.DEBUG, 'Wait for processes to terminate')
         while True:
-            ## Complete shutdown if all processes are deleted
+            # Complete shutdown if all processes are deleted
             if not(bool(self._processes)):
                 break
 
-            ## Check status of processes until last one is stopped
+            # Check status of processes until last one is stopped
             for process_name in list(self._processes):
                 if not(getattr(IPC.State, process_name).value == Def.State.STOPPED):
                     continue
@@ -297,18 +298,18 @@ class Controller(AbstractProcess):
             Logging.write(Logging.WARNING, 'Tried to start new recording while active')
             return False
 
-        ### Set current folder if none is given
+        # Set current folder if none is given
         if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
             IPC.Control.Recording[Def.RecCtrl.folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
-        ### Create output folder
+        # Create output folder
         outPath = os.path.join(Config.Recording[Def.RecCfg.output_folder], IPC.Control.Recording[Def.RecCtrl.folder])
         Logging.write(Logging.DEBUG, 'Set output folder {}'.format(outPath))
         if not(os.path.exists(outPath)):
             Logging.write(Logging.DEBUG, 'Create output folder {}'.format(outPath))
             os.mkdir(outPath)
 
-        ### Set state to recording
+        # Set state to recording
         Logging.write(Logging.INFO, 'Start recording')
         IPC.Control.Recording[Def.RecCtrl.active] = True
 
@@ -331,11 +332,11 @@ class Controller(AbstractProcess):
             pass
 
 
-        ### Save metadata and externally provided sessiondata
+        # Save metadata and externally provided sessiondata
         metadata = dict(hello1name='test', hello2val=123)
         #TODO: compose proper metadata, append sessiondata and save to file
 
-        ### Let worker compose all individual recordings into one data structure
+        # Let worker compose all individual recordings into one data structure
         IPC.rpc(Def.Process.Worker, process.Worker.run_task,
                  'ComposeRecordings',
                 IPC.Control.Recording[Def.RecCtrl.folder])
@@ -347,7 +348,7 @@ class Controller(AbstractProcess):
 
     def start_protocol(self, protocol_path):
 
-        ### If any relevant subprocesses are currently busy: abort
+        # If any relevant subprocesses are currently busy: abort
         if not(self.in_state(Def.State.IDLE, Def.Process.Display)):
                 #or not(self.inState(self.State.IDLE, Def.Process.IO)):
             processes = list()
@@ -361,28 +362,28 @@ class Controller(AbstractProcess):
                           '(Processes: {})'.format(','.join(processes)))
             return
 
-        ### Start recording if enabled; abort if recording can't be started
+        # Start recording if enabled; abort if recording can't be started
         if Config.Recording[Def.RecCfg.enabled]:
             if not(self.startRecording()):
                 return
 
-        ### Set phase info
+        # Set phase info
         IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] = None
         IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] = None
         IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] = None
-        ### Set protocol class path
+        # Set protocol class path
         IPC.Control.Protocol[Def.ProtocolCtrl.name] = protocol_path
 
-        ### Go into PREPARE_PROTOCOL
+        # Go into PREPARE_PROTOCOL
         self.set_state(Def.State.PREPARE_PROTOCOL)
 
     def start_protocol_phase(self, _id = None):
-        ### If phase ID was provided: run thcontrolsis ID
+        # If phase ID was provided: run thcontrolsis ID
         if not(_id is None):
             IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] = _id
             return
 
-        ### Else: advance protocol counter
+        # Else: advance protocol counter
         if IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] is None:
             IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] = 0
         else:
@@ -401,11 +402,14 @@ class Controller(AbstractProcess):
 
             # Fetch next record
             record = IPC.Log.Queue.get()
-            print(record)
 
             try:
                 self.logger.handle(record)
-                IPC.Log.History.append(record)
+                IPC.Log.History.append(dict(levelno=record.levelno,
+                                            asctime=record.asctime,
+                                            name=record.name,
+                                            levelname=record.levelname,
+                                            msg=record.msg))
             except Exception:
                 import sys, traceback
                 print('Exception in Logger:', file=sys.stderr)
@@ -485,7 +489,7 @@ class Controller(AbstractProcess):
             self.set_state(Def.State.PREPARE_PHASE)
 
         ########
-        ## PROTOCOL_END
+        # PROTOCOL_END
         elif self.in_state(Def.State.PROTOCOL_END):
 
             # When all processes are in IDLE again, stop recording and
@@ -501,7 +505,7 @@ class Controller(AbstractProcess):
                 self.set_state(Def.State.IDLE)
 
         else:
-            ### If nothing's happning: sleep for a bit
+            # If nothing's happning: sleep for a bit
             time.sleep(0.05)
 
     def _start_shutdown(self):

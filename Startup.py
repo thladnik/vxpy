@@ -85,20 +85,32 @@ class CameraWidget(ModuleWidget):
 
         ### Add new camera
         self.btn_add_new = QtWidgets.QPushButton('Add camera')
-        self.btn_add_new.clicked.connect(self.addCamera)
-        self.layout().addWidget(self.btn_add_new, 0, 0, 1, 2)
+        self.btn_add_new.clicked.connect(self.add_camera)
+        self.layout().addWidget(self.btn_add_new, 0, 0)
+        # Spacer
+        self.layout().addItem(
+            QtWidgets.QSpacerItem(1, 1,
+                                  QtWidgets.QSizePolicy.Expanding,
+                                  QtWidgets.QSizePolicy.Minimum),
+            0, 1)
+        # Remove camera
+        self.btn_remove = QtWidgets.QPushButton('Remove camera')
+        self.btn_remove.clicked.connect(self.remove_camera)
+        self.btn_remove.setEnabled(False)
+        self.layout().addWidget(self.btn_remove, 0, 2)
 
         ### Camera list
         self.camera_list = QtWidgets.QListWidget()
-        self.layout().addWidget(QtWidgets.QLabel('Camera devices'), 1, 0)
-        self.layout().addWidget(self.camera_list, 2, 0)
+        self.layout().addWidget(QtWidgets.QLabel('Camera devices'), 1, 0, 1, 3)
+        self.layout().addWidget(self.camera_list, 2, 0, 1, 3)
         self.camera_list.doubleClicked.connect(self.editCamera)
         self.camera_list.clicked.connect(self.openStream)
+        self.camera_list.currentTextChanged.connect(self.toggle_remove_btn)
 
         ### Camera stream
         self.camera_stream = QtWidgets.QGroupBox('Camera stream')
         self.camera_stream.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().addWidget(self.camera_stream, 1, 1, 3, 1)
+        self.layout().addWidget(self.camera_stream, 0, 3, 3, 1)
         self.imview = pg.GraphicsView(parent=self)
         self.imitem = pg.ImageItem()
         self.imview.addItem(self.imitem)
@@ -108,7 +120,6 @@ class CameraWidget(ModuleWidget):
         self.stream_timer.setInterval(50)
         self.stream_timer.timeout.connect(self.updateStream)
         self.stream_timer.start()
-
 
     def loadSettingsFromConfig(self):
         self.camera = self.res_x = self.res_y = None
@@ -121,7 +132,63 @@ class CameraWidget(ModuleWidget):
         self.camera_list.clear()
         self.camera_list.addItems(current_config.getParsed(Def.CameraCfg.name, Def.CameraCfg.device_id))
 
-    def addCamera(self):
+    def toggle_remove_btn(self, p_str):
+        self.btn_remove.setEnabled(bool(p_str))
+
+    def remove_camera(self):
+        global current_config
+        device_id = self.camera_list.currentItem().text()
+        section = current_config.getParsedSection(Def.CameraCfg.name)
+        device_list = section[Def.CameraCfg.device_id]
+
+        if not(device_id in device_list):
+            return
+
+        # Show confirmation dialog
+        dialog = QtWidgets.QMessageBox()
+        dialog.setIcon(QtWidgets.QMessageBox.Information)
+        dialog.setText('Remove camera device "{}"?'
+                       .format(device_id))
+        dialog.setWindowTitle("Remove current camera")
+        dialog.setStandardButtons(QtWidgets.QMessageBox.Ok
+                                  | QtWidgets.QMessageBox.Cancel)
+
+        if not(dialog.exec() == QtWidgets.QMessageBox.Ok):
+            return
+
+        # Delete camera device from config
+        idx = device_list.index(device_id)
+
+        del device_list[idx]
+        manufacturer = section[Def.CameraCfg.manufacturer]
+        del manufacturer[idx]
+        model = section[Def.CameraCfg.model]
+        del model[idx]
+        format_ = section[Def.CameraCfg.format]
+        del format_[idx]
+        res_x = section[Def.CameraCfg.res_x]
+        del res_x[idx]
+        res_y = section[Def.CameraCfg.res_y]
+        del res_y[idx]
+        gain = section[Def.CameraCfg.gain]
+        del gain[idx]
+        exposure = section[Def.CameraCfg.exposure]
+        del exposure[idx]
+
+        # Update config
+        name = Def.CameraCfg.name
+        current_config.setParsed(name, Def.CameraCfg.device_id, device_list)
+        current_config.setParsed(name, Def.CameraCfg.manufacturer, manufacturer)
+        current_config.setParsed(name, Def.CameraCfg.model, model)
+        current_config.setParsed(name, Def.CameraCfg.format, format_)
+        current_config.setParsed(name, Def.CameraCfg.res_x, res_x)
+        current_config.setParsed(name, Def.CameraCfg.res_y, res_y)
+        current_config.setParsed(name, Def.CameraCfg.gain, gain)
+        current_config.setParsed(name, Def.CameraCfg.exposure, exposure)
+
+        self.updateCameraList()
+
+    def add_camera(self):
         row_idx = self.camera_list.count()
 
         self.editCamera(row_idx)
@@ -155,7 +222,9 @@ class CameraWidget(ModuleWidget):
                     continue
                 section[key][row_idx] = value
 
-        print('{} camera {}: {}'.format(action, dialog.data[Def.CameraCfg.device_id], dialog.data))
+        print('{} camera {}: {}'.format(action,
+                                        dialog.data[Def.CameraCfg.device_id],
+                                        dialog.data))
 
         for key, value in section.items():
             current_config.setParsed(Def.CameraCfg.name, key, value)
