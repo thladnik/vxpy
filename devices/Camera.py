@@ -1,5 +1,5 @@
 """
-MappApp .devices/DefaultCameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
+MappApp .devices/CameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@ import cv2
 import logging
 import numpy as np
 import os
+import re
 import platform
 
 import Def
@@ -85,6 +86,11 @@ class VirtualCamera(AbstractCamera):
 
         self._device = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self.model]))
 
+        ### Extract resolution from format
+        s = re.search('\((.*?)x(.*?)\)', self.format)
+        self.res_x = int(s.group(1))
+        self.res_y = int(s.group(2))
+
     @staticmethod
     def get_models():
         return VirtualCamera._models
@@ -107,7 +113,7 @@ class VirtualCamera(AbstractCamera):
     def get_image(self):
         ret, frame = self._device.read()
         if ret:
-            return frame
+            return frame[:self.res_y,:self.res_x,0]
         else:
             self._device.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return self.get_image()

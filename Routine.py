@@ -69,10 +69,10 @@ class Routines:
 
         self.process = process
 
-        for name, process in self._routines.items():
-            for fun in process.exposed:
+        for name, routine in self._routines.items():
+            for fun in routine.exposed:
                 fun_str = fun.__qualname__
-                self.process.register_rpc_callback(process, fun_str, fun)
+                self.process.register_rpc_callback(routine, fun_str, fun)
 
     def initialize_buffers(self):
         """Initialize each buffer after subprocess fork.
@@ -190,12 +190,20 @@ class AbstractRoutine:
     def __init__(self, _bo):
         self._bo = _bo
 
+        # List of methods open to rpc calls
         self.exposed = list()
+
+        # List of required device names
+        self.required = list()
+
+        # Default ring buffer instance for routine
         self.buffer = RingBuffer()
+        # Set time attribute by default on all buffers
+        self.buffer.time = (BufferDTypes.float64, )
+
+        # Set time
         self.currentTime = time.time()
 
-        ### Set time attribute by default on all buffers
-        self.buffer.time = (BufferDTypes.float64, )
 
     def _compute(self, *args, **kwargs):
         """Compute method is called on data updates (so in the producer process).

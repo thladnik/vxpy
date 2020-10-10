@@ -1,5 +1,5 @@
 """
-MappApp ./gui/DefaultCameraRoutines.py - Custom addons which handle UI and visualization with camera process.
+MappApp ./gui/CameraRoutines.py - Custom addons which handle UI and visualization with camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ import Config
 import Def
 from helper import Geometry
 import IPC
-import routines.camera.DefaultCameraRoutines
+import routines.camera.CameraRoutines
 
 ################################
 # Live Camera Widget
@@ -50,8 +50,9 @@ class LiveCamera(QtWidgets.QWidget):
         self.layout().addWidget(self.tab_camera_views, 1, 0, 1, 2)
 
         self.view_wdgts = dict()
-        for device_id, res_x in zip(Config.Camera[Def.CameraCfg.device_id],
-                             Config.Camera[Def.CameraCfg.res_x]):
+        for device_id, res_x in zip(
+                Config.Camera[Def.CameraCfg.device_id],
+                Config.Camera[Def.CameraCfg.res_x]):
 
             self.view_wdgts[device_id] = LiveCamera.GraphicsWidget(parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
@@ -97,7 +98,7 @@ class LiveCamera(QtWidgets.QWidget):
 
 ################################
 # Eye Position Detector Widget
-from routines.camera import DefaultCameraRoutines
+from routines.camera import CameraRoutines
 
 class SliderWidget(QtWidgets.QWidget):
 
@@ -126,7 +127,8 @@ class SliderWidget(QtWidgets.QWidget):
 
 class EyePositionDetector(QtWidgets.QWidget):
 
-    camera_device_id = DefaultCameraRoutines.EyePosDetectRoutine.camera_device_id
+    detector_routine = CameraRoutines.EyePosDetectRoutine
+    camera_device_id = detector_routine.camera_device_id
 
     def __init__(self, parent, **kwargs):
         ### Check if camera is being used (since detector relies on camera input)
@@ -150,17 +152,17 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.mode = QtWidgets.QComboBox()
         self.panel_wdgt.mode.currentTextChanged.connect(lambda:
                                                     IPC.rpc(Def.Process.Camera,
-                                                            routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setDetectionMode,
+                                                            routines.camera.CameraRoutines.EyePosDetectRoutine.set_detection_mode,
                                                             self.panel_wdgt.mode.currentText()))
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.mode)
-        self.panel_wdgt.mode.addItems([routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.feretDiameter.__name__,
-                                       routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.largestDistance.__name__])
+        self.panel_wdgt.mode.addItems([routines.camera.CameraRoutines.EyePosDetectRoutine.feret_diameter.__name__,
+                                       routines.camera.CameraRoutines.EyePosDetectRoutine.longest_distance.__name__])
 
         ## Threshold
         self.panel_wdgt.thresh = SliderWidget('Threshold', 1, 255, 60)
         self.panel_wdgt.thresh.slider.valueChanged.connect(lambda:
                                                     IPC.rpc(Def.Process.Camera,
-                                                            routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setThreshold,
+                                                            routines.camera.CameraRoutines.EyePosDetectRoutine.set_threshold,
                                                             self.panel_wdgt.thresh.slider.value()))
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.thresh)
         self.panel_wdgt.thresh.emitValueChanged()
@@ -169,7 +171,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.maxImValue = SliderWidget('Max. value', 1, 255, 255)
         self.panel_wdgt.maxImValue.slider.valueChanged.connect(lambda:
                                                     IPC.rpc(Def.Process.Camera,
-                                                            routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setMaxImValue,
+                                                            routines.camera.CameraRoutines.EyePosDetectRoutine.set_max_im_value,
                                                             self.panel_wdgt.maxImValue.slider.value()))
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.maxImValue)
         self.panel_wdgt.maxImValue.emitValueChanged()
@@ -178,7 +180,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.minSize = SliderWidget('Min. particle size', 1, 1000, 20)
         self.panel_wdgt.minSize.slider.valueChanged.connect(lambda:
                                                 IPC.rpc(Def.Process.Camera,
-                                                        routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setMinParticleSize,
+                                                        routines.camera.CameraRoutines.EyePosDetectRoutine.set_min_particle_size,
                                                         self.panel_wdgt.minSize.slider.value()))
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.minSize)
         self.panel_wdgt.minSize.emitValueChanged()
@@ -193,7 +195,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.layout().addWidget(self.graphicsWidget)
 
     def updateFrame(self):
-        idx, frame = IPC.Routines.Camera.read('FrameRoutine/{}_frame'.format(self.camera_device_id))
+        idx, frame = IPC.Routines.Camera.read(f'{self.detector_routine.__name__}/frame')
 
         if not(frame is None):
             self.graphicsWidget.imageItem.setImage(np.rot90(frame, -1))
@@ -203,7 +205,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         def __init__(self, **kwargs):
             pg.GraphicsLayoutWidget.__init__(self, **kwargs)
 
-            self.ROIs = dict()
+            self.rois = dict()
 
             ### Set up basics
             self.lineSegROIs = dict()
@@ -344,9 +346,9 @@ class EyePositionDetector(QtWidgets.QWidget):
             self.rect = [lineStart, np.array(self.size()), 360 * lineAngleRad / (2 * np.pi)]
 
             ### Set updates ROI parameters
-            self.parent.ROIs[self.id] = self.rect
+            self.parent.rois[self.id] = self.rect
             ### Send update to detector routine
-            IPC.rpc(Def.Process.Camera, routines.camera.DefaultCameraRoutines.EyePosDetectRoutine.setROI, self.id, self.rect)
+            IPC.rpc(Def.Process.Camera, routines.camera.CameraRoutines.EyePosDetectRoutine.set_roi, self.id, self.rect)
 
 
 ################################

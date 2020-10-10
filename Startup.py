@@ -19,15 +19,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 from configparser import ConfigParser
+from inspect import isclass
 import os
 import sys
-import time
 from typing import Union
-import keyboard
-from glumpy.app.window import window
 import numpy as np
 import pyqtgraph as pg
-
 
 from PyQt5 import QtCore, QtWidgets
 
@@ -35,6 +32,7 @@ import Def
 import Default
 from helper import Basic
 import process.Controller
+from Routine import AbstractRoutine
 
 import wres
 
@@ -83,34 +81,52 @@ class CameraWidget(ModuleWidget):
         self.setLayout(QtWidgets.QGridLayout())
         self.camera = None
 
-        ### Add new camera
-        self.btn_add_new = QtWidgets.QPushButton('Add camera')
-        self.btn_add_new.clicked.connect(self.add_camera)
-        self.layout().addWidget(self.btn_add_new, 0, 0)
-        # Spacer
-        self.layout().addItem(
-            QtWidgets.QSpacerItem(1, 1,
-                                  QtWidgets.QSizePolicy.Expanding,
-                                  QtWidgets.QSizePolicy.Minimum),
-            0, 1)
-        # Remove camera
-        self.btn_remove = QtWidgets.QPushButton('Remove camera')
-        self.btn_remove.clicked.connect(self.remove_camera)
-        self.btn_remove.setEnabled(False)
-        self.layout().addWidget(self.btn_remove, 0, 2)
+        # Routine selection ComboBox
+        self.avail_routine_list = QtWidgets.QComboBox()
+        self.layout().addWidget(self.avail_routine_list, 0, 0)
 
-        ### Camera list
+        # Add new routine
+        self.btn_add_routine = QtWidgets.QPushButton('Add routine')
+        self.btn_add_routine.clicked.connect(self.add_routine)
+        self.layout().addWidget(self.btn_add_routine, 0, 1)
+
+        # Remove routine
+        self.btn_remove_routine = QtWidgets.QPushButton('Remove')
+        self.btn_remove_routine.clicked.connect(self.remove_routine)
+        self.btn_remove_routine.setEnabled(False)
+        self.layout().addWidget(self.btn_remove_routine, 0, 2)
+
+        # Routine list
+        self.used_routine_list = QtWidgets.QListWidget()
+        self.used_routine_list.setMaximumWidth(400)
+        self.used_routine_list.currentTextChanged.connect(self.toggle_routine_remove_btn)
+        self.layout().addWidget(QtWidgets.QLabel('Routines'), 1, 0, 1, 3)
+        self.layout().addWidget(self.used_routine_list, 2, 0, 1, 3)
+
+        # Add new camera
+        self.btn_add_cam = QtWidgets.QPushButton('Add camera')
+        self.btn_add_cam.clicked.connect(self.add_camera)
+        self.layout().addWidget(self.btn_add_cam, 0, 3)
+
+        # Remove camera
+        self.btn_remove_cam = QtWidgets.QPushButton('Remove')
+        self.btn_remove_cam.clicked.connect(self.remove_camera)
+        self.btn_remove_cam.setEnabled(False)
+        self.layout().addWidget(self.btn_remove_cam, 0, 4)
+
+        # Camera list
         self.camera_list = QtWidgets.QListWidget()
-        self.layout().addWidget(QtWidgets.QLabel('Camera devices'), 1, 0, 1, 3)
-        self.layout().addWidget(self.camera_list, 2, 0, 1, 3)
+        self.camera_list.setMaximumWidth(200)
         self.camera_list.doubleClicked.connect(self.edit_camera)
         self.camera_list.clicked.connect(self.open_stream)
-        self.camera_list.currentTextChanged.connect(self.toggle_remove_btn)
+        self.camera_list.currentTextChanged.connect(self.toggle_cam_remove_btn)
+        self.layout().addWidget(QtWidgets.QLabel('Devices'), 1, 3, 1, 2)
+        self.layout().addWidget(self.camera_list, 2, 3, 1, 2)
 
-        ### Camera stream
+        # Camera stream
         self.camera_stream = QtWidgets.QGroupBox('Camera stream')
         self.camera_stream.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().addWidget(self.camera_stream, 0, 3, 3, 1)
+        self.layout().addWidget(self.camera_stream, 0, 5, 3, 1)
         self.imview = pg.GraphicsView(parent=self)
         self.imitem = pg.ImageItem()
         self.imview.addItem(self.imitem)
@@ -123,17 +139,138 @@ class CameraWidget(ModuleWidget):
 
     def load_settings_from_config(self):
         self.camera = self.res_x = self.res_y = None
+        self.update_routine_list()
         self.update_camera_list()
         self.update_stream()
+
+    def update_routine_list(self):
+        global current_config
+
+        self.avail_routine_list.clear()
+        self.used_routine_list.clear()
+
+        # Get routines listed in configuration
+        used_routines = list()
+        for fname, routines in current_config.getParsed(
+                Def.CameraCfg.name,
+                Def.CameraCfg.routines).items():
+            for cname in routines:
+                used_routines.append('{}.{}'.format(fname, cname))
+
+        # Get all available routines for camera
+        routine_path = Def.Path.Routines
+        modules_list = list()
+        for fname in os.listdir(os.path.join(routine_path,
+                                             Def.CameraCfg.name.lower())):
+            if fname.startswith('_') \
+                or fname.startswith('.') \
+                   or not(fname.endswith('.py')):
+                continue
+
+            modules_list.append(fname.replace('.py', ''))
+
+        importpath = '.'.join([Def.Path.Routines,
+                               Def.CameraCfg.name.lower()])
+
+        modules = __import__(importpath, fromlist=modules_list)
+
+        avail_routines = list()
+        for fname in dir(modules):
+            if fname.startswith('_'):
+                continue
+
+            file = getattr(modules, fname)
+
+            for cname in dir(file):
+                attr = getattr(file, cname)
+                if not(isclass(attr))\
+                        or not(issubclass(attr, AbstractRoutine)) \
+                        or attr == AbstractRoutine:
+                    continue
+
+                avail_routines.append('.'.join([fname, cname]))
+
+        # Calculate difference (available routines that are already used)
+        unused_routines = list(set(avail_routines) - set(used_routines))
+
+        self.avail_routine_list.addItems(unused_routines)
+
+        self.used_routine_list.addItems(used_routines)
+
+    def toggle_routine_remove_btn(self, p_str):
+        self.btn_remove_routine.setEnabled(bool(p_str))
+
+    def remove_routine(self):
+        global current_config
+
+        routines = current_config.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines)
+
+        rname = self.used_routine_list.currentItem().text()
+        file_, class_ = rname.split('.')
+
+        # Show confirmation dialog
+        dialog = QtWidgets.QMessageBox()
+        dialog.setIcon(QtWidgets.QMessageBox.Information)
+        dialog.setText('Remove routine "{}"?'
+                       .format(rname))
+        dialog.setWindowTitle("Remove routine")
+        dialog.setStandardButtons(QtWidgets.QMessageBox.Ok
+                                  | QtWidgets.QMessageBox.Cancel)
+
+        if not(dialog.exec() == QtWidgets.QMessageBox.Ok):
+            return
+
+        # Remove routine
+        if file_ in routines and class_ in routines[file_]:
+            del routines[file_][routines[file_].index(class_)]
+
+        # If last routine from this file was remove, delete file key too
+        if not(bool(routines[file_])):
+            del routines[file_]
+
+        current_config.setParsed(Def.CameraCfg.name,
+                                 Def.CameraCfg.routines,
+                                 routines)
+
+        self.load_settings_from_config()
+
+    def add_routine(self):
+        rname = self.avail_routine_list.currentText()
+
+        if not(bool(rname)):
+            return
+
+        global current_config
+
+        file_, class_ = rname.split('.')
+
+        # Get routines
+        routines = current_config.getParsed(Def.CameraCfg.name,
+                                            Def.CameraCfg.routines)
+
+        # Add new routine
+        if file_ not in routines:
+            routines[file_] = []
+        if class_ not in routines[file_]:
+            routines[file_].append(class_)
+
+        # Set routines
+        current_config.setParsed(Def.CameraCfg.name,
+                                 Def.CameraCfg.routines,
+                                 routines)
+
+        # Update GUI
+        self.load_settings_from_config()
 
     def update_camera_list(self):
         global current_config
 
         self.camera_list.clear()
-        self.camera_list.addItems(current_config.getParsed(Def.CameraCfg.name, Def.CameraCfg.device_id))
+        self.camera_list.addItems(current_config.getParsed(Def.CameraCfg.name,
+                                                           Def.CameraCfg.device_id))
 
-    def toggle_remove_btn(self, p_str):
-        self.btn_remove.setEnabled(bool(p_str))
+    def toggle_cam_remove_btn(self, p_str):
+        self.btn_remove_cam.setEnabled(bool(p_str))
 
     def remove_camera(self):
         global current_config
@@ -149,7 +286,7 @@ class CameraWidget(ModuleWidget):
         dialog.setIcon(QtWidgets.QMessageBox.Information)
         dialog.setText('Remove camera device "{}"?'
                        .format(device_id))
-        dialog.setWindowTitle("Remove current camera")
+        dialog.setWindowTitle("Remove camera")
         dialog.setStandardButtons(QtWidgets.QMessageBox.Ok
                                   | QtWidgets.QMessageBox.Cancel)
 

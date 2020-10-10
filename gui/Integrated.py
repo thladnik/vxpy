@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import logging
-import numpy as np
 from PyQt5 import QtCore, QtWidgets
 import pyqtgraph as pg
 import time
@@ -35,19 +34,31 @@ import protocols
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
+class IntegratedWidget(QtWidgets.QGroupBox):
 
-class Protocols(QtWidgets.QGroupBox):
+    def __init__(self, group_name, main):
+        QtWidgets.QGroupBox.__init__(self, group_name)
+        self.main: Gui.Main = main
 
-    def __init__(self, _main):
-        self.main = _main
-        QtWidgets.QGroupBox.__init__(self, 'Protocols', parent=_main)
+        # List of exposed methods to register for rpc callbacks
+        self.exposed = list()
+
+    def create_hooks(self):
+        for fun in self.exposed:
+            fun_str = fun.__qualname__
+            self.main.register_rpc_callback(self, fun_str, fun)
+
+class Protocols(IntegratedWidget):
+
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Protocols', *args)
 
         ## Setup widget
         self.setLayout(QtWidgets.QGridLayout())
 
         ### File list
         self._lwdgt_files = QtWidgets.QListWidget()
-        self._lwdgt_files.itemSelectionChanged.connect(self.updateFileList)
+        self._lwdgt_files.itemSelectionChanged.connect(self.update_file_list)
         self.layout().addWidget(QtWidgets.QLabel('Files'), 0, 0)
         self.layout().addWidget(self._lwdgt_files, 1, 0)
         ### Protocol list
@@ -82,27 +93,27 @@ class Protocols(QtWidgets.QGroupBox):
         ### Set update timer
         self._tmr_update = QtCore.QTimer()
         self._tmr_update.setInterval(200)
-        self._tmr_update.timeout.connect(self.updateGUI)
+        self._tmr_update.timeout.connect(self.update_ui)
         self._tmr_update.start()
 
         ### Once set up: compile file list for first time
-        self._compileFileList()
+        self._compile_file_list()
 
-    def _compileFileList(self):
+    def _compile_file_list(self):
         self._lwdgt_files.clear()
         self.wdgt_controls.btn_start.setEnabled(False)
 
         for file in protocols.all():
             self._lwdgt_files.addItem(file)
 
-    def updateFileList(self):
+    def update_file_list(self):
         self.lwdgt_protocols.clear()
         self.wdgt_controls.btn_start.setEnabled(False)
 
-        for protocol in protocols.read(protocols.open(self._lwdgt_files.currentItem().text())):
+        for protocol in protocols.read(protocols.open_(self._lwdgt_files.currentItem().text())):
             self.lwdgt_protocols.addItem(protocol.__name__)
 
-    def updateGUI(self):
+    def update_ui(self):
 
         ### Enable/Disable control elements
         ctrl_is_idle = IPC.in_state(Def.State.IDLE, Def.Process.Controller)
@@ -135,15 +146,15 @@ class Protocols(QtWidgets.QGroupBox):
     def abortProtocol(self):
         IPC.rpc(Controller.name, Controller.abortProtocol)
 
-class ProcessMonitor(QtWidgets.QGroupBox):
 
-    def __init__(self, _main):
-        QtWidgets.QGroupBox.__init__(self, 'Process monitor')
-        self._main : Gui.Main = _main
+class ProcessMonitor(IntegratedWidget):
 
-        self._setupUi()
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self,  'Process monitor', *args)
 
-    def _setupUi(self):
+        self._setup_ui()
+
+    def _setup_ui(self):
 
         self.setFixedWidth(150)
 
@@ -230,14 +241,11 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._setProcessState(self._le_workerState, IPC.get_state(Def.Process.Worker))
 
 
-################################
-# Recordings widget
+class Recording(IntegratedWidget):
 
-class Recording(QtWidgets.QGroupBox):
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Recordings', *args)
 
-    def __init__(self, _main):
-        QtWidgets.QGroupBox.__init__(self, 'Recordings')
-        self._main : Gui.Main = _main
         self.setObjectName('RecGroupBox')
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -283,7 +291,7 @@ class Recording(QtWidgets.QGroupBox):
         ### Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
         self._tmr_updateGUI.setInterval(200)
-        self._tmr_updateGUI.timeout.connect(self.updateGui)
+        self._tmr_updateGUI.timeout.connect(self.update_ui)
         self._tmr_updateGUI.start()
 
     def finalizeRecording(self):
@@ -311,7 +319,7 @@ class Recording(QtWidgets.QGroupBox):
     def toggleEnable(self, newstate):
         IPC.rpc(Def.Process.Controller, Controller.toggle_enable_recording, newstate)
 
-    def updateGui(self):
+    def update_ui(self):
         """(Periodically) update UI based on shared configuration"""
 
         enabled = Config.Recording[Def.RecCfg.enabled]
@@ -343,11 +351,11 @@ class Recording(QtWidgets.QGroupBox):
         if bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
             self._btn_stop.setEnabled(False)
 
-class Log(QtWidgets.QGroupBox):
 
-    def __init__(self, _main):
-        QtWidgets.QGroupBox.__init__(self, 'Log')
-        self._main: Gui.Main = _main
+class Log(IntegratedWidget):
+
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Log', *args)
 
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -379,137 +387,112 @@ class Log(QtWidgets.QGroupBox):
 
                 self.logccount += 1
 
-class Controls(QtWidgets.QTabWidget):
 
-    def __init__(self, _main):
-        QtWidgets.QTabWidget.__init__(self)
-        self._main : Gui.Main = _main
+class Camera(IntegratedWidget):
 
-        ### Display Settings
-        if Config.Display[Def.DisplayCfg.use]:
-            if Config.Display[Def.DisplayCfg.type] == 'spherical':
-                self.tabWdgt_Display = gui.Controls.SphericalDisplaySettings(self)
-            elif Config.Display[Def.DisplayCfg.type] == 'planar':
-                self.tabWdgt_Display = gui.Controls.PlanarDisplaySettings(self)
-            else:
-                raise Exception('No valid display settings widget found for display type "{}"'
-                                .format(Config.Display[Def.DisplayCfg.type]))
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Camera', *args)
 
-            self.addPaddedTab(self.tabWdgt_Display, 'Display')
+        self.stream_fps = 10
 
-        ### Protocols
-        #self.tabWdgt_Protocols = gui.Controls.Protocol(self)
-        #self.addPaddedTab(self.tabWdgt_Protocols, 'Protocols')
+        self._setup_ui()
 
-        ### Camera
-        self.tabWdgt_Camera = gui.Controls.Camera(self)
-        self.addPaddedTab(self.tabWdgt_Camera, 'Camera')
-
-    def addPaddedTab(self, wdgt, name):
-        wrapper = QtWidgets.QWidget()
-        wrapper.setLayout(QtWidgets.QGridLayout())
-        wrapper.layout().addWidget(wdgt, 0, 0)
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        wrapper.layout().addItem(vSpacer, 1, 0)
-        #wrapper.layout().addItem(hSpacer, 0, 1)
-        self.addTab(wrapper, name)
-
-class Camera(QtWidgets.QTabWidget):
-
-    def __init__(self, _main):
-        self.main = _main
-        QtWidgets.QTabWidget.__init__(self)
-
-        self.streamFps = 10
-
-        self._setupUI()
-
-    def _setupUI(self):
-        self.setWindowTitle('Camera')
+    def _setup_ui(self):
         self.setLayout(QtWidgets.QVBoxLayout())
+        # FPS counter
+        self.fps_counter = QtWidgets.QWidget(parent=self)
+        self.fps_counter.setLayout(QtWidgets.QHBoxLayout())
+        self.fps_counter.layout().setContentsMargins(0, 0, 0, 0)
+        # Spacer
+        self.fps_counter.spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.fps_counter.layout().addItem(self.fps_counter.spacer)
+        # Lineedit
+        self.fps_counter.le = QtWidgets.QLineEdit('FPS N/A')
+        self.fps_counter.le.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.fps_counter.layout().addWidget(self.fps_counter.le)
+        self.layout().addWidget(self.fps_counter)
+
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_widget)
 
         ### Add camera addons
-        if len(Config.Gui[Def.GuiCfg.addons]) == 0:
-            addons = ['LiveCamera']
-        else:
-            addons = Config.Gui[Def.GuiCfg.addons]
+        avail_addons = Config.Gui[Def.GuiCfg.addons]
+        use_addons = list()
+        if Def.Process.Camera in avail_addons:
+            if len(avail_addons[Def.Process.Camera]) == 0:
+                use_addons.append('LiveCamera')
+            else:
+                use_addons.extend(avail_addons[Def.Process.Camera])
 
-        for addon_name in addons:
+        for addon_name in use_addons:
             if not(bool(addon_name)):
                 continue
 
+            # TODO: expand this to draw from all files in ./gui/
             wdgt = getattr(gui.Camera, addon_name)(self)
             if not(wdgt.moduleIsActive):
                 Logging.write(logging.WARNING, 'Addon {} could not be activated'
                               .format(addon_name))
                 continue
-            self.addTab(wdgt, addon_name)
+            self.tab_widget.addTab(wdgt, addon_name)
 
-        ### Set frame update timer
-        self.imTimer = QtCore.QTimer()
-        self.imTimer.setInterval(1000 // self.streamFps)
-        self.imTimer.timeout.connect(self.updateFrames)
-        self.imTimer.start()
+
+
+        # Select routine for FPS estimation (if any available)
+        # If no routines are set, don't even start frame update timer
+        routines = Config.Camera[Def.CameraCfg.routines]
+        if bool(routines):
+
+            self.routine = routines[list(routines.keys())[0]][0]
+
+            Logging.write(Logging.INFO, f'Camera UI using routine "{self.routine}"')
+
+            # Set frame update timer
+            self.timer_frame_update = QtCore.QTimer()
+            self.timer_frame_update.setInterval(1000 // self.stream_fps)
+            self.timer_frame_update.timeout.connect(self.updateFrames)
+            self.timer_frame_update.start()
 
     def updateFrames(self):
-        for idx in range(self.count()):
-            self.widget(idx).updateFrame()
 
-class DisplayView(QtWidgets.QGroupBox):
+        # Update frames in tabbed widgets
+        for idx in range(self.tab_widget.count()):
+            self.tab_widget.widget(idx).updateFrame()
 
-    def __init__(self, _main):
-        self.main = _main
-        QtWidgets.QGroupBox.__init__(self, 'Display View')
-        self.setCheckable(True)
-        self.toggled.connect(self.setTimer)
-
-        self.setLayout(QtWidgets.QVBoxLayout())
-        from glumpy import app
-        app.use('qt5')
-
-        self._glWindow = QtWidgets.QOpenGLWidget(self) # app.Window()#
-        #self.native_win = self._glWindow._native_window
-        self.layout().addWidget(self._glWindow)
-
-
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.updateGl)
-
-        self.current_protocol = None
-        self.current_phase_id = None
-        self.current_visual = None
-
-        self.setChecked(True)
-
-    def setTimer(self, bool):
-        if bool and not(self.timer.isActive()):
-            return
-            self.timer.start(1/20)
-        else:
-            if self.timer.isActive():
-                self.timer.stop()
-
-    def updateGl(self):
-        if self.current_protocol is None:
-
-            if IPC.Control.Protocol[Def.ProtocolCtrl.name] is None or not(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
-                return
-
-            print('SET protocol to {}'.format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
-
-            self.current_protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+        # Update FPS counter
+        _, frametimes = IPC.Routines.Camera.read(f'{self.routine}/time', last=50)
+        if frametimes[0] is None:
             return
 
-        if self.current_phase_id != IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]:
-            self.current_phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+        frame_dts = [v2-v1 for v1, v2 in zip(frametimes[:-1], frametimes[1:])]
+        mean_frame_dt = sum(frame_dts) / (len(frametimes)-1)
+        fps = 1./mean_frame_dt
+        self.fps_counter.le.setText('FPS {:.2f}'.format(fps))
 
-            new_phase = self.current_protocol._phases[self.current_phase_id]
-            new_visual, kwargs, duration = new_phase['visuals'][0]
-            self.current_visual = new_visual(self.current_protocol, self, **kwargs)
 
-        if self.current_visual is None:
-            return
 
-        print('draw?')
-        self.current_visual.trigger_on_draw(0, 0.0)
+class Plotter(IntegratedWidget):
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Plotter', *args)
+
+        self.exposed.append(Plotter.add_line)
+
+        self.setLayout(QtWidgets.QGridLayout())
+
+        self.graphics_widget = pg.GraphicsLayoutWidget()
+        self.graphics_widget.addPlot(0,0,1,10)
+        self.layout().addWidget(self.graphics_widget, 0, 0)
+
+        ### Start timer
+        self._tmr_update = QtCore.QTimer()
+        self._tmr_update.setInterval(50)
+        self._tmr_update.timeout.connect(self.update_data)
+        self._tmr_update.start()
+
+    def update_data(self):
+        pin_data = None
+
+        idx_range = 1000
+
+    def add_line(self, process_name, routine_name, attr_name):
+        print(process_name, routine_name, attr_name)
