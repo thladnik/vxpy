@@ -3,7 +3,7 @@
 const float c_pi = 3.14159265359;
 
 uniform float u_stime;
-uniform int u_shape;
+uniform int u_waveform;
 uniform float u_spat_period;
 uniform float u_ang_velocity;
 uniform int u_direction;
@@ -25,7 +25,7 @@ void main()
     }
 
     // If shape is rectangular: threshold sine wave
-    if (u_shape == 1) {
+    if (u_waveform == 1) {
         if (c > 0) {
            c = 1.0;
         } else {

@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import logging
-from glumpy import gloo
+from vispy import gloo
 import numpy as np
 
 import Logging
@@ -53,28 +53,36 @@ class AbstractModel:
         if self.isBuilt():
             return
         if self.a_position is None:
-            Logging.logger.log_display(logging.WARNING,
-                               'Creation of vertex buffer failed in model {}. '
-                               'a_position is not set on model.'.format(self.__class__))
+            Logging.write(Logging.WARNING,
+                          'Creation of vertex buffer failed in model {}. '
+                          'a_position is not set on model.'.format(self.__class__))
             return
 
         ### Create vertex array
         vArray = np.zeros(AbstractModel.reshapeArray(self.a_position).shape[0], self.activeAttributes)
 
         ### Create vertex buffer
-        self.vertexBuffer = vArray.view(gloo.VertexBuffer)
+        self.vertexBuffer = gloo.VertexBuffer(vArray)
 
         ### Set attribute data
         for attribute in self.activeAttributes:
             if not(hasattr(self, attribute[0])):
-                Logging.logger.log_display(logging.WARNING, 'Attribute {} not set on model {}'
-                                           .format(str(attribute), self.__class__))
+                Logging.write(Logging.WARNING,
+                              f'Attribute {attribute} not set on model {self.__class__}')
                 continue
-            self.vertexBuffer[attribute[0]] = AbstractModel.reshapeArray(getattr(self, attribute[0]))
+
+            attr = AbstractModel.reshapeArray(getattr(self, attribute[0]))
+            #if not(attr.flags['C_CONTIGUOUS']):
+            attr = np.ascontiguousarray(attr, dtype=attribute[1])
+            try:
+                self.vertexBuffer[attribute[0]] = attr
+            except Exception as exc:
+                print(f'EXCEPTION: {exc}')
+                print(f'CONTIGUOUS: {attr.flags["C_CONTIGUOUS"]}')
 
         ### Create index buffer
         if self.indices is not None:
-            self.indexBuffer = np.uint32(self.indices).view(gloo.IndexBuffer)
+            self.indexBuffer = gloo.IndexBuffer(np.uint32(self.indices))
 
         self._built = True
 

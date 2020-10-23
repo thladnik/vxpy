@@ -445,7 +445,7 @@ class Controller(AbstractProcess):
 
             # Start phase
             phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-            duration = self.protocol._phases[phase_id]['duration']
+            duration = self.protocol.fetch_phase_duration(phase_id)
 
             fixed_delay = 0.1
             IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] = time.time() + fixed_delay
@@ -478,7 +478,8 @@ class Controller(AbstractProcess):
         elif self.in_state(Def.State.PHASE_END):
 
             # If there are no further phases, end protocol
-            if (IPC.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1) >= self.protocol.phaseCount():
+            phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+            if (phase_id + 1) >= self.protocol.phase_count():
                 self.set_state(Def.State.PROTOCOL_END)
                 return
 

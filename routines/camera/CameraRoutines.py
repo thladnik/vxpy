@@ -20,6 +20,7 @@ import numpy as np
 from sklearn import metrics
 from scipy.spatial import distance
 from time import perf_counter, time
+# TODO: remove scikit-learn, unnecessarily large dependency
 
 from Routine import AbstractRoutine, BufferDTypes
 import Config

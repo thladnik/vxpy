@@ -807,15 +807,15 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         from Protocol import StaticProtocol
         from visuals.planar.Calibration import Checkerboard
         protocol = StaticProtocol(None)
-        self.main.visual = Checkerboard(self.main.glwindow, **{Checkerboard.u_rows : rows,
-                                                                Checkerboard.u_cols : cols})
+        self.main.visual = Checkerboard(self.main.canvas, **{Checkerboard.u_rows : rows,
+                                                             Checkerboard.u_cols : cols})
 
 
     def show_spherical_checkerboard(self, rows, cols):
         from Protocol import StaticProtocol
         from visuals.spherical.Calibration import BlackWhiteCheckerboard
         protocol = StaticProtocol(None)
-        self.main.visual = BlackWhiteCheckerboard(self.main.glwindow,
+        self.main.visual = BlackWhiteCheckerboard(self.main.canvas,
                                                   **{BlackWhiteCheckerboard.u_rows : rows,
                                                      BlackWhiteCheckerboard.u_cols : cols})
 
@@ -913,8 +913,8 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
 
     def use_current_window_settings(self):
 
-        geo = self.main.glwindow._native_window.geometry()
-        fgeo = self.main.glwindow._native_window.frameGeometry()
+        geo = self.main.canvas._native_window.geometry()
+        fgeo = self.main.canvas._native_window.frameGeometry()
 
         self.spn_win_width.setValue(geo.width())
         self.spn_win_height.setValue(geo.height())

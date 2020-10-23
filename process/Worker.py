@@ -37,8 +37,10 @@ class Worker(Process.AbstractProcess):
         self._scheduled_tasks = list()
         self._tasks = dict()
 
+        #self.schedule_task('readFrames', 1/100)
+
         ### Run event loop
-        self.run(interval=1./100)
+        self.run(interval=1./10)
 
     def _load_task(self, task_name):
         if not(task_name in self._tasks):
@@ -74,7 +76,7 @@ class Worker(Process.AbstractProcess):
 
         self._run_protocol()
 
-        for i, task_name, task_time, task_interval in enumerate(zip(self._scheduled_tasks,
+        for i, (task_name, task_time, task_interval) in enumerate(zip(self._scheduled_tasks,
                                                                     self._scheduled_times,
                                                                     self._task_intervals)):
             ### If scheduled time is now

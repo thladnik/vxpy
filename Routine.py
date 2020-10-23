@@ -397,6 +397,7 @@ class RingBuffer:
         if idx_start >= 0:
             return self.__dict__['_data_{}'.format(name)][idx_start:idx_end]
         else:
+            # TODO: not possible to handle slices of shared arrays with this!
             return self.__dict__['_data_{}'.format(name)][idx_start:] \
                    + self.__dict__['_data_{}'.format(name)][:idx_end]
 

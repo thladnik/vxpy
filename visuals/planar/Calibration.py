@@ -16,7 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import gl
+from vispy import gloo
+from vispy.gloo import gl
+import numpy as np
 
 from Visuals import PlanarVisual
 from models import BasicPlane
@@ -34,22 +36,28 @@ class Checkerboard(PlanarVisual):
     def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
 
-        self.plane = self.addModel('planar', BasicPlane.VerticalXYPlane)
-        self.plane.createBuffers()
+        self.plane = BasicPlane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(
+            np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(
+            np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.checker = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('planar/checker.vert').read(),
-                                       BasicFileShader().addShaderFile('planar/checker.frag').read())
-        self.checker.bind(self.plane.vertexBuffer)
+        self.checker = gloo.Program(
+            BasicFileShader().addShaderFile('planar/checker.vert').read(),
+            BasicFileShader().addShaderFile('planar/checker.frag').read())
+        self.checker['a_position'] = self.position_buffer
 
         self.update(**params)
 
-    def render(self):
-        self.checker.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
+    def render(self, frame_time):
+        self.apply_transform(self.checker)
+        print(self.checker.shaders)
+        self.checker.draw('triangles', self.index_buffer)
+
 
     def update(self, **params):
 
-        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
+        self.parameters.update({k: p for k, p in params.items() if not(p is None)})
         for k, p in self.parameters.items():
             self.checker[k] = p
 

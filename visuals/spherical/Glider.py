@@ -16,7 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import gl
+from vispy import gloo
+from vispy.gloo import gl
 import numpy as np
 import time
 
@@ -35,16 +36,17 @@ class Glider2Point(SphericalVisual):
         SphericalVisual.__init__(self, *args)
 
         ### Set up model
-        self.sphere = self.addModel('sphere',
-                                    BasicSphere.UVSphere,
-                                    theta_lvls=60, phi_lvls=30)
-        self.sphere.createBuffers()
+        self.sphere = BasicSphere.UVSphere(azim_lvls=60, elev_lvls=30)
+        self.vertex_buffer = gloo.VertexBuffer(self.sphere.a_position)
+        self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
+        self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         ### Set up program
-        self.glider = self.addProgram('glider',
-                                      BasicFileShader().addShaderFile('v_glider.glsl', subdir='spherical').read(),
-                                      BasicFileShader().addShaderFile('f_glider.glsl', subdir='spherical').read())
-        self.glider.bind(self.sphere.vertexBuffer)
+        self.glider = gloo.Program(
+            BasicFileShader().addShaderFile('v_glider.glsl', subdir='spherical').read(),
+            BasicFileShader().addShaderFile('f_glider.glsl', subdir='spherical').read())
+        self.glider['a_position'] = self.vertex_buffer
+        self.glider['a_azimuth'] = self.azimuth_buffer
 
         self.last_update = time.perf_counter()
         self.p_parity = p_parity  # -1 or 1
@@ -53,11 +55,8 @@ class Glider2Point(SphericalVisual):
         self.last_row = self.seed_row.copy()
         self.frame_seeds = []
 
-        ### Debug
-        self.lines = []
 
-
-    def render(self):
+    def render(self, frame_time):
 
         if time.perf_counter() >= self.last_update + 1/20:
 
@@ -76,25 +75,18 @@ class Glider2Point(SphericalVisual):
 
             self.last_update = time.perf_counter()
 
-            self.lines.append(new_row)
-
         else:
             new_row = self.last_row
 
         ### Render
         self.glider['u_texture'] = 255 * np.repeat(np.repeat(new_row[:,np.newaxis], 2, axis=-1).T[:,:,np.newaxis], 3, axis=-1)
-        self.glider.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
+
+        self.apply_transform(self.glider)
+        self.glider.draw(gl.GL_TRIANGLES, self.index_buffer)
 
         ### Update last row
         self.last_row = new_row
 
-
-        if False and len(self.lines) > 400:
-            import matplotlib.pyplot as plt
-            plt.imshow(self.lines)
-            plt.show()
-
-            self.lines = []
 
 
 class Glider3Point(SphericalVisual):
