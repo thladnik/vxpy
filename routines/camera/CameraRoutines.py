@@ -21,6 +21,7 @@ from sklearn import metrics
 from scipy.spatial import distance
 from time import perf_counter, time
 # TODO: remove scikit-learn, unnecessarily large dependency
+#  and only used by old eye detection
 
 from Routine import AbstractRoutine, BufferDTypes
 import Config
@@ -62,7 +63,6 @@ class FrameRoutine(AbstractRoutine):
 
     def _out(self):
         yield 'frame', self.buffer.frame
-
 
 
 class EyePosDetectRoutine(AbstractRoutine):
@@ -393,8 +393,8 @@ class EyePosDetectRoutine(AbstractRoutine):
             return
 
         # Use monochrome, regardless
-        if frame.ndim > 2:
-            frame = frame[:,:,0]
+        # if frame.ndim > 2:
+        #     frame = frame[:,:,0]
 
         # Write frame to buffer
         self.buffer.frame = frame[:,:]

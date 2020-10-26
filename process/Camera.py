@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import time
 
 import Config
 import Process
@@ -66,6 +67,8 @@ class Camera(Process.AbstractProcess):
                           'This will cause increased CPU usage.'
                           .format(target_fps))
 
+
+        self.enable_idle_timeout = False
         ### Run event loop
         self.run(interval=1/target_fps)
 

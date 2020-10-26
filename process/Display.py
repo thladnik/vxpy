@@ -89,7 +89,8 @@ class Canvas(app.Canvas):
         self.update()
 
     def show_fps(self, fps):
-        print("FPS {:.2f}".format(fps))
+        pass
+        #print("FPS {:.2f}".format(fps))
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
