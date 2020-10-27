@@ -23,7 +23,7 @@ from time import perf_counter, time
 # TODO: remove scikit-learn, unnecessarily large dependency
 #  and only used by old eye detection
 
-from Routine import AbstractRoutine, BufferDTypes
+from Routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 import Config
 import Def
 from helper import Geometry
@@ -34,18 +34,16 @@ class FrameRoutine(AbstractRoutine):
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
-        ### Define list of exposed methods
-        # (These methods hook into the process instance - here Camera - and are thus
-        #  accessible from all other processes)
-        #self.exposed.append(FrameRoutine.testmethod)
+        self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
+                                    Config.Camera[Def.CameraCfg.res_x],
+                                    Config.Camera[Def.CameraCfg.res_y]))
 
-        ### Set up buffer
-        for device_id, res_x, res_y in zip(Config.Camera[Def.CameraCfg.device_id],
-                                           Config.Camera[Def.CameraCfg.res_x],
-                                           Config.Camera[Def.CameraCfg.res_y]):
+        target_fps = Config.Camera[Def.CameraCfg.fps]
 
-            ### Dynamically set a frame attribute per camera device
-            setattr(self.buffer, '{}_frame'.format(device_id), (BufferDTypes.uint8, (res_y, res_x)))
+        # Set up buffer frame attribute for each camera device
+        for device_id, res_x, res_y in self.device_list:
+            array_attr = ArrayAttribute((res_y, res_x), ArrayDType.uint8, length=2*target_fps)
+            setattr(self.buffer, '{}_frame'.format(device_id), array_attr)
 
 
     def _compute(self, **frames):
@@ -55,14 +53,16 @@ class FrameRoutine(AbstractRoutine):
             if frame is None:
                 continue
 
-            ### Update shared attributes
+            # Update shared attributes
             if frame.ndim > 2:
-                setattr(self.buffer, '{}_frame'.format(device_id), frame[:,:,0])
+                getattr(self.buffer, f'{device_id}_frame').write(frame[:, :, 0])
             else:
-                setattr(self.buffer, '{}_frame'.format(device_id), frame[:,:])
+                getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
     def _out(self):
-        yield 'frame', self.buffer.frame
+        for device_id, _, _ in self.device_list:
+            frame_str = f'{device_id}_frame'
+            yield frame_str, getattr(self.buffer, frame_str).read()
 
 
 class EyePosDetectRoutine(AbstractRoutine):
@@ -86,25 +86,26 @@ class EyePosDetectRoutine(AbstractRoutine):
         idx = Config.Camera[Def.CameraCfg.device_id].index(self.camera_device_id)
         self.res_x = Config.Camera[Def.CameraCfg.res_x][idx]
         self.res_y = Config.Camera[Def.CameraCfg.res_y][idx]
+        target_fps = Config.Camera[Def.CameraCfg.fps]
 
-        # Set up shared variables
+        # Set up parameter variables (accessible externally)
         self.rois = dict()
         self.thresh = None
         self.minSize = None
         self.maxImValue = None
         self.detectionMode = None
 
-        # Set up buffer
-        self.buffer.extractedRects = ('test', )
-        self.buffer.eyePositions = ('test', )
-        self.buffer.frame = (BufferDTypes.uint8, (self.res_y, self.res_x))
-
+        # Set up buffer attributes
+        self.buffer.extractedRects = ObjectAttribute()
+        self.buffer.eyePositions = ObjectAttribute()
+        self.buffer.frame = ArrayAttribute((self.res_y, self.res_x),
+                                           ArrayDType.uint8,
+                                           length=2*target_fps)
 
     def set_detection_mode(self, mode):
         self.detectionMode = mode
 
     def set_threshold(self, thresh):
-        #if thresh in range(1,256):
         self.thresh = thresh
 
     def set_max_im_value(self, value):
@@ -142,10 +143,10 @@ class EyePosDetectRoutine(AbstractRoutine):
         ### Detect contours
         cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-        ### Make RGB
+        # Make RGB
         thresh = np.stack((thresh, thresh, thresh), axis=-1)
 
-        ### Collect contour parameters and filter contours
+        # Collect contour parameters and filter contours
         areas = list()
         centroids = list()
         hulls = list()
@@ -397,7 +398,8 @@ class EyePosDetectRoutine(AbstractRoutine):
         #     frame = frame[:,:,0]
 
         # Write frame to buffer
-        self.buffer.frame = frame[:,:]
+        #self.buffer.frame = frame[:,:]
+        self.buffer.frame.write(frame[:,:])
 
 
         # Do eye detection and position estimation
@@ -466,11 +468,13 @@ class EyePosDetectRoutine(AbstractRoutine):
                 extractedRects[id] = new_rect
 
         ### Update buffer (Always set)
-        self.buffer.extractedRects = extractedRects
-        self.buffer.eyePositions = eyePositions
+        # self.buffer.extractedRects = extractedRects
+        # self.buffer.eyePositions = eyePositions
+        self.buffer.extractedRects.write(extractedRects)
+        self.buffer.eyePositions.write(eyePositions)
 
     def _out(self):
-
+        # TODO: fix for new buffer design
         for id in self.buffer.extractedRects.keys():
 
             if id in self.buffer.eyePositions:

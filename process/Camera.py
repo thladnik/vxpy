@@ -61,6 +61,7 @@ class Camera(Process.AbstractProcess):
         target_fps = Config.Camera[Def.CameraCfg.fps]
 
         if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
+            # TODO: this estimate for sleep time seems to be way off
             Logging.write(Logging.WARNING,
                           'Mininum sleep period is ABOVE '
                           'average target frametime of 1/{}s.'

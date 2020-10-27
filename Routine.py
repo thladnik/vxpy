@@ -35,7 +35,7 @@ import Process
 class Routines:
     """Wrapper class for routines
     """
-    # TODO: Routines class may be moved into Process.AbstractProcess in future
+    # TODO: Routines class may be moved into Process.AbstractProcess in future?
 
     process: Process.AbstractProcess = None
 
@@ -83,41 +83,54 @@ class Routines:
         """
 
         for name, routine in self._routines.items():
-            routine.buffer.initialize()
+            routine.buffer.build()
 
-    def add_routine(self, routine, **kwargs):
+    def add_routine(self, routine_cls, **kwargs):
         """To be called by Controller.
 
         Creates an instance of the provided routine class (which
         has to happen before subprocess fork).
 
-        :arg routine: class object of routine
+        :arg routine_cls: class object of routine
         :**kwargs: keyword arguments to be passed upon initialization of routine
         """
 
-        if routine.__name__ in self._routine_paths:
-            raise Exception('Routine \"{}\" exists already from path \"{}\"'
-                            .format(routine.__name__,
-                                    self._routine_paths[routine.__name__])
-                            + 'Unable to add routine of same name from path \"{}\"'.format(routine.__module__))
-        self._routine_paths[routine.__name__] = routine.__module__
-        self._routines[routine.__name__] = routine(self, **kwargs)
+        if routine_cls.__name__ in self._routine_paths:
+            raise Exception(
+                f'Routine \"{routine_cls.__name__}\" exists already'
+                f' for path \"{self._routine_paths[routine_cls.__name__]}\"'
+                f'Unable to add routine of same name from path \"{routine_cls.__module__}\"')
+
+        self._routine_paths[routine_cls.__name__] = routine_cls.__module__
+        self._routines[routine_cls.__name__] = routine_cls(self, **kwargs)
+
+    def get_buffer(self, routine_cls):
+        if isinstance(routine_cls, str):
+            routine_name = routine_cls
+        else:
+            routine_name = routine_cls.__name__
+
+        assert routine_name in self._routines, f'Routine {routine_name} is not set'
+        return self._routines[routine_name].buffer
 
     def update(self, *args, **kwargs):
 
         if not(bool(args)) and not(bool(kwargs)):
             return
 
-        t = time.time()
+        #t = time.time()
         for name in self._routines:
-            ### Set time for current iteration
-            self._routines[name].buffer.time = t
-            ### Update the data in buffer
-            self._routines[name].update(*args, **kwargs)
-            ### Stream new routine computation results to file (if active)
-            self._routines[name].streamToFile(self.handleFile())
-            # Advance the associated buffer
+            # Advance buffer
             self._routines[name].buffer.next()
+            # Set time for current iteration
+            #last_idx, last_t = self._routines[name].buffer.time.read()
+            #if last_t[0] is not None and last_t > t:
+            #    print('AAAAAAAAH')
+            #self._routines[name].buffer.time.write(self._routines[name].buffer.get_time())
+            # Update the data in buffer
+            self._routines[name].update(*args, **kwargs)
+            # Stream new routine computation results to file (if active)
+            self._routines[name].stream_to_file(self.handleFile())
 
     def read(self, attr_name, routine_name=None, **kwargs):
         """Read shared attribute from buffer.
@@ -183,7 +196,7 @@ class Routines:
 
 
 ################################
-## Abstract Routine class
+# Abstract Routine class
 
 class AbstractRoutine:
 
@@ -199,10 +212,10 @@ class AbstractRoutine:
         # Default ring buffer instance for routine
         self.buffer = RingBuffer()
         # Set time attribute by default on all buffers
-        self.buffer.time = (BufferDTypes.float64, )
+        #self.buffer.time = ObjectAttribute()
 
         # Set time
-        self.currentTime = time.time()
+        #self.currentTime = time.time()
 
 
     def _compute(self, *args, **kwargs):
@@ -231,7 +244,7 @@ class AbstractRoutine:
         self._compute(*args, **kwargs)
 
 
-    def _appendData(self, grp, key, value):
+    def _append_data(self, grp, key, value):
 
         ## Convert and determine dshape/dtype
         value = np.asarray(value) if isinstance(value, list) else value
@@ -258,7 +271,7 @@ class AbstractRoutine:
         dset.resize((dset.shape[0] + 1, *dshape))
         dset[dset.shape[0] - 1] = value
 
-    def streamToFile(self, file: Union[h5py.File, None]):
+    def stream_to_file(self, file: Union[h5py.File, None]):
         ### Set id of current buffer e.g. "Camera/FrameBuffer"
         bufferName = self.__class__.__name__
 
@@ -283,9 +296,310 @@ class AbstractRoutine:
             # LZF: fast, but only natively implemented in python h5py (-> can't be read by HDF Viewer)
             ###
 
-            self._appendData(grp, key, value)
-            self._appendData(grp, '{}_time'.format(key), self.buffer.time)
+            self._append_data(grp, key, value)
+            self._append_data(grp, '{}_time'.format(key), self.buffer.time)
 
+
+import ctypes
+import time
+from typing import List, Tuple, Union
+
+class DummyLockContext:
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
+class BufferAttribute:
+
+    def __init__(self, length=100):
+        self._length = length
+        self._data = None
+        self._index = None
+        self._time = IPC.Manager.list([None] * self._length)
+        self._buffer: RingBuffer
+
+    def build(self):
+        pass
+
+    def set_buffer(self, buffer):
+        assert isinstance(buffer, RingBuffer), f'Buffer needs to be {RingBuffer.__name__}'
+        self._buffer = buffer
+
+    def _get_times(self, start_idx, end_idx):
+        if start_idx >= 0:
+            return self._time[start_idx:end_idx]
+        else:
+            return self._time[start_idx:] + self._time[:end_idx]
+
+    def get_times(self, last):
+        internal_idx = self._index % self._length
+        start_idx = internal_idx-last
+        return self._get_times(start_idx, internal_idx)
+
+    def get(self, current_idx):
+        self._index = current_idx
+        return self
+
+    def read(self, last=-1):
+        raise NotImplementedError(f'Method read not implemented in {self.__class__}')
+
+    def write(self, value):
+        raise NotImplementedError(f'Method write not implemented in {self.__class__}')
+
+    def _get_index_list(self, last) -> List:
+        return list(range(self._index - last, self._index))
+
+
+class ArrayDType:
+    int8 = (ctypes.c_int8, np.int8)
+    int16 = (ctypes.c_int16, np.int16)
+    int32 = (ctypes.c_int32, np.int32)
+    int64 = (ctypes.c_int64, np.int64)
+
+    uint8 = (ctypes.c_uint8, np.uint8)
+    uint16 = (ctypes.c_uint16, np.uint16)
+    uint32 = (ctypes.c_uint32, np.uint32)
+    uint64 = (ctypes.c_uint64, np.uint64)
+
+    float32 = (ctypes.c_float, np.float32)
+    float64 = (ctypes.c_double, np.float64)
+
+
+class ArrayAttribute(BufferAttribute):
+    """Array buffer attribute for synchronization of large datasets.
+
+    Uses a shared array for fast read and write of large amounts of data.
+
+    Optionally supports chunking of buffer into independent segments. This is especially
+    useful when long read operations are expected (e.g. when reading multiple frames of RGB video data),
+    as these tend to block writing by producer when use_lock=True is set.
+    :: size tuple of dimension size of the buffered array
+    :: dtype tuple with datatypes in c and numpy (ctype, np-type)
+    :: chunked bool which indicated whether chunking should be used
+    :: chunk_size (optional) int which specifies chunk size if chunked=True
+    """
+
+    def __init__(self, size, dtype, chunked=False, chunk_size=None, **kwargs):
+        BufferAttribute.__init__(self, **kwargs)
+
+        assert isinstance(size, tuple), 'size must be tuple with dimension sizes'
+        assert isinstance(dtype, tuple), 'dtype must be tuple with (ctype,np-type)'
+        assert isinstance(chunked, bool), 'chunked has to be bool'
+        assert isinstance(chunk_size, int) or chunk_size is None, 'chunk_size must be int or None'
+
+        self._size = size
+        self._dtype = dtype
+        self._chunked = chunked
+        self._chunk_size = chunk_size
+
+        if self._chunked and self._chunk_size is not None:
+            assert self._length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'
+
+        # Automatically determine chunk_size
+        if self._chunked and self._length < 10:
+            self._chunked = False
+            print('WARNING', 'Automatic chunking disabled (auto)', 'Buffer length too small.')
+
+        if self._chunked and self._chunk_size is None:
+            for s in range(self._length // 10, self._length):
+                if self._length % s == 0:
+                    self._chunk_size = s
+                    break
+
+            if self._chunk_size is None:
+                self._chunk_size = self._length // 10
+                self._length = 10 * self._chunk_size
+                print('WARNING', 'Unable to find suitable chunk size.',
+                      f'Resize buffer to match closest length. {self._chunk_size}/{self._length}')
+
+        self._chunk_num = None
+        if self._chunked:
+            # This should be int
+            self._chunk_num = self._length // self._chunk_size
+
+        # Init data structures
+        if self._chunked:
+            init = int(np.product((self._chunk_size,) + self._size))
+            self._raw: List[mp.Array] = list()
+            for i in range(self._chunk_num):
+                self._raw.append(mp.Array(self._dtype[0], init))
+            self._data: List[np.ndarray] = list()
+        else:
+            init = int(np.product((self._length,) + self._size))
+            self._raw: mp.Array = mp.Array(self._dtype[0], init)
+            self._data: np.ndarray = None
+
+    def _build_array(self, raw, length):
+        np_array = np.frombuffer(raw.get_obj(), self._dtype[1])
+        return np_array.reshape((length,) + self._size)
+
+    def _get_lock(self, chunk_idx, use_lock):
+        if not(use_lock):
+            return DummyLockContext()
+
+        if chunk_idx is None:
+            lock = self._raw.get_lock
+        else:
+            lock = self._raw[chunk_idx].get_lock
+
+        return lock()
+
+    def build(self) -> None:
+        if self._chunked:
+            for raw in self._raw:
+                self._data.append(self._build_array(raw, self._chunk_size))
+        else:
+            self._data = self._build_array(self._raw, self._length)
+
+    def _read(self, start_idx, end_idx, use_lock) -> np.ndarray:
+        if self._chunked:
+            start_chunk = start_idx // self._chunk_size
+            chunk_start_idx = start_idx % self._chunk_size
+            end_chunk = end_idx // self._chunk_size
+            chunk_end_idx = end_idx % self._chunk_size
+
+            # Read within one chunk
+            if start_chunk == end_chunk:
+                with self._get_lock(start_chunk, use_lock):
+                    return self._data[start_chunk][chunk_start_idx:chunk_end_idx]
+
+            # Read across multiple chunks
+            np_arrays = list()
+            with self._get_lock(start_chunk, use_lock):
+                np_arrays.append(self._data[start_chunk][chunk_start_idx:])
+            for ci in range(start_chunk+1, end_chunk):
+                with self._get_lock(ci, use_lock):
+                    np_arrays.append(self._data[ci][:])
+            with self._get_lock(end_chunk, use_lock):
+                np_arrays.append(self._data[end_chunk][:chunk_end_idx])
+
+            return np.concatenate(np_arrays)
+
+        else:
+            with self._get_lock(None, use_lock):
+                if start_idx >= 0:
+                    return self._data[start_idx:end_idx].copy()
+                else:
+                    ar1 = self._data[start_idx:]
+                    ar2 = self._data[:end_idx]
+                    return np.concatenate((ar1, ar2))
+
+    def read(self, last=1, use_lock=True) -> Tuple[List, List, Union[None,np.ndarray]]:
+        assert last < self._length, 'Trying to read more values than stored in buffer'
+
+        internal_idx = self._index % self._length
+
+        if self._index <= last:
+            return [-1], [-1], None
+
+        start_idx = internal_idx - last
+
+        # Read without lock
+        return self._get_index_list(last), self.get_times(last), self._read(start_idx, internal_idx, use_lock)
+
+    def write(self, value):
+        # Index in buffer
+        internal_idx = self._index % self._length
+
+        # Set time for this entry
+        self._time[internal_idx] = self._buffer.get_time()
+
+        # Set data
+        if self._chunked:
+            chunk_idx = internal_idx // self._chunk_size
+            idx = internal_idx % self._chunk_size
+
+            with self._get_lock(chunk_idx, True):
+                self._data[chunk_idx][idx] = value
+        else:
+            with self._get_lock(None, True):
+                self._data[internal_idx] = value
+
+    def __setitem__(self, key, value):
+        self._data[key % self._length] = value
+
+
+class ObjectAttribute(BufferAttribute):
+    def __init__(self, **kwargs):
+        BufferAttribute.__init__(self, **kwargs)
+
+        self._data = IPC.Manager.list([None] * self._length)
+
+    def read(self, last=1) -> Tuple[List, List, List]:
+        internal_idx = self._index % self._length
+
+        start_idx = internal_idx - last
+        if start_idx >= 0:
+            return self._get_index_list(last), self.get_times(last), self._data[start_idx:internal_idx]
+        else:
+            return self._get_index_list(last), self.get_times(last), self._data[start_idx:] + self._data[:internal_idx]
+
+    def write(self, value):
+        internal_idx = self._index % self._length
+
+        # Set time for this entry
+        self._time[internal_idx] = self._buffer.get_time()
+
+        # Set data
+        self._data[internal_idx] = value
+
+    def __setitem__(self, key, value):
+        self._data[key % self._length] = value
+
+
+class RingBuffer:
+
+    attr_prefix = '_attr_'
+
+    def __init__(self):
+        self.__dict__['current_idx'] = mp.Value(ctypes.c_uint64)
+
+    def build(self):
+        for attr_name, obj in self.__dict__.items():
+            if not (attr_name.startswith('_attr_')):
+                continue
+
+            obj.build()
+
+    def list_attributes(self):
+        return [attr_name.replace(self.attr_prefix, '') for attr_name
+                in self.__dict__ if attr_name.startswith(self.attr_prefix)]
+
+    def set_time(self, time):
+        self.__dict__['current_time'] = time
+
+    def get_time(self):
+        return self.__dict__['current_time']
+
+    def set_index(self, new_idx):
+        self.__dict__['current_idx'].value = new_idx
+
+    def get_index(self):
+        return self.__dict__['current_idx'].value
+
+    def read(self, attr_name, *args, **kwargs):
+        return getattr(self, attr_name).read(*args, **kwargs)
+
+    def __setattr__(self, key, value):
+        assert issubclass(value.__class__, BufferAttribute), f'{key} must be BufferAttribute'
+        value.set_buffer(self)
+        self.__dict__[f'{self.attr_prefix}{key}'] = value
+
+    def __getattr__(self, item) -> BufferAttribute:
+        # Return
+        try:
+            return self.__dict__[f'_attr_{item}'].get(self.get_index())
+        except:
+            # Fallback for serialization
+            self.__getattribute__(item)
+
+    def next(self):
+        self.set_time(time.time())
+        self.set_index(self.get_index() + 1)
 
 class BufferDTypes:
     ### Unsigned integers
@@ -305,7 +619,7 @@ class BufferDTypes:
     dictionary = (dict, )
 
 
-class RingBuffer:
+class RingBufferMEEEEH:
     """A simple ring buffer model. """
 
     def __init__(self, buffer_length=1000):

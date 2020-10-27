@@ -442,32 +442,40 @@ class Camera(IntegratedWidget):
         # If no routines are set, don't even start frame update timer
         routines = Config.Camera[Def.CameraCfg.routines]
         if bool(routines):
+            # Use first routine in list
+            routine = routines[list(routines.keys())[0]][0]
+            self.used_buffer = IPC.Routines.Camera.get_buffer(routine)
 
-            self.routine = routines[list(routines.keys())[0]][0]
-
-            Logging.write(Logging.INFO, f'Camera UI using routine "{self.routine}"')
+            Logging.write(Logging.INFO, f'Camera UI using routine "{routine}"')
 
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
             self.timer_frame_update.setInterval(1000 // self.stream_fps)
-            self.timer_frame_update.timeout.connect(self.updateFrames)
+            self.timer_frame_update.timeout.connect(self.update_frames)
             self.timer_frame_update.start()
 
-    def updateFrames(self):
+    def update_frames(self):
 
         # Update frames in tabbed widgets
         for idx in range(self.tab_widget.count()):
-            self.tab_widget.widget(idx).updateFrame()
+            self.tab_widget.widget(idx).update_frame()
 
         # Update FPS counter
-        _, frametimes = IPC.Routines.Camera.read(f'{self.routine}/time', last=50)
-        if frametimes[0] is None:
+        target_fps = Config.Camera[Def.CameraCfg.fps]
+        # Grab first random attribute to read the frametimes
+        first_attr_name = self.used_buffer.list_attributes()[0]
+        frametimes = getattr(self.used_buffer, first_attr_name).get_times(target_fps)
+
+        if any([t is None for t in frametimes]):
             return
 
+        # Display FPS
         frame_dts = [v2-v1 for v1, v2 in zip(frametimes[:-1], frametimes[1:])]
         mean_frame_dt = sum(frame_dts) / (len(frametimes)-1)
         fps = 1./mean_frame_dt
-        self.fps_counter.le.setText('FPS {:.2f}'.format(fps))
+        if any([dt < 0 for dt in frame_dts]):
+            print('FPS:', fps, frametimes)
+        self.fps_counter.le.setText('FPS {:.2f}/{:.2f}'.format(fps, target_fps))
 
 
 
