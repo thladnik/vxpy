@@ -393,7 +393,7 @@ class Camera(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Camera', *args)
 
-        self.stream_fps = 10
+        self.stream_fps = 30
 
         self._setup_ui()
 
@@ -401,6 +401,7 @@ class Camera(IntegratedWidget):
         self.setLayout(QtWidgets.QVBoxLayout())
         # FPS counter
         self.fps_counter = QtWidgets.QWidget(parent=self)
+        self.fps_counter.setEnabled(False)
         self.fps_counter.setLayout(QtWidgets.QHBoxLayout())
         self.fps_counter.layout().setContentsMargins(0, 0, 0, 0)
         # Spacer
@@ -462,7 +463,7 @@ class Camera(IntegratedWidget):
 
         # Update FPS counter
         target_fps = Config.Camera[Def.CameraCfg.fps]
-        # Grab first random attribute to read the frametimes
+        # Grab times for first random attribute
         first_attr_name = self.used_buffer.list_attributes()[0]
         frametimes = getattr(self.used_buffer, first_attr_name).get_times(target_fps)
 
@@ -475,8 +476,7 @@ class Camera(IntegratedWidget):
         fps = 1./mean_frame_dt
         if any([dt < 0 for dt in frame_dts]):
             print('FPS:', fps, frametimes)
-        self.fps_counter.le.setText('FPS {:.2f}/{:.2f}'.format(fps, target_fps))
-
+        self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
 
 class Plotter(IntegratedWidget):
@@ -499,7 +499,6 @@ class Plotter(IntegratedWidget):
 
     def update_data(self):
         pin_data = None
-
         idx_range = 1000
 
     def add_line(self, process_name, routine_name, attr_name):

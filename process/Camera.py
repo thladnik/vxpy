@@ -77,7 +77,7 @@ class Camera(Process.AbstractProcess):
         pass
 
     def _prepare_phase(self):
-        pass
+        IPC.Routines.Camera.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
     def _cleanup_protocol(self):
         pass

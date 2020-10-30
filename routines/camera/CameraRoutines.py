@@ -61,13 +61,18 @@ class FrameRoutine(AbstractRoutine):
 
     def _out(self):
         for device_id, _, _ in self.device_list:
-            frame_str = f'{device_id}_frame'
-            yield frame_str, getattr(self.buffer, frame_str).read()
+            frame_attr_name = f'{device_id}_frame'
+            _, time, frame = getattr(self.buffer, frame_attr_name).read(0)
+            yield frame_attr_name, time[0], frame[0]
 
 
 class EyePosDetectRoutine(AbstractRoutine):
 
     camera_device_id = 'behavior'
+    extracted_rect_prefix = 'extracted_rect_'
+    ang_le_pos_prefix = 'angular_le_pos_'
+    ang_re_pos_prefix = 'angular_re_pos_'
+    roi_maxnum = 10
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
@@ -91,28 +96,30 @@ class EyePosDetectRoutine(AbstractRoutine):
         # Set up parameter variables (accessible externally)
         self.rois = dict()
         self.thresh = None
-        self.minSize = None
-        self.maxImValue = None
-        self.detectionMode = None
+        self.min_size = None
+        self.maxvalue = None
+        self.detection_mode = None
 
         # Set up buffer attributes
-        self.buffer.extractedRects = ObjectAttribute()
-        self.buffer.eyePositions = ObjectAttribute()
+        for id in range(self.roi_maxnum):
+            setattr(self.buffer, f'{self.extracted_rect_prefix}{id}', ObjectAttribute())
+            setattr(self.buffer, f'{self.ang_le_pos_prefix}{id}', ObjectAttribute())
+            setattr(self.buffer, f'{self.ang_re_pos_prefix}{id}', ObjectAttribute())
         self.buffer.frame = ArrayAttribute((self.res_y, self.res_x),
                                            ArrayDType.uint8,
                                            length=2*target_fps)
 
     def set_detection_mode(self, mode):
-        self.detectionMode = mode
+        self.detection_mode = mode
 
     def set_threshold(self, thresh):
         self.thresh = thresh
 
     def set_max_im_value(self, value):
-        self.maxImValue = value
+        self.maxvalue = value
 
     def set_min_particle_size(self, size):
-        self.minSize = size
+        self.min_size = size
 
     def set_roi(self, id, params):
         self.rois[id] = params
@@ -129,18 +136,18 @@ class EyePosDetectRoutine(AbstractRoutine):
             modified 2d image for parameter debugging
         """
 
-        ### Formatting for drawing
+        # Formatting for drawing
         line_thickness = np.ceil(np.mean(rect.shape) / 100).astype(int)
         line_thickness = 1 if line_thickness == 0 else line_thickness
         marker_size = line_thickness * 5
 
-        ### Set rect center
+        # Set rect center
         rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
 
-        ### Apply threshold
-        _, thresh = cv2.threshold(rect[:,:], self.thresh, self.maxImValue, cv2.THRESH_BINARY_INV)
+        # Apply threshold
+        _, thresh = cv2.threshold(rect[:,:], self.thresh, self.maxvalue, cv2.THRESH_BINARY_INV)
 
-        ### Detect contours
+        # Detect contours
         cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
         # Make RGB
@@ -159,8 +166,8 @@ class EyePosDetectRoutine(AbstractRoutine):
             M = cv2.moments(cnt)
             A = M['m00']
 
-            ### Discard if contour has no area
-            if A < self.minSize:
+            # Discard if contour has no area
+            if A < self.min_size:
                 del cnts[i]
                 continue
 
@@ -177,7 +184,7 @@ class EyePosDetectRoutine(AbstractRoutine):
             i += 1
 
 
-        ### Additional filtering of particles to idenfity both eyes if more than 2
+        # Additional filtering of particles to idenfity both eyes if more than 2
         if len(cnts) > 2:
             dists, areas, centroids, hulls, feret_points = list(zip(*sorted(list(zip(dists,
                                                                                      areas,
@@ -190,21 +197,22 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         forward_vec = np.array([0,-1])
         forward_vec_norm = forward_vec / np.linalg.norm(forward_vec)
-        ## Draw rect center and midline marker for debugging
-        # (Important: this has to happen AFTER detection of contours, as it alters the tresh'ed image)
+        # Draw rect center and midline marker for debugging
+        # (Important: this has to happen AFTER detection of contours,
+        # as it alters the tresh'ed image)
         cv2.drawMarker(thresh, rect_center, (0, 255, 0), cv2.MARKER_DIAMOND, marker_size * 2, line_thickness)
         cv2.arrowedLine(thresh,
                         tuple(rect_center), tuple((rect_center + rect.shape[0]/3 * forward_vec_norm).astype(int)),
                         (0, 255, 0), line_thickness, tipLength=0.3)
 
-        ## Draw hull contours for debugging (before possible premature return)
+        # Draw hull contours for debugging (before possible premature return)
         cv2.drawContours(thresh, hulls, -1, (128,128,0), line_thickness)
 
-        ### If less than two particles, return
+        # If less than two particles, return
         if len(cnts) < 2:
             return None, thresh
 
-        ### At this point there should only be 2 particles left
+        # At this point there should only be 2 particles left
         le_idx = 0 if (centroids[0][0] < rect_center[0]) else 1
         re_idx = 1 if (centroids[0][0] < rect_center[0]) else 0
 
@@ -216,18 +224,19 @@ class EyePosDetectRoutine(AbstractRoutine):
         re_axis_norm = re_axis / np.linalg.norm(re_axis)
         re_ortho = np.array([-re_axis_norm[1], re_axis_norm[0]])
 
-        ### Calculate angles
-        ## LE
+        # Calculate angles
+        # LE
         le_ref_norm = np.array([forward_vec_norm[1], forward_vec_norm[0]])
         le_ortho_norm = le_ortho / np.linalg.norm(le_ortho)
         le_angle = np.arcsin(np.cross(le_ortho_norm, le_ref_norm))
-        ## RE
+        # RE
         re_ref_norm = np.array([-forward_vec_norm[1], forward_vec_norm[0]])
         re_ortho_norm = re_ortho / np.linalg.norm(re_ortho)
         re_angle = np.arcsin(np.cross(re_ortho_norm, re_ref_norm))
 
-        ### Draw eyes and axes
-        ## LE
+        # Draw eyes and axes
+
+        # LE
         # Feret diameter
         cv2.line(thresh, tuple(feret_points[le_idx][0]), tuple(feret_points[le_idx][1]), (0, 0, 255), line_thickness)
         # Eye center of mass
@@ -238,7 +247,8 @@ class EyePosDetectRoutine(AbstractRoutine):
         # Ortho to feret
         le_draw_ortho = tuple((np.array(rect_center) + le_ortho * 0.5 * np.linalg.norm(le_axis)).astype(int))
         cv2.line(thresh, rect_center, le_draw_ortho, (0, 0, 255), line_thickness)
-        ## RE
+
+        # RE
         # Feret diameter
         cv2.line(thresh, tuple(feret_points[re_idx][0]), tuple(feret_points[re_idx][1]), (255, 0, 0), line_thickness)
         # Eye center of mass
@@ -250,7 +260,7 @@ class EyePosDetectRoutine(AbstractRoutine):
         re_draw_ortho = tuple((np.array(rect_center) + re_ortho * 0.5 * np.linalg.norm(re_axis)).astype(int))
         cv2.line(thresh, rect_center, re_draw_ortho, (255, 0, 0), line_thickness)
 
-        ### Return result
+        # Return result
         return [le_angle, re_angle], thresh
 
     def longest_distance(self, rect):
@@ -263,7 +273,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
 
         # Apply threshold
-        _, thresh = cv2.threshold(rect, self.thresh, self.maxImValue, cv2.THRESH_BINARY_INV)
+        _, thresh = cv2.threshold(rect, self.thresh, self.maxvalue, cv2.THRESH_BINARY_INV)
 
         # Make RGB
         thresh = np.stack((thresh, thresh, thresh), axis=-1)
@@ -393,50 +403,37 @@ class EyePosDetectRoutine(AbstractRoutine):
         if frame is None:
             return
 
-        # Use monochrome, regardless
-        # if frame.ndim > 2:
-        #     frame = frame[:,:,0]
-
         # Write frame to buffer
-        #self.buffer.frame = frame[:,:]
         self.buffer.frame.write(frame[:,:])
 
-
-        # Do eye detection and position estimation
-        extractedRects = dict()
-        eyePositions = dict()
+        # Do eye detection and angular position estimation
         if bool(self.rois):
 
-            ### If eyes were marked: iterate over rects and extract eye positions
+            # If eyes were marked: iterate over ROIs and extract eye positions
             for id, rect_params in self.rois.items():
 
-                ## Convert from pyqtgraph image coordinates to openCV
+                # Convert from pyqtgraph image coordinates to openCV
                 rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
-
-                #eye_pos, new_rect = self.feretDiameter_new(frame, rect_params)
 
                 # For debugging: draw rectangle
                 #box = cv2.boxPoints(rect)
                 #box = np.int0(box)
                 #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
 
-                ## Get rect and frame parameters
+                # Get rect and frame parameters
                 center, size, angle = rect_params[0], rect_params[1], rect_params[2]
                 center, size = tuple(map(int, center)), tuple(map(int, size))
                 height, width = frame.shape[0], frame.shape[1]
 
 
-                ## Rotate
+                # Rotate
                 M = cv2.getRotationMatrix2D(center, angle, 1)
                 rotFrame = cv2.warpAffine(frame, M, (width, height))
 
-                ## Crop rect from frame
+                # Crop rect from frame
                 cropRect = cv2.getRectSubPix(rotFrame, size, center)
 
-                #import IPython
-                #IPython.embed()
-
-                ## Rotate rect so that "up" direction in image corresponds to "foward" for the fish
+                # Rotate rect so that "up" direction in image corresponds to "foward" for the fish
                 center = (size[0]/2, size[1]/2)
                 width, height = size
                 M = cv2.getRotationMatrix2D(center, 90, 1)
@@ -455,29 +452,30 @@ class EyePosDetectRoutine(AbstractRoutine):
 
                 ## Apply detection function on cropped rect which contains eyes
                 #self.segmentationMode = 'feretDiameter'
-                eye_pos, new_rect = getattr(self, self.detectionMode)(rotRect)
+                eye_pos, new_rect = getattr(self, self.detection_mode)(rotRect)
 
                 # Debug: write to file
                 #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
 
                 ### Append angular eye positions to shared list
                 if eye_pos is not None:
-                    eyePositions[id] = eye_pos
+                    getattr(self.buffer, f'angular_le_pos_{id}').write(eye_pos[0])
+                    getattr(self.buffer, f'angular_re_pos_{id}').write(eye_pos[1])
 
-                ### Set current rect ROI data
-                extractedRects[id] = new_rect
-
-        ### Update buffer (Always set)
-        # self.buffer.extractedRects = extractedRects
-        # self.buffer.eyePositions = eyePositions
-        self.buffer.extractedRects.write(extractedRects)
-        self.buffer.eyePositions.write(eyePositions)
+                # Set current rect ROI data
+                getattr(self.buffer, f'extracted_rect_{id}').write(new_rect)
 
     def _out(self):
-        # TODO: fix for new buffer design
-        for id in self.buffer.extractedRects.keys():
+        for id in range(self.roi_maxnum):
+            le_attr_name = f'{self.ang_le_pos_prefix}{id}'
+            re_attr_name = f'{self.ang_re_pos_prefix}{id}'
 
-            if id in self.buffer.eyePositions:
-                yield 'ang_eye_pos{}_left'.format(id), self.buffer.eyePositions[id][0]
-                yield 'ang_eye_pos{}_right'.format(id), self.buffer.eyePositions[id][1]
+            _, le_time, le_ang_pos = getattr(self.buffer, le_attr_name).read(0)
+            _, re_time, re_ang_pos = getattr(self.buffer, re_attr_name).read(0)
+
+            if le_ang_pos[0] is None or re_ang_pos[0] is None:
+                continue
+
+            yield le_attr_name, le_time[0], le_ang_pos[0]
+            yield re_attr_name, re_time[0], re_ang_pos[0]
 

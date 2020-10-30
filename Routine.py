@@ -41,9 +41,10 @@ class Routines:
 
     def __init__(self, name, routines=None):
         self.name = name
-        self.h5File = None
         self._routine_paths = dict()
         self._routines = dict()
+        self.h5_file: h5py.File = None
+        self.current_group: h5py.Group = None
 
         ### Automatically add routines, if provided
         if not(routines is None) and isinstance(routines, dict):
@@ -111,6 +112,7 @@ class Routines:
             routine_name = routine_cls.__name__
 
         assert routine_name in self._routines, f'Routine {routine_name} is not set'
+
         return self._routines[routine_name].buffer
 
     def update(self, *args, **kwargs):
@@ -118,19 +120,18 @@ class Routines:
         if not(bool(args)) and not(bool(kwargs)):
             return
 
-        #t = time.time()
         for name in self._routines:
             # Advance buffer
             self._routines[name].buffer.next()
-            # Set time for current iteration
-            #last_idx, last_t = self._routines[name].buffer.time.read()
-            #if last_t[0] is not None and last_t > t:
-            #    print('AAAAAAAAH')
-            #self._routines[name].buffer.time.write(self._routines[name].buffer.get_time())
             # Update the data in buffer
             self._routines[name].update(*args, **kwargs)
             # Stream new routine computation results to file (if active)
-            self._routines[name].stream_to_file(self.handleFile())
+            self._routines[name].stream_to_file(self.get_container())
+
+    def set_record_group(self, group_name):
+        assert self.h5_file is not None, 'Unable to create record group outside of h5 file context'
+
+        self.current_group = self.h5_file.require_group(group_name)
 
     def read(self, attr_name, routine_name=None, **kwargs):
         """Read shared attribute from buffer.
@@ -151,46 +152,50 @@ class Routines:
     def routines(self):
         return self._routines
 
-    def handleFile(self) -> Union[h5py.File, None]:
+    def get_container(self) -> Union[h5py.File, None]:
         """Method checks if application is currently recording.
-        Opens and closes output file if necessary and returns either a file object or a None value.
+        Opens and closes output file if necessary and returns either a file/group object or a None.
         """
 
-        ### If recording is running and file is open: return file object
-        if IPC.Control.Recording[Def.RecCtrl.active] and not(self.h5File is None):
-            return self.h5File
+        # If recording is running and file is open: return file object
+        if IPC.Control.Recording[Def.RecCtrl.active] and not(self.h5_file is None):
+            if self.current_group is None:
+                return self.h5_file
+            else:
+                return self.current_group
 
-        ### If recording is running and file not open: open file and return file object
-        elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5File is None:
-            ## If output folder is not set: log warning and return None
+        # If recording is running and file not open: open file and return file object
+        elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5_file is None:
+            # If output folder is not set: log warning and return None
             if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
                 Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
                 return None
 
-            ### If output folder is set: open file
+            # If output folder is set: open file
             filepath = os.path.join(Config.Recording[Def.RecCfg.output_folder],
                                     IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
 
             Logging.write(Logging.DEBUG, 'Open new file {}'.format(filepath))
-            self.h5File = h5py.File(filepath, 'w')
+            self.h5_file = h5py.File(filepath, 'w')
 
-            return self.h5File
+            return self.h5_file
 
-        ### Recording is not running at the moment
+        # Recording is not running at the moment
         else:
 
-            ## If current recording folder is still set: recording is paused
+            # If current recording folder is still set: recording is paused
             if bool(IPC.Control.Recording[Def.RecCtrl.folder]):
-                ## Do nothing; return nothing
+                # Do nothing; return nothing
                 return None
 
-            ## If folder is not set anymore
+            # If folder is not set anymore
             else:
                 # Close open file (if open)
-                if not(self.h5File is None):
-                    self.h5File.close()
-                    self.h5File = None
+                if not(self.h5_file is None):
+                    self.h5_file.close()
+                    self.h5_file = None
+                    self.current_group = None
                 # Return nothing
                 return None
 
@@ -211,26 +216,20 @@ class AbstractRoutine:
 
         # Default ring buffer instance for routine
         self.buffer = RingBuffer()
-        # Set time attribute by default on all buffers
-        #self.buffer.time = ObjectAttribute()
-
-        # Set time
-        #self.currentTime = time.time()
-
 
     def _compute(self, *args, **kwargs):
-        """Compute method is called on data updates (so in the producer process).
+        """Compute method is called on data updates (in the producer process).
         Every buffer needs to implement this method."""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
     def _out(self):
         """Method may be reimplemented. Can be used to alter the output to file.
         If this buffer is going to be used for recording data, this method HAS to be implemented.
-        Implementations of this method should yield a tuple (attribute name, attribute value) to be written to file
-
-        By default this returns the current attribute name -> attribute value pair.
+        Implementations of this method should yield a tuple
+        with (attribute name, time, attribute value)
         """
-        raise NotImplemented('method _out not implemented in {}'.format(self.__class__.__name__))
+        # TODO: add default behavior instead of raising exception?
+        raise NotImplementedError('method _out not implemented in {}'.format(self.__class__.__name__))
 
     def read(self, attr_name, *args, **kwargs):
         return self.buffer.read(attr_name, *args, **kwargs)
@@ -242,7 +241,6 @@ class AbstractRoutine:
         """
 
         self._compute(*args, **kwargs)
-
 
     def _append_data(self, grp, key, value):
 
@@ -259,45 +257,49 @@ class AbstractRoutine:
                                    shape=(0, *dshape,),
                                    dtype=dtype,
                                    maxshape=(None, *dshape,),
-                                   chunks=(1, *dshape,), )  # compression='lzf')
-            except:
-                Logging.write(Logging.WARNING, 'Failed to create record dset "{}/{}"'.format(grp.name, key))
-
-            grp[key].attrs.create('Position', self.currentTime, dtype=np.float64)
+                                   chunks=(1, *dshape,),)
+                                   # compression='lzf',
+                                   # compression_opts=6,
+                                   # shuffle=True)
+                # TODO: add compression option to recording controls + GUI
+            except Exception as exc:
+                import traceback
+                Logging.write(Logging.WARNING,
+                              f'Failed to create record dset "{grp.name}/{key}"')
+                traceback.print_exc()
 
         dset = grp[key]
 
-        ## Resize dataset and append new value
+        # Resize dataset and append new value
         dset.resize((dset.shape[0] + 1, *dshape))
         dset[dset.shape[0] - 1] = value
 
-    def stream_to_file(self, file: Union[h5py.File, None]):
-        ### Set id of current buffer e.g. "Camera/FrameBuffer"
+    def stream_to_file(self, container: Union[h5py.File, h5py.Group, None]):
+        # Set id of current buffer e.g. "Camera/FrameBuffer"
         bufferName = self.__class__.__name__
 
-        ### If no file object was provided or this particular buffer is not supposed to stream to file: return
-        if file is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Def.RecCfg.routines]):
+        # If no file object was provided or this particular buffer is not supposed to stream to file: return
+        if container is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Def.RecCfg.routines]):
             return None
 
-        ## Each buffer writes to it's own group
-        if not(bufferName in file):
+        # Each buffer writes to it's own group
+        if not(bufferName in container):
             Logging.write(Logging.INFO, 'Create record group {}'.format(bufferName))
-            file.create_group(bufferName)
-        grp = file[bufferName]
+            container.create_group(bufferName)
+        grp = container[bufferName]
 
-        ## Iterate over data in group (buffer)
-        for key, value in self._out():
+        # Iterate over data in group (buffer)
+        for key, time, value in self._out():
 
-            ## On datasets:
+            # On datasets:
             ## TODO: handle changing dataset sizes (e.g. rect ROIs which are slightly altered during rec)
             ###
             # NOTE ON COMPRESSION FOR FUTURE:
             # GZIP: common, but slow
             # LZF: fast, but only natively implemented in python h5py (-> can't be read by HDF Viewer)
             ###
-
             self._append_data(grp, key, value)
-            self._append_data(grp, '{}_time'.format(key), self.buffer.time)
+            self._append_data(grp, '{}_time'.format(key), time)
 
 
 import ctypes
@@ -336,19 +338,37 @@ class BufferAttribute:
             return self._time[start_idx:] + self._time[:end_idx]
 
     def get_times(self, last):
-        internal_idx = self._index % self._length
-        start_idx = internal_idx-last
-        return self._get_times(start_idx, internal_idx)
+        return self._get_times(*self._get_range(last))
 
     def get(self, current_idx):
         self._index = current_idx
         return self
 
-    def read(self, last=-1):
-        raise NotImplementedError(f'Method read not implemented in {self.__class__}')
+    def _read(self, start_idx, end_idx, use_lock):
+        raise NotImplementedError(f'_read not implemented in {self.__class__.__name__}')
+
+    def read(self, last=1, use_lock=True):
+        # Return indices, times, datasets
+        return self._get_index_list(last), self.get_times(last), self._read(*self._get_range(last), use_lock)
 
     def write(self, value):
         raise NotImplementedError(f'Method write not implemented in {self.__class__}')
+
+    def _get_range(self, last):
+        assert last < self._length, 'Trying to read more values than stored in buffer'
+        assert last >= 0, 'Trying to read negative number of entries from buffer'
+
+        # Regular read: fetch some number of entries from buffer
+        if last > 0:
+            internal_idx = self._index % self._length
+            start_idx = internal_idx - last
+        # Read current entry from buffer
+        # (Should only be done in producer! In consumer the result is unpredictable)
+        else:
+            internal_idx = (self._index + 1) % self._length
+            start_idx = internal_idx - 1
+
+        return start_idx, internal_idx
 
     def _get_index_list(self, last) -> List:
         return list(range(self._index - last, self._index))
@@ -488,19 +508,6 @@ class ArrayAttribute(BufferAttribute):
                     ar2 = self._data[:end_idx]
                     return np.concatenate((ar1, ar2))
 
-    def read(self, last=1, use_lock=True) -> Tuple[List, List, Union[None,np.ndarray]]:
-        assert last < self._length, 'Trying to read more values than stored in buffer'
-
-        internal_idx = self._index % self._length
-
-        if self._index <= last:
-            return [-1], [-1], None
-
-        start_idx = internal_idx - last
-
-        # Read without lock
-        return self._get_index_list(last), self.get_times(last), self._read(start_idx, internal_idx, use_lock)
-
     def write(self, value):
         # Index in buffer
         internal_idx = self._index % self._length
@@ -529,14 +536,12 @@ class ObjectAttribute(BufferAttribute):
 
         self._data = IPC.Manager.list([None] * self._length)
 
-    def read(self, last=1) -> Tuple[List, List, List]:
-        internal_idx = self._index % self._length
-
-        start_idx = internal_idx - last
+    def _read(self, start_idx, end_idx, use_lock):
+        """use_lock not used, because manager handles locking"""
         if start_idx >= 0:
-            return self._get_index_list(last), self.get_times(last), self._data[start_idx:internal_idx]
+            return self._data[start_idx:end_idx]
         else:
-            return self._get_index_list(last), self.get_times(last), self._data[start_idx:] + self._data[:internal_idx]
+            return self._data[start_idx:] + self._data[:end_idx]
 
     def write(self, value):
         internal_idx = self._index % self._length
@@ -600,136 +605,3 @@ class RingBuffer:
     def next(self):
         self.set_time(time.time())
         self.set_index(self.get_index() + 1)
-
-class BufferDTypes:
-    ### Unsigned integers
-    uint8 = (ctypes.c_uint8, np.uint8)
-    uint16 = (ctypes.c_uint16, np.uint16)
-    uint32 = (ctypes.c_uint32, np.uint32)
-    uint64 = (ctypes.c_uint64, np.uint64)
-    ### Signed integers
-    int8 = (ctypes.c_int8, np.int8)
-    int16 = (ctypes.c_int16, np.int16)
-    int32 = (ctypes.c_int32, np.int32)
-    int64 = (ctypes.c_int64, np.int64)
-    ### Floating point numbers
-    float32 = (ctypes.c_float, np.float32)
-    float64 = (ctypes.c_double, np.float64)
-    ### Misc types
-    dictionary = (dict, )
-
-
-class RingBufferMEEEEH:
-    """A simple ring buffer model. """
-
-    def __init__(self, buffer_length=1000):
-        self.__dict__['_bufferLength'] = buffer_length
-
-        self.__dict__['_attributeList'] = list()
-        ### Index that points to the record which is currently being updated
-        self.__dict__['_currentIdx'] = IPC.Manager.Value(ctypes.c_int64, 0)
-
-    def initialize(self):
-        for attr_name in self.__dict__['_attributeList']:
-            shape = self.__dict__['_shape_{}'.format(attr_name)]
-            if shape is None or shape == (1,):
-                continue
-
-            data = np.frombuffer(self.__dict__['_dbase_{}'.format(attr_name)], self.__dict__['_dtype_{}'.format(attr_name)][1]).reshape((self.length(), *shape))
-            self.__dict__['_data_{}'.format(attr_name)] = data
-
-    def next(self):
-        self.__dict__['_currentIdx'].value += 1
-
-    def index(self):
-        return self.__dict__['_currentIdx'].value
-
-    def length(self):
-        return self.__dict__['_bufferLength']
-
-    def read(self, attr_name, last=1, last_idx=None):
-        """Read **by consumer**: return last complete record(s) (_currentIdx-1)
-        Returns a tuple of (index, record_dataset)
-                        or (indices, record_datasets)
-        """
-        if not(last_idx is None):
-            last = self.index()-last_idx
-
-        ### Set index relative to buffer length
-        list_idx = (self.index()) % self.length()
-
-        ### One record
-        if last == 1:
-            idx_start = list_idx-1
-            idx_end = None
-            idcs = self.index()-1
-
-        ### Multiple record
-        elif last > 1:
-            if last > self.length():
-
-                raise Exception('Trying to read more records than stored in buffer. '
-                                'Attribute \'{}\''.format(attr_name))
-
-            idx_start = list_idx-last
-            idx_end = list_idx
-
-            idcs = list(range(self.index()-last, self.index()))
-
-        ### No entry: raise exception
-        else:
-            Logging.write(Logging.WARNING, 'Cannot read {} from buffer. Argument last = {}'.format(attr_name, last))
-            return None, None
-            #raise Exception('Smallest possible record set size is 1')
-
-        if isinstance(attr_name, str):
-            return idcs, self._read(attr_name, idx_start, idx_end)
-        else:
-            return idcs, {n: self._read(n, idx_start, idx_end) for n in attr_name}
-
-    def _createAttribute(self, attr_name, dtype, shape=None):
-        self.__dict__['_attributeList'].append(attr_name)
-        if shape is None or shape == (1,):
-            self.__dict__['_data_{}'.format(attr_name)] = IPC.Manager.list(self.length() * [None])
-        else:
-            ### *Note to future self*
-            # ALWAYS try to use shared arrays instead of managed lists, etc for stuff like this
-            # Performance GAIN in the particular example of the Camera process pushing
-            # 720x750x3 uint8 images through the buffer is close to _100%_ (DOUBLING of performance)\\ TH 2020-07-16
-            self.__dict__['_dbase_{}'.format(attr_name)] = mp.RawArray(dtype[0], int(np.prod([self.length(), *shape])))
-            self.__dict__['_data_{}'.format(attr_name)] = None
-        self.__dict__['_dtype_{}'.format(attr_name)] = dtype
-        self.__dict__['_shape_{}'.format(attr_name)] = shape
-
-    def _read(self, name, idx_start, idx_end):
-
-        ### Return single record
-        if idx_end is None:
-            return self.__dict__['_data_{}'.format(name)][idx_start]
-
-        ### Return multiple records
-        if idx_start >= 0:
-            return self.__dict__['_data_{}'.format(name)][idx_start:idx_end]
-        else:
-            # TODO: not possible to handle slices of shared arrays with this!
-            return self.__dict__['_data_{}'.format(name)][idx_start:] \
-                   + self.__dict__['_data_{}'.format(name)][:idx_end]
-
-    def __setattr__(self, name, value):
-        if not('_data_{}'.format(name) in self.__dict__):
-            if isinstance(value, tuple):
-                self._createAttribute(name, *value)
-            else:
-                raise TypeError('Class {} needs to be provided a tuple '
-                                'for initialization of new attribute'.format(self.__class__.__name__))
-        else:
-            # TODO: add checks?
-            self.__dict__['_data_{}'.format(name)][self.index() % self.length()] = value
-
-    def __getattr__(self, name):
-        """Get current record"""
-        try:
-            return self.__dict__['_data_{}'.format(name)][(self.index()) % self.length()]
-        except:
-            ### Fallback to parent is essential for pickling!
-            super().__getattribute__(name)

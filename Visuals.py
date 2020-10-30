@@ -217,7 +217,7 @@ class SphericalVisual(AbstractVisual):
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
 
-        ### Set relative size
+        # Set relative size
         self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array ([1, 1])
 
         # Set 3D transform
@@ -227,10 +227,10 @@ class SphericalVisual(AbstractVisual):
         project3d = transforms.perspective(fov, 1, 0.1, 200.0)
         self.transform_uniforms['u_mapcalib_transform3d'] = translate3d @ project3d
 
-        ### Calculate elevation rotation
+        # Calculate elevation rotation
         rotate_elev_3d = transforms.rotate(-90 + Config.Display[Def.DisplayCfg.sph_view_elev_angle], (1, 0, 0))
 
-        ### Make sure stencil testing is disabled and depth testing is enabled
+        # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
         gl.glEnable(gl.GL_DEPTH_TEST)
 

@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from vispy import gloo
-from dataclasses import dataclass, make_dataclass
 
 from Shader import BasicFileShader
 from Visuals import SphericalVisual

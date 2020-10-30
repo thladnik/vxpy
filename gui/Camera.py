@@ -274,15 +274,16 @@ class EyePositionDetector(QtWidgets.QWidget):
                 self.new_marker = None
 
         def update_subplots(self):
-            idx, time, extracted_rects = IPC.Routines.Camera.read('EyePosDetectRoutine/extractedRects')
-            extracted_rects = extracted_rects[0]
-
-            if not(bool(extracted_rects)):
-                return
 
             # Draw rectangular ROIs
-            for id in range(len(extracted_rects)):
-                self.subplots[id]['imageitem'].setImage(np.rot90(extracted_rects[id], -1))
+            for id in self.roi_rects:
+                idx, time, rect = IPC.Routines.Camera.read(f'EyePosDetectRoutine/extracted_rect_{id}')
+                rect = rect[0]
+
+                if rect is None:
+                    return
+
+                self.subplots[id]['imageitem'].setImage(np.rot90(rect, -1))
 
 
     class Line(pg.LineSegmentROI):
