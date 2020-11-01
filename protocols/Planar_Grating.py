@@ -20,21 +20,19 @@ import numpy as np
 
 from Protocol import StaticProtocol
 
-from visuals.planar.Grating import BlackAndWhiteGrating
+from visuals.planar.Grating import BlackAndWhiteGrating as BWG
 
 class ShowSFRange(StaticProtocol):
 
     def __init__(self, _glWindow):
         StaticProtocol.__init__(self, _glWindow)
 
-        for sf in np.arange(10,40,10):
-
-            self.newPhase(5)
-            self.addVisual(BlackAndWhiteGrating,
-                           dict(u_direction='horizontal',
-                                u_shape='rectangular',
-                                u_spat_period=sf,
-                                u_lin_velocity=0))
+        for sp in np.arange(1,4):
+            self.add_phase(BWG, 5,
+                           {BWG.u_direction: 'horizontal',
+                            BWG.u_shape: 'rectangular',
+                            BWG.u_spat_period: sp,
+                            BWG.u_lin_velocity: 1})
 
 
 class Stresstest(StaticProtocol):
@@ -43,11 +41,9 @@ class Stresstest(StaticProtocol):
         StaticProtocol.__init__(self, _glWindow)
 
         for sp in np.arange(10.0, 30.0, 4.0):
-
             for v in np.arange(2, 10, 2):
-                self.newPhase(5)
-                self.addVisual(BlackAndWhiteGrating,
-                               dict(u_direction='horizontal',
-                                    u_shape='rectangular',
-                                    u_spat_period=sp,
-                                    u_lin_velocity=v))
+                self.add_phase(BWG, 5,
+                               {BWG.u_direction: 'horizontal',
+                                BWG.u_shape: 'rectangular',
+                                BWG.u_spat_period: sp,
+                                BWG.u_lin_velocity: v})

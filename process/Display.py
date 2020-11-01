@@ -1,5 +1,5 @@
 """
-MappApp ./process/DefaultDisplayRoutines.py - Process which handles rendering of visual visuals.
+MappApp ./process/DisplayRoutines.py - Process which handles rendering of visual visuals.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -63,7 +63,7 @@ class Canvas(app.Canvas):
             # This makes debugging new stimuli much easier.
             try:
 
-                print(time.time()-self.t)
+                #print(time.time()-self.t)
                 self.t = time.time()
                 self.visual.draw(time.perf_counter())
             except Exception as exc:
@@ -129,4 +129,6 @@ class Display(Process.AbstractProcess):
         app.process_events()
         self._run_protocol()
 
-        #IPC.Routines.Display.update(self.visual)
+        if self.visual is not None:
+            IPC.Routines.Display.update(self.visual)
+        IPC.Routines.Display.get_container()

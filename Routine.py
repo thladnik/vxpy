@@ -129,7 +129,8 @@ class Routines:
             self._routines[name].stream_to_file(self.get_container())
 
     def set_record_group(self, group_name):
-        assert self.h5_file is not None, 'Unable to create record group outside of h5 file context'
+        if self.h5_file is None:
+            return#, 'Unable to create record group outside of h5 file context'
 
         self.current_group = self.h5_file.require_group(group_name)
 

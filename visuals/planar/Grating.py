@@ -15,13 +15,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import time
+from vispy import gloo
+import numpy as np
 
 from Visuals import PlanarVisual
 from models import BasicPlane
 from Shader import BasicFileShader
 
-from glumpy import gl
-import time
+
 class BlackAndWhiteGrating(PlanarVisual):
 
     u_shape = 'u_shape'
@@ -29,7 +31,11 @@ class BlackAndWhiteGrating(PlanarVisual):
     u_spat_period = 'u_spat_period'
     u_lin_velocity = 'u_lin_velocity'
 
-    parameters = {u_shape: None, u_direction:None, u_lin_velocity:None, u_spat_period:None}
+    parameters = {
+        u_shape: None,
+        u_direction: None,
+        u_lin_velocity: None,
+        u_spat_period: None}
 
     def __init__(self, *args, **params):
         """
@@ -42,38 +48,42 @@ class BlackAndWhiteGrating(PlanarVisual):
         """
         PlanarVisual.__init__(self, *args)
 
-        self.plane = self.addModel('planar',
-                                   BasicPlane.VerticalXYPlane)
-        self.plane.createBuffers()
+        self.plane = BasicPlane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(
+            np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(
+            np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.grating = self.addProgram('checker',
-                                       BasicFileShader().addShaderFile('planar/grating.vert').read(),
-                                       BasicFileShader().addShaderFile('planar/grating.frag').read())
-        self.grating.bind(self.plane.vertexBuffer)
+        self.grating = gloo.Program(
+            BasicFileShader().addShaderFile('planar/grating.vert').read(),
+            BasicFileShader().addShaderFile('planar/grating.frag').read())
+        self.grating['a_position'] = self.position_buffer
 
         self.update(**params)
 
-        self.t = time.time()
+        self.start_time = time.time()
 
 
-    def render(self):
-        self.grating['u_stime'] = time.time() - self.t
-        self.grating.draw(gl.GL_TRIANGLES, self.plane.indexBuffer)
+    def render(self, frame_time):
+        self.grating['u_stime'] = frame_time#time.time() - self.start_time
+
+        self.apply_transform(self.grating)
+        self.grating.draw('triangles', self.index_buffer)
 
     def update(self, **params):
 
         if params.get(self.u_shape) is not None:
-            params[self.u_shape] = self.parseShape(params.get(self.u_shape))
+            params[self.u_shape] = self.parse_shape(params.get(self.u_shape))
 
         if params.get(self.u_direction) is not None:
-            params[self.u_direction] = self.parseDirection(params.get(self.u_direction))
+            params[self.u_direction] = self.parse_direction(params.get(self.u_direction))
 
         self.parameters.update({k : p for k, p in params.items() if not(p is None)})
         for k, p in self.parameters.items():
             self.grating[k] = p
 
-    def parseShape(self, shape):
+    def parse_shape(self, shape):
         return 1 if shape == 'rectangular' else 2  # 'sinusoidal'
 
-    def parseDirection(self, orientation):
+    def parse_direction(self, orientation):
         return 1 if orientation == 'vertical' else 2  # 'horizontal'

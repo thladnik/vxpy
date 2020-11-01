@@ -29,12 +29,44 @@ import Logging
 
 class AbstractVisual:
 
+    # Display shaders
+    _vertex_display = """
+        attribute vec2 a_position;
+        varying vec2 v_texcoord;
+
+        void main() {
+            v_texcoord = 0.5 + a_position / 2.0;
+            gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+    """
+    _frag_display = """
+        varying vec2 v_texcoord;
+
+        uniform sampler2D u_texture;
+
+        void main() {
+            gl_FragColor = texture2D(u_texture, v_texcoord);
+        }
+    """
+
     def __init__(self, canvas):
         self.frame_time = None
         self.canvas = canvas
         self._programs = dict()
         self.parameters = dict()
         self.transform_uniforms = dict()
+
+        self._buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
+        #self._square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+        self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
+        self._out_fb = gloo.FrameBuffer(self._out_texture)
+        self.frame = self._out_fb
+
+        # Create display program: renders the out texture from FB to screen
+        self.square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+        self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
+        self._display_prog['a_position'] = self.square
+        self._display_prog['u_texture'] = self._out_texture
 
     def add_program(self):
         pass
@@ -132,25 +164,6 @@ class SphericalVisual(AbstractVisual):
         }
     """
 
-    # Display shaders
-    _vertex_display = """
-        attribute vec2 a_position;
-        varying vec2 v_texcoord;
-
-        void main() {
-            v_texcoord = 0.5 + a_position / 2.0;
-            gl_Position = vec4(a_position, 0.0, 1.0);
-        }
-    """
-    _frag_display = """
-        varying vec2 v_texcoord;
-
-        uniform sampler2D u_texture;
-
-        void main() {
-            gl_FragColor = texture2D(u_texture, v_texcoord);
-        }
-    """
 
     def __init__(self, *args):
         AbstractVisual.__init__(self, *args)
@@ -166,21 +179,21 @@ class SphericalVisual(AbstractVisual):
         self._mask_index_buffer = gloo.IndexBuffer(self._mask_model.indices)
 
         # Set textures and FBs
-        _buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
 
-        self._mask_texture = gloo.Texture2D(_buffer_shape, format='luminance')
-        self._mask_depth_buffer = gloo.RenderBuffer(_buffer_shape)
+        self._mask_texture = gloo.Texture2D(self._buffer_shape, format='luminance')
+        self._mask_depth_buffer = gloo.RenderBuffer(self._buffer_shape)
         self._mask_fb = gloo.FrameBuffer(self._mask_texture, self._mask_depth_buffer)
 
-        self._raw_texture = gloo.Texture2D(_buffer_shape + (3,), format='rgb')
-        self._raw_depth_buffer = gloo.RenderBuffer(_buffer_shape)
+        self._raw_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
+        self._raw_depth_buffer = gloo.RenderBuffer(self._buffer_shape)
         self._raw_fb = gloo.FrameBuffer(self._raw_texture, self._raw_depth_buffer)
 
-        self._display_texture = gloo.Texture2D(_buffer_shape + (3,), format='rgb')
+        self._display_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._display_fb = gloo.FrameBuffer(self._display_texture)
 
-        self._out_texture = gloo.Texture2D(_buffer_shape + (3,), format='rgb')
-        self._out_fb = gloo.FrameBuffer(self._out_texture)
+        # self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
+        # self._out_fb = gloo.FrameBuffer(self._out_texture)
+        # self.frame = self._out_fb
 
         # Create mask program: renders binary mask of quarter-sphere to FB
         self._mask_program = gloo.Program(self._sphere_map, self._mask_frag)
@@ -189,16 +202,16 @@ class SphericalVisual(AbstractVisual):
         # Create out program: renders the output texture to FB
         # by combinding raw and mask textures
         # (to be saved and re-rendered in display program)
-        square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+        # square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
         self._out_prog = gloo.Program(self._vertex_out, self._frag_out, count=4)
-        self._out_prog['a_position'] = square
+        self._out_prog['a_position'] = self.square
         self._out_prog['u_raw_texture'] = self._raw_texture
         self._out_prog['u_mask_texture'] = self._mask_texture
 
         # Create display program: renders the out texture from FB to screen
-        self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
-        self._display_prog['a_position'] = square
-        self._display_prog['u_texture'] = self._out_texture
+        # self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
+        # self._display_prog['a_position'] = square
+        # self._display_prog['u_texture'] = self._out_texture
 
         # Set clear color
         gloo.set_clear_color('black')
@@ -292,6 +305,18 @@ class PlanarVisual(AbstractVisual):
         AbstractVisual.__init__(self, *args)
         gloo.set_clear_color('black')
 
+        # Set texture and FB
+        # _buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
+        # self._out_texture = gloo.Texture2D(_buffer_shape + (3,), format='rgb')
+        # self._out_fb = gloo.FrameBuffer(self._out_texture)
+        # self.frame = self._out_fb
+        #
+        # # Create display program: renders the out texture from FB to screen
+        # square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+        # self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
+        # self._display_prog['a_position'] = square
+        # self._display_prog['u_texture'] = self._out_texture
+
     def draw(self, frame_time):
         gloo.clear()
 
@@ -307,19 +332,19 @@ class PlanarVisual(AbstractVisual):
             self.u_mapcalib_xscale = 1.
             self.u_mapcalib_yscale = width/height
 
-        ### Set 2d translation
+        # Set 2d translation
         self.u_glob_x_position = Config.Display[Def.DisplayCfg.glob_x_pos]
         self.u_glob_y_position = Config.Display[Def.DisplayCfg.glob_y_pos]
 
-        ### Extents
+        # Extents
         self.u_mapcalib_xextent = Config.Display[Def.DisplayCfg.pla_xextent]
         self.u_mapcalib_yextent = Config.Display[Def.DisplayCfg.pla_yextent]
 
-        ### Set real world size multiplier [mm]
+        # Set real world size multiplier [mm]
         # (PlanarVisual's positions are normalized to the smaller side of the screen)
         self.u_small_side_size = Config.Display[Def.DisplayCfg.pla_small_side]
 
-        ### Set uniforms
+        # Set uniforms
         self.transform_uniforms['u_mapcalib_xscale'] = self.u_mapcalib_xscale
         self.transform_uniforms['u_mapcalib_yscale'] = self.u_mapcalib_yscale
         self.transform_uniforms['u_mapcalib_xextent'] = self.u_mapcalib_xextent
@@ -328,5 +353,14 @@ class PlanarVisual(AbstractVisual):
         self.transform_uniforms['u_glob_x_position'] = self.u_glob_x_position
         self.transform_uniforms['u_glob_y_position'] = self.u_glob_y_position
 
-        ### Call the rendering function of the subclass
-        self.render(frame_time)
+        # Call the rendering function of the subclass
+        try:
+            # Render to buffer
+            with self._out_fb:
+                self.render(frame_time)
+
+            # Render to display
+            self._display_prog.draw('triangle_strip')
+        except Exception as exc:
+            import traceback
+            print(traceback.print_exc())

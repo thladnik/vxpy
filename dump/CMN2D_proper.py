@@ -85,11 +85,11 @@ def on_draw(dt):
     gl.glDisable(gl.GL_BLEND)
     gl.glEnable(gl.GL_DEPTH_TEST)
     tempsize = int(self.V['texcoord'].shape[0]/6)
-    tidx = np.mod(self.t,99)
+    tidx = np.mod(self.start_time, 99)
     motmat_R   = cen2square(self.motmat_x_R[:,tidx],self.motmat_y_R[:,tidx],0).reshape([-1,2])
     self.V['texcoord'] += motmat_R[textface]/300
     self.patchMat.trigger_on_draw(gl.GL_TRIANGLES, I)
-    self.t+=1
+    self.start_time+=1
     print(dt)
 
 def on_resize(width, height):
