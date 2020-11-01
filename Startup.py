@@ -44,7 +44,7 @@ Logging.write = lambda *args, **kwargs: None
 
 ################################################################
 ################################
-### MODULES
+# MODULES
 
 class ModuleWidget(QtWidgets.QWidget):
 
@@ -71,7 +71,7 @@ class ModuleWidget(QtWidgets.QWidget):
 
 
 ################################
-### CAMERA
+# CAMERA
 
 from devices import Camera
 class CameraWidget(ModuleWidget):
@@ -377,17 +377,27 @@ class CameraWidget(ModuleWidget):
 
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
+        if self.camera is not None:
+            self.camera.stop()
+
         import devices.Camera
         try:
             cam = getattr(devices.Camera, section[Def.CameraCfg.manufacturer][row_idx])
             self.camera = cam(section[Def.CameraCfg.model][row_idx], section[Def.CameraCfg.format][row_idx])
             self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx], section[Def.CameraCfg.res_y][row_idx]
             self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx]+30)
+            gain = section[Def.CameraCfg.gain][row_idx]
+            exposure = section[Def.CameraCfg.exposure][row_idx]
+            print(gain, exposure)
+            self.camera.set_gain(gain)
+            self.camera.set_exposure(exposure)
             ### Provoke exception
             self.camera.snap_image()
             self.camera.get_image()
         except Exception as exc:
             print('Could not access device {}. Exception: {}'.format(section[Def.CameraCfg.device_id][row_idx], exc))
+            import traceback
+            print(traceback.print_exc())
             self.camera = self.res_x = self.res_y = None
 
     def update_stream(self):
@@ -397,8 +407,12 @@ class CameraWidget(ModuleWidget):
 
         self.camera.snap_image()
         im = self.camera.get_image()
-        im = im[:self.res_y, :self.res_x, :]
+        im = im[:self.res_y, :self.res_x]
         self.imitem.setImage(im)
+
+    def closed_main_window(self):
+        if self.camera is not None:
+            self.camera.stop()
 
 class EditCameraWidget(QtWidgets.QDialog):
 
@@ -409,43 +423,43 @@ class EditCameraWidget(QtWidgets.QDialog):
         self.setLayout(QtWidgets.QGridLayout())
         self.setWindowTitle('Camera properties')
 
-        ### Add fields
-        ## Device ID
+        # Add fields
+        # Device ID
         self.layout().addWidget(QtWidgets.QLabel('Device ID'), 0, 0)
         self.device_id = QtWidgets.QLineEdit()
         self.layout().addWidget(self.device_id, 0, 1)
-        ## Manufacturer
+        # Manufacturer
         self.layout().addWidget(QtWidgets.QLabel('Manufacturer'), 5, 0)
         self.manufacturer = QtWidgets.QComboBox()
         self.manufacturer.addItems([Camera.TISCamera.__name__, Camera.VirtualCamera.__name__])
         self.manufacturer.currentTextChanged.connect(self.update_models)
         self.layout().addWidget(self.manufacturer, 5, 1)
-        ## Models
+        # Models
         self.layout().addWidget(QtWidgets.QLabel('Model'), 10, 0)
         self.model = QtWidgets.QComboBox()
         self.model.currentTextChanged.connect(self.check_model)
-        self.model.currentTextChanged.connect(self.update_format)
+        self.model.currentTextChanged.connect(self.update_formats)
         self.layout().addWidget(self.model, 10, 1)
-        ## Formats
+        # Formats
         self.layout().addWidget(QtWidgets.QLabel('Format'), 15, 0)
         self.vidformat = QtWidgets.QComboBox()
         self.vidformat.currentTextChanged.connect(self.check_format)
         self.layout().addWidget(self.vidformat, 15, 1)
-        ## Exposure
+        # Exposure
         self.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 20, 0)
         self.exposure = QtWidgets.QDoubleSpinBox()
         self.exposure.setMinimum(0.001)
         self.exposure.setMaximum(9999)
         self.layout().addWidget(self.exposure, 20, 1)
-        ## Exposure
-        self.layout().addWidget(QtWidgets.QLabel('Exposure [ms]'), 25, 0)
+        # Exposure
+        self.layout().addWidget(QtWidgets.QLabel('Gain'), 25, 0)
         self.gain = QtWidgets.QDoubleSpinBox()
         self.gain.setMinimum(0.001)
         self.gain.setMaximum(9999)
         self.layout().addWidget(self.gain, 25, 1)
 
 
-        ### Add buttons
+        # Add buttons
         self.buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel,
                                              QtCore.Qt.Horizontal, self)
         self.buttons.accepted.connect(self.check_fields)
@@ -462,11 +476,14 @@ class EditCameraWidget(QtWidgets.QDialog):
 
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
+        select_models = section[Def.CameraCfg.model]
 
-        models = getattr(Camera, self.manufacturer.currentText()).get_models()
-        self.model.addItems(models)
-        if not(section[Def.CameraCfg.model][self.camera_idx] in models):
-            self.model.addItem(section[Def.CameraCfg.model][self.camera_idx])
+        avail_models = getattr(Camera, self.manufacturer.currentText()).get_models()
+
+        if self.camera_idx < len(select_models) and not(select_models[self.camera_idx] in avail_models):
+            avail_models.append(select_models[self.camera_idx])
+
+        self.model.addItems(avail_models)
 
     def check_model(self, m):
         if m in getattr(Camera, self.manufacturer.currentText()).get_models():
@@ -474,20 +491,18 @@ class EditCameraWidget(QtWidgets.QDialog):
         else:
             self.model.setStyleSheet('QComboBox {color: red;}')
 
-    def update_format(self):
-        #self.vidformat.setStyleSheet('')
+    def update_formats(self):
         self.vidformat.clear()
 
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
+        select_formats = section[Def.CameraCfg.format]
 
-        formats = getattr(Camera, self.manufacturer.currentText()).get_formats(self.model.currentText())
-        if not(section[Def.CameraCfg.format][self.camera_idx] in formats):
-            #self.vidformat.setStyleSheet('QComboBox {color: red;}')
-            formats.append(section[Def.CameraCfg.format][self.camera_idx])
+        avail_formats = getattr(Camera, self.manufacturer.currentText()).get_formats(self.model.currentText())
+        if self.camera_idx < len(select_formats) and not(select_formats[self.camera_idx] in avail_formats):
+            avail_formats.append(select_formats[self.camera_idx])
 
-        self.vidformat.addItems(formats)
-
+        self.vidformat.addItems(avail_formats)
 
     def check_format(self, f):
         if f in getattr(Camera, self.manufacturer.currentText()).get_formats(self.model.currentText()):
@@ -499,28 +514,28 @@ class EditCameraWidget(QtWidgets.QDialog):
         global current_config
         section = current_config.getParsedSection(Def.CameraCfg.name)
 
-        ### If this is a new camera (index not in range)
+        # If this is a new camera (index not in range)
         if self.camera_idx >= len(section[Def.CameraCfg.device_id]):
             self.exposure.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.exposure])
             self.gain.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.gain])
             return
 
-        ### Set current value
-        ## Device ID
+        # Set current value
+        # Device ID
         self.device_id.setText(section[Def.CameraCfg.device_id][self.camera_idx])
-        ## Manufacturer
+        # Manufacturer
         if self.manufacturer.currentText() != section[Def.CameraCfg.manufacturer][self.camera_idx]:
             self.manufacturer.setCurrentText(section[Def.CameraCfg.manufacturer][self.camera_idx])
         else:
             # Manually emit to trigger consecutive list updates
             self.manufacturer.currentTextChanged.emit(section[Def.CameraCfg.manufacturer][self.camera_idx])
-        ## Model
+        # Model
         self.model.setCurrentText(section[Def.CameraCfg.model][self.camera_idx])
-        ## Format
+        # Format
         self.vidformat.setCurrentText(section[Def.CameraCfg.format][self.camera_idx])
-        ## Exposure
+        # Exposure
         self.exposure.setValue(section[Def.CameraCfg.exposure][self.camera_idx])
-        ## Gain
+        # Gain
         self.gain.setValue(section[Def.CameraCfg.gain][self.camera_idx])
 
     def check_fields(self):
@@ -556,7 +571,40 @@ class EditCameraWidget(QtWidgets.QDialog):
 
 
 ################################
-### DISPLAY
+# DISPLAY
+
+from vispy import app, gloo
+
+class Canvas(app.Canvas):
+
+    def __init__(self, _interval, *args, **kwargs):
+        app.Canvas.__init__(self, *args, **kwargs)
+        self.tick = 0
+        self.measure_fps(0.1, self.show_fps)
+        self.visual = None
+        gloo.set_viewport(0, 0, *self.physical_size)
+        gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
+
+        self.timer = app.Timer(_interval, connect=self.on_timer, start=True)
+
+        self.show()
+
+    def on_draw(self, event):
+        pass
+
+    def on_timer(self, event):
+        gloo.clear()
+        if self.visual is not None:
+            self.visual.draw(0.0)
+        self.update()
+
+    def show_fps(self, fps):
+        pass
+        #print("FPS {:.2f}".format(fps))
+
+    def on_resize(self, event):
+        gloo.set_viewport(0, 0, *event.physical_size)
+
 
 class DisplayWidget(ModuleWidget):
 
@@ -566,38 +614,26 @@ class DisplayWidget(ModuleWidget):
         ModuleWidget.__init__(self, Def.DisplayCfg.name, parent=parent)
         global current_config
 
-        from glumpy import app
+        app.use_app('pyqt5')
 
-        ### Set universal MappApp backend (use qt5 with GL 4.6 core by default here)
-        # TODO: make this based on a configuration in the future?
-        app.use('qt5 (GL 4.6 core)')
+        # Create canvas
+        self.canvas = Canvas(1/60)
 
-        ### Create glumpy window and context
-        self.glwindow = app.Window(color=(0., 0., 0., 1.))
-
-        ### (Manually) Configure glumpy eventloop
-        self.glumpy_backend = app.__backend__
-        self.glumpy_clock = app.__init__(backend=self.glumpy_backend)
-        self.glumpy_count = len(self.glumpy_backend.windows())
-
-        ### (Manually) Decorate on_draw method
-        self.on_draw = self.glwindow.event(self.on_draw)
-
-        ### Set timer for glumpy window updates
+        # Set timer for window updates
         self.tmr_glwindow = QtCore.QTimer()
         self.tmr_glwindow.setInterval(100)
         self.tmr_glwindow.timeout.connect(self.trigger_on_draw)
         self.tmr_glwindow.start()
 
-        ### Set layout
+        # Set layout
         self.setLayout(QtWidgets.QGridLayout())
 
-        ### Screen settings
-        def buttonReset():
+        # Screen settings
+        def button_reset():
             btn_reset_normal = QtWidgets.QPushButton('Reset to normal')
-            btn_reset_normal.clicked.connect(self.glwindow._native_window.showNormal)
+            btn_reset_normal.clicked.connect(self.canvas._native_window.showNormal)
             btn_reset_normal.clicked.connect(
-                lambda: self.glwindow._native_window.resize(512, 512))
+                lambda: self.canvas._native_window.resize(512, 512))
             btn_reset_normal.clicked.connect(
                 lambda: current_config.setParsed(Def.DisplayCfg.name, Def.DisplayCfg.window_fullscreen, False))
             return btn_reset_normal
@@ -605,30 +641,28 @@ class DisplayWidget(ModuleWidget):
         self.fullscreen_select = QtWidgets.QGroupBox('Fullscreen selection')
         self.layout().addWidget(self.fullscreen_select, 0, 0, 1, 2)
         self.fullscreen_select.setLayout(QtWidgets.QGridLayout())
-        self.fullscreen_select.btn_reset_normal = buttonReset()
-        self.fullscreen_select.layout().addWidget(self.fullscreen_select.btn_reset_normal, 0, 1)
+        #self.fullscreen_select.btn_reset_normal = button_reset()
+        #self.fullscreen_select.layout().addWidget(self.fullscreen_select.btn_reset_normal, 0, 1)
         self.screen_settings = DisplayScreenSelection(self)
         self.fullscreen_select.layout().addWidget(self.screen_settings, 1, 0, 1, 2)
 
         self.calibration = DisplayCalibration(self)
         self.layout().addWidget(self.calibration, 0, 2)
 
-        ### Global settings
+        # Global settings
         self.global_settings = GlobalDisplaySettings(self)
         self.layout().addWidget(self.global_settings, 1, 0)
 
-        ### Spherical settings
+        # Spherical settings
         self.spherical_settings = SphericalDisplaySettings(self)
         self.layout().addWidget(self.spherical_settings, 1, 1)
 
-        ### Planar settings
+        # Planar settings
         self.planar_settings = PlanarDisplaySettings(self)
         self.layout().addWidget(self.planar_settings, 1, 2)
 
-
     def trigger_on_draw(self):
-        if self.glumpy_count:
-            self.glumpy_count = self.glumpy_backend.process(self.glumpy_clock.tick())
+        app.process_events()
 
     def load_settings_from_config(self):
         self.global_settings.load_settings_from_config()
@@ -642,24 +676,24 @@ class DisplayWidget(ModuleWidget):
 
         Config.Display = current_config.getParsedSection(Def.DisplayCfg.name)
 
-        ### Update size
+        # Update size
         w, h = current_config.getParsed(section, Def.DisplayCfg.window_width), \
                current_config.getParsed(section, Def.DisplayCfg.window_height),
-        self.glwindow.set_size(w, h)
+        self.canvas.size = (w, h)
 
-        ### Update position
+        # Update position
         x, y = current_config.getParsed(section, Def.DisplayCfg.window_pos_x), \
                current_config.getParsed(section, Def.DisplayCfg.window_pos_y)
-        self.glwindow.set_position(x, y)
+        self.canvas.position = (x, y)
 
     def closed_main_window(self):
-        self.glwindow.close()
+        self.canvas.timer.stop()
+        self.canvas.close()
 
     def on_draw(self, dt):
-        self.glwindow.clear((0., 0., 0., 1.))
 
         if not(self.visual is None):
-            self.visual.draw(0, 0.0)
+            self.visual.draw(0.0)
 
 
 class DisplayScreenSelection(QtWidgets.QGroupBox):
@@ -687,18 +721,24 @@ class DisplayScreenSelection(QtWidgets.QGroupBox):
                 print('Set display to fullscreen on screen {}'.format(i))
                 global current_config, winapp
 
-                scr_handle = self.main.glwindow._native_app.screens()[i]
-
-                ### Update window settings
                 self.main.global_settings.spn_win_x.setValue(screen[0])
                 self.main.global_settings.spn_win_y.setValue(screen[1])
                 self.main.global_settings.spn_win_width.setValue(screen[2])
                 self.main.global_settings.spn_win_height.setValue(screen[3])
+
+
+                # Update window settings
+                #self.main.global_settings.spn_win_x.setValue(screen[0])
+                #self.main.global_settings.spn_win_y.setValue(screen[1])
+                #self.main.global_settings.spn_win_width.setValue(screen[2])
+                #self.main.global_settings.spn_win_height.setValue(screen[3])
                 winapp.processEvents()
 
-                ### Set fullscreen
-                self.main.glwindow._native_window.windowHandle().setScreen(scr_handle)
-                self.main.glwindow._native_window.showFullScreen()
+                # Set fullscreen
+                self.main.canvas.fullscreen = True
+                #scr_handle = self.main.canvas.screens()[i]
+                #self.main.canvas._native_window.windowHandle().setScreen(scr_handle)
+                #self.main.canvas._native_window.showFullScreen()
 
                 current_config.setParsed(Def.DisplayCfg.name, Def.DisplayCfg.window_fullscreen, True)
 
@@ -807,7 +847,7 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         from Protocol import StaticProtocol
         from visuals.planar.Calibration import Checkerboard
         protocol = StaticProtocol(None)
-        self.main.visual = Checkerboard(self.main.canvas, **{Checkerboard.u_rows : rows,
+        self.main.canvas.visual = Checkerboard(self.main.canvas, **{Checkerboard.u_rows : rows,
                                                              Checkerboard.u_cols : cols})
 
 
@@ -815,7 +855,7 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         from Protocol import StaticProtocol
         from visuals.spherical.Calibration import BlackWhiteCheckerboard
         protocol = StaticProtocol(None)
-        self.main.visual = BlackWhiteCheckerboard(self.main.canvas,
+        self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
                                                   **{BlackWhiteCheckerboard.u_rows : rows,
                                                      BlackWhiteCheckerboard.u_cols : cols})
 

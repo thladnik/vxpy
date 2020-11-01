@@ -69,6 +69,9 @@ class AbstractCamera:
     def get_image(self):
         raise NotImplementedError('')
 
+    def stop(self):
+        pass
+
 
 class VirtualCamera(AbstractCamera):
 
@@ -157,7 +160,7 @@ class TISCamera(AbstractCamera):
         from lib.pyapi import tisgrabber
 
         cam = tisgrabber.TIS_CAM()
-        return cam.GetDevices()
+        return [s.decode() for s in cam.GetDevices()]
 
     @staticmethod
     def get_formats(model):
@@ -165,10 +168,13 @@ class TISCamera(AbstractCamera):
 
         device = tisgrabber.TIS_CAM()
         device.open(model)
-        return device.GetVideoFormats()
+        return [s.decode() for s in device.GetVideoFormats()]
 
     def snap_image(self):
         self._device.SnapImage()
 
     def get_image(self):
         return self._device.GetImage()
+
+    def stop(self):
+        self._device.StopLive()

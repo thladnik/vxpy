@@ -18,8 +18,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from vispy import app
 from vispy import gloo
-from vispy.gloo import gl
-from vispy.util import transforms
 import time
 
 import Config
@@ -29,31 +27,13 @@ import Process
 import Protocol
 import protocols
 import Visuals
+from PyQt5 import QtCore
 
-import numpy as np
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
 app.use_app('pyqt5')
-
-vertex_code = """
-    uniform float scale;
-    attribute vec4 color;
-    attribute vec2 position;
-    varying vec4 v_color;
-    void main()
-    {
-        gl_Position = vec4(scale*position, 0.0, 1.0);
-        v_color = color;
-    } """
-
-fragment_code = """
-    varying vec4 v_color;
-    void main()
-    {
-        gl_FragColor = v_color;
-    } """
 
 class Canvas(app.Canvas):
 
@@ -63,11 +43,12 @@ class Canvas(app.Canvas):
         self.measure_fps(0.1, self.show_fps)
         self.visual = None
         gloo.set_viewport(0, 0, *self.physical_size)
+        gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
-        self._timer = app.Timer(_interval,
-                                connect=self.on_timer,
-                                start=True)
+        self._timer = app.Timer(_interval, connect=self.on_timer, start=True)
 
+        #self.native.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+        self.t = time.perf_counter()
         self.show()
 
     def on_draw(self, event):
@@ -81,6 +62,9 @@ class Canvas(app.Canvas):
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
+
+                print(time.time()-self.t)
+                self.t = time.time()
                 self.visual.draw(time.perf_counter())
             except Exception as exc:
                 import traceback
@@ -112,8 +96,11 @@ class Display(Process.AbstractProcess):
         _position = (Config.Display[Def.DisplayCfg.window_pos_x],
                      Config.Display[Def.DisplayCfg.window_pos_y])
         self.canvas = Canvas(_interval,
-                             size=_size, resizable=False,
-                             position=_position)
+                             size=_size,
+                             resizable=False,
+                             position=_position,
+                             always_on_top=True)
+        self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
         # Run event loop
         self.run(1/200)

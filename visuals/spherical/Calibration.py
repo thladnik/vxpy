@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import gl
+from vispy import gloo
 import numpy as np
 
 from Visuals import SphericalVisual
@@ -39,19 +39,23 @@ class BlackWhiteCheckerboard(SphericalVisual):
         """
         SphericalVisual.__init__(self, *args)
 
-        self.sphere = self.addModel('sphere',
-                                    BasicSphere.UVSphere,
-                                    theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
-        self.sphere.createBuffers()
-        self.checker = self.addProgram('sphere',
-                                       BasicFileShader().addShaderFile('spherical/checkerboard.vert').read(),
-                                       BasicFileShader().addShaderFile('spherical/checkerboard.frag').read())
-        self.checker.bind(self.sphere.vertexBuffer)
+        self.sphere = BasicSphere.UVSphere(azim_lvls=100, elev_lvls=50, azimuth_range=2*np.pi, upper_elev=np.pi/2)
+        self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
+        self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
+        self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
+        self.elevation_buffer = gloo.VertexBuffer(self.sphere.a_elevation)
+
+        self.checker = gloo.Program(BasicFileShader().addShaderFile('spherical/checkerboard.vert').read(),
+                                    BasicFileShader().addShaderFile('spherical/checkerboard.frag').read())
+        self.checker['a_position'] = self.position_buffer
+        self.checker['a_azimuth'] = self.azimuth_buffer
+        self.checker['a_elevation'] = self.elevation_buffer
 
         self.update(**params)
 
-    def render(self):
-        self.checker.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
+    def render(self, frame_time):
+        self.apply_transform(self.checker)
+        self.checker.draw('triangles', self.index_buffer)
 
     def update(self, **params):
 

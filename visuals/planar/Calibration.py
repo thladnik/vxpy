@@ -51,9 +51,7 @@ class Checkerboard(PlanarVisual):
 
     def render(self, frame_time):
         self.apply_transform(self.checker)
-        print(self.checker.shaders)
         self.checker.draw('triangles', self.index_buffer)
-
 
     def update(self, **params):
 
