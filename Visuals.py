@@ -19,13 +19,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
-import logging
 import numpy as np
 
+import Config
+import Def
+from helper import Geometry
 import Logging
+from models import BasicSphere
 
 ################################
-### Abstract visual class
+# Abstract visual class
 
 class AbstractVisual:
 
@@ -49,6 +52,8 @@ class AbstractVisual:
         }
     """
 
+    _parse_fun_prefix = 'parse_'
+
     def __init__(self, canvas):
         self.frame_time = None
         self.canvas = canvas
@@ -57,7 +62,6 @@ class AbstractVisual:
         self.transform_uniforms = dict()
 
         self._buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
-        #self._square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
         self.frame = self._out_fb
@@ -68,8 +72,14 @@ class AbstractVisual:
         self._display_prog['a_position'] = self.square
         self._display_prog['u_texture'] = self._out_texture
 
-    def add_program(self):
-        pass
+    def __setattr__(self, key, value):
+        # Catch programs being set and add them to dictionary
+        if not(hasattr(self, key)) and isinstance(value, gloo.Program):
+            # TODO: maybe this can be done smarter
+            self.__dict__[key] = value
+            self.__dict__['_programs'][key] = value
+        else:
+            self.__dict__[key] = value
 
     def apply_transform(self, program):
         """Set uniforms in transform_uniforms on program"""
@@ -84,30 +94,33 @@ class AbstractVisual:
 
     def update(self, **params):
         """
-        Method that is called by default to update stimulus parameters.
+        Method to update stimulus parameters.
+
+        Is called by default to update stimulus parameters.
+        May be reimplemented in subclass.
         """
 
-        ### TODO: find general solution for updating uniforms on all programs (e.g. layered dictionary "paramters"?)
-        """
-        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
-        for k, p in self.parameters.items():
-            if hasattr(self, 'parse_{}'.format(k)):
-                self.checker[k] = getattr(self, 'parse_{}'.format(k))(p)
-            else:
-                self.checker[k] = p
-        """
-        Logging.write(logging.WARNING, 'Update method called but not implemented for stimulus {}'.format(self.__class__))
+        if not(bool(params)):
+            return
+
+        for key, value in params.items():
+            if hasattr(self, f'{self._parse_fun_prefix}{key}'):
+                value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
+            self.parameters[key] = value
+
+        Logging.write(Logging.INFO,
+                      f'Update visual {self.__class__.__name__}. '
+                      'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
+
+        for program_name, program in self._programs.items():
+            for key, value in self.parameters.items():
+                if key in program:
+                    program[key] = value
+
 
 
 ################################
 # Spherical stimulus class
-
-import Config
-import Def
-from helper import Geometry
-from models import BasicSphere
-from Shader import BasicFileShader
-
 
 class SphericalVisual(AbstractVisual):
 
@@ -164,7 +177,6 @@ class SphericalVisual(AbstractVisual):
         }
     """
 
-
     def __init__(self, *args):
         AbstractVisual.__init__(self, *args)
 
@@ -179,7 +191,6 @@ class SphericalVisual(AbstractVisual):
         self._mask_index_buffer = gloo.IndexBuffer(self._mask_model.indices)
 
         # Set textures and FBs
-
         self._mask_texture = gloo.Texture2D(self._buffer_shape, format='luminance')
         self._mask_depth_buffer = gloo.RenderBuffer(self._buffer_shape)
         self._mask_fb = gloo.FrameBuffer(self._mask_texture, self._mask_depth_buffer)
@@ -191,27 +202,18 @@ class SphericalVisual(AbstractVisual):
         self._display_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._display_fb = gloo.FrameBuffer(self._display_texture)
 
-        # self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
-        # self._out_fb = gloo.FrameBuffer(self._out_texture)
-        # self.frame = self._out_fb
-
         # Create mask program: renders binary mask of quarter-sphere to FB
         self._mask_program = gloo.Program(self._sphere_map, self._mask_frag)
         self._mask_program['a_position'] = self._mask_position_buffer
 
         # Create out program: renders the output texture to FB
-        # by combinding raw and mask textures
+        # by combining raw and mask textures
         # (to be saved and re-rendered in display program)
         # square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
         self._out_prog = gloo.Program(self._vertex_out, self._frag_out, count=4)
         self._out_prog['a_position'] = self.square
         self._out_prog['u_raw_texture'] = self._raw_texture
         self._out_prog['u_mask_texture'] = self._mask_texture
-
-        # Create display program: renders the out texture from FB to screen
-        # self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
-        # self._display_prog['a_position'] = square
-        # self._display_prog['u_texture'] = self._out_texture
 
         # Set clear color
         gloo.set_clear_color('black')
@@ -305,26 +307,14 @@ class PlanarVisual(AbstractVisual):
         AbstractVisual.__init__(self, *args)
         gloo.set_clear_color('black')
 
-        # Set texture and FB
-        # _buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
-        # self._out_texture = gloo.Texture2D(_buffer_shape + (3,), format='rgb')
-        # self._out_fb = gloo.FrameBuffer(self._out_texture)
-        # self.frame = self._out_fb
-        #
-        # # Create display program: renders the out texture from FB to screen
-        # square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-        # self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
-        # self._display_prog['a_position'] = square
-        # self._display_prog['u_texture'] = self._out_texture
-
     def draw(self, frame_time):
         gloo.clear()
 
-        ### Construct vertices
+        # Construct vertices
         height = Config.Display[Def.DisplayCfg.window_height]
         width = Config.Display[Def.DisplayCfg.window_width]
 
-        ### Set aspect scale to square
+        # Set aspect scale to square
         if width > height:
             self.u_mapcalib_xscale = height/width
             self.u_mapcalib_yscale = 1.
@@ -361,6 +351,7 @@ class PlanarVisual(AbstractVisual):
 
             # Render to display
             self._display_prog.draw('triangle_strip')
+
         except Exception as exc:
             import traceback
             print(traceback.print_exc())

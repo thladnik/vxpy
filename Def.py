@@ -220,23 +220,26 @@ class RecCfg(Cfg):
 # General
 
 class GenCtrl:
-    min_sleep_time      = 'min_sleep_time'
-    process_null_time   = 'process_null_time'
+    min_sleep_time = 'min_sleep_time'
+    process_null_time = 'process_null_time'
     process_syn_barrier = 'process_sync_barrier'
 
 ########
 # Recording
 
 class RecCtrl:
-    active    = 'recording_active'
-    folder    = 'current_folder'
+    active = 'recording_active'
+    folder = 'current_folder'
+    use_compression = 'use_compression'
+    compression_method = 'compression_method'
+    compression_opts = 'compression_opts'
 
 ################################
 # Protocol
 
 class ProtocolCtrl:
-    name             = 'current_protocol'
-    phase_id         = 'current_phase'
-    phase_start      = 'phase_start_time'
+    name = 'current_protocol'
+    phase_id = 'current_phase'
+    phase_start = 'phase_start_time'
     phase_stop       = 'phase_stop_time'
 

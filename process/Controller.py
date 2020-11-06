@@ -293,7 +293,7 @@ class Controller(AbstractProcess):
     def toggle_enable_recording(self, newstate):
         Config.Recording[Def.RecCfg.enabled] = newstate
 
-    def startRecording(self):
+    def start_recording(self, compression_method=None, compression_opts=None):
         if IPC.Control.Recording[Def.RecCtrl.active]:
             Logging.write(Logging.WARNING, 'Tried to start new recording while active')
             return False
@@ -303,11 +303,15 @@ class Controller(AbstractProcess):
             IPC.Control.Recording[Def.RecCtrl.folder] = 'rec_{}'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
 
         # Create output folder
-        outPath = os.path.join(Config.Recording[Def.RecCfg.output_folder], IPC.Control.Recording[Def.RecCtrl.folder])
-        Logging.write(Logging.DEBUG, 'Set output folder {}'.format(outPath))
-        if not(os.path.exists(outPath)):
-            Logging.write(Logging.DEBUG, 'Create output folder {}'.format(outPath))
-            os.mkdir(outPath)
+        out_path = os.path.join(Config.Recording[Def.RecCfg.output_folder], IPC.Control.Recording[Def.RecCtrl.folder])
+        Logging.write(Logging.DEBUG, 'Set output folder {}'.format(out_path))
+        if not(os.path.exists(out_path)):
+            Logging.write(Logging.DEBUG, 'Create output folder {}'.format(out_path))
+            os.mkdir(out_path)
+
+        IPC.Control.Recording[Def.RecCtrl.use_compression] = compression_method is not None
+        IPC.Control.Recording[Def.RecCtrl.compression_method] = compression_method
+        IPC.Control.Recording[Def.RecCtrl.compression_opts] = compression_opts
 
         # Set state to recording
         Logging.write(Logging.INFO, 'Start recording')
@@ -315,7 +319,7 @@ class Controller(AbstractProcess):
 
         return True
 
-    def pauseRecording(self):
+    def pause_recording(self):
         if not(IPC.Control.Recording[Def.RecCtrl.active]):
             Logging.write(Logging.WARNING, 'Tried to pause inactive recording.')
             return
@@ -347,10 +351,9 @@ class Controller(AbstractProcess):
 
 
     def start_protocol(self, protocol_path):
-
+        # TODO: also make this dynamic
         # If any relevant subprocesses are currently busy: abort
         if not(self.in_state(Def.State.IDLE, Def.Process.Display)):
-                #or not(self.inState(self.State.IDLE, Def.Process.IO)):
             processes = list()
             if not(self.in_state(Def.State.IDLE, Def.Process.Display)):
                 processes.append(Def.Process.Display)
@@ -363,8 +366,9 @@ class Controller(AbstractProcess):
             return
 
         # Start recording if enabled; abort if recording can't be started
-        if Config.Recording[Def.RecCfg.enabled]:
-            if not(self.startRecording()):
+        if Config.Recording[Def.RecCfg.enabled] \
+                and not(IPC.Control.Recording[Def.RecCtrl.active]):
+            if not(self.start_recording()):
                 return
 
         # Set phase info

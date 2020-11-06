@@ -33,9 +33,6 @@ class IcoSphere(Model.SphereModel):
     def __init__(self, subdivisionTimes : int = 1, **kwargs):
         Model.SphereModel.__init__ (self, **kwargs)
 
-        ### Add a_texcoord to the list of shader attributes
-        self.addAttribute(('a_texcoord', np.float32, 2))
-
         ### Create sphere
         self.r = 1#(1 + np.sqrt(5)) / 2
         self.init_vertices = np.array([
@@ -79,11 +76,11 @@ class IcoSphere(Model.SphereModel):
         sphereR = Geometry.vecNorm(usV[0, :])  # Compute the radius of all the vertices
         tileCen = np.mean(usV[usF, :], axis=1)  # Compute the center of each triangle tiles
 
-        ### Create index buffer
+        # Create index buffer
         Iout = np.arange(usF.size, dtype=np.uint32)
         self.indices = Iout
 
-        ### Create vertex buffer
+        # Create vertex buffer
         # The orientation of each triangle tile is defined as the direction perpendicular to the first edge of the triangle;
         # Here each orientation vector is represented by a complex number for the convenience of later computation
         tileOri = Geometry.vecNormalize(np.cross(tileCen, usV[usF[:, 1], :] - usV[usF[:, 0], :])) \
@@ -93,8 +90,6 @@ class IcoSphere(Model.SphereModel):
         # Triangles must not share edges/vertices while doing texture mapping, this line duplicate the shared vertices for each triangle
         self.a_position = Geometry.vecNormalize(usV[usF,:])
         self.a_texcoord = Geometry.cen2tri(np.random.rand(np.int(Iout.size / 3)), np.random.rand(np.int(Iout.size / 3)), .1).reshape([Iout.size, 2])
-
-        self.createBuffers()
 
         self.tile_orientation = tileOri
         self.tile_center      = tileCen

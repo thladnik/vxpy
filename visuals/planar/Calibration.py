@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 from vispy import gloo
-from vispy.gloo import gl
 import numpy as np
 
 from Visuals import PlanarVisual
@@ -52,10 +51,3 @@ class Checkerboard(PlanarVisual):
     def render(self, frame_time):
         self.apply_transform(self.checker)
         self.checker.draw('triangles', self.index_buffer)
-
-    def update(self, **params):
-
-        self.parameters.update({k: p for k, p in params.items() if not(p is None)})
-        for k, p in self.parameters.items():
-            self.checker[k] = p
-

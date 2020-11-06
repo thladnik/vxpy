@@ -28,35 +28,42 @@ from models import BasicSphere
 
 class Glider2Point(SphericalVisual):
 
-    def __init__(self, *args, p_parity):
+    p_parity = 'p_parity'
+
+    parameters = {p_parity: None}
+
+    def __init__(self, *args, **parms):
         """
         :param protocol: protocol of which stimulus is currently part of
 
         """
         SphericalVisual.__init__(self, *args)
 
-        ### Set up model
+        # Set up model
         self.sphere = BasicSphere.UVSphere(azim_lvls=60, elev_lvls=30)
         self.vertex_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
-        ### Set up program
+        # Set up program
         self.glider = gloo.Program(
-            BasicFileShader().addShaderFile('v_glider.glsl', subdir='spherical').read(),
-            BasicFileShader().addShaderFile('f_glider.glsl', subdir='spherical').read())
+            BasicFileShader().addShaderFile('spherical/v_glider.glsl').read(),
+            BasicFileShader().addShaderFile('spherical/f_glider.glsl').read())
         self.glider['a_position'] = self.vertex_buffer
         self.glider['a_azimuth'] = self.azimuth_buffer
 
         self.last_update = time.perf_counter()
-        self.p_parity = p_parity  # -1 or 1
+        #self.p_parity = p_parity  # -1 or 1
 
         self.seed_row = np.random.randint(0, 2, size=150, dtype=np.uint8)
         self.last_row = self.seed_row.copy()
         self.frame_seeds = []
 
-
     def render(self, frame_time):
+
+        p_parity = self.parameters.get(self.p_parity)
+
+        assert p_parity is not None, f'Parity not set in {self.__class__.__name__}'
 
         if time.perf_counter() >= self.last_update + 1/20:
 
@@ -67,8 +74,8 @@ class Glider2Point(SphericalVisual):
 
             for i in range(1, self.seed_row.shape[0]):
 
-                ## Positive parity
-                if self.p_parity < 0:
+                # Positive parity
+                if p_parity < 0:
                     new_row[i] = not(self.last_row[i-1])
                 else:
                     new_row[i] = self.last_row[i-1]
@@ -78,51 +85,60 @@ class Glider2Point(SphericalVisual):
         else:
             new_row = self.last_row
 
-        ### Render
+        # Render
         self.glider['u_texture'] = 255 * np.repeat(np.repeat(new_row[:,np.newaxis], 2, axis=-1).T[:,:,np.newaxis], 3, axis=-1)
 
         self.apply_transform(self.glider)
-        self.glider.draw(gl.GL_TRIANGLES, self.index_buffer)
+        self.glider.draw('triangles', self.index_buffer)
 
-        ### Update last row
+        # Update last row
         self.last_row = new_row
 
 
 
 class Glider3Point(SphericalVisual):
 
-    def __init__(self, protocol, display, p_parity, p_mode):
+    p_parity = 'p_parity'
+    p_mode = 'p_mode'
+
+    parameters = {p_parity: None, p_mode: None}
+
+    def __init__(self, *args, **params):
         """
         :param protocol: protocol of which stimulus is currently part of
 
         """
-        SphericalVisual.__init__(self, protocol, display)
+        SphericalVisual.__init__(self, *args)
 
-        ### Set up model
-        self.sphere = self.addModel('sphere',
-                                    BasicSphere.UVSphere,
-                                    theta_lvls=60, phi_lvls=30)
-        self.sphere.createBuffers()
+        # Set up model
+        self.sphere = BasicSphere.UVSphere(azim_lvls=60, elev_lvls=30)
+        self.vertex_buffer = gloo.VertexBuffer(self.sphere.a_position)
+        self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
+        self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
-        ### Set up program
-        self.glider = self.addProgram('glider',
-                                      BasicFileShader().addShaderFile('v_glider.glsl', subdir='spherical').read(),
-                                      BasicFileShader().addShaderFile('f_glider.glsl', subdir='spherical').read())
-        self.glider.bind(self.sphere.vertexBuffer)
+        # Set up program
+        self.glider = gloo.Program(
+            BasicFileShader().addShaderFile('spherical/v_glider.glsl').read(),
+            BasicFileShader().addShaderFile('spherical/f_glider.glsl').read())
+        self.glider['a_position'] = self.vertex_buffer
+        self.glider['a_azimuth'] = self.azimuth_buffer
 
         self.last_update = time.perf_counter()
-        self.p_parity = p_parity  # -1 or 1
-        self.p_mode = p_mode  # 'conv' or 'div'
 
         self.seed_row = np.random.randint(0, 2, size=150, dtype=np.uint8)
         self.last_row = self.seed_row.copy()
         self.frame_seeds = []
 
-        ### Debug
-        self.lines = []
+    def parse_p_mode(self, mode):
+        return -1 if mode == 'conv' else 1
 
+    def render(self, frame_time):
 
-    def render(self):
+        p_parity = self.parameters.get(self.p_parity)
+        p_mode = self.parameters.get(self.p_mode)
+
+        assert p_parity is not None, f'Parity not set in {self.__class__.__name__}'
+        assert p_mode is not None, f'Mode not set in {self.__class__.__name__}'
 
         if time.perf_counter() >= self.last_update + 1/20:
 
@@ -134,40 +150,25 @@ class Glider3Point(SphericalVisual):
             for i in range(1, self.seed_row.shape[0]):
                 v1 = self.last_row[i-1]
 
-                ## Converging
-                if self.p_mode == 'conv':
-                    v2 = self.last_row[i]
+                v2 = self.last_row[i] if p_mode == -1 else new_row[i-1]
 
-                ## Diverging
-                else:
-                    v2 = new_row[i-1]
-
-                ## Positive parity
-                if self.p_parity == 1:
+                # Positive parity
+                if p_parity == 1:
                     new_row[i] = v1 == v2
 
-                ## Negative parity
+                # Negative parity
                 else:
                     new_row[i] = not(v1 == v2)
 
             self.last_update = time.perf_counter()
 
-            self.lines.append(new_row)
-
         else:
             new_row = self.last_row
 
-        ### Render
+        # Render
         self.glider['u_texture'] = 255 * np.repeat(np.repeat(new_row[:,np.newaxis], 2, axis=-1).T[:,:,np.newaxis], 3, axis=-1)
-        self.glider.draw(gl.GL_TRIANGLES, self.sphere.indexBuffer)
+        self.apply_transform(self.glider)
+        self.glider.draw('triangles', self.index_buffer)
 
-        ### Update last row
+        # Update last row
         self.last_row = new_row
-
-
-        if False and len(self.lines) > 400:
-            import matplotlib.pyplot as plt
-            plt.imshow(self.lines)
-            plt.show()
-
-            self.lines = []

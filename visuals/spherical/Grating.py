@@ -53,7 +53,7 @@ class BlackWhiteGrating(SphericalVisual):
         self.grating['a_azimuth'] = self.azimuth_buffer
         self.grating['a_elevation'] = self.elevation_buffer
 
-        self.update(**params)
+        #self.update(**params)
 
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time
@@ -61,20 +61,8 @@ class BlackWhiteGrating(SphericalVisual):
         self.apply_transform(self.grating)
         self.grating.draw('triangles', self.index_buffer)
 
-    def update(self, **params):
+    def parse_u_waveform(self, waveform):
+        return 1 if waveform == 'rectangular' else 2  # 'sinusoidal'
 
-        if params.get(self.u_waveform) is not None:
-            params[self.u_waveform] = self.parse_shape(params.get(self.u_waveform))
-
-        if params.get(self.u_direction) is not None:
-            params[self.u_direction] = self.parse_direction(params.get(self.u_direction))
-
-        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
-        for k, p in self.parameters.items():
-            self.grating[k] = p
-
-    def parse_shape(self, shape):
-        return 1 if shape == 'rectangular' else 2  # 'sinusoidal'
-
-    def parse_direction(self, orientation):
-        return 1 if orientation == 'vertical' else 2  # 'horizontal'
+    def parse_u_direction(self, direction):
+        return 1 if direction == 'vertical' else 2  # 'horizontal'

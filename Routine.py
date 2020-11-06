@@ -45,6 +45,7 @@ class Routines:
         self._routines = dict()
         self.h5_file: h5py.File = None
         self.current_group: h5py.Group = None
+        self.compression_args: dict = None
 
         ### Automatically add routines, if provided
         if not(routines is None) and isinstance(routines, dict):
@@ -177,8 +178,17 @@ class Routines:
                                     IPC.Control.Recording[Def.RecCtrl.folder],
                                     '{}.hdf5'.format(self.name))
 
+            # Open new file
             Logging.write(Logging.DEBUG, 'Open new file {}'.format(filepath))
             self.h5_file = h5py.File(filepath, 'w')
+
+            # Set compression
+            compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
+            compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
+
+            self.compression_args = dict()
+            if compr_method is not None:
+                self.compression_args = {'compression': compr_method, **compr_opts}
 
             return self.h5_file
 
@@ -245,12 +255,12 @@ class AbstractRoutine:
 
     def _append_data(self, grp, key, value):
 
-        ## Convert and determine dshape/dtype
+        # Convert and determine dshape/dtype
         value = np.asarray(value) if isinstance(value, list) else value
         dshape = value.shape if isinstance(value, np.ndarray) else (1,)
         dtype = value.dtype if isinstance(value, np.ndarray) else type(value)
 
-        ## Create dataset if it doesn't exist
+        # Create dataset if it doesn't exist
         if not(key in grp):
             try:
                 Logging.write(Logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
@@ -258,10 +268,8 @@ class AbstractRoutine:
                                    shape=(0, *dshape,),
                                    dtype=dtype,
                                    maxshape=(None, *dshape,),
-                                   chunks=(1, *dshape,),)
-                                   # compression='lzf',
-                                   # compression_opts=6,
-                                   # shuffle=True)
+                                   chunks=(1, *dshape,),
+                                   **self._bo.compression_args)
                 # TODO: add compression option to recording controls + GUI
             except Exception as exc:
                 import traceback
