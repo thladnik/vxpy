@@ -20,15 +20,9 @@ from Protocol import StaticProtocol
 
 from visuals.spherical.ContiguousMotionNoise import IcoCMN
 
-
 class IcoCMNProtocol(StaticProtocol):
 
-    _name = 'ico_cmn'
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
-        self.newPhase(duration=2)
-        self.addVisual(IcoCMN, {})
-
-        self.newPhase(duration=3)
-        self.addVisual(IcoCMN, {})
+        self.add_phase(IcoCMN, 10, {})

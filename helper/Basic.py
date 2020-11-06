@@ -21,9 +21,7 @@ import json
 import os
 from PyQt5 import QtCore
 
-import Default
 import Def
-
 
 
 class ConfigParser(configparser.ConfigParser):

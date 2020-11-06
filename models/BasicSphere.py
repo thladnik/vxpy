@@ -28,47 +28,40 @@ from Model import SphereModel
 
 ################################
 # UV Sphere
-class UVSphere(SphereModel):
+class UVSphere:
 
-    def __repr__(self):
-        return 'UVSphere(theta_lvls={}, phi_lvls={}, theta_range={}, upper_phi={}, radius={})'\
-            .format(self.theta_lvls, self.phi_lvls, self.theta_range, self.upper_phi, self.radius)
+    def __init__(self,
+                 azim_lvls: int,
+                 elev_lvls: int,
+                 azimuth_range: float = 2 * np.pi,
+                 upper_elev: float = np.pi / 4,
+                 radius: float = 1.0):
 
-    def __init__(self, theta_lvls: int, phi_lvls: int,
-                 theta_range : float = 2*np.pi, upper_phi: float = np.pi/4,
-                 radius: float = 1.0, **kwargs):
-        SphereModel.__init__(self, **kwargs)
-
-        ### Add vertex attributes for this particular model
-        self.addAttribute(('a_azimuth', np.float32, 1))
-        self.addAttribute(('a_elevation', np.float32, 1))
-
-        ### Set parameters
-        self.theta_lvls = theta_lvls
-        self.phi_lvls = phi_lvls
-        self.theta_range = theta_range
-        self.upper_phi = upper_phi
+        # Set parameters
+        self.azim_lvls = azim_lvls
+        self.elev_lvls = elev_lvls
+        self.azimuth_range = azimuth_range
+        self.upper_elev = upper_elev
         self.radius = radius
 
-        ### Calculate coordinates in azimuth and elevation
-        az = np.linspace(0, self.theta_range, self.theta_lvls, endpoint=True)
-        el = np.linspace(-np.pi/2, self.upper_phi, self.phi_lvls, endpoint=True)
-        self.thetas, self.phis = np.meshgrid(az, el)
-        self.thetas = self.thetas.flatten()
-        self.phis = self.phis.flatten()
+        # Calculate coordinates in azimuth and elevation
+        az = np.linspace(0, self.azimuth_range, self.azim_lvls, endpoint=True)
+        el = np.linspace(-np.pi / 2, self.upper_elev, self.elev_lvls, endpoint=True)
+        self.azims, self.elevs = np.meshgrid(az, el)
 
-        ### Set vertex attributes
-        self.a_azimuth = self.thetas
-        self.a_elevation = self.phis
-        self.a_position = Geometry.SphereHelper.sph2cart(self.thetas, self.phis, self.radius)
+        # Set vertex attributes
+        self.a_azimuth = np.ascontiguousarray(self.azims.flatten(), dtype=np.float32)
+        self.a_elevation = np.ascontiguousarray(self.elevs.flatten(), dtype=np.float32)
+        self.a_position = Geometry.SphereHelper.sph2cart(self.a_azimuth, self.a_elevation, self.radius)
+        self.a_position = np.ascontiguousarray(self.a_position.T, dtype=np.float32)
 
-        ### Set indices
+        # Set indices
         idcs = list()
-        for i in np.arange(self.phi_lvls):
-            for j in np.arange(self.theta_lvls):
-                idcs.append([i * theta_lvls + j, i * theta_lvls + j + 1, (i+1) * theta_lvls + j + 1])
-                idcs.append([i * theta_lvls + j, (i+1) * theta_lvls + j, (i+1) * theta_lvls + j + 1])
-        self.indices = np.array(idcs).flatten()
+        for i in np.arange(self.elev_lvls):
+            for j in np.arange(self.azim_lvls):
+                idcs.append([i * azim_lvls + j, i * azim_lvls + j + 1, (i + 1) * azim_lvls + j + 1])
+                idcs.append([i * azim_lvls + j, (i + 1) * azim_lvls + j, (i + 1) * azim_lvls + j + 1])
+        self.indices = np.ascontiguousarray(np.array(idcs).flatten(), dtype=np.uint32)
 
 
 

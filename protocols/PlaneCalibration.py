@@ -20,44 +20,44 @@ from Protocol import StaticProtocol
 
 from visuals.planar.Calibration import Checkerboard
 
-class Checkerboard_1Period(StaticProtocol):
+class Checkerboard_2x2(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
-        self.newPhase(10 ** 8)
-        self.addVisual(Checkerboard, {Checkerboard.u_spat_period : 1})
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Checkerboard, 10 ** 8,
+                       {Checkerboard.u_cols: 2, Checkerboard.u_rows: 2})
 
-class Checkerboard_1_5Period(StaticProtocol):
+class Checkerboard_3x3(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
-        self.newPhase(10 ** 8)
-        self.addVisual(Checkerboard, {Checkerboard.u_spat_period : 1.5})
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Checkerboard, 10 ** 8,
+                       {Checkerboard.u_cols: 3, Checkerboard.u_rows: 3})
 
-class Checkerboard_2Periods(StaticProtocol):
+class Checkerboard_4x4(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
-        self.newPhase(10 ** 8)
-        self.addVisual(Checkerboard, {Checkerboard.u_spat_period : 2})
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Checkerboard, 10 ** 8,
+                       {Checkerboard.u_cols: 4, Checkerboard.u_rows: 4})
 
-class Checkerboard_3Periods(StaticProtocol):
+class Checkerboard_6x6(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
-        self.newPhase(10 ** 8)
-        self.addVisual(Checkerboard, {Checkerboard.u_spat_period: 3})
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Checkerboard, 10 ** 8,
+                       {Checkerboard.u_cols: 6, Checkerboard.u_rows: 6})
 
-class Checkerboard_4Periods(StaticProtocol):
+class Checkerboard_8x8(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
-        self.newPhase(10 ** 8)
-        self.addVisual(Checkerboard, {Checkerboard.u_spat_period: 4})
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Checkerboard, 10 ** 8,
+                       {Checkerboard.u_cols: 8, Checkerboard.u_rows: 8})
 
-class Checkerboard_8Periods(StaticProtocol):
+class Checkerboard_16x16(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
-        self.newPhase(10 ** 8)
-        self.addVisual(Checkerboard, {Checkerboard.u_spat_period: 8})
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Checkerboard, 10 ** 8,
+                       {Checkerboard.u_cols: 16, Checkerboard.u_rows: 16})

@@ -1,5 +1,5 @@
 """
-MappApp .devices/DefaultCameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
+MappApp .devices/CameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@ import cv2
 import logging
 import numpy as np
 import os
+import re
 import platform
 
 import Def
@@ -68,6 +69,9 @@ class AbstractCamera:
     def get_image(self):
         raise NotImplementedError('')
 
+    def stop(self):
+        pass
+
 
 class VirtualCamera(AbstractCamera):
 
@@ -84,6 +88,11 @@ class VirtualCamera(AbstractCamera):
         AbstractCamera.__init__(self, *args)
 
         self._device = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self.model]))
+
+        ### Extract resolution from format
+        s = re.search('\((.*?)x(.*?)\)', self.format)
+        self.res_x = int(s.group(1))
+        self.res_y = int(s.group(2))
 
     @staticmethod
     def get_models():
@@ -107,7 +116,7 @@ class VirtualCamera(AbstractCamera):
     def get_image(self):
         ret, frame = self._device.read()
         if ret:
-            return frame
+            return frame[:self.res_y,:self.res_x,0]
         else:
             self._device.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return self.get_image()
@@ -151,7 +160,7 @@ class TISCamera(AbstractCamera):
         from lib.pyapi import tisgrabber
 
         cam = tisgrabber.TIS_CAM()
-        return cam.GetDevices()
+        return [s.decode() for s in cam.GetDevices()]
 
     @staticmethod
     def get_formats(model):
@@ -159,10 +168,13 @@ class TISCamera(AbstractCamera):
 
         device = tisgrabber.TIS_CAM()
         device.open(model)
-        return device.GetVideoFormats()
+        return [s.decode() for s in device.GetVideoFormats()]
 
     def snap_image(self):
         self._device.SnapImage()
 
     def get_image(self):
         return self._device.GetImage()
+
+    def stop(self):
+        self._device.StopLive()

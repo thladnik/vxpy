@@ -17,8 +17,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import logging
-import numpy as np
 from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
 import time
 
@@ -35,76 +35,85 @@ import protocols
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
+class IntegratedWidget(QtWidgets.QGroupBox):
 
-class Protocols(QtWidgets.QGroupBox):
+    def __init__(self, group_name, main):
+        QtWidgets.QGroupBox.__init__(self, group_name)
+        self.main: Gui = main
 
-    def __init__(self, _main):
-        self.main = _main
-        QtWidgets.QGroupBox.__init__(self, 'Protocols', parent=_main)
+        # List of exposed methods to register for rpc callbacks
+        self.exposed = list()
 
-        ## Setup widget
+    def create_hooks(self):
+        for fun in self.exposed:
+            fun_str = fun.__qualname__
+            self.main.register_rpc_callback(self, fun_str, fun)
+
+class Protocols(IntegratedWidget):
+
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Protocols', *args)
         self.setLayout(QtWidgets.QGridLayout())
 
-        ### File list
+        # File list
         self._lwdgt_files = QtWidgets.QListWidget()
-        self._lwdgt_files.itemSelectionChanged.connect(self.updateFileList)
+        self._lwdgt_files.itemSelectionChanged.connect(self.update_file_list)
         self.layout().addWidget(QtWidgets.QLabel('Files'), 0, 0)
         self.layout().addWidget(self._lwdgt_files, 1, 0)
-        ### Protocol list
+        # Protocol list
         self.lwdgt_protocols = QtWidgets.QListWidget()
         #self._lwdgt_protocols.itemSelectionChanged.connect(self._updateProtocolInfo)
         self.layout().addWidget(QtWidgets.QLabel('Protocols'), 0, 1)
         self.layout().addWidget(self.lwdgt_protocols, 1, 1)
 
-        ### Protocol (phase) progress
+        # Protocol (phase) progress
         self.progress = QtWidgets.QProgressBar()
         self.progress.setMinimum(0)
         self.progress.setTextVisible(False)
         self.layout().addWidget(self.progress, 0, 2)
 
-        ### Start button
+        # Start button
         self.wdgt_controls = QtWidgets.QWidget()
         self.layout().addWidget(self.wdgt_controls, 1, 2)
         self.wdgt_controls.setLayout(QtWidgets.QVBoxLayout())
         self.wdgt_controls.btn_start = QtWidgets.QPushButton('Start protocol')
-        self.wdgt_controls.btn_start.clicked.connect(self.startProtocol)
+        self.wdgt_controls.btn_start.clicked.connect(self.start_protocol)
         self.wdgt_controls.layout().addWidget(self.wdgt_controls.btn_start)
-        ### Abort protocol button
+        # Abort protocol button
         self.wdgt_controls.btn_abort = QtWidgets.QPushButton('Abort protocol')
-        self.wdgt_controls.btn_abort.clicked.connect(self.abortProtocol)
+        self.wdgt_controls.btn_abort.clicked.connect(self.abort_protocol)
         self.wdgt_controls.layout().addWidget(self.wdgt_controls.btn_abort)
 
-
-        ### Spacer
+        # Spacer
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.wdgt_controls.layout().addItem(vSpacer)
 
-        ### Set update timer
+        # Set update timer
         self._tmr_update = QtCore.QTimer()
         self._tmr_update.setInterval(200)
-        self._tmr_update.timeout.connect(self.updateGUI)
+        self._tmr_update.timeout.connect(self.update_ui)
         self._tmr_update.start()
 
-        ### Once set up: compile file list for first time
-        self._compileFileList()
+        # Once set up: compile file list for first time
+        self._compile_file_list()
 
-    def _compileFileList(self):
+    def _compile_file_list(self):
         self._lwdgt_files.clear()
         self.wdgt_controls.btn_start.setEnabled(False)
 
         for file in protocols.all():
             self._lwdgt_files.addItem(file)
 
-    def updateFileList(self):
+    def update_file_list(self):
         self.lwdgt_protocols.clear()
         self.wdgt_controls.btn_start.setEnabled(False)
 
-        for protocol in protocols.read(protocols.open(self._lwdgt_files.currentItem().text())):
+        for protocol in protocols.read(protocols.open_(self._lwdgt_files.currentItem().text())):
             self.lwdgt_protocols.addItem(protocol.__name__)
 
-    def updateGUI(self):
+    def update_ui(self):
 
-        ### Enable/Disable control elements
+        # Enable/Disable control elements
         ctrl_is_idle = IPC.in_state(Def.State.IDLE, Def.Process.Controller)
         self.wdgt_controls.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
         self.lwdgt_protocols.setEnabled(ctrl_is_idle)
@@ -112,7 +121,7 @@ class Protocols(QtWidgets.QGroupBox):
         protocol_is_running = bool(IPC.Control.Protocol[Def.ProtocolCtrl.name])
         self.wdgt_controls.btn_abort.setEnabled(protocol_is_running)
 
-        ### Update progress
+        # Update progress
         start_phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]
         if not(start_phase is None):
             self.progress.setEnabled(True)
@@ -124,26 +133,29 @@ class Protocols(QtWidgets.QGroupBox):
         if not(bool(IPC.Control.Protocol[Def.ProtocolCtrl.name])):
             self.progress.setEnabled(False)
 
-
-    def startProtocol(self):
+    def start_protocol(self):
         file_name = self._lwdgt_files.currentItem().text()
         protocol_name = self.lwdgt_protocols.currentItem().text()
 
-        IPC.rpc(Def.Process.Controller, Controller.start_protocol,
-                      '.'.join([file_name, protocol_name]))
+        # Start recording
+        self.main.recordings.start_recording()
 
-    def abortProtocol(self):
+        # Start protocol
+        IPC.rpc(Def.Process.Controller, Controller.start_protocol,
+                '.'.join([file_name, protocol_name]))
+
+    def abort_protocol(self):
         IPC.rpc(Controller.name, Controller.abortProtocol)
 
-class ProcessMonitor(QtWidgets.QGroupBox):
 
-    def __init__(self, _main):
-        QtWidgets.QGroupBox.__init__(self, 'Process monitor')
-        self._main : Gui.Main = _main
+class ProcessMonitor(IntegratedWidget):
 
-        self._setupUi()
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self,  'Process monitor', *args)
 
-    def _setupUi(self):
+        self._setup_ui()
+
+    def _setup_ui(self):
 
         self.setFixedWidth(150)
 
@@ -230,65 +242,87 @@ class ProcessMonitor(QtWidgets.QGroupBox):
         self._setProcessState(self._le_workerState, IPC.get_state(Def.Process.Worker))
 
 
-################################
-# Recordings widget
+class Recording(IntegratedWidget):
 
-class Recording(QtWidgets.QGroupBox):
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Recordings', *args)
+        # Create inner widget
+        self.setLayout(QtWidgets.QVBoxLayout())
 
-    def __init__(self, _main):
-        QtWidgets.QGroupBox.__init__(self, 'Recordings')
-        self._main : Gui.Main = _main
-        self.setObjectName('RecGroupBox')
+        self.wdgt = QtWidgets.QWidget()
+        self.wdgt.setLayout(QtWidgets.QGridLayout())
+        self.wdgt.setObjectName('RecordingWidget')
+        self.layout().addWidget(self.wdgt)
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
 
-        ### Create inner widget
-        self.setLayout(QtWidgets.QGridLayout())
-
-        ### Basic properties
+        # Basic properties
         self.setCheckable(True)
-        self.setFixedWidth(250)
+        self.setMaximumWidth(400)
 
-        ### Current folder
-        self._le_folder = QtWidgets.QLineEdit()
-        self._le_folder.setEnabled(False)
-        self.layout().addWidget(QtWidgets.QLabel('Folder'), 0, 0)
-        self.layout().addWidget(self._le_folder, 1, 0)
+        # Current folder
+        self.le_folder = QtWidgets.QLineEdit()
+        self.le_folder.setEnabled(False)
+        self.wdgt.layout().addWidget(QLabel('Folder'), 0, 0)
+        self.wdgt.layout().addWidget(self.le_folder, 0, 1)
 
-        ### GroupBox
-        self.clicked.connect(self.toggleEnable)
+        # GroupBox
+        self.clicked.connect(self.toggle_enable)
 
-        ### Buttons
-        ## Start
-        self._btn_start = QtWidgets.QPushButton('Start')
-        self._btn_start.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.startRecording))
-        self.layout().addWidget(self._btn_start, 2, 0)
-        ## Pause
-        self._btn_pause = QtWidgets.QPushButton('Pause')
-        self._btn_pause.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.pauseRecording))
-        self.layout().addWidget(self._btn_pause, 3, 0)
-        ## Stop
-        self._btn_stop = QtWidgets.QPushButton('Stop')
-        self._btn_stop.clicked.connect(self.finalizeRecording)
-        self.layout().addWidget(self._btn_stop, 4, 0)
+        # Data compression
+        self.cb_compression = QtWidgets.QComboBox()
+        self.cb_compression.currentTextChanged.connect(self.update_compression_opts)
+        #self.cb_compression.currentTextChanged.connect(self.set_compression)
+        self.wdgt.layout().addWidget(QLabel('Compression'), 1, 0)
+        self.cb_compr_opts = QtWidgets.QComboBox()
+        self.cb_compression.addItems(['None', 'GZIP', 'LZF'])
+        #self.cb_compr_opts.currentTextChanged.connect(self.set_compression_opts)
+        self.wdgt.layout().addWidget(self.cb_compression, 1, 1)
+        self.wdgt.layout().addWidget(QLabel('Compr. options'), 2, 0)
+        self.wdgt.layout().addWidget(self.cb_compr_opts, 2, 1)
 
-        ### Show recorded routines
-        self._gb_routines = QtWidgets.QGroupBox('Recording routines')
-        self._gb_routines.setLayout(QtWidgets.QVBoxLayout())
+        # Buttons
+        # Start
+        self.btn_start = QtWidgets.QPushButton('Start')
+        self.btn_start.clicked.connect(self.start_recording)
+        self.wdgt.layout().addWidget(self.btn_start, 3, 0, 1, 2)
+        # Pause
+        self.btn_pause = QtWidgets.QPushButton('Pause')
+        self.btn_pause.clicked.connect(lambda: IPC.rpc(Def.Process.Controller, Controller.pause_recording))
+        self.wdgt.layout().addWidget(self.btn_pause, 4, 0, 1, 2)
+        # Stop
+        self.btn_stop = QtWidgets.QPushButton('Stop')
+        self.btn_stop.clicked.connect(self.finalize_recording)
+        self.wdgt.layout().addWidget(self.btn_stop, 5, 0, 1, 2)
+
+        # Show recorded routines
+        self.gb_routines = QtWidgets.QGroupBox('Recording routines')
+        self.gb_routines.setLayout(QtWidgets.QVBoxLayout())
         for routine_id in Config.Recording[Def.RecCfg.routines]:
-            self._gb_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
-        self.layout().addWidget(self._gb_routines, 5, 0)
-        self.layout().addItem(vSpacer, 6, 0)
+            self.gb_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
+        self.gb_routines.layout().addItem(vSpacer)
+        self.wdgt.layout().addWidget(self.gb_routines, 0, 2, 7, 1)
+        self.wdgt.layout().addItem(vSpacer, 6, 0)
 
-        ### Set timer for GUI update
-        self._tmr_updateGUI = QtCore.QTimer()
-        self._tmr_updateGUI.setInterval(200)
-        self._tmr_updateGUI.timeout.connect(self.updateGui)
-        self._tmr_updateGUI.start()
+        # Set timer for GUI update
+        self.tmr_update_gui = QtCore.QTimer()
+        self.tmr_update_gui.setInterval(200)
+        self.tmr_update_gui.timeout.connect(self.update_ui)
+        self.tmr_update_gui.start()
 
-    def finalizeRecording(self):
-        ### First: pause recording
-        IPC.rpc(Def.Process.Controller, Controller.pauseRecording)
+    def start_recording(self):
+
+        compression_method = self.get_compression_method()
+        compression_opts = self.get_compression_opts()
+
+        # Call controller
+        IPC.rpc(Def.Process.Controller, Controller.start_recording,
+                compression_method=compression_method,
+                compression_opts=compression_opts)
+
+    def finalize_recording(self):
+        # First: pause recording
+        IPC.rpc(Def.Process.Controller, Controller.pause_recording)
 
         reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
                                                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
@@ -308,10 +342,47 @@ class Recording(QtWidgets.QGroupBox):
         print('Stop recording...')
         IPC.rpc(Def.Process.Controller, Controller.stop_recording)
 
-    def toggleEnable(self, newstate):
+    def toggle_enable(self, newstate):
         IPC.rpc(Def.Process.Controller, Controller.toggle_enable_recording, newstate)
 
-    def updateGui(self):
+    def get_compression_method(self):
+        method = self.cb_compression.currentText()
+        if method == 'None':
+            method = None
+        else:
+            method = method.lower()
+
+        return method
+
+    def get_compression_opts(self):
+        method = self.cb_compression.currentText()
+        opts = self.cb_compr_opts.currentText()
+
+        shuffle = opts.lower().find('shuffle') >= 0
+        if len(opts) > 0 and method == 'GZIP':
+            opts = dict(shuffle=shuffle,
+                        compression_opts=int(opts[0]))
+        elif method == 'LZF':
+            opts = dict(shuffle=shuffle)
+        else:
+            opts = dict()
+
+        return opts
+
+    def update_compression_opts(self):
+        self.cb_compr_opts.clear()
+
+        compr = self.cb_compression.currentText()
+        if compr == 'None':
+            self.cb_compr_opts.addItem('None')
+        elif compr == 'GZIP':
+            levels = range(10)
+            self.cb_compr_opts.addItems([f'{i} (shuffle)' for i in levels])
+            self.cb_compr_opts.addItems([str(i) for i in levels])
+        elif compr == 'LZF':
+            self.cb_compr_opts.addItems(['None', 'Shuffle'])
+
+    def update_ui(self):
         """(Periodically) update UI based on shared configuration"""
 
         enabled = Config.Recording[Def.RecCfg.enabled]
@@ -319,35 +390,35 @@ class Recording(QtWidgets.QGroupBox):
         current_folder = IPC.Control.Recording[Def.RecCtrl.folder]
 
         if active:
-            self.setStyleSheet('QGroupBox#RecGroupBox {background: rgba(179, 31, 18, 0.5);}')
+            self.wdgt.setStyleSheet('QWidget#RecordingWidget {background: rgba(179, 31, 18, 0.5);}')
         else:
-            self.setStyleSheet('QGroupBox#RecGroupBox {background: rgba(0, 0, 0, 0.0);}')
+            self.wdgt.setStyleSheet('QWidget#RecordingWidgetQGroupBox#RecGroupBox {background: rgba(0, 0, 0, 0.0);}')
 
-        ### Set enabled
+        # Set enabled
         self.setCheckable(not(active) and not(bool(current_folder)))
         self.setChecked(enabled)
 
-        ### Set current folder
-        self._le_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
+        # Set current folder
+        self.le_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
 
-        ### Set buttons dis-/enabled
-        ## Start
-        self._btn_start.setEnabled(not(active) and enabled)
-        self._btn_start.setText('Start' if IPC.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
-        ## Pause // TODO: implement pause functionality during non-protocol recordings?
+        # Set buttons dis-/enabled
+        # Start
+        self.btn_start.setEnabled(not(active) and enabled)
+        self.btn_start.setText('Start' if IPC.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
+        # Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
-        self._btn_pause.setEnabled(False)
-        ## Stop
-        self._btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
+        self.btn_pause.setEnabled(False)
+        # Stop
+        self.btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
         # Overwrite stop button during protocol
         if bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
-            self._btn_stop.setEnabled(False)
+            self.btn_stop.setEnabled(False)
 
-class Log(QtWidgets.QGroupBox):
 
-    def __init__(self, _main):
-        QtWidgets.QGroupBox.__init__(self, 'Log')
-        self._main: Gui.Main = _main
+class Log(IntegratedWidget):
+
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Log', *args)
 
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -379,137 +450,119 @@ class Log(QtWidgets.QGroupBox):
 
                 self.logccount += 1
 
-class Controls(QtWidgets.QTabWidget):
 
-    def __init__(self, _main):
-        QtWidgets.QTabWidget.__init__(self)
-        self._main : Gui.Main = _main
+class Camera(IntegratedWidget):
 
-        ### Display Settings
-        if Config.Display[Def.DisplayCfg.use]:
-            if Config.Display[Def.DisplayCfg.type] == 'spherical':
-                self.tabWdgt_Display = gui.Controls.SphericalDisplaySettings(self)
-            elif Config.Display[Def.DisplayCfg.type] == 'planar':
-                self.tabWdgt_Display = gui.Controls.PlanarDisplaySettings(self)
-            else:
-                raise Exception('No valid display settings widget found for display type "{}"'
-                                .format(Config.Display[Def.DisplayCfg.type]))
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Camera', *args)
 
-            self.addPaddedTab(self.tabWdgt_Display, 'Display')
+        self.stream_fps = 30
 
-        ### Protocols
-        #self.tabWdgt_Protocols = gui.Controls.Protocol(self)
-        #self.addPaddedTab(self.tabWdgt_Protocols, 'Protocols')
+        self._setup_ui()
 
-        ### Camera
-        self.tabWdgt_Camera = gui.Controls.Camera(self)
-        self.addPaddedTab(self.tabWdgt_Camera, 'Camera')
-
-    def addPaddedTab(self, wdgt, name):
-        wrapper = QtWidgets.QWidget()
-        wrapper.setLayout(QtWidgets.QGridLayout())
-        wrapper.layout().addWidget(wdgt, 0, 0)
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        wrapper.layout().addItem(vSpacer, 1, 0)
-        #wrapper.layout().addItem(hSpacer, 0, 1)
-        self.addTab(wrapper, name)
-
-class Camera(QtWidgets.QTabWidget):
-
-    def __init__(self, _main):
-        self.main = _main
-        QtWidgets.QTabWidget.__init__(self)
-
-        self.streamFps = 10
-
-        self._setupUI()
-
-    def _setupUI(self):
-        self.setWindowTitle('Camera')
+    def _setup_ui(self):
         self.setLayout(QtWidgets.QVBoxLayout())
+        # FPS counter
+        self.fps_counter = QtWidgets.QWidget(parent=self)
+        self.fps_counter.setEnabled(False)
+        self.fps_counter.setLayout(QtWidgets.QHBoxLayout())
+        self.fps_counter.layout().setContentsMargins(0, 0, 0, 0)
+        # Spacer
+        self.fps_counter.spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.fps_counter.layout().addItem(self.fps_counter.spacer)
+        # Lineedit
+        self.fps_counter.le = QtWidgets.QLineEdit('FPS N/A')
+        self.fps_counter.le.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.fps_counter.layout().addWidget(self.fps_counter.le)
+        self.layout().addWidget(self.fps_counter)
+
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_widget)
 
         ### Add camera addons
-        if len(Config.Gui[Def.GuiCfg.addons]) == 0:
-            addons = ['LiveCamera']
-        else:
-            addons = Config.Gui[Def.GuiCfg.addons]
+        avail_addons = Config.Gui[Def.GuiCfg.addons]
+        use_addons = list()
+        if Def.Process.Camera in avail_addons:
+            if len(avail_addons[Def.Process.Camera]) == 0:
+                use_addons.append('LiveCamera')
+            else:
+                use_addons.extend(avail_addons[Def.Process.Camera])
 
-        for addon_name in addons:
+        for addon_name in use_addons:
             if not(bool(addon_name)):
                 continue
 
+            # TODO: expand this to draw from all files in ./gui/
             wdgt = getattr(gui.Camera, addon_name)(self)
             if not(wdgt.moduleIsActive):
                 Logging.write(logging.WARNING, 'Addon {} could not be activated'
                               .format(addon_name))
                 continue
-            self.addTab(wdgt, addon_name)
-
-        ### Set frame update timer
-        self.imTimer = QtCore.QTimer()
-        self.imTimer.setInterval(1000 // self.streamFps)
-        self.imTimer.timeout.connect(self.updateFrames)
-        self.imTimer.start()
-
-    def updateFrames(self):
-        for idx in range(self.count()):
-            self.widget(idx).updateFrame()
-
-class DisplayView(QtWidgets.QGroupBox):
-
-    def __init__(self, _main):
-        self.main = _main
-        QtWidgets.QGroupBox.__init__(self, 'Display View')
-        self.setCheckable(True)
-        self.toggled.connect(self.setTimer)
-
-        self.setLayout(QtWidgets.QVBoxLayout())
-        from glumpy import app
-        app.use('qt5')
-
-        self._glWindow = QtWidgets.QOpenGLWidget(self) # app.Window()#
-        #self.native_win = self._glWindow._native_window
-        self.layout().addWidget(self._glWindow)
+            self.tab_widget.addTab(wdgt, addon_name)
 
 
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.updateGl)
 
-        self.current_protocol = None
-        self.current_phase_id = None
-        self.current_visual = None
+        # Select routine for FPS estimation (if any available)
+        # If no routines are set, don't even start frame update timer
+        routines = Config.Camera[Def.CameraCfg.routines]
+        if bool(routines):
+            # Use first routine in list
+            routine = routines[list(routines.keys())[0]][0]
+            self.used_buffer = IPC.Routines.Camera.get_buffer(routine)
 
-        self.setChecked(True)
+            Logging.write(Logging.INFO, f'Camera UI using routine "{routine}"')
 
-    def setTimer(self, bool):
-        if bool and not(self.timer.isActive()):
-            return
-            self.timer.start(1/20)
-        else:
-            if self.timer.isActive():
-                self.timer.stop()
+            # Set frame update timer
+            self.timer_frame_update = QtCore.QTimer()
+            self.timer_frame_update.setInterval(1000 // self.stream_fps)
+            self.timer_frame_update.timeout.connect(self.update_frames)
+            self.timer_frame_update.start()
 
-    def updateGl(self):
-        if self.current_protocol is None:
+    def update_frames(self):
 
-            if IPC.Control.Protocol[Def.ProtocolCtrl.name] is None or not(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
-                return
+        # Update frames in tabbed widgets
+        for idx in range(self.tab_widget.count()):
+            self.tab_widget.widget(idx).update_frame()
 
-            print('SET protocol to {}'.format(IPC.Control.Protocol[Def.ProtocolCtrl.name]))
+        # Update FPS counter
+        target_fps = Config.Camera[Def.CameraCfg.fps]
+        # Grab times for first random attribute
+        first_attr_name = self.used_buffer.list_attributes()[0]
+        frametimes = getattr(self.used_buffer, first_attr_name).get_times(target_fps)
 
-            self.current_protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+        if any([t is None for t in frametimes]):
             return
 
-        if self.current_phase_id != IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]:
-            self.current_phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+        # Display FPS
+        frame_dts = [v2-v1 for v1, v2 in zip(frametimes[:-1], frametimes[1:])]
+        mean_frame_dt = sum(frame_dts) / (len(frametimes)-1)
+        fps = 1./mean_frame_dt
+        if any([dt < 0 for dt in frame_dts]):
+            print('FPS:', fps, frametimes)
+        self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
-            new_phase = self.current_protocol._phases[self.current_phase_id]
-            new_visual, kwargs, duration = new_phase['visuals'][0]
-            self.current_visual = new_visual(self.current_protocol, self, **kwargs)
 
-        if self.current_visual is None:
-            return
+class Plotter(IntegratedWidget):
+    def __init__(self, *args):
+        IntegratedWidget.__init__(self, 'Plotter', *args)
 
-        print('draw?')
-        self.current_visual.trigger_on_draw(0, 0.0)
+        self.exposed.append(Plotter.add_line)
+
+        self.setLayout(QtWidgets.QGridLayout())
+
+        self.graphics_widget = pg.GraphicsLayoutWidget()
+        self.graphics_widget.addPlot(0,0,1,10)
+        self.layout().addWidget(self.graphics_widget, 0, 0)
+
+        ### Start timer
+        self._tmr_update = QtCore.QTimer()
+        self._tmr_update.setInterval(50)
+        self._tmr_update.timeout.connect(self.update_data)
+        self._tmr_update.start()
+
+    def update_data(self):
+        pin_data = None
+        idx_range = 1000
+
+    def add_line(self, process_name, routine_name, attr_name):
+        print(process_name, routine_name, attr_name)

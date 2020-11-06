@@ -19,36 +19,36 @@ import numpy as np
 
 from Protocol import StaticProtocol
 
-from visuals.spherical.Grating import BlackWhiteGrating as BWG
+from visuals.spherical.Grating import BlackWhiteGrating
 
 
 class StaticGratingDemo(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
 
         for sp in np.arange(10,50,10):
 
-            self.newPhase(5)
-            self.addVisual(BWG,
-                           {BWG.u_shape: 'vertical',
-                            BWG.u_direction:'horizontal',
-                            BWG.u_ang_velocity:0,
-                            BWG.u_spat_period:sp}
-                           )
+            self.add_phase(
+                BlackWhiteGrating, 4,
+                {BlackWhiteGrating.u_waveform: 'rectangular',
+                 BlackWhiteGrating.u_direction: 'horizontal',
+                 BlackWhiteGrating.u_ang_velocity: 0,
+                 BlackWhiteGrating.u_spat_period: sp}
+            )
 
 class MovingGratingDemo(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
 
         for sp in np.arange(10,50,10):
             for v in np.arange(10,50,10):
 
-                self.newPhase(5)
-                self.addVisual(BWG,
-                               {BWG.u_shape: 'vertical',
-                                BWG.u_direction:'horizontal',
-                                BWG.u_ang_velocity:v,
-                                BWG.u_spat_period:sp}
-                               )
+                self.add_phase(
+                    BlackWhiteGrating, 4,
+                    {BlackWhiteGrating.u_waveform: 'rectangular',
+                     BlackWhiteGrating.u_direction: 'horizontal',
+                     BlackWhiteGrating.u_ang_velocity: v,
+                     BlackWhiteGrating.u_spat_period: sp}
+                )

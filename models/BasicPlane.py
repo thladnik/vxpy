@@ -25,10 +25,9 @@ import numpy as np
 
 from Model import PlaneModel
 
-class VerticalXYPlane(PlaneModel):
+class VerticalXYPlane:
 
-    def __init__(self, sample_rate = 10, **kwargs):
-        PlaneModel.__init__(self, **kwargs)
+    def __init__(self, sample_rate=10, **kwargs):
 
         x = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)
         y = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)

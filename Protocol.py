@@ -16,7 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from glumpy import gloo, transforms
 import importlib
 import logging
 
@@ -30,20 +29,34 @@ class StaticProtocol(AbstractProtocol):
     """Static experimental protocol which does NOT support closed-loop designs.
     """
 
-    _name = None
-
-    def __init__(self, process):
-
+    def __init__(self, canvas):
+        self.canvas = canvas
         self._phases = list()
+        self._visuals = dict()
 
-    def phaseCount(self):
+    def initialize(self):
+        for visual_name, visual_cls in self._visuals.items():
+            self._visuals[visual_name] = visual_cls(self.canvas)
+
+    def add_visual(self, visual_cls: type):
+        if visual_cls.__qualname__ not in self._visuals:
+            self._visuals[visual_cls.__qualname__] = visual_cls
+
+    def add_phase(self, visual_cls, duration, parameters):
+        self.add_visual(visual_cls)
+        self._phases.append((visual_cls.__qualname__, duration, parameters))
+
+    def phase_count(self):
         return len(self._phases)
 
-    def newPhase(self, duration):
-        self._phases.append(dict(visuals=list(), signals=list(), duration=duration))
+    def fetch_phase_duration(self, phase_id):
+        visual_name, duration, parameters = self._phases[phase_id]
+        return duration
 
-    def addVisual(self, stimulus, kwargs, duration=None):
-        self._phases[-1]['visuals'].append((stimulus, kwargs, duration))
+    def fetch_phase_visual(self, phase_id):
+        visual_name, duration, parameters = self._phases[phase_id]
+        visual = self._visuals[visual_name]
+        visual.update(**parameters)
 
-    def addSignal(self, signal, kwargs, duration=None):
-        self._phases[-1]['signals'].append((signal, kwargs, duration))
+        return visual
+

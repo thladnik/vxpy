@@ -8,12 +8,14 @@ _protocols = dict()
 
 def load(protocol_path):
     file_name, protocol_name = protocol_path.split('.')
-    return getattr(open(file_name), protocol_name)
+    return getattr(open_(file_name), protocol_name)
 
-def open(file_name):
+
+def open_(file_name):
     if _protocols[file_name]['obj'] is None:
         _protocols[file_name]['obj'] = importlib.import_module(_protocols[file_name]['path'])
     return _protocols[file_name]['obj']
+
 
 def read(file_obj):
     return [protocol for key, protocol in file_obj.__dict__.items()
@@ -22,8 +24,10 @@ def read(file_obj):
             and not(protocol == AbstractProtocol)
             and not(protocol == StaticProtocol)]
 
+
 def all():
     return sorted(list(_protocols.keys()))
+
 
 for i, path in enumerate(os.listdir(Def.Path.Protocol)):
 

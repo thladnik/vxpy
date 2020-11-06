@@ -40,20 +40,20 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
     app : QtWidgets.QApplication
 
     def __init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs):
-        ### Create application
+        # Create application
         self.app = _app
 
-        ### Set up parents
+        # Set up parents
         Process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
-        ### Set icon
+        # Set icon
         self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
 
-        ### Setup basic UI
+        # Setup basic UI
         self.setup_ui()
 
-        ### Run event loop
+        # Run event loop
         self.run(interval=0.005)
 
     def main(self):
@@ -61,7 +61,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
 
     def setup_ui(self):
 
-        ### Set up main window
+        # Set up main window
         self.setWindowTitle('MappApp')
         self.move(0, 0)
         self.screenGeo = self.app.primaryScreen().geometry()
@@ -71,11 +71,11 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         else:
             self.resize(w,h)
 
-        ### Setup central widget
+        # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
         self.centralWidget().setLayout(QtWidgets.QGridLayout())
 
-        ### Add spacers
+        # Add spacers
         hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
 
@@ -90,7 +90,8 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
 
         ## Add Plotter
-        self.plotter = gui.Io.IoWidget(self)
+        self.plotter = gui.Integrated.Plotter(self)
+        self.plotter.create_hooks()
         self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
 
         ## Process monitor
@@ -108,7 +109,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.log_display.setMaximumHeight(500)
         self.centralWidget().layout().addWidget(self.log_display, 2, 2, 1, 2)
 
-        ### Setup menubar
+        # Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
         ## Menu windows
         self.menu_windows = QtWidgets.QMenu('Windows')
@@ -127,7 +128,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.menu_process.addAction(self.menu_process.restart_display)
 
         # Bind shortcuts
-        self._bindShortcuts()
+        self._bind_shortcuts()
 
         self.show()
 
@@ -141,18 +142,18 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
                 process.Controller.initialize_process,
                 process.Display)
 
-    def _bindShortcuts(self):
+    def _bind_shortcuts(self):
 
-        ### Restart display process
+        # Restart display process
         self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
         self.menu_process.restart_display.setAutoRepeat(False)
-        ### Restart camera process
+        # Restart camera process
         if Config.Camera[Def.CameraCfg.use]:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        ### Inform controller of close event
+        # Inform controller of close event
         IPC.send(Def.Process.Controller, Def.Signal.Shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
