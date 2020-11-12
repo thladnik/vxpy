@@ -116,7 +116,7 @@ class Display(Process.AbstractProcess):
 
     def _prepare_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-        IPC.Routines.Camera.set_record_group(f'phase_{phase_id}')
+        IPC.Routines.Display.set_record_group(f'phase_{phase_id}')
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         self.canvas.visual = self.visual
 
