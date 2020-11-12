@@ -20,6 +20,7 @@ import numpy as np
 from Protocol import StaticProtocol
 
 from visuals.spherical.Grating import BlackWhiteGrating
+from visuals.Blank import Blank
 
 
 class StaticGratingDemo(StaticProtocol):
@@ -34,8 +35,10 @@ class StaticGratingDemo(StaticProtocol):
                 {BlackWhiteGrating.u_waveform: 'rectangular',
                  BlackWhiteGrating.u_direction: 'horizontal',
                  BlackWhiteGrating.u_ang_velocity: 0,
-                 BlackWhiteGrating.u_spat_period: sp}
+                 BlackWhiteGrating.u_spatc_period: sp}
             )
+
+            self.add_phase(Blank, 3, {Blank.p_color: (0.0, 0.0, 0.0, 1.0)})
 
 class MovingGratingDemo(StaticProtocol):
 
