@@ -31,4 +31,3 @@ Or use Anaconda Command Prompt (Start >> Anaconda Prompt)
     * This will prompt a UI where you can create your own program configuration
 4. OR if a pre-configured INI file is available
     * Make sure it is located in the `./configs` folder and instead use `python Startup.py ini=filename.ini` 
-
