@@ -33,7 +33,8 @@ from PyQt5 import QtCore
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
-app.use_app('pyqt5')
+app.use_app('PyQt5')
+gloo.gl.use_gl('gl2')
 
 class Canvas(app.Canvas):
 
@@ -115,6 +116,7 @@ class Display(Process.AbstractProcess):
 
     def _prepare_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
+        IPC.Routines.Camera.set_record_group(f'phase_{phase_id}')
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         self.canvas.visual = self.visual
 
