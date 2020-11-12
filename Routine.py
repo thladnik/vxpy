@@ -256,7 +256,7 @@ class AbstractRoutine:
     def _append_data(self, grp, key, value):
 
         # Convert and determine dshape/dtype
-        value = np.asarray(value) if isinstance(value, list) else value
+        value = np.asarray(value) if isinstance(value, (list, tuple)) else value
         dshape = value.shape if isinstance(value, np.ndarray) else (1,)
         dtype = value.dtype if isinstance(value, np.ndarray) else type(value)
 

@@ -29,16 +29,16 @@ class StaticGratingDemo(StaticProtocol):
         StaticProtocol.__init__(self, *args)
 
         for sp in np.arange(10,50,10):
+            self.add_phase(Blank, 3, {Blank.p_color: (0.0, 0.0, 0.0, 1.0)})
 
             self.add_phase(
                 BlackWhiteGrating, 4,
                 {BlackWhiteGrating.u_waveform: 'rectangular',
                  BlackWhiteGrating.u_direction: 'horizontal',
                  BlackWhiteGrating.u_ang_velocity: 0,
-                 BlackWhiteGrating.u_spatc_period: sp}
+                 BlackWhiteGrating.u_spat_period: sp}
             )
 
-            self.add_phase(Blank, 3, {Blank.p_color: (0.0, 0.0, 0.0, 1.0)})
 
 class MovingGratingDemo(StaticProtocol):
 

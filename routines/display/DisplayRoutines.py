@@ -35,6 +35,8 @@ class ParameterRoutine(AbstractRoutine):
     def _out(self):
         index, time, parameters = self.buffer.parameters.read(0)
 
+        print(parameters)
+
         for key, value in parameters[0].items():
             yield key, time[0], value
 

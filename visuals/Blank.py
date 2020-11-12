@@ -26,7 +26,7 @@ from Shader import BasicFileShader
 
 class Blank(PlanarVisual):
 
-    p_color = 'u_rows'
+    p_color = 'p_color'
 
     parameters = {p_color: None}
 
