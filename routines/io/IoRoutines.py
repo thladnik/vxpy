@@ -21,7 +21,7 @@ import numpy as np
 import Config
 import Def
 
-from Routine import AbstractRoutine, ObjectAttribute
+from Routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 class ReadRoutine(AbstractRoutine):
 
@@ -66,18 +66,21 @@ class TriggerLedArenaFlash(AbstractRoutine):
         self.trigger_state = False
 
         # Set buffer attribute
-        self.buffer.trigger_set = ObjectAttribute()
-        self.buffer.flash_state = ObjectAttribute()
+        self.buffer.trigger_set = ArrayAttribute(size=(1,), dtype=ArrayDType.uint8, length=20000)
+        self.buffer.flash_state = ArrayAttribute(size=(1,), dtype=ArrayDType.uint8, length=20000)
 
     def _compute(self, pin_data, device):
         t = time.time()
         state = self.flash_start_time <= t and self.flash_end_time > t
+        #print(self.flash_start_time, t, self.flash_end_time)
+        #if state:
+        #    print('FLASH!')
 
         for pin_id, pin_num, pin_type in self.pins:
             device.write(pin_id, state)
 
         # Flash is over
-        if self.flash_end_time is not None and t <= self.flash_end_time:
+        if self.trigger_state and t >= self.flash_end_time:
             self.trigger_state = False
             self.flash_start_time = np.inf
             self.flash_end_time = -np.inf
@@ -101,6 +104,7 @@ class TriggerLedArenaFlash(AbstractRoutine):
         if self.trigger_state:
             return
 
+        print('Set flash start/end')
         self.trigger_set = not(self.trigger_set)
         self.trigger_state = not(self.trigger_state)
         self.flash_start_time = time.time() + delay

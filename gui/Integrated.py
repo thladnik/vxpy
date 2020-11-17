@@ -542,6 +542,8 @@ class Camera(IntegratedWidget):
         self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
 import numpy as np
+from routines.camera.CameraRoutines import  EyePosDetectRoutine
+from routines.io.IoRoutines import TriggerLedArenaFlash
 
 class Plotter(IntegratedWidget):
     def __init__(self, *args):
@@ -562,21 +564,48 @@ class Plotter(IntegratedWidget):
         self._tmr_update.timeout.connect(self.update_data)
         self._tmr_update.start()
 
+        self.start_time = time.time()
+
         # TODO: basically everything here is temporary for Giulia's experiments
         self.le_pos_t = []
         self.le_pos = []
-        self.le_pos_item = pg.PlotDataItem()
+        pg.mkPen()
+        self.le_pos_item = pg.PlotDataItem(pen=(255,0,0))
         self.plot_item.addItem(self.le_pos_item)
-        self.re_pos_item = pg.PlotDataItem()
+        self.re_pos_item = pg.PlotDataItem(pen=(0,0,255))
         self.plot_item.addItem(self.re_pos_item)
+        self.le_sacc_item = pg.PlotDataItem(pen=pg.mkPen(color=(255,0,0), style=QtCore.Qt.DashLine, width=2))
+        self.plot_item.addItem(self.le_sacc_item)
+        self.re_sacc_item = pg.PlotDataItem(pen=pg.mkPen(color=(0,0,255), style=QtCore.Qt.DashLine, width=2))
+        self.plot_item.addItem(self.re_sacc_item)
+        self.trigger_item = pg.PlotDataItem(pen=pg.mkPen(color=(255,255,255), style=QtCore.Qt.DashLine, width=1))
+        self.plot_item.addItem(self.trigger_item)
+        self.flash_item = pg.PlotDataItem(pen=pg.mkPen(color=(255,255,0), style=QtCore.Qt.DashLine, width=1))
+        self.plot_item.addItem(self.flash_item)
 
     def update_data(self):
-        # self.le_pos_t.extend([len(self.le_pos) + i for i in range(5)])
-        # self.le_pos.extend(np.random.randint(0, 20, size=(5,)))
-        #self.le_pos_item.setData(x=self.le_pos_t, y=self.le_pos)
-        _, times, le_pos = IPC.Routines.Camera.read('EyePosDetectRoutine/angular_le_pos_0', last=200)
-        if any([t is None for t in times]):
+        eye_routine = EyePosDetectRoutine
+        eye_rout_n = eye_routine.__name__
+        _, _, le_pos = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.ang_le_pos_prefix}0', last=300)
+        _, _, re_pos = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.ang_re_pos_prefix}0', last=300)
+        _, _, le_sacc = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.le_sacc_prefix}0', last=300)
+        _, eye_times, re_sacc = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.re_sacc_prefix}0', last=300)
+
+        io_routine = TriggerLedArenaFlash
+        io_rout_n = io_routine.__name__
+        _, _, trigger = IPC.Routines.Io.read(f'{io_rout_n}/trigger_set', last=15000)
+        _, io_times, flash = IPC.Routines.Io.read(f'{io_rout_n}/flash_state', last=15000)
+        if eye_times[0] is None:
             return
-        #print(le_pos.flatten().shape)
-        #print(times[0])
-        self.le_pos_item.setData(x=times, y=le_pos.flatten())
+
+        y_max_scale = max(np.max(le_pos), np.max(re_pos))
+        self.le_pos_item.setData(x=eye_times, y=le_pos.flatten())
+        self.re_pos_item.setData(x=eye_times, y=re_pos.flatten())
+        self.le_sacc_item.setData(x=eye_times, y=le_sacc.flatten() * y_max_scale)
+        self.re_sacc_item.setData(x=eye_times, y=re_sacc.flatten() * y_max_scale)
+
+        if io_times[0] is None:
+            return
+
+        self.trigger_item.setData(x=io_times, y=trigger.flatten() * y_max_scale)
+        self.flash_item.setData(x=io_times, y=flash.flatten() * y_max_scale)

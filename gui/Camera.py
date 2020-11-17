@@ -143,7 +143,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.minsize.emitValueChanged()
 
         # Saccade threshold velocity
-        self.panel_wdgt.sacc_thresh = EyePositionDetector.SliderWidget('Saccade thresh [deg/s]', 1, 2000, 50)
+        self.panel_wdgt.sacc_thresh = EyePositionDetector.SliderWidget('Saccade thresh [deg/s]', 1, 2000, 250)
         self.panel_wdgt.sacc_thresh.slider.valueChanged.connect(self.update_sacc_thresh)
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.sacc_thresh)
         self.panel_wdgt.sacc_thresh.emitValueChanged()

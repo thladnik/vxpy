@@ -73,8 +73,8 @@ class EyePosDetectRoutine(AbstractRoutine):
     extracted_rect_prefix = 'extracted_rect_'
     ang_le_pos_prefix = 'angular_le_pos_'
     ang_re_pos_prefix = 'angular_re_pos_'
-    le_sacc_thresh_prefix = 'le_saccade_threshold_'
-    re_sacc_thresh_prefix = 're_saccade_threshold_'
+    le_sacc_prefix = 'le_saccade_'
+    re_sacc_prefix = 're_saccade_'
     roi_maxnum = 10
 
     def __init__(self, *args, **kwargs):
@@ -113,8 +113,8 @@ class EyePosDetectRoutine(AbstractRoutine):
             setattr(self.buffer, f'{self.extracted_rect_prefix}{id}', ObjectAttribute())
             setattr(self.buffer, f'{self.ang_le_pos_prefix}{id}', ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=length))
             setattr(self.buffer, f'{self.ang_re_pos_prefix}{id}', ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=length))
-            setattr(self.buffer, f'{self.le_sacc_thresh_prefix}{id}', ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=length))
-            setattr(self.buffer, f'{self.re_sacc_thresh_prefix}{id}', ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=length))
+            setattr(self.buffer, f'{self.le_sacc_prefix}{id}', ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=length))
+            setattr(self.buffer, f'{self.re_sacc_prefix}{id}', ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=length))
         self.buffer.frame = ArrayAttribute((self.res_y, self.res_x),
                                            ArrayDType.uint8,
                                            length=2*target_fps)
@@ -502,8 +502,8 @@ class EyePosDetectRoutine(AbstractRoutine):
 
                         #print(le_vel, re_vel)
 
-                        le_sacc = abs(le_vel > self.saccade_threshold)
-                        re_sacc = abs(re_vel > self.saccade_threshold)
+                        le_sacc = abs(le_vel) > self.saccade_threshold
+                        re_sacc = abs(re_vel) > self.saccade_threshold
 
                     # if le_sacc:
                     #     print('LE SACCADE!')
@@ -514,9 +514,10 @@ class EyePosDetectRoutine(AbstractRoutine):
                         IPC.rpc(Def.Process.Io,
                                 routines.io.IoRoutines.TriggerLedArenaFlash.trigger_flash,
                                 0.01, 2.0)
-
-                    getattr(self.buffer, f'{self.le_sacc_thresh_prefix}{id}').write(int(le_sacc))
-                    getattr(self.buffer, f'{self.re_sacc_thresh_prefix}{id}').write(int(re_sacc))
+                    if le_sacc or re_sacc:
+                        print(le_sacc, re_sacc)
+                    getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(int(le_sacc))
+                    getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(int(re_sacc))
 
                 # Set current rect ROI data
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
