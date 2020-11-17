@@ -341,9 +341,10 @@ class Controller(AbstractProcess):
         #TODO: compose proper metadata, append sessiondata and save to file
 
         # Let worker compose all individual recordings into one data structure
-        IPC.rpc(Def.Process.Worker, process.Worker.run_task,
-                 'ComposeRecordings',
-                IPC.Control.Recording[Def.RecCtrl.folder])
+        if False:
+            IPC.rpc(Def.Process.Worker, process.Worker.run_task,
+                     'ComposeRecordings',
+                    IPC.Control.Recording[Def.RecCtrl.folder])
 
         Logging.write(Logging.INFO, 'Stop recording')
         self.set_state(Def.State.IDLE)

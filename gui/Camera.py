@@ -142,6 +142,12 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.minsize)
         self.panel_wdgt.minsize.emitValueChanged()
 
+        # Saccade threshold velocity
+        self.panel_wdgt.sacc_thresh = EyePositionDetector.SliderWidget('Saccade thresh [deg/s]', 1, 2000, 50)
+        self.panel_wdgt.sacc_thresh.slider.valueChanged.connect(self.update_sacc_thresh)
+        self.panel_wdgt.layout().addWidget(self.panel_wdgt.sacc_thresh)
+        self.panel_wdgt.sacc_thresh.emitValueChanged()
+
         self.panel_wdgt.layout().addItem(QtWidgets.QSpacerItem(1, 1,
                                                                  QtWidgets.QSizePolicy.Maximum,
                                                                  QtWidgets.QSizePolicy.MinimumExpanding))
@@ -171,6 +177,10 @@ class EyePositionDetector(QtWidgets.QWidget):
                 routines.camera.CameraRoutines.EyePosDetectRoutine.set_min_particle_size,
                 self.panel_wdgt.minsize.slider.value())
 
+    def update_sacc_thresh(self):
+        IPC.rpc(Def.Process.Camera,
+                routines.camera.CameraRoutines.EyePosDetectRoutine.set_saccade_threshold,
+                self.panel_wdgt.sacc_thresh.slider.value())
 
     def update_frame(self):
         idx, time, frame = self.detector_buffer.frame.read()

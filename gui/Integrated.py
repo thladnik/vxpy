@@ -541,17 +541,19 @@ class Camera(IntegratedWidget):
             print('FPS:', fps, frametimes)
         self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
+import numpy as np
 
 class Plotter(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Plotter', *args)
 
-        self.exposed.append(Plotter.add_line)
+        #self.exposed.append(Plotter.add_line)
 
         self.setLayout(QtWidgets.QGridLayout())
 
         self.graphics_widget = pg.GraphicsLayoutWidget()
-        self.graphics_widget.addPlot(0,0,1,10)
+        self.plot_item = pg.PlotItem()
+        self.graphics_widget.addItem(self.plot_item)#addPlot(0,0,1,10)
         self.layout().addWidget(self.graphics_widget, 0, 0)
 
         ### Start timer
@@ -560,9 +562,21 @@ class Plotter(IntegratedWidget):
         self._tmr_update.timeout.connect(self.update_data)
         self._tmr_update.start()
 
-    def update_data(self):
-        pin_data = None
-        idx_range = 1000
+        # TODO: basically everything here is temporary for Giulia's experiments
+        self.le_pos_t = []
+        self.le_pos = []
+        self.le_pos_item = pg.PlotDataItem()
+        self.plot_item.addItem(self.le_pos_item)
+        self.re_pos_item = pg.PlotDataItem()
+        self.plot_item.addItem(self.re_pos_item)
 
-    def add_line(self, process_name, routine_name, attr_name):
-        print(process_name, routine_name, attr_name)
+    def update_data(self):
+        # self.le_pos_t.extend([len(self.le_pos) + i for i in range(5)])
+        # self.le_pos.extend(np.random.randint(0, 20, size=(5,)))
+        #self.le_pos_item.setData(x=self.le_pos_t, y=self.le_pos)
+        _, times, le_pos = IPC.Routines.Camera.read('EyePosDetectRoutine/angular_le_pos_0', last=200)
+        if any([t is None for t in times]):
+            return
+        #print(le_pos.flatten().shape)
+        #print(times[0])
+        self.le_pos_item.setData(x=times, y=le_pos.flatten())

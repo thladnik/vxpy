@@ -112,7 +112,7 @@ class Routines:
         else:
             routine_name = routine_cls.__name__
 
-        assert routine_name in self._routines, f'Routine {routine_name} is not set'
+        assert routine_name in self._routines, f'Routine {routine_name} is not set in {self.name}'
 
         return self._routines[routine_name].buffer
 

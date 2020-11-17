@@ -27,11 +27,11 @@ class Device:
 
     def setup(self):
 
-        self._digital_pins = dict()
+        self._pins = dict()
         self._digin_pins = list()
 
         for digitPin in Config.Io[Def.IoCfg.pins]:
-            name, num, ptype = digitPin.split(':')
+            pin_id, num, ptype = digitPin.split(':')
 
             typeStr = ''
             if ptype == 'i':
@@ -41,11 +41,11 @@ class Device:
             elif ptype == 'p':
                 typeStr = 'pwm'
 
-            msg = 'Configuration of \'{}\' for \'{}\' on pin {}'.format(name, typeStr, num)
+            msg = 'Configuration of \'{}\' for \'{}\' on pin {}'.format(pin_id, typeStr, num)
             try:
-                self._digital_pins[name] = self._board.get_pin('d:{}:{}'.format(int(num), ptype))
+                self._pins[pin_id] = self._board.get_pin(f'd:{int(num)}:{ptype}')
                 if ptype == 'i':
-                    self._digin_pins.append(name)
+                    self._digin_pins.append(pin_id)
                 Logging.write(logging.INFO, msg)
 
             except Exception as exc:
@@ -53,14 +53,12 @@ class Device:
 
         return True
 
-    def read_digitals(self):
-        return {name : self._digital_pins[name].read() for name in self._digin_pins}
+    def write(self, pin_id, value):
+        self._pins[pin_id].write(value)
 
-    def readAnalogs(self):
-        return {name : self._digital_pins[name].read() for name in self._digin_pins}
+    def read_all(self):
+        return {name : self._pins[name].read() for name in self._digin_pins}
 
-    def readAll(self):
-        return {**self.read_digitals()}#, **self.readAnalogs()}
 
 class Virtual:
 
@@ -75,8 +73,6 @@ class Virtual:
 
         def read(self):
             return -0.5 + 0.1 * np.random.rand() + self.sawtooth(time.time()+self.pin/20 * 2 * np.pi * 1.0 )
-            #return np.random.randint(2)
-
 
     _pins = list()
 
