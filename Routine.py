@@ -104,7 +104,7 @@ class Routines:
                 f'Unable to add routine of same name from path \"{routine_cls.__module__}\"')
 
         self._routine_paths[routine_cls.__name__] = routine_cls.__module__
-        self._routines[routine_cls.__name__] = routine_cls(self, **kwargs)
+        self._routines[routine_cls.__name__]: AbstractRoutine = routine_cls(self, **kwargs)
 
     def get_buffer(self, routine_cls):
         if isinstance(routine_cls, str):
@@ -226,7 +226,7 @@ class AbstractRoutine:
         self.required = list()
 
         # Default ring buffer instance for routine
-        self.buffer = RingBuffer()
+        self.buffer: RingBuffer = RingBuffer()
 
     def _compute(self, *args, **kwargs):
         """Compute method is called on data updates (in the producer process).
@@ -356,7 +356,15 @@ class BufferAttribute:
     def _read(self, start_idx, end_idx, use_lock):
         raise NotImplementedError(f'_read not implemented in {self.__class__.__name__}')
 
-    def read(self, last=1, use_lock=True):
+    def read(self, last=1, use_lock=True, from_idx=None):
+        if from_idx is not None:
+            last = self._index - from_idx
+            # If this turns up 0, return nothing, as by default read(last=0)
+            # would be used in producer to read current value (which consumers should never do)
+            if last <= 0:
+                # TODO: it's not a given that "datsets" would be a list, this may cause issues
+                #  while reading ArrayAttributes for example
+                return [], [], []
         # Return indices, times, datasets
         return self._get_index_list(last), self.get_times(last), self._read(*self._get_range(last), use_lock)
 

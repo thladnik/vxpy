@@ -500,8 +500,6 @@ class Camera(IntegratedWidget):
                 continue
             self.tab_widget.addTab(wdgt, addon_name)
 
-
-
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
         routines = Config.Camera[Def.CameraCfg.routines]
@@ -509,8 +507,12 @@ class Camera(IntegratedWidget):
             # Use first routine in list
             routine = routines[list(routines.keys())[0]][0]
             self.used_buffer = IPC.Routines.Camera.get_buffer(routine)
+            # Grab times for first random attribute
+            self.first_attr_name = self.used_buffer.list_attributes()[0]
 
-            Logging.write(Logging.INFO, f'Camera UI using routine "{routine}"')
+            Logging.write(Logging.INFO,
+                          f'Camera UI using attribute "{routine}/{self.first_attr_name}"'
+                          'for FPS estimation')
 
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
@@ -526,9 +528,7 @@ class Camera(IntegratedWidget):
 
         # Update FPS counter
         target_fps = Config.Camera[Def.CameraCfg.fps]
-        # Grab times for first random attribute
-        first_attr_name = self.used_buffer.list_attributes()[0]
-        frametimes = getattr(self.used_buffer, first_attr_name).get_times(target_fps)
+        frametimes = getattr(self.used_buffer, self.first_attr_name).get_times(target_fps//2)
 
         if any([t is None for t in frametimes]):
             return
@@ -542,14 +542,36 @@ class Camera(IntegratedWidget):
         self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
 import numpy as np
-from routines.camera.CameraRoutines import  EyePosDetectRoutine
-from routines.io.IoRoutines import TriggerLedArenaFlash
+import routines.camera.CameraRoutines
+import routines.io.IoRoutines
+from Routine import Routines
 
 class Plotter(IntegratedWidget):
+
+    # Colormap is tab10 from matplotlib:
+    # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
+    cmap = \
+         ((0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
+         (1.0, 0.4980392156862745, 0.054901960784313725),
+         (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
+         (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
+         (0.5803921568627451, 0.403921568627451, 0.7411764705882353),
+         (0.5490196078431373, 0.33725490196078434, 0.29411764705882354),
+         (0.8901960784313725, 0.4666666666666667, 0.7607843137254902),
+         (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
+         (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
+         (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
+
+    plot_seg_len = 5000
+    plot_seg_num = 20
+
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Plotter', *args)
 
-        #self.exposed.append(Plotter.add_line)
+        self.cmap = (np.array(self.cmap) * 255).astype(int)
+        print(self.cmap.shape, self.cmap.dtype)
+
+        self.exposed.append(Plotter.add_buffer_attribute)
 
         self.setLayout(QtWidgets.QGridLayout())
 
@@ -558,54 +580,66 @@ class Plotter(IntegratedWidget):
         self.graphics_widget.addItem(self.plot_item)#addPlot(0,0,1,10)
         self.layout().addWidget(self.graphics_widget, 0, 0)
 
-        ### Start timer
+        # Start timer
         self._tmr_update = QtCore.QTimer()
-        self._tmr_update.setInterval(50)
+        self._tmr_update.setInterval(1000//20)
         self._tmr_update.timeout.connect(self.update_data)
         self._tmr_update.start()
 
         self.start_time = time.time()
 
-        # TODO: basically everything here is temporary for Giulia's experiments
-        self.le_pos_t = []
-        self.le_pos = []
-        pg.mkPen()
-        self.le_pos_item = pg.PlotDataItem(pen=(255,0,0))
-        self.plot_item.addItem(self.le_pos_item)
-        self.re_pos_item = pg.PlotDataItem(pen=(0,0,255))
-        self.plot_item.addItem(self.re_pos_item)
-        self.le_sacc_item = pg.PlotDataItem(pen=pg.mkPen(color=(255,0,0), style=QtCore.Qt.DashLine, width=2))
-        self.plot_item.addItem(self.le_sacc_item)
-        self.re_sacc_item = pg.PlotDataItem(pen=pg.mkPen(color=(0,0,255), style=QtCore.Qt.DashLine, width=2))
-        self.plot_item.addItem(self.re_sacc_item)
-        self.trigger_item = pg.PlotDataItem(pen=pg.mkPen(color=(255,255,255), style=QtCore.Qt.DashLine, width=1))
-        self.plot_item.addItem(self.trigger_item)
-        self.flash_item = pg.PlotDataItem(pen=pg.mkPen(color=(255,255,0), style=QtCore.Qt.DashLine, width=1))
-        self.plot_item.addItem(self.flash_item)
+        self.plots = dict()
+        self.plot_num = 0
+
+    def add_buffer_attribute(self, process_name, attr_name, start_idx=0):
+        if process_name not in self.plots:
+            self.plots[process_name] = dict()
+
+
+        if attr_name not in self.plots[process_name]:
+            i = self.plot_num // len(self.cmap)
+            m = self.plot_num % len(self.cmap)
+            alpha = 255# // (2**i)
+            color = (*self.cmap[m], alpha)
+            self.plots[process_name][attr_name] = dict(
+                data_items=[self.plot_item.plot([], [], pen=pg.mkPen(color))],
+                last_idx=start_idx)
+
+            self.plot_num += 1
 
     def update_data(self):
-        eye_routine = EyePosDetectRoutine
-        eye_rout_n = eye_routine.__name__
-        _, _, le_pos = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.ang_le_pos_prefix}0', last=300)
-        _, _, re_pos = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.ang_re_pos_prefix}0', last=300)
-        _, _, le_sacc = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.le_sacc_prefix}0', last=300)
-        _, eye_times, re_sacc = IPC.Routines.Camera.read(f'{eye_rout_n}/{eye_routine.re_sacc_prefix}0', last=300)
 
-        io_routine = TriggerLedArenaFlash
-        io_rout_n = io_routine.__name__
-        _, _, trigger = IPC.Routines.Io.read(f'{io_rout_n}/trigger_set', last=15000)
-        _, io_times, flash = IPC.Routines.Io.read(f'{io_rout_n}/flash_state', last=15000)
-        if eye_times[0] is None:
-            return
+        for process_name, attributes in self.plots.items():
+            for attr_name, data in attributes.items():
+                data_items = data['data_items']
 
-        y_max_scale = max(np.max(le_pos), np.max(re_pos))
-        self.le_pos_item.setData(x=eye_times, y=le_pos.flatten())
-        self.re_pos_item.setData(x=eye_times, y=re_pos.flatten())
-        self.le_sacc_item.setData(x=eye_times, y=le_sacc.flatten() * y_max_scale)
-        self.re_sacc_item.setData(x=eye_times, y=re_sacc.flatten() * y_max_scale)
+                # Read new values from buffer
+                routines: Routines = getattr(IPC.Routines, process_name)
+                n_idcs, n_times, n_data = routines.read(attr_name, from_idx=data['last_idx'])
 
-        if io_times[0] is None:
-            return
+                if len(n_idcs) == 0:
+                    continue
 
-        self.trigger_item.setData(x=io_times, y=trigger.flatten() * y_max_scale)
-        self.flash_item.setData(x=io_times, y=flash.flatten() * y_max_scale)
+                n_times = np.array(n_times) - self.start_time
+                n_data = np.array(n_data).flatten()
+
+                # Set new last index
+                data['last_idx'] = n_idcs[-1]
+
+                if len(data_items) > self.plot_seg_num:
+                    self.plot_item.removeItem(data_items[0])
+                    del data_items[0]
+
+                x_data = data_items[-1].xData
+                y_data = data_items[-1].yData
+
+                if x_data.shape[0] > self.plot_seg_len:
+                    data_items.append(self.plot_item.plot(n_times, n_data))
+                else:
+                    try:
+                        data_items[-1].setData(x=np.append(x_data, n_times), y=np.append(y_data, n_data))
+                    except Exception as exc:
+                        import traceback
+                        print(traceback.print_exc())
+
+                self.plot_item.setXRange(n_times[-1]-20, n_times[-1])

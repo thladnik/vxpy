@@ -121,8 +121,7 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.mode.currentTextChanged.connect(self.update_mode)
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.mode)
         self.panel_wdgt.mode.addItems(
-            [routines.camera.CameraRoutines.EyePosDetectRoutine.feret_diameter.__name__,
-             routines.camera.CameraRoutines.EyePosDetectRoutine.longest_distance.__name__])
+            [routines.camera.CameraRoutines.EyePosDetectRoutine.feret_diameter.__name__])
 
         # Threshold
         self.panel_wdgt.thresh = EyePositionDetector.SliderWidget('Threshold', 1, 255, 60)
