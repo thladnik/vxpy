@@ -79,34 +79,39 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
 
-        ## Protocols
+        # Protocols
         self.protocols = gui.Integrated.Protocols(self)
         self.centralWidget().layout().addWidget(self.protocols, 0, 0, 1, 3)
 
-        ## Camera
+        # Camera
         self.camera = gui.Integrated.Camera(self)
-        self.camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
-        self.camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
-        self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
+        #self.camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
+        #self.camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
+        #self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
+        self.centralWidget().layout().addWidget(self.camera, 0, 3, 1, 1)
 
-        ## Add Plotter
+        # Add Plotter
         self.plotter = gui.Integrated.Plotter(self)
+        self.plotter.setMinimumHeight(300)
+        self.plotter.setMaximumHeight(400)
         self.plotter.create_hooks()
-        self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
+        #self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
+        self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 4)
 
-        ## Process monitor
+        # Process monitor
         self.process_monitor = gui.Integrated.ProcessMonitor(self)
-        self.process_monitor.setMaximumHeight(500)
+        self.process_monitor.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.process_monitor, 2, 0)
 
-        ## Recordings
+        # Recordings
         self.recordings = gui.Integrated.Recording(self)
-        self.recordings.setMaximumHeight(500)
+        self.recordings.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.recordings, 2, 1)
 
-        ## Logger
+        # Logger
         self.log_display = gui.Integrated.Log(self)
-        self.log_display.setMaximumHeight(500)
+        self.log_display.setMinimumHeight(300)
+        self.log_display.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.log_display, 2, 2, 1, 2)
 
         # Setup menubar

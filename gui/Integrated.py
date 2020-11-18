@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
+import numpy as np
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
@@ -31,6 +31,7 @@ import Logging
 from process import Gui
 import protocols
 
+from Routine import Routines
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -425,7 +426,7 @@ class Log(IntegratedWidget):
         self._txe_log = QtWidgets.QTextEdit()
         self._txe_log.setReadOnly(True)
         self._txe_log.setFontFamily('Courier')
-        self._txe_log.setFontPointSize(10)
+        #self._txe_log.setFontPointSize(5)
         self.layout().addWidget(self._txe_log)
 
         ### Set initial log line count
@@ -495,7 +496,7 @@ class Camera(IntegratedWidget):
             # TODO: expand this to draw from all files in ./gui/
             wdgt = getattr(gui.Camera, addon_name)(self)
             if not(wdgt.moduleIsActive):
-                Logging.write(logging.WARNING, 'Addon {} could not be activated'
+                Logging.write(Logging.WARNING, 'Addon {} could not be activated'
                               .format(addon_name))
                 continue
             self.tab_widget.addTab(wdgt, addon_name)
@@ -541,11 +542,6 @@ class Camera(IntegratedWidget):
             print('FPS:', fps, frametimes)
         self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
-import numpy as np
-import routines.camera.CameraRoutines
-import routines.io.IoRoutines
-from Routine import Routines
-
 class Plotter(IntegratedWidget):
 
     # Colormap is tab10 from matplotlib:
@@ -569,7 +565,6 @@ class Plotter(IntegratedWidget):
         IntegratedWidget.__init__(self, 'Plotter', *args)
 
         self.cmap = (np.array(self.cmap) * 255).astype(int)
-        print(self.cmap.shape, self.cmap.dtype)
 
         self.exposed.append(Plotter.add_buffer_attribute)
 
@@ -579,6 +574,9 @@ class Plotter(IntegratedWidget):
         self.plot_item = pg.PlotItem()
         self.graphics_widget.addItem(self.plot_item)#addPlot(0,0,1,10)
         self.layout().addWidget(self.graphics_widget, 0, 0)
+
+        self.legend_item = pg.LegendItem()
+        self.legend_item.setParentItem(self.plot_item)
 
         # Start timer
         self._tmr_update = QtCore.QTimer()
@@ -591,19 +589,29 @@ class Plotter(IntegratedWidget):
         self.plots = dict()
         self.plot_num = 0
 
-    def add_buffer_attribute(self, process_name, attr_name, start_idx=0):
+    def add_buffer_attribute(self, process_name, attr_name, start_idx=0, name=None):
         if process_name not in self.plots:
             self.plots[process_name] = dict()
-
 
         if attr_name not in self.plots[process_name]:
             i = self.plot_num // len(self.cmap)
             m = self.plot_num % len(self.cmap)
-            alpha = 255# // (2**i)
-            color = (*self.cmap[m], alpha)
+            color = (*self.cmap[m], 255 // (2**i))
+            pen = pg.mkPen(color)
+
+            if name is None:
+                name = f'{process_name}:{attr_name}'
+
+            data_item = self.plot_item.plot([], [], pen=pen)
+
             self.plots[process_name][attr_name] = dict(
-                data_items=[self.plot_item.plot([], [], pen=pg.mkPen(color))],
+                data_items=[data_item],
+                pen=pen,
+                name=name,
                 last_idx=start_idx)
+
+            # Add to legend
+            self.legend_item.addItem(data_item, name)
 
             self.plot_num += 1
 
@@ -628,13 +636,15 @@ class Plotter(IntegratedWidget):
 
                 if len(data_items) > self.plot_seg_num:
                     self.plot_item.removeItem(data_items[0])
+                    self.legend_item.removeItem(data_items[0])
                     del data_items[0]
+                    self.legend_item.addItem(data_items[-1], data['name'])
 
                 x_data = data_items[-1].xData
                 y_data = data_items[-1].yData
 
                 if x_data.shape[0] > self.plot_seg_len:
-                    data_items.append(self.plot_item.plot(n_times, n_data))
+                    data_items.append(self.plot_item.plot(n_times, n_data, pen=data['pen']))
                 else:
                     try:
                         data_items[-1].setData(x=np.append(x_data, n_times), y=np.append(y_data, n_data))
