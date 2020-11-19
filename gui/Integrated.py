@@ -558,8 +558,8 @@ class Plotter(IntegratedWidget):
          (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
          (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
 
-    plot_seg_len = 5000
-    plot_seg_num = 20
+    plot_seg_len = 200#10000
+    plot_seg_num = 5#20
 
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Plotter', *args)
@@ -570,10 +570,13 @@ class Plotter(IntegratedWidget):
 
         self.setLayout(QtWidgets.QGridLayout())
 
-        self.graphics_widget = pg.GraphicsLayoutWidget()
-        self.plot_item = pg.PlotItem()
-        self.graphics_widget.addItem(self.plot_item)#addPlot(0,0,1,10)
-        self.layout().addWidget(self.graphics_widget, 0, 0)
+        #self.graphics_widget = pg.GraphicsLayoutWidget()
+        self.plot_widget = pg.PlotWidget()
+        #self.plot_item = pg.PlotItem()
+        self.plot_item = self.plot_widget.plotItem
+        #self.graphics_widget.addItem(self.plot_item)#addPlot(0,0,1,10)
+        #self.layout().addWidget(self.graphics_widget, 0, 0)
+        self.layout().addWidget(self.plot_widget, 0, 0)
 
         self.legend_item = pg.LegendItem()
         self.legend_item.setParentItem(self.plot_item)
@@ -588,8 +591,42 @@ class Plotter(IntegratedWidget):
 
         self.plots = dict()
         self.plot_num = 0
+        self._interact = False
+        self._xrange = 20
+        self.plot_item.sigXRangeChanged.connect(self.set_new_xrange)
+        self.plot_item.setXRange(-self._xrange, 0, padding=0.)
+        #self.plot_item.showAxis('left', False)
+        self.plot_item.setLabels(left='defaulty')
+        self.axes = {'defaulty': {'axis': self.plot_item.getAxis('left'),
+                                  'vb': self.plot_item.getViewBox()}}
+        self.idx = 3
 
-    def add_buffer_attribute(self, process_name, attr_name, start_idx=0, name=None):
+    def set_new_xrange(self, vb, xrange):
+        self._xrange = np.floor(xrange[1]-xrange[0])
+
+    def update_views(self):
+        for axis_name, ax in self.axes.items():
+            ax['vb'].setGeometry(self.plot_item.vb.sceneBoundingRect())
+            ax['vb'].linkedViewChanged(self.plot_item.vb, ax['vb'].XAxis)
+
+    def add_buffer_attribute(self, process_name, attr_name, start_idx=0, name=None, axis=None):
+
+        if axis is None:
+            axis = 'defaulty'
+
+        if axis not in self.axes:
+            self.axes[axis] = dict(axis=pg.AxisItem('left'), vb=pg.ViewBox())
+
+            self.plot_item.layout.addItem(self.axes[axis]['axis'], 2, self.idx)
+            self.plot_item.scene().addItem(self.axes[axis]['vb'])
+            self.axes[axis]['axis'].linkToView(self.axes[axis]['vb'])
+            self.axes[axis]['vb'].setXLink(self.plot_item)
+            self.axes[axis]['axis'].setLabel(axis)
+
+            self.update_views()
+            self.plot_item.vb.sigResized.connect(self.update_views)
+            self.idx += 2
+
         if process_name not in self.plots:
             self.plots[process_name] = dict()
 
@@ -602,7 +639,9 @@ class Plotter(IntegratedWidget):
             if name is None:
                 name = f'{process_name}:{attr_name}'
 
-            data_item = self.plot_item.plot([], [], pen=pen)
+            #data_item = self.plot_item.plot([], [], pen=pen)
+            data_item = pg.PlotDataItem([], [], pen=pen)
+            self.axes[axis]['vb'].addItem(data_item)
 
             self.plots[process_name][attr_name] = dict(
                 data_items=[data_item],
@@ -623,12 +662,22 @@ class Plotter(IntegratedWidget):
 
                 # Read new values from buffer
                 routines: Routines = getattr(IPC.Routines, process_name)
-                n_idcs, n_times, n_data = routines.read(attr_name, from_idx=data['last_idx'])
-
-                if len(n_idcs) == 0:
+                try:
+                    n_idcs, n_times, n_data = routines.read(attr_name, from_idx=data['last_idx'])
+                except Exception as exc:
+                    Logging.write(Logging.WARNING,
+                                  f'Problem trying to read {process_name}:{attr_name} from_idx={data["last_idx"]}'
+                                  f'// Exception: {exc}')
                     continue
 
-                n_times = np.array(n_times) - self.start_time
+                if len(n_times) == 0:
+                    continue
+
+                try:
+                    n_times = np.array(n_times) - self.start_time
+                except Exception as exc:
+                    print(attr_name, self.start_time, n_times)
+                    continue
                 n_data = np.array(n_data).flatten()
 
                 # Set new last index
@@ -636,9 +685,10 @@ class Plotter(IntegratedWidget):
 
                 if len(data_items) > self.plot_seg_num:
                     self.plot_item.removeItem(data_items[0])
-                    self.legend_item.removeItem(data_items[0])
+                    # self.legend_item.removeItem(data_items[0])
+                    self.legend_item.removeItem(data['name'])
                     del data_items[0]
-                    self.legend_item.addItem(data_items[-1], data['name'])
+                    self.legend_item.addItem(data_items[0], data['name'])
 
                 x_data = data_items[-1].xData
                 y_data = data_items[-1].yData
@@ -652,4 +702,8 @@ class Plotter(IntegratedWidget):
                         import traceback
                         print(traceback.print_exc())
 
-                self.plot_item.setXRange(n_times[-1]-20, n_times[-1])
+                # TODO: add mouse/keyboard interactions for scaling in x/y
+                #  as well as panning of data
+
+                if not self._interact:
+                    self.plot_item.setXRange(n_times[-1]-self._xrange, n_times[-1], padding=0.)

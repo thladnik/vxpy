@@ -56,15 +56,24 @@ def in_state(state, process_name=None):
 
 ########
 # Pipes
+# TODO: pipes have *limited buffer size*. This means if processes send
+#  messages more quickly than the consumer can sort them out, this will crash
+#  the producer process (can happen e.g. for very frequent event triggered signals)
+#  ----
+#  -> One solution may be an arbitrary limit on how often a pipe can be used to send
+#  messages in a given time window. Although this would disregard the size of messages:
+#  Another proposal which checks the buffer size against a maxsize:
+#  https://stackoverflow.com/questions/45318798/how-to-detect-multiprocessing-pipe-is-full
+#  Question: Overhead?
 
-Pipes : dict = dict()
+Pipes: dict = dict()
 
 def send(process_name, signal, *args, **kwargs):
     """Convenience function for sending messages to other Processes.
     All messages have the format [Signal code, Argument list, Keyword argument dictionary]
     """
-    Logging.write(logging.DEBUG, 'Send to process {} with signal {} > args: {} > kwargs: {}'
-                  .format(process_name, signal, args, kwargs))
+    Logging.write(logging.DEBUG,
+                  f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
     Pipes[process_name][0].send([signal, args, kwargs])
 
 def rpc(process_name, function, *args, **kwargs):
@@ -77,19 +86,19 @@ def rpc(process_name, function, *args, **kwargs):
 class Routines:
     # Routine names *MUST* be identical to the corresponding process names in 'Def.Process'
     # e.g. Def.Process.Camera = 'Camera' -> Routines.Camera
-    Camera   = None
-    Display  = None
-    Io       = None
+    Camera = None
+    Display = None
+    Io = None
 
 class Log:
-    File     = None
-    Queue    = None
-    History  = None
+    File = None
+    Queue = None
+    History = None
 
 ########
 # Controls
 
 class Control:
-    General   = None
+    General = None
     Recording = None
-    Protocol  = None
+    Protocol = None

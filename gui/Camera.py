@@ -102,6 +102,8 @@ class EyePositionDetector(QtWidgets.QWidget):
             return
         self.moduleIsActive = True
 
+        vspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+
         QtWidgets.QWidget.__init__(self, parent, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -115,25 +117,47 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.setLayout(QtWidgets.QVBoxLayout())
         self.layout().addWidget(self.panel_wdgt)
 
+        # Threshold groubox
+        self.gb_threshold = QtWidgets.QGroupBox('Image thresholding')
+        self.gb_threshold.setLayout(QtWidgets.QHBoxLayout())
+        self.gb_threshold.wdgt_left = QtWidgets.QWidget()
+        self.gb_threshold.wdgt_left.setLayout(QtWidgets.QVBoxLayout())
+        self.gb_threshold.layout().addWidget(self.gb_threshold.wdgt_left)
+        self.gb_threshold.wdgt_right = QtWidgets.QWidget()
+        self.gb_threshold.wdgt_right.setLayout(QtWidgets.QVBoxLayout())
+        self.gb_threshold.layout().addWidget(self.gb_threshold.wdgt_right)
+        self.panel_wdgt.layout().addWidget(self.gb_threshold)
+
         # Mode
-        self.panel_wdgt.layout().addWidget(QtWidgets.QLabel('Detection mode'))
+        self.gb_threshold.wdgt_left.layout().addWidget(QtWidgets.QLabel('Detection mode'))
         self.panel_wdgt.mode = QtWidgets.QComboBox()
         self.panel_wdgt.mode.currentTextChanged.connect(self.update_mode)
-        self.panel_wdgt.layout().addWidget(self.panel_wdgt.mode)
+        self.gb_threshold.wdgt_left.layout().addWidget(self.panel_wdgt.mode)
         self.panel_wdgt.mode.addItems(
             [routines.camera.CameraRoutines.EyePosDetectRoutine.feret_diameter.__name__])
-
-        # Threshold
-        self.panel_wdgt.thresh = EyePositionDetector.SliderWidget('Threshold', 1, 255, 60)
+        # Mean threshold
+        self.panel_wdgt.thresh = EyePositionDetector.SliderWidget('Mean threshold', 1, 255, 60)
         self.panel_wdgt.thresh.slider.valueChanged.connect(self.update_threshold)
-        self.panel_wdgt.layout().addWidget(self.panel_wdgt.thresh)
+        self.gb_threshold.wdgt_left.layout().addWidget(self.panel_wdgt.thresh)
         self.panel_wdgt.thresh.emitValueChanged()
+        self.gb_threshold.wdgt_left.layout().addItem(vspacer)
+
+        # Iterations for thresholding
+        self.panel_wdgt.thresh_iters = EyePositionDetector.SliderWidget('Threshold iterations', 1, 20, 1)
+        self.panel_wdgt.thresh_iters.slider.valueChanged.connect(self.update_threshold_iterations)
+        self.gb_threshold.wdgt_right.layout().addWidget(self.panel_wdgt.thresh_iters)
+        self.panel_wdgt.thresh_iters.emitValueChanged()
+        # Range around threshold
+        self.panel_wdgt.thresh_range = EyePositionDetector.SliderWidget('Range around mean', 1, 127, 5)
+        self.panel_wdgt.thresh_range.slider.valueChanged.connect(self.update_threshold_range)
+        self.gb_threshold.wdgt_right.layout().addWidget(self.panel_wdgt.thresh_range)
+        self.panel_wdgt.thresh_range.emitValueChanged()
 
         # Max value
-        self.panel_wdgt.maxvalue = EyePositionDetector.SliderWidget('Max. value', 1, 255, 255)
-        self.panel_wdgt.maxvalue.slider.valueChanged.connect(self.update_maxvalue)
-        self.panel_wdgt.layout().addWidget(self.panel_wdgt.maxvalue)
-        self.panel_wdgt.maxvalue.emitValueChanged()
+        # self.panel_wdgt.maxvalue = EyePositionDetector.SliderWidget('Max. value', 1, 255, 255)
+        # self.panel_wdgt.maxvalue.slider.valueChanged.connect(self.update_maxvalue)
+        # self.panel_wdgt.layout().addWidget(self.panel_wdgt.maxvalue)
+        # self.panel_wdgt.maxvalue.emitValueChanged()
 
         # Min particle size
         self.panel_wdgt.minsize = EyePositionDetector.SliderWidget('Min. particle size', 1, 1000, 20)
@@ -141,6 +165,9 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.panel_wdgt.layout().addWidget(self.panel_wdgt.minsize)
         self.panel_wdgt.minsize.emitValueChanged()
 
+
+        self.gb_sacc_detect = QtWidgets.QGroupBox('Saccade detection')
+        self.gb_sacc_detect.setLayout(QtWidgets.QGridLayout())
         # Saccade threshold velocity
         self.panel_wdgt.sacc_thresh = EyePositionDetector.SliderWidget('Saccade thresh [deg/s]', 1, 2000, 250)
         self.panel_wdgt.sacc_thresh.slider.valueChanged.connect(self.update_sacc_thresh)
@@ -165,6 +192,16 @@ class EyePositionDetector(QtWidgets.QWidget):
         IPC.rpc(Def.Process.Camera,
                 routines.camera.CameraRoutines.EyePosDetectRoutine.set_threshold,
                 self.panel_wdgt.thresh.slider.value())
+
+    def update_threshold_range(self):
+        IPC.rpc(Def.Process.Camera,
+                routines.camera.CameraRoutines.EyePosDetectRoutine.set_threshold_range,
+                self.panel_wdgt.thresh_range.slider.value())
+
+    def update_threshold_iterations(self):
+        IPC.rpc(Def.Process.Camera,
+                routines.camera.CameraRoutines.EyePosDetectRoutine.set_threshold_iterations,
+                self.panel_wdgt.thresh_iters.slider.value())
 
     def update_maxvalue(self):
         IPC.rpc(Def.Process.Camera,

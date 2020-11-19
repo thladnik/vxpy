@@ -336,18 +336,25 @@ class AbstractProcess:
             fun_str = fun_path[1]
 
             try:
-                Logging.write(Logging.DEBUG, 'RPC call to function <{}> with Args {} and Kwargs {}'
-                                           .format(fun_str, args, kwargs))
+                Logging.write(Logging.DEBUG,
+                              f'RPC call to process <{fun_str}> with Args {args} and Kwargs {kwargs}')
                 getattr(self, fun_str)(*args, **kwargs)
 
             except Exception as exc:
-                Logging.write(Logging.WARNING, 'RPC call to function <{}> failed with Args {} and Kwargs {} '
-                                                    '// Exception: {}'.
-                                           format(fun_str, args, kwargs, exc))
+                Logging.write(Logging.WARNING,
+                              f'RPC call to process <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
+                              f' // Exception: {exc}')
 
         # RPC on registered callback
         elif fun in self._registered_callbacks:
-            self._registered_callbacks[fun][1](self._registered_callbacks[fun][0], *args, **kwargs)
+            try:
+                Logging.write(Logging.DEBUG,
+                              f'RPC call to callback <{fun}> with Args {args} and Kwargs {kwargs}')
+                self._registered_callbacks[fun][1](self._registered_callbacks[fun][0], *args, **kwargs)
+            except Exception as exc:
+                Logging.write(Logging.WARNING,
+                              f'RPC call to callback <{fun}> failed with Args {args} and Kwargs {kwargs}'
+                              f' // Exception: {exc}')
 
         else:
             Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun))

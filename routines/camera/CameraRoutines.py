@@ -75,6 +75,8 @@ class EyePosDetectRoutine(AbstractRoutine):
     extracted_rect_prefix = 'extracted_rect_'
     ang_le_pos_prefix = 'angular_le_pos_'
     ang_re_pos_prefix = 'angular_re_pos_'
+    ang_le_vel_prefix = 'angular_le_vel_'
+    ang_re_vel_prefix = 'angular_re_vel_'
     le_sacc_prefix = 'le_saccade_'
     re_sacc_prefix = 're_saccade_'
     roi_maxnum = 10
@@ -84,6 +86,8 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         # Set accessible methods
         self.exposed.append(EyePosDetectRoutine.set_threshold)
+        self.exposed.append(EyePosDetectRoutine.set_threshold_range)
+        self.exposed.append(EyePosDetectRoutine.set_threshold_iterations)
         self.exposed.append(EyePosDetectRoutine.set_max_im_value)
         self.exposed.append(EyePosDetectRoutine.set_min_particle_size)
         self.exposed.append(EyePosDetectRoutine.set_roi)
@@ -104,19 +108,29 @@ class EyePosDetectRoutine(AbstractRoutine):
         # Set up parameter variables (accessible externally)
         self.rois = dict()
         self.thresh = None
+        self.thresh_range = None
+        self.thresh_iter = None
         self.min_size = None
-        self.maxvalue = None
+        self.maxvalue = 255 # Not useful here? Keep in case if becomes useful
         self.detection_mode = None
         self.saccade_threshold = None
 
         # Set up buffer attributes
         for id in range(self.roi_maxnum):
+            # Rectangle
             setattr(self.buffer, f'{self.extracted_rect_prefix}{id}',
                     ObjectAttribute(length=2*target_fps))
+            # Position
             setattr(self.buffer, f'{self.ang_le_pos_prefix}{id}',
                     ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
             setattr(self.buffer, f'{self.ang_re_pos_prefix}{id}',
                     ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+            # Velocity
+            setattr(self.buffer, f'{self.ang_le_vel_prefix}{id}',
+                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+            setattr(self.buffer, f'{self.ang_re_vel_prefix}{id}',
+                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+            # Saccade detection
             setattr(self.buffer, f'{self.le_sacc_prefix}{id}',
                     ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
             setattr(self.buffer, f'{self.re_sacc_prefix}{id}',
@@ -131,6 +145,12 @@ class EyePosDetectRoutine(AbstractRoutine):
     def set_threshold(self, thresh):
         self.thresh = thresh
 
+    def set_threshold_range(self, range):
+        self.thresh_range = range
+
+    def set_threshold_iterations(self, n):
+        self.thresh_iter = n
+
     def set_max_im_value(self, value):
         self.maxvalue = value
 
@@ -141,22 +161,30 @@ class EyePosDetectRoutine(AbstractRoutine):
         if id not in self.rois:
             start_idx = self.buffer.get_index() + 1
             # Add buffer attributes to plotter
+            # Position
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_pos_prefix}{id}', start_idx)
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_pos_prefix}{id}', start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_pos_prefix}{id}', start_idx)
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_pos_prefix}{id}', start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
 
+            # Velocity
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.le_sacc_prefix}{id}', start_idx)
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_vel_prefix}{id}', start_idx, name=f'eye_vel(LE{id})', axis='eye_vel')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.re_sacc_prefix}{id}', start_idx)
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_vel_prefix}{id}', start_idx, name=f'eye_vel(RE{id})', axis='eye_vel')
+
+            # Saccade trigger
+            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE{id})', axis='sacc')
+            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE{id})', axis='sacc')
 
         self.rois[id] = params
 
     def set_saccade_threshold(self, thresh):
         self.saccade_threshold = thresh
 
-    def feret_diameter(self, rect):
+    def feret_diameter(self, rect, thresh_dev=0):
         """Method for extracting angular fish eye position estimates using the Feret diameter.
 
         :param rect: 2d image which contains both of the fish's eyes.
@@ -177,7 +205,7 @@ class EyePosDetectRoutine(AbstractRoutine):
         rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
 
         # Apply threshold
-        _, thresh = cv2.threshold(rect[:,:], self.thresh, self.maxvalue, cv2.THRESH_BINARY_INV)
+        _, thresh = cv2.threshold(rect[:,:], self.thresh+thresh_dev, self.maxvalue, cv2.THRESH_BINARY_INV)
 
         # Detect contours
         cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -242,7 +270,7 @@ class EyePosDetectRoutine(AbstractRoutine):
 
         # If less than two particles, return
         if len(cnts) < 2:
-            return None, thresh
+            return [np.nan, np.nan], thresh
 
         # At this point there should only be 2 particles left
         le_idx = 0 if (centroids[0][0] < rect_center[0]) else 1
@@ -316,19 +344,16 @@ class EyePosDetectRoutine(AbstractRoutine):
             # If eyes were marked: iterate over ROIs and extract eye positions
             for id, rect_params in self.rois.items():
 
+                ####
+                # Extract rectanglular ROI
+
                 # Convert from pyqtgraph image coordinates to openCV
                 rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
-
-                # For debugging: draw rectangle
-                #box = cv2.boxPoints(rect)
-                #box = np.int0(box)
-                #cv2.drawContours(newframe, [box], 0, (255, 0, 0), 1)
 
                 # Get rect and frame parameters
                 center, size, angle = rect_params[0], rect_params[1], rect_params[2]
                 center, size = tuple(map(int, center)), tuple(map(int, size))
                 height, width = frame.shape[0], frame.shape[1]
-
 
                 # Rotate
                 M = cv2.getRotationMatrix2D(center, angle, 1)
@@ -352,59 +377,123 @@ class EyePosDetectRoutine(AbstractRoutine):
                 M[0, 2] += wBound / 2 - center[0]
                 M[1, 2] += hBound / 2 - center[1]
                 # Rotate
-                rotRect = cv2.warpAffine(cropRect, M, (wBound, hBound))
+                rot_rect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-                ## Apply detection function on cropped rect which contains eyes
-                #self.segmentationMode = 'feretDiameter'
-                eye_pos, new_rect = getattr(self, self.detection_mode)(rotRect)
+                ####
+                # Calculate eye angular POSITIONS
 
-                # Debug: write to file
-                #cv2.imwrite('meh/test{}.jpg'.format(id), rotRect)
+                if self.thresh_iter <= 1:
+                    thresh_devs = [0]
+                else:
+                    trange = self.thresh_range
+                    thresh_devs = np.linspace(-trange, trange, self.thresh_iter)
 
-                ### Append angular eye positions to shared list
-                if eye_pos is not None:
-                    le_pos = eye_pos[0]
-                    re_pos = eye_pos[1]
+                #decors = [-5, -2, 0, 2, 5]
+                eye_pos = np.zeros((len(thresh_devs),2))
+                new_rects = np.zeros((len(thresh_devs),*rot_rect.shape, 3))
+                for i, n in enumerate(thresh_devs):
+                    # Apply detection function on cropped rect which contains eyes
+                    eye_pos[i], new_rects[i] = getattr(self, self.detection_mode)(rot_rect, thresh_dev=n)
 
-                    le_pos_attr = getattr(self.buffer, f'{self.ang_le_pos_prefix}{id}')
-                    re_pos_attr = getattr(self.buffer, f'{self.ang_re_pos_prefix}{id}')
+                bvec = np.isfinite(eye_pos[:,0])
+                eye_pos = eye_pos[bvec,:]
+                new_rect = new_rects[bvec].mean(axis=0)
 
-                    # Write
-                    le_pos_attr.write(le_pos)
-                    re_pos_attr.write(re_pos)
+                # Get corresponding position attributes
+                le_pos_attr = getattr(self.buffer, f'{self.ang_le_pos_prefix}{id}')
+                re_pos_attr = getattr(self.buffer, f'{self.ang_re_pos_prefix}{id}')
 
-                    # Read last positions
-                    _, _, last_le_pos = le_pos_attr.read(1)
-                    last_le_pos = last_le_pos[0]
-                    _, last_time, last_re_pos = re_pos_attr.read(1)
-                    last_re_pos = last_re_pos[0]
-                    last_time = last_time[0]
+                # Append angular eye positions to shared list
+                if eye_pos.shape[0] > 0:
+                    positions = eye_pos.mean(axis=0)
+                    le_pos = positions[0]
+                    re_pos = positions[1]
+                else:
+                    le_pos = 0.
+                    re_pos = 0.
 
-                    # Get current reference time
-                    current_time = self.buffer.get_time()
+                # Write to buffer
+                le_pos_attr.write(le_pos)
+                re_pos_attr.write(re_pos)
 
-                    # Calculate velocities
-                    le_sacc = False
-                    re_sacc = False
-                    #if last_le_pos is not None and last_re_pos is not None:
-                    if last_le_pos != 0 and last_re_pos != 0:
-                        le_vel = (le_pos-last_le_pos)/(current_time-last_time)
-                        re_vel = (re_pos-last_re_pos)/(current_time-last_time)
+                ####
+                # Calculate eye angular VELOCITIES
 
-                        #print(le_vel, re_vel)
+                # Read last positions
+                _, _, last_le_pos = le_pos_attr.read(20)
+                last_le_pos = last_le_pos.mean()
+                _, last_time, last_re_pos = re_pos_attr.read(20)
+                last_re_pos = last_re_pos.mean()
+                last_time = last_time[-1]
+                if last_time is None:
+                    last_time = -np.inf
 
-                        le_sacc = abs(le_vel) > self.saccade_threshold
-                        re_sacc = abs(re_vel) > self.saccade_threshold
+                # Calculate time elapsed since last frame
+                current_time = self.buffer.get_time()
+                dt = (current_time - last_time)
 
-                    if le_sacc or re_sacc:
-                        #TODO:  Trigger here for _now_, this is stupid
-                        IPC.rpc(Def.Process.Io,
-                                routines.io.IoRoutines.TriggerLedArenaFlash.trigger_flash,
-                                0.01, 2.0)
-                    if le_sacc or re_sacc:
-                        print(le_sacc, re_sacc)
-                    getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(int(le_sacc))
-                    getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(int(re_sacc))
+                # Calculate velocities
+                le_vel = np.abs((le_pos - last_le_pos) / dt)
+                re_vel = np.abs((re_pos - last_re_pos) / dt)
+
+                # Get velocity attributes
+                le_vel_attr = getattr(self.buffer, f'{self.ang_le_vel_prefix}{id}')
+                re_vel_attr = getattr(self.buffer, f'{self.ang_re_vel_prefix}{id}')
+
+                # Write velocity to buffer
+                le_vel_attr.write(le_vel)
+                re_vel_attr.write(re_vel)
+
+                ####
+                # Calculate saccade trigger
+
+                _, _, last_le_vel = le_vel_attr.read(1)
+                last_le_vel = last_le_vel[0]
+                _, _, last_re_vel = re_vel_attr.read(1)
+                last_re_vel = last_re_vel[0]
+
+                le_sacc = int(last_le_vel < self.saccade_threshold and le_vel > self.saccade_threshold)
+                re_sacc = int(last_re_vel < self.saccade_threshold and re_vel > self.saccade_threshold)
+
+
+                getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
+                getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)
+
+                # Read last positions
+                    # _, _, last_le_pos = le_pos_attr.read(1)
+                    # last_le_pos = last_le_pos[0]
+                    # _, last_time, last_re_pos = re_pos_attr.read(1)
+                    # last_re_pos = last_re_pos[0]
+                    # last_time = last_time[0]
+                    #
+                    # # Get current reference time
+                    # current_time = self.buffer.get_time()
+                    #
+                    # # Calculate velocities
+                    # le_sacc = False
+                    # re_sacc = False
+                    # #if last_le_pos is not None and last_re_pos is not None:
+                    # if last_le_pos != 0 and last_re_pos != 0:
+                    #     le_vel = np.abs((le_pos-last_le_pos)/(current_time-last_time))
+                    #     re_vel = np.abs((re_pos-last_re_pos)/(current_time-last_time))
+                    #
+                    #     le_sacc = le_vel > self.saccade_threshold
+                    #     re_sacc = re_vel > self.saccade_threshold
+                    #
+                    #
+                    #     #getattr(self.buffer, f'{self.ang_le_vel_prefix}{id}').write(le_vel)
+                    #     #getattr(self.buffer, f'{self.ang_re_vel_prefix}{id}').write(re_vel)
+
+                    # if le_sacc or re_sacc:
+                    #     #TODO:  Trigger here for _now_, this is stupid
+                    #     pass
+                    #     IPC.rpc(Def.Process.Io,
+                    #             routines.io.IoRoutines.TriggerLedArenaFlash.trigger_flash,
+                    #             0.01, 2.0)
+                    # if le_sacc or re_sacc:
+                    #     print(le_sacc, re_sacc)
+                    # getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(int(le_sacc))
+                    # getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(int(re_sacc))
 
                 # Set current rect ROI data
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
