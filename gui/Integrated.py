@@ -339,7 +339,7 @@ class Recording(IntegratedWidget):
             else:
                 print('Puh... good choice')
 
-        ### Finally: stop recording
+        # Finally: stop recording
         print('Stop recording...')
         IPC.rpc(Def.Process.Controller, Controller.stop_recording)
 
@@ -558,8 +558,8 @@ class Plotter(IntegratedWidget):
          (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
          (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
 
-    plot_seg_len = 200#10000
-    plot_seg_num = 5#20
+    plot_seg_len = 10000
+    plot_seg_num = 10
 
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Plotter', *args)
@@ -595,11 +595,20 @@ class Plotter(IntegratedWidget):
         self._xrange = 20
         self.plot_item.sigXRangeChanged.connect(self.set_new_xrange)
         self.plot_item.setXRange(-self._xrange, 0, padding=0.)
-        #self.plot_item.showAxis('left', False)
         self.plot_item.setLabels(left='defaulty')
         self.axes = {'defaulty': {'axis': self.plot_item.getAxis('left'),
                                   'vb': self.plot_item.getViewBox()}}
-        self.idx = 3
+        self.plot_item.hideAxis('left')
+        self.axis_idx = 3
+
+    def mouseDoubleClickEvent(self, a0) -> None:
+        # Check if double click on AxisItem
+        item = [o for o in self.plot_item.scene().items(a0.pos()) if isinstance(o, pg.AxisItem)][0]
+
+        a0.accept()
+
+    def mouse_clicked(self, *args):
+        print(args)
 
     def set_new_xrange(self, vb, xrange):
         self._xrange = np.floor(xrange[1]-xrange[0])
@@ -617,7 +626,7 @@ class Plotter(IntegratedWidget):
         if axis not in self.axes:
             self.axes[axis] = dict(axis=pg.AxisItem('left'), vb=pg.ViewBox())
 
-            self.plot_item.layout.addItem(self.axes[axis]['axis'], 2, self.idx)
+            self.plot_item.layout.addItem(self.axes[axis]['axis'], 2, self.axis_idx)
             self.plot_item.scene().addItem(self.axes[axis]['vb'])
             self.axes[axis]['axis'].linkToView(self.axes[axis]['vb'])
             self.axes[axis]['vb'].setXLink(self.plot_item)
@@ -625,7 +634,7 @@ class Plotter(IntegratedWidget):
 
             self.update_views()
             self.plot_item.vb.sigResized.connect(self.update_views)
-            self.idx += 2
+            self.axis_idx += 1
 
         if process_name not in self.plots:
             self.plots[process_name] = dict()
@@ -647,6 +656,7 @@ class Plotter(IntegratedWidget):
                 data_items=[data_item],
                 pen=pen,
                 name=name,
+                axis=axis,
                 last_idx=start_idx)
 
             # Add to legend
@@ -684,7 +694,8 @@ class Plotter(IntegratedWidget):
                 data['last_idx'] = n_idcs[-1]
 
                 if len(data_items) > self.plot_seg_num:
-                    self.plot_item.removeItem(data_items[0])
+                    #self.plot_item.removeItem(data_items[0])
+                    self.axes[data['axis']]['vb'].removeItem(data_items[0])
                     # self.legend_item.removeItem(data_items[0])
                     self.legend_item.removeItem(data['name'])
                     del data_items[0]
@@ -694,7 +705,10 @@ class Plotter(IntegratedWidget):
                 y_data = data_items[-1].yData
 
                 if x_data.shape[0] > self.plot_seg_len:
-                    data_items.append(self.plot_item.plot(n_times, n_data, pen=data['pen']))
+                    item = pg.PlotDataItem([], [], pen=data['pen'])
+                    self.axes[data['axis']]['vb'].addItem(item)
+                    data_items.append(item)
+                    #data_items.append(self.plot_item.plot(n_times, n_data, pen=data['pen']))
                 else:
                     try:
                         data_items[-1].setData(x=np.append(x_data, n_times), y=np.append(y_data, n_data))

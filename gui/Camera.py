@@ -342,7 +342,7 @@ class EyePositionDetector(QtWidgets.QWidget):
     class Rect(pg.RectROI):
 
         def __init__(self, parent, id, coords):
-            pg.RectROI.__init__(self, [0,0], [0,0], movable=False, centered=True)
+            pg.RectROI.__init__(self, [0,0], [0,0], movable=False, centered=True, pen=(255,0,0))
             self.parent = parent
             self.id = id
 
@@ -388,12 +388,14 @@ class EyePositionDetector(QtWidgets.QWidget):
             QtWidgets.QWidget.__init__(self, *args, **kwargs)
 
             self.setLayout(QtWidgets.QGridLayout())
+            self.setMaximumWidth(200)
 
             self.layout().addWidget(QtWidgets.QLabel(slider_name), 0, 0)
             self.line_edit = QtWidgets.QLineEdit()
             self.line_edit.setEnabled(False)
             self.layout().addWidget(self.line_edit, 0, 1)
             self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+            self.slider.setMaximumHeight(20)
             self.slider.setTickInterval((max_val - min_val) // 10)
             self.slider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
             self.slider.setMinimum(min_val)

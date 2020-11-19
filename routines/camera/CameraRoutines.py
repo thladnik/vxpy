@@ -169,15 +169,15 @@ class EyePosDetectRoutine(AbstractRoutine):
 
             # Velocity
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_vel_prefix}{id}', start_idx, name=f'eye_vel(LE{id})', axis='eye_vel')
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_vel_prefix}{id}', start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_vel_prefix}{id}', start_idx, name=f'eye_vel(RE{id})', axis='eye_vel')
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_vel_prefix}{id}', start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
 
             # Saccade trigger
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE{id})', axis='sacc')
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE {id})', axis='sacc')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE{id})', axis='sacc')
+                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE {id})', axis='sacc')
 
         self.rois[id] = params
 
