@@ -542,6 +542,9 @@ class Camera(IntegratedWidget):
             print('FPS:', fps, frametimes)
         self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
+
+import h5py
+
 class Plotter(IntegratedWidget):
 
     # Colormap is tab10 from matplotlib:
@@ -558,8 +561,7 @@ class Plotter(IntegratedWidget):
          (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
          (0.09019607843137255, 0.7450980392156863, 0.8117647058823529))
 
-    plot_seg_len = 10000
-    plot_seg_num = 10
+    mem_seg_len = 1000
 
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Plotter', *args)
@@ -570,26 +572,22 @@ class Plotter(IntegratedWidget):
 
         self.setLayout(QtWidgets.QGridLayout())
 
-        #self.graphics_widget = pg.GraphicsLayoutWidget()
         self.plot_widget = pg.PlotWidget()
-        #self.plot_item = pg.PlotItem()
         self.plot_item = self.plot_widget.plotItem
-        #self.graphics_widget.addItem(self.plot_item)#addPlot(0,0,1,10)
-        #self.layout().addWidget(self.graphics_widget, 0, 0)
         self.layout().addWidget(self.plot_widget, 0, 0)
 
         self.legend_item = pg.LegendItem()
         self.legend_item.setParentItem(self.plot_item)
 
         # Start timer
-        self._tmr_update = QtCore.QTimer()
-        self._tmr_update.setInterval(1000//20)
-        self._tmr_update.timeout.connect(self.update_data)
-        self._tmr_update.start()
+        self.tmr_update_data = QtCore.QTimer()
+        self.tmr_update_data.setInterval(1000 // 20)
+        self.tmr_update_data.timeout.connect(self.read_buffer_data)
+        self.tmr_update_data.start()
 
         self.start_time = time.time()
 
-        self.plots = dict()
+        self.plot_data_items = dict()
         self.plot_num = 0
         self._interact = False
         self._xrange = 20
@@ -600,6 +598,9 @@ class Plotter(IntegratedWidget):
                                   'vb': self.plot_item.getViewBox()}}
         self.plot_item.hideAxis('left')
         self.axis_idx = 3
+        self.plot_data = dict()
+
+        self.cache = h5py.File('_plotter_temp.h5', 'w')
 
     def mouseDoubleClickEvent(self, a0) -> None:
         # Check if double click on AxisItem
@@ -620,8 +621,15 @@ class Plotter(IntegratedWidget):
 
     def add_buffer_attribute(self, process_name, attr_name, start_idx=0, name=None, axis=None):
 
+        id = (process_name, attr_name)
+
+        # Set axis
         if axis is None:
             axis = 'defaulty'
+
+        # Set name
+        if name is None:
+            name = f'{process_name}:{attr_name}'
 
         if axis not in self.axes:
             self.axes[axis] = dict(axis=pg.AxisItem('left'), vb=pg.ViewBox())
@@ -636,88 +644,113 @@ class Plotter(IntegratedWidget):
             self.plot_item.vb.sigResized.connect(self.update_views)
             self.axis_idx += 1
 
-        if process_name not in self.plots:
-            self.plots[process_name] = dict()
-
-        if attr_name not in self.plots[process_name]:
+        if id not in self.plot_data:
+            # Choose pen
             i = self.plot_num // len(self.cmap)
             m = self.plot_num % len(self.cmap)
             color = (*self.cmap[m], 255 // (2**i))
             pen = pg.mkPen(color)
+            self.plot_num += 1
 
-            if name is None:
-                name = f'{process_name}:{attr_name}'
+            # Set up cache group
+            grp = self.cache.create_group(name)
+            grp.create_dataset('x', shape=(0, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.float32)
+            grp.create_dataset('y', shape=(0, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.float32)
+            #grp.create_dataset('mi', shape=(0, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.int)
+            grp.create_dataset('mt', shape=(1, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.float32)
+            grp['mt'][0] = 0.
 
-            #data_item = self.plot_item.plot([], [], pen=pen)
-            data_item = pg.PlotDataItem([], [], pen=pen)
+            # Set plot data
+            self.plot_data[id] = {'axis': axis,
+                                  'last_idx': start_idx,
+                                  'pen': pen,
+                                  'name': name,
+                                  'h5grp': grp}
+
+        if id not in self.plot_data_items:
+
+            # Create data item and add to axis viewbox
+            data_item = pg.PlotDataItem([], [], pen=self.plot_data[id]['pen'])
             self.axes[axis]['vb'].addItem(data_item)
-
-            self.plots[process_name][attr_name] = dict(
-                data_items=[data_item],
-                pen=pen,
-                name=name,
-                axis=axis,
-                last_idx=start_idx)
 
             # Add to legend
             self.legend_item.addItem(data_item, name)
 
-            self.plot_num += 1
+            # Set data item
+            self.plot_data_items[id] = data_item
 
-    def update_data(self):
+    def read_buffer_data(self):
 
-        for process_name, attributes in self.plots.items():
-            for attr_name, data in attributes.items():
-                data_items = data['data_items']
+        for (process_name, attr_name), data in self.plot_data.items():
 
-                # Read new values from buffer
-                routines: Routines = getattr(IPC.Routines, process_name)
-                try:
-                    n_idcs, n_times, n_data = routines.read(attr_name, from_idx=data['last_idx'])
-                except Exception as exc:
-                    Logging.write(Logging.WARNING,
-                                  f'Problem trying to read {process_name}:{attr_name} from_idx={data["last_idx"]}'
-                                  f'// Exception: {exc}')
-                    continue
+            # Read new values from buffer
+            routines: Routines = getattr(IPC.Routines, process_name)
+            try:
+                n_idcs, n_times, n_data = routines.read(attr_name, from_idx=data['last_idx'])
+            except Exception as exc:
+                Logging.write(Logging.WARNING,
+                              f'Problem trying to read {process_name}:{attr_name} from_idx={data["last_idx"]}'
+                              f'// Exception: {exc}')
+                continue
 
-                if len(n_times) == 0:
-                    continue
+            if len(n_times) == 0:
+                continue
 
-                try:
-                    n_times = np.array(n_times) - self.start_time
-                except Exception as exc:
-                    print(attr_name, self.start_time, n_times)
-                    continue
-                n_data = np.array(n_data).flatten()
+            try:
+                n_times = np.array(n_times) - self.start_time
+                n_data = np.array(n_data)
+            except Exception as exc:
+                print(attr_name, self.start_time, n_times)
+                continue
 
-                # Set new last index
-                data['last_idx'] = n_idcs[-1]
+            # Set new last index
+            data['last_idx'] = n_idcs[-1]
 
-                if len(data_items) > self.plot_seg_num:
-                    #self.plot_item.removeItem(data_items[0])
-                    self.axes[data['axis']]['vb'].removeItem(data_items[0])
-                    # self.legend_item.removeItem(data_items[0])
-                    self.legend_item.removeItem(data['name'])
-                    del data_items[0]
-                    self.legend_item.addItem(data_items[0], data['name'])
+            try:
+                # Reshape datasets
+                old_n = data['h5grp']['x'].shape[0]
+                new_n = n_times.shape[0]
+                data['h5grp']['x'].resize((old_n + new_n, ))
+                data['h5grp']['y'].resize((old_n + new_n, ))
 
-                x_data = data_items[-1].xData
-                y_data = data_items[-1].yData
+                # Write new data
+                data['h5grp']['x'][-new_n:] = n_times.flatten()
+                data['h5grp']['y'][-new_n:] = n_data.flatten()
 
-                if x_data.shape[0] > self.plot_seg_len:
-                    item = pg.PlotDataItem([], [], pen=data['pen'])
-                    self.axes[data['axis']]['vb'].addItem(item)
-                    data_items.append(item)
-                    #data_items.append(self.plot_item.plot(n_times, n_data, pen=data['pen']))
-                else:
-                    try:
-                        data_items[-1].setData(x=np.append(x_data, n_times), y=np.append(y_data, n_data))
-                    except Exception as exc:
-                        import traceback
-                        print(traceback.print_exc())
+                # Set chunk time marker for indexing
+                i_o = old_n // self.mem_seg_len
+                i_n = (old_n + new_n) // self.mem_seg_len
+                if i_n > i_o:
+                    data['h5grp']['mt'].resize((i_n+1, ))
+                    data['h5grp']['mt'][-1] = n_times[(old_n+new_n) % self.mem_seg_len]
 
-                # TODO: add mouse/keyboard interactions for scaling in x/y
-                #  as well as panning of data
+                print(data['h5grp']['x'].shape, data['h5grp']['y'].shape, data['h5grp']['mt'][:])
 
-                if not self._interact:
-                    self.plot_item.setXRange(n_times[-1]-self._xrange, n_times[-1], padding=0.)
+            except Exception as exc:
+                import traceback
+                print(traceback.print_exc())
+
+        self.update_plots()
+
+    def update_plots(self):
+        times = None
+        for id, data_item in self.plot_data_items.items():
+
+            grp = self.plot_data[id]['h5grp']
+
+            last_t = grp['x'][-1]
+            first_t = last_t - self._xrange
+            idcs = np.where(grp['mt'][:][grp['mt'][:] < first_t])
+            #start_idx = idcs[-1]
+            if len(idcs[0]) > 0:
+                start_idx = idcs[0][-1] * self.mem_seg_len
+            else:
+                start_idx = 0
+            print(start_idx)
+            times = grp['x'][start_idx:]
+            data = grp['y'][start_idx:]
+
+            data_item.setData(x=times, y=data)
+
+        if times is not None:
+            self.plot_item.setXRange(times[-1] - self._xrange, times[-1], padding=0.)
