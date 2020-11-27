@@ -47,7 +47,7 @@ class Routines:
         self.current_group: h5py.Group = None
         self.compression_args: dict = None
 
-        ### Automatically add routines, if provided
+        # Automatically add routines, if provided
         if not(routines is None) and isinstance(routines, dict):
             for routine_file, routine_list in routines.items():
                 module = __import__('{}.{}.{}'.format(Def.Path.Routines,
@@ -121,17 +121,20 @@ class Routines:
         if not(bool(args)) and not(bool(kwargs)):
             return
 
-        for name in self._routines:
+        for routine_name, routine in self._routines.items():
             # Advance buffer
-            self._routines[name].buffer.next()
+            routine.buffer.next()
             # Update the data in buffer
-            self._routines[name].update(*args, **kwargs)
+            routine.update(*args, **kwargs)
             # Stream new routine computation results to file (if active)
-            self._routines[name].stream_to_file(self.get_container())
+            routine.stream_to_file(self.get_container())
 
     def set_record_group(self, group_name):
         if self.h5_file is None:
             return#, 'Unable to create record group outside of h5 file context'
+
+        # TODO: already create all datasets based on predefined information in routine header
+        #   this will eliminate the lag for first dataset entry
 
         self.current_group = self.h5_file.require_group(group_name)
 
@@ -228,12 +231,12 @@ class AbstractRoutine:
         # Default ring buffer instance for routine
         self.buffer: RingBuffer = RingBuffer()
 
-    def _compute(self, *args, **kwargs):
+    def execute(self, *args, **kwargs):
         """Compute method is called on data updates (in the producer process).
-        Every buffer needs to implement this method."""
+        Every buffer needs to implement this method and it's used to set all buffer attributes"""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
-    def _out(self):
+    def to_file(self):
         """Method may be reimplemented. Can be used to alter the output to file.
         If this buffer is going to be used for recording data, this method HAS to be implemented.
         Implementations of this method should yield a tuple
@@ -251,7 +254,7 @@ class AbstractRoutine:
         :param data: input data to be updated
         """
 
-        self._compute(*args, **kwargs)
+        self.execute(*args, **kwargs)
 
     def _append_data(self, grp, key, value):
 
@@ -274,7 +277,7 @@ class AbstractRoutine:
             except Exception as exc:
                 import traceback
                 Logging.write(Logging.WARNING,
-                              f'Failed to create record dset "{grp.name}/{key}"')
+                              f'Failed to create record dset "{grp.name}/{key}" // Exception: {exc}')
                 traceback.print_exc()
 
         dset = grp[key]
@@ -298,7 +301,7 @@ class AbstractRoutine:
         grp = container[bufferName]
 
         # Iterate over data in group (buffer)
-        for key, time, value in self._out():
+        for key, time, value in self.to_file():
 
             # On datasets:
             ## TODO: handle changing dataset sizes (e.g. rect ROIs which are slightly altered during rec)

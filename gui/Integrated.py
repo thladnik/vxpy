@@ -550,7 +550,7 @@ class Plotter(IntegratedWidget):
     # Colormap is tab10 from matplotlib:
     # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
     cmap = \
-         ((0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
+        ((0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
          (1.0, 0.4980392156862745, 0.054901960784313725),
          (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
          (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
@@ -566,6 +566,9 @@ class Plotter(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Plotter', *args)
 
+        hspacer = QtWidgets.QSpacerItem(1, 1,
+                                        QtWidgets.QSizePolicy.Expanding,
+                                        QtWidgets.QSizePolicy.Minimum)
         self.cmap = (np.array(self.cmap) * 255).astype(int)
 
         self.exposed.append(Plotter.add_buffer_attribute)
@@ -573,8 +576,8 @@ class Plotter(IntegratedWidget):
         self.setLayout(QtWidgets.QGridLayout())
 
         self.plot_widget = pg.PlotWidget()
-        self.plot_item = self.plot_widget.plotItem
-        self.layout().addWidget(self.plot_widget, 0, 0)
+        self.plot_item: pg.PlotItem = self.plot_widget.plotItem
+        self.layout().addWidget(self.plot_widget, 1, 0, 1, 5)
 
         self.legend_item = pg.LegendItem()
         self.legend_item.setParentItem(self.plot_item)
@@ -600,16 +603,70 @@ class Plotter(IntegratedWidget):
         self.axis_idx = 3
         self.plot_data = dict()
 
+        # Set auto scale checkbox
+        self.check_auto_scale = QtWidgets.QCheckBox('Autoscale')
+        self.check_auto_scale.stateChanged.connect(self.auto_scale_toggled)
+        self.check_auto_scale.setChecked(True)
+        self.layout().addWidget(self.check_auto_scale, 0, 0)
+        self.auto_scale_toggled()
+        # Scale inputs
+        self.layout().addWidget(QLabel('X-Range'), 0, 1)
+        # Xmin
+        self.dsp_xmin = QtWidgets.QDoubleSpinBox()
+        self.dsp_xmin.setRange(-10**6, 10**6)
+        self.block_xmin = QtCore.QSignalBlocker(self.dsp_xmin)
+        self.block_xmin.unblock()
+        self.dsp_xmin.valueChanged.connect(self.ui_xrange_changed)
+        self.layout().addWidget(self.dsp_xmin, 0, 2)
+        # Xmax
+        self.dsp_xmax = QtWidgets.QDoubleSpinBox()
+        self.dsp_xmax.setRange(-10**6, 10**6)
+        self.block_xmax = QtCore.QSignalBlocker(self.dsp_xmax)
+        self.block_xmax.unblock()
+        self.dsp_xmax.valueChanged.connect(self.ui_xrange_changed)
+        self.layout().addWidget(self.dsp_xmax, 0, 3)
+        self.layout().addItem(hspacer, 0, 4)
+        # Connect viewbox range update signal
+        self.plot_item.sigXRangeChanged.connect(self.update_ui_xrange)
+
         self.cache = h5py.File('_plotter_temp.h5', 'w')
+
+    def ui_xrange_changed(self):
+        self.plot_item.setXRange(self.dsp_xmin.value(), self.dsp_xmax.value(), padding=0.)
+
+    def update_ui_xrange(self, *args):
+        xrange = self.plot_item.getAxis('bottom').range
+        self.block_xmin.reblock()
+        self.dsp_xmin.setValue(xrange[0])
+        self.block_xmin.unblock()
+
+        self.block_xmax.reblock()
+        self.dsp_xmax.setValue(xrange[1])
+        self.block_xmax.unblock()
+
+    def auto_scale_toggled(self, *args):
+        self.auto_scale = self.check_auto_scale.isChecked()
 
     def mouseDoubleClickEvent(self, a0) -> None:
         # Check if double click on AxisItem
-        item = [o for o in self.plot_item.scene().items(a0.pos()) if isinstance(o, pg.AxisItem)][0]
+        items = [o for o in self.plot_item.scene().items(a0.pos()) if isinstance(o, pg.AxisItem)]
+        if len(items) == 0:
+            return
+
+        axis_item = items[0]
+
+        for id, data in self.plot_data.items():
+            if axis_item.labelText == data['axis']:
+                data_item: pg.PlotDataItem = self.plot_data_items[id]
+                # Flip pen
+                current_pen = data_item.opts['pen']
+                if current_pen.style() == 0:
+                    data_item.setPen(data['pen'])
+                else:
+                    data_item.setPen(None)
+
 
         a0.accept()
-
-    def mouse_clicked(self, *args):
-        print(args)
 
     def set_new_xrange(self, vb, xrange):
         self._xrange = np.floor(xrange[1]-xrange[0])
@@ -656,7 +713,6 @@ class Plotter(IntegratedWidget):
             grp = self.cache.create_group(name)
             grp.create_dataset('x', shape=(0, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.float32)
             grp.create_dataset('y', shape=(0, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.float32)
-            #grp.create_dataset('mi', shape=(0, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.int)
             grp.create_dataset('mt', shape=(1, ), chunks=(self.mem_seg_len, ), maxshape=(None, ), dtype=np.float32)
             grp['mt'][0] = 0.
 
@@ -724,8 +780,6 @@ class Plotter(IntegratedWidget):
                     data['h5grp']['mt'].resize((i_n+1, ))
                     data['h5grp']['mt'][-1] = n_times[(old_n+new_n) % self.mem_seg_len]
 
-                print(data['h5grp']['x'].shape, data['h5grp']['y'].shape, data['h5grp']['mt'][:])
-
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
@@ -738,19 +792,25 @@ class Plotter(IntegratedWidget):
 
             grp = self.plot_data[id]['h5grp']
 
-            last_t = grp['x'][-1]
+            if self.auto_scale:
+                last_t = grp['x'][-1]
+            else:
+                last_t = self.plot_item.getAxis('bottom').range[1]
+
+
             first_t = last_t - self._xrange
+
             idcs = np.where(grp['mt'][:][grp['mt'][:] < first_t])
-            #start_idx = idcs[-1]
             if len(idcs[0]) > 0:
                 start_idx = idcs[0][-1] * self.mem_seg_len
             else:
                 start_idx = 0
-            print(start_idx)
+
             times = grp['x'][start_idx:]
             data = grp['y'][start_idx:]
 
             data_item.setData(x=times, y=data)
 
-        if times is not None:
+        # Update range
+        if times is not None and self.auto_scale:
             self.plot_item.setXRange(times[-1] - self._xrange, times[-1], padding=0.)

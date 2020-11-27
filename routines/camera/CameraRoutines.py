@@ -47,7 +47,7 @@ class FrameRoutine(AbstractRoutine):
             setattr(self.buffer, '{}_frame'.format(device_id), array_attr)
 
 
-    def _compute(self, **frames):
+    def execute(self, **frames):
 
         for device_id, frame in frames.items():
 
@@ -60,7 +60,7 @@ class FrameRoutine(AbstractRoutine):
             else:
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
-    def _out(self):
+    def to_file(self):
         for device_id, _, _ in self.device_list:
             frame_attr_name = f'{device_id}_frame'
             _, time, frame = getattr(self.buffer, frame_attr_name).read(0)
@@ -326,7 +326,7 @@ class EyePosDetectRoutine(AbstractRoutine):
     def coord_transform_pg2cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(self.res_y - point[1])]
 
-    def _compute(self, **frames):
+    def execute(self, **frames):
 
         # Read frame
         frame = frames.get(self.camera_device_id)
@@ -420,10 +420,10 @@ class EyePosDetectRoutine(AbstractRoutine):
                 # Calculate eye angular VELOCITIES
 
                 # Read last positions
-                _, _, last_le_pos = le_pos_attr.read(20)
-                last_le_pos = last_le_pos.mean()
-                _, last_time, last_re_pos = re_pos_attr.read(20)
-                last_re_pos = last_re_pos.mean()
+                _, _, last_le_pos = le_pos_attr.read(3)
+                last_le_pos = np.median(last_le_pos)
+                _, last_time, last_re_pos = re_pos_attr.read(3)
+                last_re_pos = np.median(last_re_pos)
                 last_time = last_time[-1]
                 if last_time is None:
                     last_time = -np.inf
@@ -455,51 +455,19 @@ class EyePosDetectRoutine(AbstractRoutine):
                 le_sacc = int(last_le_vel < self.saccade_threshold and le_vel > self.saccade_threshold)
                 re_sacc = int(last_re_vel < self.saccade_threshold and re_vel > self.saccade_threshold)
 
-
                 getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
                 getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)
 
-                # Read last positions
-                    # _, _, last_le_pos = le_pos_attr.read(1)
-                    # last_le_pos = last_le_pos[0]
-                    # _, last_time, last_re_pos = re_pos_attr.read(1)
-                    # last_re_pos = last_re_pos[0]
-                    # last_time = last_time[0]
-                    #
-                    # # Get current reference time
-                    # current_time = self.buffer.get_time()
-                    #
-                    # # Calculate velocities
-                    # le_sacc = False
-                    # re_sacc = False
-                    # #if last_le_pos is not None and last_re_pos is not None:
-                    # if last_le_pos != 0 and last_re_pos != 0:
-                    #     le_vel = np.abs((le_pos-last_le_pos)/(current_time-last_time))
-                    #     re_vel = np.abs((re_pos-last_re_pos)/(current_time-last_time))
-                    #
-                    #     le_sacc = le_vel > self.saccade_threshold
-                    #     re_sacc = re_vel > self.saccade_threshold
-                    #
-                    #
-                    #     #getattr(self.buffer, f'{self.ang_le_vel_prefix}{id}').write(le_vel)
-                    #     #getattr(self.buffer, f'{self.ang_re_vel_prefix}{id}').write(re_vel)
 
-                    # if le_sacc or re_sacc:
-                    #     #TODO:  Trigger here for _now_, this is stupid
-                    #     pass
-                    #     IPC.rpc(Def.Process.Io,
-                    #             routines.io.IoRoutines.TriggerLedArenaFlash.trigger_flash,
-                    #             0.01, 2.0)
-                    # if le_sacc or re_sacc:
-                    #     print(le_sacc, re_sacc)
-                    # getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(int(le_sacc))
-                    # getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(int(re_sacc))
+                #     IPC.rpc(Def.Process.Io,
+                #             routines.io.IoRoutines.TriggerLedArenaFlash.trigger_flash,
+                #             0.01, 2.0)
 
                 # Set current rect ROI data
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
 
-    def _out(self):
-        for id in range(self.roi_maxnum):
+    def to_file(self):
+        for id in self.rois:
             le_attr_name = f'{self.ang_le_pos_prefix}{id}'
             re_attr_name = f'{self.ang_re_pos_prefix}{id}'
 

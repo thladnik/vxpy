@@ -28,11 +28,11 @@ class ParameterRoutine(AbstractRoutine):
         # Set up shared variables
         self.buffer.parameters = ObjectAttribute()
 
-    def _compute(self, data):
+    def execute(self, data):
         # Here data == visual
         self.buffer.parameters.write(data.parameters)
 
-    def _out(self):
+    def to_file(self):
         index, time, parameters = self.buffer.parameters.read(0)
 
         for key, value in parameters[0].items():
@@ -49,12 +49,12 @@ class FrameRoutine(AbstractRoutine):
         self.height = Config.Display[Def.DisplayCfg.window_height]
         self.buffer.frame = ArrayAttribute((self.height, self.width, 3), ArrayDType.uint8)
 
-    def _compute(self, data):
+    def execute(self, data):
         # Here data == visual
         frame = data.frame.read('color', alpha=False)
         self.buffer.frame.write(frame)
 
-    def _out(self):
+    def to_file(self):
         index, time, frame = self.buffer.frame.read(0)
 
         yield 'frame', time[0], frame[0]

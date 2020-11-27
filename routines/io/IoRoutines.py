@@ -34,11 +34,11 @@ class ReadRoutine(AbstractRoutine):
         for pin_name, pin_num, pin_type in self.pins:
             setattr(self.buffer, pin_name, ObjectAttribute())
 
-    def _compute(self, pin_data, device):
+    def execute(self, pin_data, device):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
-    def _out(self):
+    def to_file(self):
 
         for pin_name, pin_num, pin_type in self.pins:
             _, times, values = getattr(self.buffer, pin_name).read(0)
@@ -69,7 +69,7 @@ class TriggerLedArenaFlash(AbstractRoutine):
         self.buffer.trigger_set = ArrayAttribute(size=(1,), dtype=ArrayDType.uint8, length=20000)
         self.buffer.flash_state = ArrayAttribute(size=(1,), dtype=ArrayDType.uint8, length=20000)
 
-    def _compute(self, pin_data, device):
+    def execute(self, pin_data, device):
         t = time.time()
         state = self.flash_start_time <= t and self.flash_end_time > t
         #print(self.flash_start_time, t, self.flash_end_time)
@@ -92,7 +92,7 @@ class TriggerLedArenaFlash(AbstractRoutine):
         if self.trigger_set:
             self.trigger_set = not(self.trigger_set)
 
-    def _out(self):
+    def to_file(self):
         _, _, triggers = self.buffer.trigger_set.read(0)
         _, times, flash_states = self.buffer.flash_state.read(0)
 
