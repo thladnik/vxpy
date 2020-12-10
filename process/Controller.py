@@ -30,10 +30,9 @@ from helper import Basic
 import IPC
 import Logging
 import process
-from Process import AbstractProcess
 import protocols
 
-class Controller(AbstractProcess):
+class Controller(process.AbstractProcess):
     name = Def.Process.Controller
 
     configfile = None
@@ -70,7 +69,7 @@ class Controller(AbstractProcess):
         self.logger.addHandler(h)
 
         # Initialize AbstractProcess
-        AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
+        process.AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
                                              if not (k.startswith('_'))})
         # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()

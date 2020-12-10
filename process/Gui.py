@@ -16,25 +16,19 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
 import Def
 import Config
-import Process
+import process
 import IPC
-import Logging
 import gui.Camera
 import gui.Integrated
 import gui.Io
 
-import process.Controller
-import process.Camera
-import process.Display
 
-class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
+class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     name = Def.Process.GUI
 
     app : QtWidgets.QApplication
@@ -44,7 +38,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.app = _app
 
         # Set up parents
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon

@@ -1,5 +1,5 @@
 """
-MappApp ./__init__.py - Routine wrapper, abstract routine and ring buffer implementations.
+MappApp ./Process.py - Routine wrapper, abstract routine and ring buffer implementations.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,19 +15,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import ctypes
 import h5py
 import multiprocessing as mp
 import numpy as np
 import os
-import time
-from typing import Any, Dict, Union, Iterable
+from typing import Any, Dict, Union
 
 import Config
 import Def
 import IPC
 import Logging
-import Process
+import process
+
 
 ################################
 ## Routine wrapper class
@@ -36,7 +35,7 @@ class Routines:
     """Wrapper class for all routines in a process.
     """
 
-    process: Process.AbstractProcess = None
+    process_instance = None
 
     def __init__(self, name, routines=None):
         self.name = name
@@ -68,12 +67,12 @@ class Routines:
         :arg process: instance object of the current process
         """
 
-        self.process = process
+        self.process_instance = process
 
         for name, routine in self._routines.items():
             for fun in routine.exposed:
                 fun_str = fun.__qualname__
-                self.process.register_rpc_callback(routine, fun_str, fun)
+                self.process_instance.register_rpc_callback(routine, fun_str, fun)
 
     def add_routine(self, routine_cls, **kwargs):
         """To be called by Controller.
@@ -342,7 +341,8 @@ class AbstractRoutine:
 
 import ctypes
 import time
-from typing import List, Tuple, Union
+from typing import List
+
 
 class DummyLockContext:
 

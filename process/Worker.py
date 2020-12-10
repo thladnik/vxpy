@@ -17,20 +17,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from time import sleep, time
+from time import time
 import importlib
-import logging
-import os
 
-import Process
+import process
 import Def
 import Logging
 
-class Worker(Process.AbstractProcess):
+class Worker(process.AbstractProcess):
     name = Def.Process.Worker
 
     def __init__(self, **kwargs):
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         self._task_intervals = list()
         self._scheduled_times = list()

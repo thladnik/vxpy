@@ -1,5 +1,5 @@
 """
-MappApp ./__init__.py - Base stimulus classes which is inherited by
+MappApp ./Process.py - Base stimulus classes which is inherited by
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik, Yue Zhang
 

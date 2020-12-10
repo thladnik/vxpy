@@ -16,20 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-
 import Config
 import Def
 import IPC
 import Logging
-import Process
+import process
 import protocols
 
-class Io(Process.AbstractProcess):
+class Io(process.AbstractProcess):
     name = Def.Process.Io
 
     def __init__(self, **kwargs):
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         ################################
         ### Set up device

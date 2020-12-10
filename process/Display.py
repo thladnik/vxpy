@@ -23,7 +23,7 @@ import time
 import Config
 import Def
 import IPC
-import Process
+import process
 import Protocol
 import protocols
 from visuals import AbstractVisual
@@ -79,14 +79,14 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *event.physical_size)
 
 
-class Display(Process.AbstractProcess):
+class Display(process.AbstractProcess):
     name = Def.Process.Display
 
     protocol: Protocol.AbstractProtocol = None
     visual: AbstractVisual = None
 
     def __init__(self, **kwargs):
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         # Create canvas
         _interval = 1./Config.Display[Def.DisplayCfg.fps]
@@ -124,7 +124,7 @@ class Display(Process.AbstractProcess):
         self.canvas.visual = self.visual
 
     def _start_shutdown(self):
-        Process.AbstractProcess._start_shutdown(self)
+        process.AbstractProcess._start_shutdown(self)
 
     def main(self):
         app.process_events()

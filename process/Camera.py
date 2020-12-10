@@ -15,10 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import time
 
 import Config
-import Process
+import process
 import Def
 import IPC
 import Logging
@@ -26,11 +25,11 @@ import Logging
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
-class Camera(Process.AbstractProcess):
+class Camera(process.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         self.cameras = dict()
         for device_id, manufacturer, model, format, gain, exposure \
