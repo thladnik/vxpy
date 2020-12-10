@@ -26,9 +26,7 @@ import IPC
 import Process
 import Protocol
 import protocols
-import Visuals
-from PyQt5 import QtCore
-
+from visuals import AbstractVisual
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -85,7 +83,7 @@ class Display(Process.AbstractProcess):
     name = Def.Process.Display
 
     protocol: Protocol.AbstractProtocol = None
-    visual: Visuals.AbstractVisual = None
+    visual: AbstractVisual = None
 
     def __init__(self, **kwargs):
         Process.AbstractProcess.__init__(self, **kwargs)

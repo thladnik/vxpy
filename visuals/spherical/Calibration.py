@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from Visuals import SphericalVisual
+from visuals import SphericalVisual
 from models import BasicSphere
 from Shader import BasicFileShader
 

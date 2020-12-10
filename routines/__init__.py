@@ -151,7 +151,7 @@ class Routines:
 
             # Iterate over data in group (buffer)
             for attr_name, time, attr_data in routine.to_file():
-                print(attr_name, attr_data)
+
                 if time is None:
                     continue
 

@@ -19,7 +19,7 @@ import time
 from vispy import gloo
 import numpy as np
 
-from Visuals import PlanarVisual
+from visuals.__init__ import PlanarVisual
 from models import BasicPlane
 from Shader import BasicFileShader
 

@@ -68,8 +68,9 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         w, h = self.screenGeo.width(), self.screenGeo.height()
         if w > 1920 and h > 1080:
             self.resize(1920, 1080)
+            self.show()
         else:
-            self.resize(w,h)
+            self.showMaximized()
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
@@ -135,7 +136,6 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         # Bind shortcuts
         self._bind_shortcuts()
 
-        self.show()
 
     def restart_camera(self):
         IPC.rpc(Def.Process.Controller,

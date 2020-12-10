@@ -19,9 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from Visuals import PlanarVisual
+from visuals.__init__ import PlanarVisual
 from models import BasicPlane
-from Shader import BasicFileShader
 
 
 class Blank(PlanarVisual):
