@@ -32,7 +32,7 @@ import Def
 import Default
 from helper import Basic
 import process.Controller
-from Routine import AbstractRoutine
+from routines.__init__ import AbstractRoutine
 
 import wres
 

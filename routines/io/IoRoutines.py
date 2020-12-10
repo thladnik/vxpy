@@ -21,7 +21,7 @@ import numpy as np
 import Config
 import Def
 
-from Routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 class ReadRoutine(AbstractRoutine):
 
@@ -38,7 +38,7 @@ class ReadRoutine(AbstractRoutine):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
-    def to_file(self):
+    def to_file01(self):
 
         for pin_name, pin_num, pin_type in self.pins:
             _, times, values = getattr(self.buffer, pin_name).read(0)
@@ -66,8 +66,8 @@ class TriggerLedArenaFlash(AbstractRoutine):
         self.trigger_state = False
 
         # Set buffer attribute
-        self.buffer.trigger_set = ArrayAttribute(size=(1,), dtype=ArrayDType.uint8, length=20000)
-        self.buffer.flash_state = ArrayAttribute(size=(1,), dtype=ArrayDType.uint8, length=20000)
+        self.buffer.trigger_set = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
+        self.buffer.flash_state = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
 
     def execute(self, pin_data, device):
         t = time.time()
@@ -92,7 +92,7 @@ class TriggerLedArenaFlash(AbstractRoutine):
         if self.trigger_set:
             self.trigger_set = not(self.trigger_set)
 
-    def to_file(self):
+    def to_file01(self):
         _, _, triggers = self.buffer.trigger_set.read(0)
         _, times, flash_states = self.buffer.flash_state.read(0)
 

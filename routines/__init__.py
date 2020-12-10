@@ -1,5 +1,5 @@
 """
-MappApp ./Routine.py - Routine wrapper, abstract routine and ring buffer implementations.
+MappApp ./__init__.py - Routine wrapper, abstract routine and ring buffer implementations.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ import multiprocessing as mp
 import numpy as np
 import os
 import time
-from typing import Union, Iterable
+from typing import Any, Dict, Union, Iterable
 
 import Config
 import Def
@@ -33,18 +33,17 @@ import Process
 ## Routine wrapper class
 
 class Routines:
-    """Wrapper class for routines
+    """Wrapper class for all routines in a process.
     """
-    # TODO: Routines class may be moved into Process.AbstractProcess in future?
 
     process: Process.AbstractProcess = None
 
     def __init__(self, name, routines=None):
         self.name = name
         self._routine_paths = dict()
-        self._routines = dict()
+        self._routines: Dict[str, AbstractRoutine] = dict()
         self.h5_file: h5py.File = None
-        self.current_group: h5py.Group = None
+        self.record_group: h5py.Group = None
         self.compression_args: dict = None
 
         # Automatically add routines, if provided
@@ -76,17 +75,6 @@ class Routines:
                 fun_str = fun.__qualname__
                 self.process.register_rpc_callback(routine, fun_str, fun)
 
-    def initialize_buffers(self):
-        """Initialize each buffer after subprocess fork.
-
-        This call the RingBuffer.initialize method in each routine which can
-        be used for operations that have to happen
-        after forking the process (e.g. ctype mapped numpy arrays)
-        """
-
-        for name, routine in self._routines.items():
-            routine.buffer.build()
-
     def add_routine(self, routine_cls, **kwargs):
         """To be called by Controller.
 
@@ -99,14 +87,28 @@ class Routines:
 
         if routine_cls.__name__ in self._routine_paths:
             raise Exception(
-                f'Routine \"{routine_cls.__name__}\" exists already'
-                f' for path \"{self._routine_paths[routine_cls.__name__]}\"'
+                f'Routine \"{routine_cls.__name__}\" exists already '
+                f'for path \"{self._routine_paths[routine_cls.__name__]}\"'
                 f'Unable to add routine of same name from path \"{routine_cls.__module__}\"')
 
         self._routine_paths[routine_cls.__name__] = routine_cls.__module__
         self._routines[routine_cls.__name__]: AbstractRoutine = routine_cls(self, **kwargs)
 
-    def get_buffer(self, routine_cls):
+    def initialize_buffers(self):
+        """Initialize each buffer after subprocess fork.
+
+        This call the RingBuffer.initialize method in each routine which can
+        be used for operations that have to happen
+        after forking the process (e.g. ctype mapped numpy arrays)
+        """
+
+        for name, routine in self._routines.items():
+            routine.buffer.build()
+
+
+    def get_buffer(self, routine_cls: Union[str, type]):
+        """Return buffer of a routine class"""
+
         if isinstance(routine_cls, str):
             routine_name = routine_cls
         else:
@@ -116,7 +118,22 @@ class Routines:
 
         return self._routines[routine_name].buffer
 
+    def _append_to_dataset(self, grp: h5py.Group, key: str, value: Any):
+
+        # Get dataset
+        dset = grp[key]
+
+        # Increment time dimension by 1
+        dset.resize((dset.shape[0] + 1, *dset.shape[1:]))
+
+        # Write new value
+        dset[dset.shape[0] - 1] = value
+
     def update(self, *args, **kwargs):
+
+        # Fetch current group
+        # (this also closes open files so it should be executed in any case)
+        record_grp = self.get_container()
 
         if not(bool(args)) and not(bool(kwargs)):
             return
@@ -124,21 +141,85 @@ class Routines:
         for routine_name, routine in self._routines.items():
             # Advance buffer
             routine.buffer.next()
-            # Update the data in buffer
-            routine.update(*args, **kwargs)
-            # Stream new routine computation results to file (if active)
-            routine.stream_to_file(self.get_container())
 
-    def set_record_group(self, group_name):
+            # Execute routine function
+            routine.execute(*args, **kwargs)
+
+            # If no file object was provided or this particular buffer is not supposed to stream to file: return
+            if record_grp is None or not(self._routine_on_record(routine_name)):
+                continue
+
+            # Iterate over data in group (buffer)
+            for attr_name, time, attr_data in routine.to_file():
+                print(attr_name, attr_data)
+                if time is None:
+                    continue
+
+                self._append_to_dataset(record_grp[routine_name], attr_name, attr_data)
+                self._append_to_dataset(record_grp[routine_name], f'{attr_name}_time', time)
+
+
+    def _create_array_dataset(self, routine_name: str, attr_name: str, attr_shape: tuple, attr_dtype: Any):
+
+        # Get group for this particular routine
+        routine_grp = self.record_group.require_group(routine_name)
+
+        # Skip if dataset exists already
+        if attr_name in routine_grp:
+            Logging.write(Logging.WARNING,
+                          f'Tried to create existing attribute {routine_grp[attr_name]}')
+            return
+
+        try:
+            routine_grp.create_dataset(attr_name,
+                                       shape=(0, *attr_shape,),
+                                       dtype=attr_dtype,
+                                       maxshape=(None, *attr_shape,),
+                                       chunks=(1, *attr_shape,),
+                                       **self.compression_args)
+            Logging.write(Logging.DEBUG,
+                          f'Create record dataset "{routine_grp[attr_name]}"')
+
+        except Exception as exc:
+            import traceback
+            Logging.write(Logging.WARNING,
+                          f'Failed to create record dataset "{routine_grp[attr_name]}"'
+                          f' // Exception: {exc}')
+            traceback.print_exc()
+
+    def _routine_on_record(self, routine_name):
+        return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
+
+    def set_record_group(self, group_name: str, group_attributes: dict = None):
         if self.h5_file is None:
-            return#, 'Unable to create record group outside of h5 file context'
+            return
 
-        # TODO: already create all datasets based on predefined information in routine header
-        #   this will eliminate the lag for first dataset entry
+        # Set group
+        Logging.write(Logging.INFO, f'Set record group "{group_name}"')
+        self.record_group = self.h5_file.require_group(group_name)
+        if group_attributes is not None:
+            self.record_group.attrs.update(group_attributes)
 
-        self.current_group = self.h5_file.require_group(group_name)
+        # Create routine groups
+        for routine_name, routine in self._routines.items():
 
-    def read(self, attr_name, routine_name=None, **kwargs):
+            if not(self._routine_on_record(routine_name)):
+                continue
+
+            Logging.write(Logging.INFO, f'Set routine group {routine_name}')
+            self.record_group.require_group(routine_name)
+
+            # Create datasets in routine group
+            for attr_name in routine.file_attrs:
+                attr = getattr(self.get_buffer(routine_name), attr_name)
+                if isinstance(attr, ArrayAttribute):
+                    self._create_array_dataset(routine_name, attr_name, attr._shape, attr._dtype[1])
+                    self._create_array_dataset(routine_name, f'{attr_name}_time', (1,), np.float64)
+                else:
+                    print('No array attribute')
+
+
+    def read(self, attr_name: str, routine_name: str = None, **kwargs):
         """Read shared attribute from buffer.
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>
@@ -157,19 +238,16 @@ class Routines:
     def routines(self):
         return self._routines
 
-    def get_container(self) -> Union[h5py.File, None]:
+    def get_container(self) -> Union[h5py.File, h5py.Group, None]:
         """Method checks if application is currently recording.
         Opens and closes output file if necessary and returns either a file/group object or a None.
         """
 
-        # If recording is running and file is open: return file object
-        if IPC.Control.Recording[Def.RecCtrl.active] and not(self.h5_file is None):
-            if self.current_group is None:
-                return self.h5_file
-            else:
-                return self.current_group
+        # If recording is running and file is open: return record group
+        if IPC.Control.Recording[Def.RecCtrl.active] and self.record_group is not None:
+            return self.record_group
 
-        # If recording is running and file not open: open file and return file object
+        # If recording is running and file not open: open file and return record group
         elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5_file is None:
             # If output folder is not set: log warning and return None
             if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
@@ -182,18 +260,20 @@ class Routines:
                                     '{}.hdf5'.format(self.name))
 
             # Open new file
-            Logging.write(Logging.DEBUG, 'Open new file {}'.format(filepath))
+            Logging.write(Logging.DEBUG, f'Open new file {filepath}')
             self.h5_file = h5py.File(filepath, 'w')
 
             # Set compression
             compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
             compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
-
             self.compression_args = dict()
             if compr_method is not None:
                 self.compression_args = {'compression': compr_method, **compr_opts}
 
-            return self.h5_file
+            # Set current group to root
+            self.set_record_group('/')
+
+            return self.record_group
 
         # Recording is not running at the moment
         else:
@@ -209,7 +289,7 @@ class Routines:
                 if not(self.h5_file is None):
                     self.h5_file.close()
                     self.h5_file = None
-                    self.current_group = None
+                    self.record_group = None
                 # Return nothing
                 return None
 
@@ -220,19 +300,22 @@ class Routines:
 class AbstractRoutine:
 
     def __init__(self, _bo):
-        self._bo = _bo
-
         # List of methods open to rpc calls
         self.exposed = list()
 
         # List of required device names
         self.required = list()
 
+        # Attributes to be written to file
+        self.file_attrs = list()
+
         # Default ring buffer instance for routine
         self.buffer: RingBuffer = RingBuffer()
 
     def execute(self, *args, **kwargs):
-        """Compute method is called on data updates (in the producer process).
+        """Method is called on every iteration of the producer.
+
+        Compute method is called on data updates (in the producer process).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
 
@@ -242,76 +325,19 @@ class AbstractRoutine:
         Implementations of this method should yield a tuple
         with (attribute name, time, attribute value)
         """
-        # TODO: add default behavior instead of raising exception?
-        raise NotImplementedError('method _out not implemented in {}'.format(self.__class__.__name__))
+        for attr_name in self.file_attrs:
+            idcs, t, data = getattr(self.buffer, attr_name).read(0)
+
+            if data[0] is None:
+                continue
+
+            yield attr_name, t[0], data[0]
+
+        #raise NotImplementedError('method _out not implemented in {}'.format(self.__class__.__name__))
 
     def read(self, attr_name, *args, **kwargs):
+        """Pass-through to buffer read method for convenience"""
         return self.buffer.read(attr_name, *args, **kwargs)
-
-    def update(self, *args, **kwargs):
-        """Method is called on every iteration of the producer.
-
-        :param data: input data to be updated
-        """
-
-        self.execute(*args, **kwargs)
-
-    def _append_data(self, grp, key, value):
-
-        # Convert and determine dshape/dtype
-        value = np.asarray(value) if isinstance(value, (list, tuple)) else value
-        dshape = value.shape if isinstance(value, np.ndarray) else (1,)
-        dtype = value.dtype if isinstance(value, np.ndarray) else type(value)
-
-        # Create dataset if it doesn't exist
-        if not(key in grp):
-            try:
-                Logging.write(Logging.INFO, 'Create record dset "{}/{}"'.format(grp.name, key))
-                grp.create_dataset(key,
-                                   shape=(0, *dshape,),
-                                   dtype=dtype,
-                                   maxshape=(None, *dshape,),
-                                   chunks=(1, *dshape,),
-                                   **self._bo.compression_args)
-                # TODO: add compression option to recording controls + GUI
-            except Exception as exc:
-                import traceback
-                Logging.write(Logging.WARNING,
-                              f'Failed to create record dset "{grp.name}/{key}" // Exception: {exc}')
-                traceback.print_exc()
-
-        dset = grp[key]
-
-        # Resize dataset and append new value
-        dset.resize((dset.shape[0] + 1, *dshape))
-        dset[dset.shape[0] - 1] = value
-
-    def stream_to_file(self, container: Union[h5py.File, h5py.Group, None]):
-        # Set id of current buffer e.g. "Camera/FrameBuffer"
-        bufferName = self.__class__.__name__
-
-        # If no file object was provided or this particular buffer is not supposed to stream to file: return
-        if container is None or not('{}/{}'.format(self._bo.name, bufferName) in Config.Recording[Def.RecCfg.routines]):
-            return None
-
-        # Each buffer writes to it's own group
-        if not(bufferName in container):
-            Logging.write(Logging.INFO, 'Create record group {}'.format(bufferName))
-            container.create_group(bufferName)
-        grp = container[bufferName]
-
-        # Iterate over data in group (buffer)
-        for key, time, value in self.to_file():
-
-            # On datasets:
-            ## TODO: handle changing dataset sizes (e.g. rect ROIs which are slightly altered during rec)
-            ###
-            # NOTE ON COMPRESSION FOR FUTURE:
-            # GZIP: common, but slow
-            # LZF: fast, but only natively implemented in python h5py (-> can't be read by HDF Viewer)
-            ###
-            self._append_data(grp, key, value)
-            self._append_data(grp, '{}_time'.format(key), time)
 
 
 import ctypes
@@ -423,15 +449,15 @@ class ArrayAttribute(BufferAttribute):
     :: chunk_size (optional) int which specifies chunk size if chunked=True
     """
 
-    def __init__(self, size, dtype, chunked=False, chunk_size=None, **kwargs):
+    def __init__(self, shape, dtype, chunked=False, chunk_size=None, **kwargs):
         BufferAttribute.__init__(self, **kwargs)
 
-        assert isinstance(size, tuple), 'size must be tuple with dimension sizes'
+        assert isinstance(shape, tuple), 'size must be tuple with dimension sizes'
         assert isinstance(dtype, tuple), 'dtype must be tuple with (ctype,np-type)'
         assert isinstance(chunked, bool), 'chunked has to be bool'
         assert isinstance(chunk_size, int) or chunk_size is None, 'chunk_size must be int or None'
 
-        self._size = size
+        self._shape = shape
         self._dtype = dtype
         self._chunked = chunked
         self._chunk_size = chunk_size
@@ -463,19 +489,19 @@ class ArrayAttribute(BufferAttribute):
 
         # Init data structures
         if self._chunked:
-            init = int(np.product((self._chunk_size,) + self._size))
+            init = int(np.product((self._chunk_size,) + self._shape))
             self._raw: List[mp.Array] = list()
             for i in range(self._chunk_num):
                 self._raw.append(mp.Array(self._dtype[0], init))
             self._data: List[np.ndarray] = list()
         else:
-            init = int(np.product((self._length,) + self._size))
+            init = int(np.product((self._length,) + self._shape))
             self._raw: mp.Array = mp.Array(self._dtype[0], init)
             self._data: np.ndarray = None
 
     def _build_array(self, raw, length):
         np_array = np.frombuffer(raw.get_obj(), self._dtype[1])
-        return np_array.reshape((length,) + self._size)
+        return np_array.reshape((length,) + self._shape)
 
     def _get_lock(self, chunk_idx, use_lock):
         if not(use_lock):

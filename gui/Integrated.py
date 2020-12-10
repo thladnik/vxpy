@@ -31,7 +31,7 @@ import Logging
 from process import Gui
 import protocols
 
-from Routine import Routines
+from routines.__init__ import Routines
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -655,6 +655,8 @@ class Plotter(IntegratedWidget):
 
         axis_item = items[0]
 
+        # TODO: this flipping of pens doesn't work if new plotdataitems
+        #   were added to the axis after the previous ones were hidden
         for id, data in self.plot_data.items():
             if axis_item.labelText == data['axis']:
                 data_item: pg.PlotDataItem = self.plot_data_items[id]

@@ -1,4 +1,4 @@
-from Routine import AbstractRoutine
+from routines.__init__ import AbstractRoutine
 
 class Routine01(AbstractRoutine):
 

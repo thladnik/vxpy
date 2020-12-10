@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import Config
 import Def
-from Routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 class ParameterRoutine(AbstractRoutine):
 
@@ -28,12 +28,17 @@ class ParameterRoutine(AbstractRoutine):
         # Set up shared variables
         self.buffer.parameters = ObjectAttribute()
 
-    def execute(self, data):
-        # Here data == visual
-        self.buffer.parameters.write(data.parameters)
+    def execute(self, visual):
+        if visual is None:
+            return
 
-    def to_file(self):
+        self.buffer.parameters.write(visual.parameters)
+
+    def to_file01(self):
         index, time, parameters = self.buffer.parameters.read(0)
+
+        if parameters[0] is None:
+            return
 
         for key, value in parameters[0].items():
             yield key, time[0], value
@@ -44,17 +49,18 @@ class FrameRoutine(AbstractRoutine):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
         # Set up shared variables
-        # TODO: is there a better way? This just assumes FB size = window size
         self.width = Config.Display[Def.DisplayCfg.window_width]
         self.height = Config.Display[Def.DisplayCfg.window_height]
         self.buffer.frame = ArrayAttribute((self.height, self.width, 3), ArrayDType.uint8)
 
-    def execute(self, data):
-        # Here data == visual
-        frame = data.frame.read('color', alpha=False)
+    def execute(self, visual):
+        if visual is None:
+            return
+
+        frame = visual.frame.read('color', alpha=False)
         self.buffer.frame.write(frame)
 
-    def to_file(self):
+    def to_file01(self):
         index, time, frame = self.buffer.frame.read(0)
 
         yield 'frame', time[0], frame[0]

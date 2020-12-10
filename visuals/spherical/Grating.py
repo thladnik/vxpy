@@ -53,8 +53,6 @@ class BlackWhiteGrating(SphericalVisual):
         self.grating['a_azimuth'] = self.azimuth_buffer
         self.grating['a_elevation'] = self.elevation_buffer
 
-        #self.update(**params)
-
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time
 

@@ -116,9 +116,10 @@ class Display(Process.AbstractProcess):
 
     def _prepare_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-        IPC.Routines.Display.set_record_group(f'phase_{phase_id}')
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         self.canvas.visual = self.visual
+        IPC.Routines.Display.set_record_group(f'phase_{phase_id}',
+                                              group_attributes=self.visual.parameters)
 
     def _cleanup_protocol(self):
         self.visual = None
@@ -129,8 +130,12 @@ class Display(Process.AbstractProcess):
 
     def main(self):
         app.process_events()
-        self._run_protocol()
 
-        if self.visual is not None:
-            IPC.Routines.Display.update(self.visual)
-        IPC.Routines.Display.get_container()
+        try:
+            if self._run_protocol():
+                IPC.Routines.Display.update(self.visual)
+            else:
+                IPC.Routines.Display.update()
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()

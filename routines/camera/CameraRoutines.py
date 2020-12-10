@@ -17,18 +17,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import cv2
 import numpy as np
-from sklearn import metrics
 from scipy.spatial import distance
-from time import perf_counter, time
 # TODO: remove scikit-learn, unnecessarily large dependency
 #  and only used by old eye detection
 
-from Routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 import Config
 import Def
-from helper import Geometry
 import IPC
-import routines.io.IoRoutines
+
 
 class FrameRoutine(AbstractRoutine):
 
@@ -60,7 +57,7 @@ class FrameRoutine(AbstractRoutine):
             else:
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
-    def to_file(self):
+    def to_file01(self):
         for device_id, _, _ in self.device_list:
             frame_attr_name = f'{device_id}_frame'
             _, time, frame = getattr(self.buffer, frame_attr_name).read(0)
@@ -120,21 +117,24 @@ class EyePosDetectRoutine(AbstractRoutine):
             # Rectangle
             setattr(self.buffer, f'{self.extracted_rect_prefix}{id}',
                     ObjectAttribute(length=2*target_fps))
+
             # Position
             setattr(self.buffer, f'{self.ang_le_pos_prefix}{id}',
-                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.ang_re_pos_prefix}{id}',
-                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+
             # Velocity
             setattr(self.buffer, f'{self.ang_le_vel_prefix}{id}',
-                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.ang_re_vel_prefix}{id}',
-                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+
             # Saccade detection
             setattr(self.buffer, f'{self.le_sacc_prefix}{id}',
-                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.re_sacc_prefix}{id}',
-                    ArrayAttribute(size=(1,), dtype=ArrayDType.float64, length=5*target_fps))
+                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
         self.buffer.frame = ArrayAttribute((self.res_y, self.res_x),
                                            ArrayDType.uint8,
                                            length=2*target_fps)
@@ -178,6 +178,15 @@ class EyePosDetectRoutine(AbstractRoutine):
                     Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE {id})', axis='sacc')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
                     Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE {id})', axis='sacc')
+
+            # Add attributes to save-to-file list:
+            self.file_attrs.append(f'{self.ang_le_pos_prefix}{id}')
+            self.file_attrs.append(f'{self.ang_re_pos_prefix}{id}')
+            self.file_attrs.append(f'{self.ang_le_vel_prefix}{id}')
+            self.file_attrs.append(f'{self.ang_re_vel_prefix}{id}')
+            self.file_attrs.append(f'{self.le_sacc_prefix}{id}')
+            self.file_attrs.append(f'{self.re_sacc_prefix}{id}')
+
 
         self.rois[id] = params
 
@@ -251,9 +260,6 @@ class EyePosDetectRoutine(AbstractRoutine):
                                                                                      centroids,
                                                                                      hulls,
                                                                                      feret_points)))[:2]))
-
-
-
 
         forward_vec = np.array([0,-1])
         forward_vec_norm = forward_vec / np.linalg.norm(forward_vec)
@@ -466,17 +472,17 @@ class EyePosDetectRoutine(AbstractRoutine):
                 # Set current rect ROI data
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
 
-    def to_file(self):
+    def to_file01(self):
         for id in self.rois:
-            le_attr_name = f'{self.ang_le_pos_prefix}{id}'
-            re_attr_name = f'{self.ang_re_pos_prefix}{id}'
+            ang_le_pos_attr_name = f'{self.ang_le_pos_prefix}{id}'
+            ang_re_pos_attr_name = f'{self.ang_re_pos_prefix}{id}'
 
-            _, le_time, le_ang_pos = getattr(self.buffer, le_attr_name).read(0)
-            _, re_time, re_ang_pos = getattr(self.buffer, re_attr_name).read(0)
+            _, le_time, le_ang_pos = getattr(self.buffer, ang_le_pos_attr_name).read(0)
+            _, re_time, re_ang_pos = getattr(self.buffer, ang_re_pos_attr_name).read(0)
 
             if le_ang_pos[0] is None or re_ang_pos[0] is None:
                 continue
 
-            yield le_attr_name, le_time[0], le_ang_pos[0]
-            yield re_attr_name, re_time[0], re_ang_pos[0]
+            yield ang_le_pos_attr_name, le_time[0], le_ang_pos[0]
+            yield ang_re_pos_attr_name, re_time[0], re_ang_pos[0]
 

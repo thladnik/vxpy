@@ -23,7 +23,7 @@ import multiprocessing as mp
 import os
 import time
 
-import Routine
+import routines
 import Config
 import Def
 from helper import Basic
@@ -154,19 +154,19 @@ class Controller(AbstractProcess):
 
         # Set up routines
         # Camera
-        IPC.Routines.Camera = Routine.Routines(
+        IPC.Routines.Camera = routines.Routines(
             Def.Process.Camera,
             routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
         )
 
         # Display
-        IPC.Routines.Display = Routine.Routines(
+        IPC.Routines.Display = routines.Routines(
             Def.Process.Display,
             routines=Config.Display[Def.DisplayCfg.routines] if Config.Display[Def.DisplayCfg.use] else None
         )
 
         # IO
-        IPC.Routines.Io = Routine.Routines(
+        IPC.Routines.Io = routines.Routines(
             Def.Process.Io,
             routines=Config.Io[Def.IoCfg.routines] if Config.Io[Def.IoCfg.use] else None
         )
