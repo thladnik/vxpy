@@ -1,5 +1,5 @@
 """
-MappApp ./process/CameraRoutines.py - Handles camera interaction and writes to the camera routines.
+MappApp ./process/Core.py - Handles camera interaction and writes to the camera routines.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

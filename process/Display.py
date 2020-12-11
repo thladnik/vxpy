@@ -1,5 +1,5 @@
 """
-MappApp ./process/DisplayRoutines.py - Process which handles rendering of visual visuals.
+MappApp ./process/Core.py - Process which handles rendering of visual visuals.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

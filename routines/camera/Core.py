@@ -1,5 +1,5 @@
 """
-MappApp ./routines/CameraRoutines.py - Custom processing routine implementations for the camera process.
+MappApp ./routines/Core.py - Custom processing routine implementations for the camera process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,16 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import cv2
 import numpy as np
 from scipy.spatial import distance
-# TODO: remove scikit-learn, unnecessarily large dependency
-#  and only used by old eye detection
 
-from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 import Config
 import Def
+import gui.Integrated
 import IPC
+from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 
-class FrameRoutine(AbstractRoutine):
+class CameraFrame(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
@@ -43,9 +42,7 @@ class FrameRoutine(AbstractRoutine):
             array_attr = ArrayAttribute((res_y, res_x), ArrayDType.uint8, length=2*target_fps)
             setattr(self.buffer, '{}_frame'.format(device_id), array_attr)
 
-
     def execute(self, **frames):
-
         for device_id, frame in frames.items():
 
             if frame is None:
@@ -57,16 +54,8 @@ class FrameRoutine(AbstractRoutine):
             else:
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
-    def to_file01(self):
-        for device_id, _, _ in self.device_list:
-            frame_attr_name = f'{device_id}_frame'
-            _, time, frame = getattr(self.buffer, frame_attr_name).read(0)
-            yield frame_attr_name, time[0], frame[0]
 
-
-import gui.Integrated
-
-class EyePosDetectRoutine(AbstractRoutine):
+class EyePositionDetection(AbstractRoutine):
 
     camera_device_id = 'behavior'
     extracted_rect_prefix = 'extracted_rect_'
@@ -82,14 +71,14 @@ class EyePosDetectRoutine(AbstractRoutine):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
         # Set accessible methods
-        self.exposed.append(EyePosDetectRoutine.set_threshold)
-        self.exposed.append(EyePosDetectRoutine.set_threshold_range)
-        self.exposed.append(EyePosDetectRoutine.set_threshold_iterations)
-        self.exposed.append(EyePosDetectRoutine.set_max_im_value)
-        self.exposed.append(EyePosDetectRoutine.set_min_particle_size)
-        self.exposed.append(EyePosDetectRoutine.set_roi)
-        self.exposed.append(EyePosDetectRoutine.set_detection_mode)
-        self.exposed.append(EyePosDetectRoutine.set_saccade_threshold)
+        self.exposed.append(EyePositionDetection.set_threshold)
+        self.exposed.append(EyePositionDetection.set_threshold_range)
+        self.exposed.append(EyePositionDetection.set_threshold_iterations)
+        self.exposed.append(EyePositionDetection.set_max_im_value)
+        self.exposed.append(EyePositionDetection.set_min_particle_size)
+        self.exposed.append(EyePositionDetection.set_roi)
+        self.exposed.append(EyePositionDetection.set_detection_mode)
+        self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
         # Set required devices
         self.required.append(self.camera_device_id)
@@ -163,21 +152,21 @@ class EyePosDetectRoutine(AbstractRoutine):
             # Add buffer attributes to plotter
             # Position
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_pos_prefix}{id}', start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
+                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_le_pos_prefix}{id}', start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_pos_prefix}{id}', start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
+                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_re_pos_prefix}{id}', start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
 
             # Velocity
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_le_vel_prefix}{id}', start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
+                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_le_vel_prefix}{id}', start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.ang_re_vel_prefix}{id}', start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
+                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_re_vel_prefix}{id}', start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
 
             # Saccade trigger
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE {id})', axis='sacc')
+                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE {id})', axis='sacc')
             IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePosDetectRoutine.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE {id})', axis='sacc')
+                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE {id})', axis='sacc')
 
             # Add attributes to save-to-file list:
             self.file_attrs.append(f'{self.ang_le_pos_prefix}{id}')

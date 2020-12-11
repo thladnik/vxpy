@@ -1,5 +1,5 @@
 """
-MappApp ./process/IoRoutines.py - General purpose digital/analog input/output process.
+MappApp ./process/Core.py - General purpose digital/analog input/output process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

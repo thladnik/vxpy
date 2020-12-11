@@ -118,7 +118,6 @@ class AbstractVisual:
                     program[key] = value
 
 
-
 ################################
 # Spherical stimulus class
 

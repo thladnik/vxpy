@@ -1,5 +1,5 @@
 """
-MappApp ./routines/DisplayRoutines.py - Custom processing routine implementations for the display process.
+MappApp ./routines/Core.py - Custom processing routine implementations for the display process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@ import Config
 import Def
 from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
-class ParameterRoutine(AbstractRoutine):
+class Parameters(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
@@ -43,7 +43,7 @@ class ParameterRoutine(AbstractRoutine):
         for key, value in parameters[0].items():
             yield key, time[0], value
 
-class FrameRoutine(AbstractRoutine):
+class Frames(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)

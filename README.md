@@ -4,22 +4,12 @@ Multiprocess based software for visual stimulation and recording/online-analysis
 
 ## Installation
 
-### Windows 10 (Anaconda recommended)
+### Windows (Anaconda recommended)
+
+*Windows 10 is recommended*
 
 1. Download and install the latest release of [Anaconda](https://www.anaconda.com/distribution/) (recommended for beginners) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
-2. Either use *Anaconda Navigator* of *Anaconda Command Prompt*:
-    1. Set up a new Python 3.8 environment called `mappapp` (in cmd: `conda create -n mappapp python=3.8`)
-    2. Install dependencies to run MappApp
-        1. Navigator packages:
-            * numpy
-            * pyqt
-            * pyqtgraph
-            * py-opencv
-            * vispy
-        2. In Command prompt:
-            1. Activate environment: `conda activate mappapp`
-            2. Install packages: `conda install numpy pyqt pyqtgraph py-opencv vispy`
-
+2. Import environment from conda_env.yml 
 ## Running the application
  
 Either run from IDE configured with mappapp environment by running `Startup.py`

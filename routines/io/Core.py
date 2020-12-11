@@ -1,5 +1,5 @@
 """
-MappApp ./routines/IoRoutines.py - Custom processing routine implementations.
+MappApp ./routines/Core.py - Custom processing routine implementations.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@ import Def
 
 from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
-class ReadRoutine(AbstractRoutine):
+class Read(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
