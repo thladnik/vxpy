@@ -15,11 +15,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import ctypes
 import h5py
 import multiprocessing as mp
 import numpy as np
 import os
-from typing import Any, Dict, Union
+import time
+from typing import Any, Dict, List, Union
 
 import Config
 import Def
@@ -40,11 +42,11 @@ class Routines:
 
     def __init__(self, name, routines=None):
         self.name = name
-        self._routine_paths = dict()
+        self._routine_paths: Dict[str, str] = dict()
         self._routines: Dict[str, AbstractRoutine] = dict()
-        self.h5_file: h5py.File = None
-        self.record_group: h5py.Group = None
-        self.compression_args: dict = None
+        self.h5_file: Union[None, h5py.File] = None
+        self.record_group: Union[None, h5py.Group] = None
+        self.compression_args: Dict[str, Any] = dict()
 
         # Automatically add routines, if provided
         if not(routines is None) and isinstance(routines, dict):
@@ -323,6 +325,8 @@ class Routines:
 # Abstract Routine class
 
 class AbstractRoutine:
+    """AbstractRoutine to be subclassed by all implementations of routines.
+    """
 
     def __init__(self, _bo: Routines):
         self._bo = _bo
@@ -353,15 +357,15 @@ class AbstractRoutine:
 
         self.file_attrs.append(attr_name)
 
-    def register_with_ui_plotter(self, attr_name, start_idx, *args, **kwargs):
+    def register_with_ui_plotter(self, attr_name: str, start_idx: int, *args, **kwargs):
         IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
                 self._bo.process_instance.name, attr_name, start_idx, *args, **kwargs)
 
-    def to_file(self):
+    def to_file(self) -> (str, float, Any):
         """Method may be reimplemented. Can be used to alter the output to file.
-        If this buffer is going to be used for recording data, this method HAS to be implemented.
+
         Implementations of this method should yield a tuple
-        with (attribute name, time, attribute value)
+        with (attr_name: str, time: float, attr_data: Any)
         """
         for attr_name in self.file_attrs:
             idcs, t, data = getattr(self.buffer, attr_name).read(0)
@@ -373,14 +377,9 @@ class AbstractRoutine:
 
         #raise NotImplementedError('method _out not implemented in {}'.format(self.__class__.__name__))
 
-    def read(self, attr_name, *args, **kwargs):
+    def read(self, attr_name: str, *args, **kwargs):
         """Pass-through to buffer read method for convenience"""
         return self.buffer.read(attr_name, *args, **kwargs)
-
-
-import ctypes
-import time
-from typing import List
 
 
 class DummyLockContext:

@@ -22,6 +22,7 @@ import logging
 import multiprocessing as mp
 import os
 import time
+from typing import List, Dict, Tuple
 
 import routines
 import Config
@@ -35,16 +36,13 @@ import protocols
 class Controller(process.AbstractProcess):
     name = Def.Process.Controller
 
-    configfile = None
+    configfile: str = None
 
-    _processes: dict = dict()
-    _registered_processes:list = list()
+    _processes: Dict[str, mp.Process] = dict()
+    _registered_processes: List[Tuple[process.AbstractProcess, Dict]] = list()
 
-    _protocol_processes: list = [Def.Process.Camera,
-                                 Def.Process.Display,
-                                 Def.Process.Io,
-                                 Def.Process.Worker]
-    _active_protocols: list = []
+    _protocol_processes: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
+    _active_protocols: List[str] = list()
 
     def __init__(self):
         # Set up manager
@@ -521,4 +519,4 @@ class Controller(process.AbstractProcess):
         Logging.write(Logging.DEBUG, 'Shut down processes')
         self._shutdown = True
         for process_name in self._processes:
-            IPC.send(process_name, Def.Signal.Shutdown)
+            IPC.send(process_name, Def.Signal.shutdown)

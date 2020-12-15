@@ -153,7 +153,7 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Inform controller of close event
-        IPC.send(Def.Process.Controller, Def.Signal.Shutdown)
+        IPC.send(Def.Process.Controller, Def.Signal.shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
         IPC.set_state(Def.State.STOPPED)

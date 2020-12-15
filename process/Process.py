@@ -373,11 +373,11 @@ class AbstractProcess:
         # Unpack message
         signal, args, kwargs = msg
 
-        if signal == Def.Signal.Shutdown:
+        if signal == Def.Signal.shutdown:
             self._start_shutdown()
 
         # RPC calls
-        elif signal == Def.Signal.RPC:
+        elif signal == Def.Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
     def handle_SIGINT(self, sig, frame):
