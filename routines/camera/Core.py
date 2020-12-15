@@ -26,7 +26,7 @@ import IPC
 from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 
-class CameraFrame(AbstractRoutine):
+class Frames(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
@@ -39,8 +39,12 @@ class CameraFrame(AbstractRoutine):
 
         # Set up buffer frame attribute for each camera device
         for device_id, res_x, res_y in self.device_list:
+            # Set one array attribute per camera device
             array_attr = ArrayAttribute((res_y, res_x), ArrayDType.uint8, length=2*target_fps)
-            setattr(self.buffer, '{}_frame'.format(device_id), array_attr)
+            attr_name = f'{device_id}_frame'
+            setattr(self.buffer, attr_name, array_attr)
+            # Add to be written to file
+            self.file_attrs.append(attr_name)
 
     def execute(self, **frames):
         for device_id, frame in frames.items():
@@ -149,24 +153,24 @@ class EyePositionDetection(AbstractRoutine):
     def set_roi(self, id, params):
         if id not in self.rois:
             start_idx = self.buffer.get_index() + 1
-            # Add buffer attributes to plotter
+            # Send buffer attributes to plotter
             # Position
-            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_le_pos_prefix}{id}', start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
-            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_re_pos_prefix}{id}', start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
+            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_le_pos_prefix}{id}',
+                                          start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
+            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_re_pos_prefix}{id}',
+                                          start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
 
             # Velocity
-            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_le_vel_prefix}{id}', start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
-            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.ang_re_vel_prefix}{id}', start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
+            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_le_vel_prefix}{id}',
+                                          start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
+            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_re_vel_prefix}{id}',
+                                          start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
 
             # Saccade trigger
-            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.le_sacc_prefix}{id}', start_idx, name=f'sacc(LE {id})', axis='sacc')
-            IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                    Def.Process.Camera, f'{EyePositionDetection.__name__}/{self.re_sacc_prefix}{id}', start_idx, name=f'sacc(RE {id})', axis='sacc')
+            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.le_sacc_prefix}{id}',
+                                          start_idx, name=f'sacc(LE {id})', axis='sacc')
+            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.re_sacc_prefix}{id}',
+                                          start_idx, name=f'sacc(RE {id})', axis='sacc')
 
             # Add attributes to save-to-file list:
             self.file_attrs.append(f'{self.ang_le_pos_prefix}{id}')
@@ -181,6 +185,118 @@ class EyePositionDetection(AbstractRoutine):
 
     def set_saccade_threshold(self, thresh):
         self.saccade_threshold = thresh
+
+    @staticmethod
+    def tuple_o_ints(t):
+        return tuple((int(i) for i in t))
+
+    def ellipse_from_moments(self, rect, thresh_dev=0):
+        # Formatting for drawing
+        line_thickness = np.ceil(np.mean(rect.shape) / 50).astype(int)
+        line_thickness = 1 if line_thickness == 0 else line_thickness
+        marker_size = line_thickness * 5
+
+        # Set rect center
+        rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
+
+        # Apply threshold
+        _, thresh = cv2.threshold(rect[:,:], self.thresh+thresh_dev, self.maxvalue, cv2.THRESH_BINARY_INV)
+
+        # Detect contours
+        cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+        # Make RGB
+        thresh = np.stack((thresh, thresh, thresh), axis=-1)
+        #
+        # Collect contour parameters and filter contours
+        areas = list()
+        barycenters = list()
+        hulls = list()
+        feret_points = list()
+        thetas = list()
+        axes = list()
+        dists = list()
+        i = 0
+        while i < len(cnts):
+
+            cnt = cnts[i]
+            M = cv2.moments(cnt)
+            A = M['m00']
+
+            # Discard if contour has no area
+            if A < self.min_size:
+                del cnts[i]
+                continue
+
+            areas.append(A)
+
+            center = (M['m10']/A, M['m01']/A)
+            barycenters.append(center)
+
+            hull = cv2.convexHull(cnt).squeeze()
+            hulls.append(hull)
+
+            dists.append(distance.euclidean(center, rect_center))
+
+            a = M['m20'] / M['m00'] - center[0] ** 2
+            b = 2 * (M['m11'] / M['m00'] - center[0] * center[1])
+            c = M['m02'] / M['m00'] - center[1] ** 2
+
+            theta = (1 / 2 * np.arctan(b / (a - c)) + (a < c) - 1) / np.pi * 180 #* np.pi / 2
+            thetas.append(theta)
+            W = np.sqrt(8 * (a + c - np.sqrt(b ** 2 + (a - c) ** 2))) / 2
+            L = np.sqrt(8 * (a + c + np.sqrt(b ** 2 + (a - c) ** 2))) / 2
+            axes.append((W, L))
+
+            feret_points.append((hull[np.argmin(hull[:,1])], hull[np.argmax(hull[:,1])]))
+
+            i += 1
+
+        # Additional filtering of particles to idenfity both eyes if more than 2
+        if len(cnts) > 2:
+            dists, areas, barycenters, hulls, feret_points, thetas, axes = \
+                list(zip(*sorted(list(zip(dists, areas, barycenters, hulls, feret_points, thetas, axes)))[:2]))
+
+        forward_vec = np.array([0,-1])
+        forward_vec_norm = forward_vec / np.linalg.norm(forward_vec)
+        # Draw rect center and midline marker for debugging
+        # (Important: this has to happen AFTER detection of contours,
+        # as it alters the tresh'ed image)
+        cv2.drawMarker(thresh, rect_center, (0, 255, 0), cv2.MARKER_DIAMOND, marker_size * 2, line_thickness)
+        cv2.arrowedLine(thresh,
+                        tuple(rect_center), tuple((rect_center + rect.shape[0]/3 * forward_vec_norm).astype(int)),
+                        (0, 255, 0), line_thickness, tipLength=0.3)
+
+        # Draw hull contours for debugging (before possible premature return)
+        cv2.drawContours(thresh, hulls, -1, (128,128,0), line_thickness)
+
+        # If less than two particles, return
+        if len(cnts) < 2:
+            return [np.nan, np.nan], thresh
+
+        # At this point there should only be 2 particles left
+        le_idx = 0 if (barycenters[0][0] < rect_center[0]) else 1
+        re_idx = 1 if (barycenters[0][0] < rect_center[0]) else 0
+
+        try:
+            for center, axis, theta in zip(barycenters, axes, thetas):
+                center = self.tuple_o_ints(center)
+                axis = self.tuple_o_ints(axis)
+                angle = float(theta)
+                start_angle = 0.
+                end_angle = 360.
+                color = (255, 0, 0)
+
+                cv2.ellipse(thresh,
+                            center,
+                            axis,
+                            angle, start_angle, end_angle, color, line_thickness)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+
+        return [thetas[le_idx], thetas[re_idx]], thresh
+
 
     def feret_diameter(self, rect, thresh_dev=0):
         """Method for extracting angular fish eye position estimates using the Feret diameter.
@@ -241,7 +357,6 @@ class EyePositionDetection(AbstractRoutine):
 
             i += 1
 
-
         # Additional filtering of particles to idenfity both eyes if more than 2
         if len(cnts) > 2:
             dists, areas, centroids, hulls, feret_points = list(zip(*sorted(list(zip(dists,
@@ -271,10 +386,11 @@ class EyePositionDetection(AbstractRoutine):
         le_idx = 0 if (centroids[0][0] < rect_center[0]) else 1
         re_idx = 1 if (centroids[0][0] < rect_center[0]) else 0
 
-
+        # LE
         le_axis = feret_points[le_idx][0] - feret_points[le_idx][1]
         le_axis_norm = le_axis / np.linalg.norm(le_axis)
         le_ortho = np.array([le_axis_norm[1], -le_axis_norm[0]])
+        # RE
         re_axis = feret_points[re_idx][0] - feret_points[re_idx][1]
         re_axis_norm = re_axis / np.linalg.norm(re_axis)
         re_ortho = np.array([-re_axis_norm[1], re_axis_norm[0]])

@@ -23,6 +23,7 @@ from typing import Any, Dict, Union
 
 import Config
 import Def
+import gui
 import IPC
 import Logging
 import process
@@ -35,7 +36,7 @@ class Routines:
     """Wrapper class for all routines in a process.
     """
 
-    process_instance = None
+    process_instance: process.AbstractProcess = None
 
     def __init__(self, name, routines=None):
         self.name = name
@@ -119,12 +120,36 @@ class Routines:
 
     def _append_to_dataset(self, grp: h5py.Group, key: str, value: Any):
 
+        # Create dataset (if necessary)
+        if key not in grp:
+            # Some datasets may not be created on record group creation
+            # (this is e.g. the the case for parameters of visuals,
+            # because unless the data types are specifically declared,
+            # there's no way to know them ahead of time)
+
+            # Iterate over dictionary contents
+            if isinstance(value, dict):
+                for k, v in value.items():
+                    self._append_to_dataset(grp, f'{key}_{k}', v)
+                return
+
+            # Try to cast to numpy arrays
+            if isinstance(value, list):
+                value = np.array(value)
+            else:
+                value = np.array([value])
+
+            dshape = value.shape
+            dtype = value.dtype
+            assert np.issubdtype(dtype, np.number), \
+                f'Unable save non-numerical value "{value}" to dataset "{key}" in group {grp.name}'
+
+            self._create_dataset(grp.name.split('/')[-1], key, dshape, dtype)
+
         # Get dataset
         dset = grp[key]
-
         # Increment time dimension by 1
         dset.resize((dset.shape[0] + 1, *dset.shape[1:]))
-
         # Write new value
         dset[dset.shape[0] - 1] = value
 
@@ -158,7 +183,7 @@ class Routines:
                 self._append_to_dataset(record_grp[routine_name], f'{attr_name}_time', time)
 
 
-    def _create_array_dataset(self, routine_name: str, attr_name: str, attr_shape: tuple, attr_dtype: Any):
+    def _create_dataset(self, routine_name: str, attr_name: str, attr_shape: tuple, attr_dtype: Any):
 
         # Get group for this particular routine
         routine_grp = self.record_group.require_group(routine_name)
@@ -211,11 +236,12 @@ class Routines:
             # Create datasets in routine group
             for attr_name in routine.file_attrs:
                 attr = getattr(self.get_buffer(routine_name), attr_name)
+                # Atm only ArrayAttributes have declared data types
+                # Other attributes (if compatible) will be created at during
                 if isinstance(attr, ArrayAttribute):
-                    self._create_array_dataset(routine_name, attr_name, attr._shape, attr._dtype[1])
-                    self._create_array_dataset(routine_name, f'{attr_name}_time', (1,), np.float64)
-                else:
-                    print('No array attribute')
+                    self._create_dataset(routine_name, attr_name, attr._shape, attr._dtype[1])
+                    self._create_dataset(routine_name, f'{attr_name}_time', (1,), np.float64)
+
 
 
     def read(self, attr_name: str, routine_name: str = None, **kwargs):
@@ -298,7 +324,8 @@ class Routines:
 
 class AbstractRoutine:
 
-    def __init__(self, _bo):
+    def __init__(self, _bo: Routines):
+        self._bo = _bo
         # List of methods open to rpc calls
         self.exposed = list()
 
@@ -317,6 +344,18 @@ class AbstractRoutine:
         Compute method is called on data updates (in the producer process).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
         raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
+
+    def add_file_attribute(self, attr_name):
+        if attr_name in self.file_attrs:
+            Logging.write(Logging.WARNING,
+                          f'Attribute "{attr_name}" already set to be written to file')
+            return
+
+        self.file_attrs.append(attr_name)
+
+    def register_with_ui_plotter(self, attr_name, start_idx, *args, **kwargs):
+        IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
+                self._bo.process_instance.name, attr_name, start_idx, *args, **kwargs)
 
     def to_file(self):
         """Method may be reimplemented. Can be used to alter the output to file.

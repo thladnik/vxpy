@@ -1,5 +1,5 @@
 """
-MappApp ./routines/Core.py - Custom processing routine implementations for the display process.
+MappApp ./routines/display/Core.py - Custom processing routine implementations for the display process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -20,28 +20,44 @@ import Config
 import Def
 from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
-class Parameters(AbstractRoutine):
+class StaticParameters(AbstractRoutine):
+    """This routine buffers the visual parameters,
+    but only doesn't register them to be written to file"""
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
 
         # Set up shared variables
-        self.buffer.parameters = ObjectAttribute()
+        self.buffer.param = ObjectAttribute()
 
     def execute(self, visual):
         if visual is None:
-            return
+            params = None
+        else:
+            params = visual.parameters
 
-        self.buffer.parameters.write(visual.parameters)
+        self.buffer.param.write(params)
 
-    def to_file01(self):
-        index, time, parameters = self.buffer.parameters.read(0)
 
-        if parameters[0] is None:
-            return
+class DynamicParameters(AbstractRoutine):
+    """This routine buffers the visual parameters
+    and registers them to be written to file"""
 
-        for key, value in parameters[0].items():
-            yield key, time[0], value
+    def __init__(self, *args, **kwargs):
+        AbstractRoutine.__init__(self, *args, **kwargs)
+
+        # Set up shared variables
+        self.buffer.param = ObjectAttribute()
+        self.file_attrs.append('param')
+
+    def execute(self, visual):
+        if visual is None:
+            params = None
+        else:
+            params = visual.parameters
+
+        self.buffer.param.write(params)
+
 
 class Frames(AbstractRoutine):
 
@@ -52,15 +68,12 @@ class Frames(AbstractRoutine):
         self.width = Config.Display[Def.DisplayCfg.window_width]
         self.height = Config.Display[Def.DisplayCfg.window_height]
         self.buffer.frame = ArrayAttribute((self.height, self.width, 3), ArrayDType.uint8)
+        self.add_file_attribute('frame')
 
     def execute(self, visual):
         if visual is None:
             return
 
         frame = visual.frame.read('color', alpha=False)
+        print(frame.min(), frame.max())
         self.buffer.frame.write(frame)
-
-    def to_file01(self):
-        index, time, frame = self.buffer.frame.read(0)
-
-        yield 'frame', time[0], frame[0]

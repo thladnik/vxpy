@@ -31,6 +31,8 @@ class Camera(process.AbstractProcess):
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
 
+        Logging.write(Logging.WARNING, 'Camera does WARN WARN')
+
         self.cameras = dict()
         for device_id, manufacturer, model, format, gain, exposure \
                 in zip(Config.Camera[Def.CameraCfg.device_id],

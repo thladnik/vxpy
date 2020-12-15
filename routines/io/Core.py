@@ -1,5 +1,5 @@
 """
-MappApp ./routines/Core.py - Custom processing routine implementations.
+MappApp ./routines/io/Core.py - Custom processing routine implementations.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,9 +21,25 @@ import numpy as np
 import Config
 import Def
 
-from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+from routines import AbstractRoutine, ArrayAttribute, ArrayDType
 
-class Read(AbstractRoutine):
+class ReadAnalog(AbstractRoutine):
+
+    def __init__(self, *args, **kwargs):
+        AbstractRoutine.__init__(self, *args, **kwargs)
+
+        self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
+        self.pins = [pin for pin in self.pins if pin[-1] == 'a'] # Select just inputs to read
+
+        for pin_name, pin_num, pin_type in self.pins:
+            setattr(self.buffer, pin_name, ArrayAttribute((1,), ArrayDType.float64))
+
+    def execute(self, pin_data, device):
+        for pin_name, pin_num, pin_type in self.pins:
+            getattr(self.buffer, pin_name).write(pin_data[pin_name])
+
+
+class ReadDigital(AbstractRoutine):
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)
@@ -32,21 +48,11 @@ class Read(AbstractRoutine):
         self.pins = [pin for pin in self.pins if pin[-1] == 'i'] # Select just inputs to read
 
         for pin_name, pin_num, pin_type in self.pins:
-            setattr(self.buffer, pin_name, ObjectAttribute())
+            setattr(self.buffer, pin_name, ArrayAttribute((1,), ArrayDType.float64))
 
     def execute(self, pin_data, device):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
-
-    def to_file01(self):
-
-        for pin_name, pin_num, pin_type in self.pins:
-            _, times, values = getattr(self.buffer, pin_name).read(0)
-
-            if values[0] is None:
-                continue
-
-            yield pin_name, times[0], values[0]
 
 
 class TriggerLedArenaFlash(AbstractRoutine):
@@ -67,17 +73,16 @@ class TriggerLedArenaFlash(AbstractRoutine):
 
         # Set buffer attribute
         self.buffer.trigger_set = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
+        #self.register_with_ui_plotter('trigger_set', 1, name='Flash trigger', axis='di')
         self.buffer.flash_state = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
+        #self.register_with_ui_plotter('flash_state', 1, name='Flash state', axis='di')
 
     def execute(self, pin_data, device):
         t = time.time()
         state = self.flash_start_time <= t and self.flash_end_time > t
-        #print(self.flash_start_time, t, self.flash_end_time)
-        #if state:
-        #    print('FLASH!')
 
         for pin_id, pin_num, pin_type in self.pins:
-            device.write(pin_id, state)
+            device.write(**{pin_id: int(state)})
 
         # Flash is over
         if self.trigger_state and t >= self.flash_end_time:

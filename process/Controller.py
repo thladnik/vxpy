@@ -100,6 +100,10 @@ class Controller(process.AbstractProcess):
             import traceback
             traceback.print_exc()
 
+        # TODO: check if recording routines contains any entries
+        #  for inactive processes or inactive routines on active processes
+        #  print warning or just shut down completely in-case?
+
         ################################
         # Set up STATES
 
