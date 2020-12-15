@@ -423,19 +423,18 @@ class Log(IntegratedWidget):
 
         self.setLayout(QtWidgets.QHBoxLayout())
 
-        self._txe_log = QtWidgets.QTextEdit()
-        self._txe_log.setReadOnly(True)
-        self._txe_log.setFontFamily('Courier')
-        #self._txe_log.setFontPointSize(5)
-        self.layout().addWidget(self._txe_log)
+        self.txe_log = QtWidgets.QTextEdit()
+        self.txe_log.setReadOnly(True)
+        self.txe_log.setFontFamily('Courier')
+        self.layout().addWidget(self.txe_log)
 
-        ### Set initial log line count
+        # Set initial log line count
         self.logccount = 0
 
-        ### Set timer for updating of log
-        self._tmr_logger = QtCore.QTimer()
-        self._tmr_logger.timeout.connect(self.printLog)
-        self._tmr_logger.start(50)
+        # Set timer for updating of log
+        self.timer_logging = QtCore.QTimer()
+        self.timer_logging.timeout.connect(self.printLog)
+        self.timer_logging.start(50)
 
 
     def printLog(self):
@@ -447,7 +446,7 @@ class Log(IntegratedWidget):
                 if record['levelno'] > 10:
                     line = '{} : {:10} : {:10} : {}'\
                         .format(record['asctime'], record['name'], record['levelname'], record['msg'])
-                    self._txe_log.append(line)
+                    self.txe_log.append(line)
 
                 self.logccount += 1
 
