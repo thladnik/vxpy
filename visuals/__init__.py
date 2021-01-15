@@ -187,7 +187,8 @@ class SphericalVisual(AbstractVisual):
             
             // Stretch sphere
             pos = u_mapcalib_inv_rotate_elev * pos;
-            pos.z = pos.z * 1.;
+            pos.z = pos.z * 1.0;
+            pos = u_mapcalib_rotate_elev * pos;
             pos = u_mapcalib_rotate_elev * pos;
 
             pos = u_mapcalib_rotate_x * pos;
@@ -195,11 +196,7 @@ class SphericalVisual(AbstractVisual):
             pos = u_mapcalib_translation * pos;
             pos = u_mapcalib_projection * pos;
             
-            pos = vec4(
-                ((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale 
-                + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, 
-                pos.z, 
-                pos.w);
+            pos = vec4(((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale  + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, pos.z, pos.w);
                 
             return pos;
         }
@@ -220,10 +217,10 @@ class SphericalVisual(AbstractVisual):
         varying vec3 v_position;
         varying vec4 v_map_position;
         void main() {
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+            //gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
             //gl_FragColor = vec4(1.0-abs(v_position.z), abs(v_position.z)/2.0, 0.0, 1.0); 
             //gl_FragColor = vec4((-v_position.z+1.0)/2.0, (v_position.z+1.0)/2.0, 0.0, 1.0);
-            //gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
+            gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
             //gl_FragColor = vec4(vec3(v_map_position.w), 1.0);
         }
     """
@@ -313,7 +310,7 @@ class SphericalVisual(AbstractVisual):
 
         # Set 3D transform
         distance = Config.Display[Def.DisplayCfg.sph_view_distance]
-        fov = Config.Display[Def.DisplayCfg.sph_view_fov]#240.0/distance
+        fov = 240.0/distance # Config.Display[Def.DisplayCfg.sph_view_fov]
         #dist = 1.05 + frame_time / 300
         #print('Distance', dist)
         translate3d = transforms.translate((0, 0, -distance))
@@ -322,16 +319,15 @@ class SphericalVisual(AbstractVisual):
         #self.transform_uniforms['u_mapcalib_transform3d'] = translate3d @ project3d
         # fov = (frame_time * 10) % 90
         # print('FOV', fov)
-        project3d = transforms.perspective(fov, 1., 0.1, 100.0)
         #print(project3d)
-        # = transforms.ortho(-2.0, 2.0, -2.0, 2.0, 0.1, 100.0)
-        #project3d = transforms.ortho(-0.5, 0.5, -0.5, 0.5, 0.1, 100.0)
+        project3d = transforms.perspective(fov, 1., 0.1, 400.0)
+        #project3d = transforms.ortho(-2.0, 2.0, -2.0, 2.0, 0.1, 400.0)
         self.transform_uniforms['u_mapcalib_projection'] = project3d
 
         # Calculate inverse elevation for scaling of sphere into prolate spheroid
-        inv_rotate_elev_3d = transforms.rotate(-Config.Display[Def.DisplayCfg.sph_view_elev_angle], (1, 0, 0))
+        inv_rotate_elev_3d = transforms.rotate(Config.Display[Def.DisplayCfg.sph_view_elev_angle], (1, 0, 0))
         # Calculate elevation rotation for projection
-        rotate_elev_3d = transforms.rotate(Config.Display[Def.DisplayCfg.sph_view_elev_angle], (1, 0, 0))
+        rotate_elev_3d = transforms.rotate(-Config.Display[Def.DisplayCfg.sph_view_elev_angle], (1, 0, 0))
 
         # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
@@ -359,22 +355,21 @@ class SphericalVisual(AbstractVisual):
             self.transform_uniforms['u_mapcalib_rotate2d'] = Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i)
 
             # 2D translation radially
-            radial_offset = np.array([np.real(1.j ** (.5 + i)), np.imag(1.j ** (.5 + i))]) * Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset]
+            radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset]
             xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos], Config.Display[Def.DisplayCfg.glob_y_pos]])
             self.transform_uniforms['u_mapcalib_translate2d'] =  radial_offset + xy_offset
 
             # Render 90 degree mask to mask buffer
             # (BEFORE further 90deg rotation)
             self.apply_transform(self._mask_program)
-            #with self._mask_fb:
-            self._mask_program.draw('triangles', self._mask_index_buffer)
+            with self._mask_fb:
+                self._mask_program.draw('triangles', self._mask_index_buffer)
             # Clear (important!)
-            continue
             gloo.clear()
 
             # Apply 90*i degree rotation
             azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
-            self.transform_uniforms['u_mapcalib_rotate3d'] = transforms.rotate(90 * i + azim_angle, (0, 0, 1)) @ rotate_elev_3d
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45 + 90 * i, (0,0,1))
 
             # And render actual stimulus sphere
             with self._raw_fb:
