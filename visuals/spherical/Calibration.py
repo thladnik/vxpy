@@ -1,5 +1,5 @@
 """
-MappApp ./visuals/Calibration.py - Checkerboard visuals
+MappApp ./visuals/Spherical_Calibration.py - Checkerboard visuals
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -45,8 +45,8 @@ class BlackWhiteCheckerboard(SphericalVisual):
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
         self.elevation_buffer = gloo.VertexBuffer(self.sphere.a_elevation)
 
-        self.checker = gloo.Program(BasicFileShader().addShaderFile('spherical/checkerboard.vert').read(),
-                                    BasicFileShader().addShaderFile('spherical/checkerboard.frag').read())
+        self.checker = gloo.Program(self.load_vertex_shader('spherical/checkerboard.vert'),
+                                    self.load_shader('spherical/checkerboard.frag'))
         self.checker['a_position'] = self.position_buffer
         self.checker['a_azimuth'] = self.azimuth_buffer
         self.checker['a_elevation'] = self.elevation_buffer

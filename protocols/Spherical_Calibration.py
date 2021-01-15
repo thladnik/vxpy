@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/Calibration.py - Protocols for calibration of spherical visual stimulation setup.
+MappApp ./protocols/Spherical_Calibration.py - Protocols for calibration of spherical visual stimulation setup.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -23,36 +23,31 @@ from visuals.spherical.Calibration import BlackWhiteCheckerboard, RegularMesh
 
 class Calibration16x16(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
 
-        self.newPhase(duration=10**4)
-
-        self.addVisual(BlackWhiteCheckerboard,
-                       {BlackWhiteCheckerboard.u_rows : 16,
-                        BlackWhiteCheckerboard.u_cols : 16})
+        self.add_phase(BlackWhiteCheckerboard, 10**6,
+                       {BlackWhiteCheckerboard.u_rows: 16,
+                        BlackWhiteCheckerboard.u_cols: 16})
 
 
 class CalibrationMultiple(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
 
 
         for num in range(5):
-            self.newPhase(duration=10)
 
-            self.addVisual(BlackWhiteCheckerboard,
+            self.add_phase(BlackWhiteCheckerboard, 10,
                            {BlackWhiteCheckerboard.u_rows: 4 * (1 + num),
                             BlackWhiteCheckerboard.u_cols: 4 * (1 + num)})
 
 class RegularMesh16x16(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
 
-        self.newPhase(duration=10**4)
-
-        self.addVisual(RegularMesh,
-                       {RegularMesh.u_rows : 16,
-                        RegularMesh.u_cols : 16})
+        self.add_phase(RegularMesh, 10**6,
+                       {RegularMesh.u_rows: 16,
+                        RegularMesh.u_cols: 16})
