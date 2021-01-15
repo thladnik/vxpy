@@ -75,5 +75,5 @@ class Frames(AbstractRoutine):
             return
 
         frame = visual.frame.read('color', alpha=False)
-        print(frame.min(), frame.max())
+
         self.buffer.frame.write(frame)

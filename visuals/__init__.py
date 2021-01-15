@@ -16,10 +16,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import numpy as np
+import os
 from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
-import numpy as np
 
 import Config
 import Def
@@ -42,6 +43,7 @@ class AbstractVisual:
             gl_Position = vec4(a_position, 0.0, 1.0);
         }
     """
+
     _frag_display = """
         varying vec2 v_texcoord;
 
@@ -50,6 +52,9 @@ class AbstractVisual:
         void main() {
             gl_FragColor = texture2D(u_texture, v_texcoord);
         }
+    """
+
+    _vertex_map = """
     """
 
     _parse_fun_prefix = 'parse_'
@@ -92,6 +97,19 @@ class AbstractVisual:
     def render(self, frame_time):
         raise NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
 
+    @staticmethod
+    def load_shader(filepath):
+        with open(os.path.join(Def.Path.Shader, filepath), 'r') as f:
+            code = f.read()
+
+        return code
+
+    def load_vertex_shader(self, filepath):
+        return self.parse_vertex_shader(self.load_shader(filepath))
+
+    def parse_vertex_shader(self, vert):
+        return f'{self._vertex_map}\n{vert}'
+
     def update(self, **params):
         """
         Method to update stimulus parameters.
@@ -124,7 +142,7 @@ class AbstractVisual:
 class SphericalVisual(AbstractVisual):
 
     # Standard transforms of sphere for 4-way display configuration
-    _sphere_map = """
+    _sphere_map_backtup = """
         uniform mat2 u_mapcalib_aspectscale;
         uniform vec2 u_mapcalib_scale;
         uniform mat4 u_mapcalib_transform3d;
@@ -146,6 +164,36 @@ class SphericalVisual(AbstractVisual):
         }
     """
 
+    _vertex_map = """
+        uniform mat2 u_mapcalib_aspectscale;
+        uniform vec2 u_mapcalib_scale;
+        uniform mat4 u_mapcalib_transform3d;
+        uniform mat4 u_mapcalib_rotate3d;
+        uniform vec2 u_mapcalib_translate2d;
+        uniform mat2 u_mapcalib_rotate2d;
+
+        attribute vec3 a_position;   // Vertex positions
+
+        vec4 mapped_position()
+        {
+            // Final position
+            vec4 pos = u_mapcalib_transform3d * u_mapcalib_rotate3d * vec4(a_position,1.0);
+            vec4 pos1 = vec4(
+                ((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale 
+                + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, 
+                pos.z, 
+                pos.w);
+                
+            return pos1;
+        }
+    """
+
+    _sphere_vert = """
+        void main() {
+            gl_Position = mapped_position();
+        }
+    """
+
     # Mask fragment shader
     _mask_frag = """
         void main() {
@@ -154,7 +202,7 @@ class SphericalVisual(AbstractVisual):
     """
 
     # Out shaders
-    _vertex_out = """
+    _out_vert = """
         attribute vec2 a_position;
         varying vec2 v_texcoord;
 
@@ -163,7 +211,7 @@ class SphericalVisual(AbstractVisual):
             gl_Position = vec4(a_position, 0.0, 1.0);
         }
     """
-    _frag_out = """
+    _out_frag = """
         varying vec2 v_texcoord;
 
         uniform sampler2D u_raw_texture;
@@ -202,14 +250,15 @@ class SphericalVisual(AbstractVisual):
         self._display_fb = gloo.FrameBuffer(self._display_texture)
 
         # Create mask program: renders binary mask of quarter-sphere to FB
-        self._mask_program = gloo.Program(self._sphere_map, self._mask_frag)
+        sphere_vert = self.parse_vertex_shader(self._sphere_vert)
+        self._mask_program = gloo.Program(sphere_vert, self._mask_frag)
         self._mask_program['a_position'] = self._mask_position_buffer
 
         # Create out program: renders the output texture to FB
         # by combining raw and mask textures
         # (to be saved and re-rendered in display program)
         # square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
-        self._out_prog = gloo.Program(self._vertex_out, self._frag_out, count=4)
+        self._out_prog = gloo.Program(self._out_vert, self._out_frag, count=4)
         self._out_prog['a_position'] = self.square
         self._out_prog['u_raw_texture'] = self._raw_texture
         self._out_prog['u_mask_texture'] = self._mask_texture
