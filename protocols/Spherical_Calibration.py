@@ -51,3 +51,14 @@ class RegularMesh16x16(StaticProtocol):
         self.add_phase(RegularMesh, 10**6,
                        {RegularMesh.u_rows: 16,
                         RegularMesh.u_cols: 16})
+
+
+class RegularMesh32x32(StaticProtocol):
+
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
+
+        self.add_phase(RegularMesh, 10**6,
+                       {RegularMesh.u_rows: 32,
+                        RegularMesh.u_cols: 32})
+

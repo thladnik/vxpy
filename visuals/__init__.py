@@ -187,7 +187,7 @@ class SphericalVisual(AbstractVisual):
             
             // Stretch sphere
             pos = u_mapcalib_inv_rotate_elev * pos;
-            pos.z = pos.z * 1.0;
+            pos.xy = pos.xy - pos.xy * abs(pos.z) * 0.2;
             pos = u_mapcalib_rotate_elev * pos;
             pos = u_mapcalib_rotate_elev * pos;
 
@@ -217,11 +217,10 @@ class SphericalVisual(AbstractVisual):
         varying vec3 v_position;
         varying vec4 v_map_position;
         void main() {
-            //gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
             //gl_FragColor = vec4(1.0-abs(v_position.z), abs(v_position.z)/2.0, 0.0, 1.0); 
             //gl_FragColor = vec4((-v_position.z+1.0)/2.0, (v_position.z+1.0)/2.0, 0.0, 1.0);
-            gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
-            //gl_FragColor = vec4(vec3(v_map_position.w), 1.0);
+            //gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
         }
     """
 
