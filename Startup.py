@@ -803,19 +803,16 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         ## Rows
         self.grp_pla_checker.layout().addWidget(QtWidgets.QLabel('Num. rows [1/mm]'), 0, 0)
         self.grp_pla_checker.dspn_rows = QtWidgets.QSpinBox()
-        self.grp_pla_checker.dspn_rows.setValue(5)
+        self.grp_pla_checker.dspn_rows.setValue(9)
         self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.dspn_rows, 0, 1)
         ## Cols
         self.grp_pla_checker.layout().addWidget(QtWidgets.QLabel('Num. cols [1/mm]'), 1, 0)
         self.grp_pla_checker.dspn_cols = QtWidgets.QSpinBox()
-        self.grp_pla_checker.dspn_cols.setValue(5)
+        self.grp_pla_checker.dspn_cols.setValue(9)
         self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.dspn_cols, 1, 1)
         ## Show button
         self.grp_pla_checker.btn_show = QtWidgets.QPushButton('Show')
-        self.grp_pla_checker.btn_show.clicked.connect(
-            lambda: self.show_planar_checkerboard(self.grp_pla_checker.dspn_rows.value(),
-                                                  self.grp_pla_checker.dspn_cols.value())
-        )
+        self.grp_pla_checker.btn_show.clicked.connect(self.show_planar_checkerboard)
         self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.btn_show, 2, 0, 1, 2)
 
         ### Spherical checkerboard
@@ -825,40 +822,63 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         ## Rows
         self.grp_sph_checker.layout().addWidget(QtWidgets.QLabel('Num. rows'), 0, 0)
         self.grp_sph_checker.dspn_rows = QtWidgets.QSpinBox()
-        self.grp_sph_checker.dspn_rows.setValue(5)
+        self.grp_sph_checker.dspn_rows.setValue(32)
         self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.dspn_rows, 0, 1)
         ## Cols
         self.grp_sph_checker.layout().addWidget(QtWidgets.QLabel('Num. cols'), 1, 0)
         self.grp_sph_checker.dspn_cols = QtWidgets.QSpinBox()
-        self.grp_sph_checker.dspn_cols.setValue(5)
+        self.grp_sph_checker.dspn_cols.setValue(32)
         self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.dspn_cols, 1, 1)
         ## Show button
         self.grp_sph_checker.btn_show = QtWidgets.QPushButton('Show')
-        self.grp_sph_checker.btn_show.clicked.connect(
-            lambda: self.show_spherical_checkerboard(self.grp_sph_checker.dspn_rows.value(),
-                                                     self.grp_sph_checker.dspn_cols.value())
-        )
+        self.grp_sph_checker.btn_show.clicked.connect(self.show_spherical_checkerboard)
         self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.btn_show, 2, 0, 1, 2)
+
+        ### Spherical mesh
+        self.grp_sph_mesh = QtWidgets.QGroupBox('Spherical Mesh')
+        self.grp_sph_mesh.setLayout(QtWidgets.QGridLayout())
+        self.layout().addWidget(self.grp_sph_mesh)
+        ## Rows
+        self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. rows'), 0, 0)
+        self.grp_sph_mesh.dspn_rows = QtWidgets.QSpinBox()
+        self.grp_sph_mesh.dspn_rows.setValue(32)
+        self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_rows, 0, 1)
+        ## Cols
+        self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. cols'), 1, 0)
+        self.grp_sph_mesh.dspn_cols = QtWidgets.QSpinBox()
+        self.grp_sph_mesh.dspn_cols.setValue(32)
+        self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_cols, 1, 1)
+        ## Show button
+        self.grp_sph_mesh.btn_show = QtWidgets.QPushButton('Show')
+        self.grp_sph_mesh.btn_show.clicked.connect(self.show_spherical_mesh)
+        self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.btn_show, 2, 0, 1, 2)
 
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(vSpacer)
 
-    def show_planar_checkerboard(self, rows, cols):
-        from Protocol import StaticProtocol
+    def show_planar_checkerboard(self):
         from visuals.planar.Calibration import Checkerboard
-        protocol = StaticProtocol(None)
-        self.main.canvas.visual = Checkerboard(self.main.canvas, **{Checkerboard.u_rows : rows,
-                                                             Checkerboard.u_cols : cols})
+        rows = self.grp_pla_checker.dspn_rows.value(),
+        cols = self.grp_pla_checker.dspn_cols.value()
+        self.main.canvas.visual = Checkerboard(self.main.canvas,
+                                               **{Checkerboard.u_rows : rows,
+                                                  Checkerboard.u_cols : cols})
 
-
-    def show_spherical_checkerboard(self, rows, cols):
-        from Protocol import StaticProtocol
+    def show_spherical_checkerboard(self):
         from visuals.spherical.Calibration import BlackWhiteCheckerboard
-        protocol = StaticProtocol(None)
+        rows = self.grp_sph_checker.dspn_rows.value(),
+        cols = self.grp_sph_checker.dspn_cols.value()
         self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
-                                                  **{BlackWhiteCheckerboard.u_rows : rows,
-                                                     BlackWhiteCheckerboard.u_cols : cols})
+                                                         **{BlackWhiteCheckerboard.u_rows : rows,
+                                                            BlackWhiteCheckerboard.u_cols : cols})
 
+    def show_spherical_mesh(self):
+        from visuals.spherical.Calibration import RegularMesh
+        rows = self.grp_sph_mesh.dspn_rows.value(),
+        cols = self.grp_sph_mesh.dspn_cols.value()
+        self.main.canvas.visual = RegularMesh(self.main.canvas,
+                                              **{RegularMesh.u_rows : rows,
+                                                 RegularMesh.u_cols : cols})
 
 
 class GlobalDisplaySettings(QtWidgets.QGroupBox):
@@ -1013,8 +1033,8 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.dspn_view_azim_angle = QtWidgets.QDoubleSpinBox()
         self.dspn_view_azim_angle.setDecimals(1)
         self.dspn_view_azim_angle.setSingleStep(0.1)
-        self.dspn_view_azim_angle.setMinimum(-90.0)
-        self.dspn_view_azim_angle.setMaximum(90.0)
+        self.dspn_view_azim_angle.setMinimum(-180.0)
+        self.dspn_view_azim_angle.setMaximum(180.0)
         self.dspn_view_azim_angle.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_view_azim_angle,
                                                                              self.dspn_view_azim_angle.value()))
@@ -1024,8 +1044,8 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
 
         # View distance(from origin of sphere)
         self.dspn_view_distance = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_distance.setDecimals(1)
-        self.dspn_view_distance.setSingleStep(.1)
+        self.dspn_view_distance.setDecimals(2)
+        self.dspn_view_distance.setSingleStep(0.05)
         self.dspn_view_distance.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                              Def.DisplayCfg.sph_view_distance,
                                                                              self.dspn_view_distance.value()))
@@ -1033,12 +1053,12 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.layout().addWidget(QtWidgets.QLabel('Distance [a.u.]'), 15, 0)
         self.layout().addWidget(self.dspn_view_distance, 15, 1)
 
-        # View scale
+        # View FOV
         self.dspn_view_fov = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_fov.setDecimals(1)
-        self.dspn_view_fov.setMinimum(1)
-        self.dspn_view_fov.setMaximum(360)
-        self.dspn_view_fov.setSingleStep(0.1)
+        self.dspn_view_fov.setDecimals(2)
+        self.dspn_view_fov.setMinimum(0.1)
+        self.dspn_view_fov.setMaximum(180)
+        self.dspn_view_fov.setSingleStep(0.05)
         self.dspn_view_fov.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
                                                                                    Def.DisplayCfg.sph_view_fov,
                                                                                    self.dspn_view_fov.value()))

@@ -183,19 +183,51 @@ class SphericalVisual(AbstractVisual):
             // Final position
             vec4 pos = vec4(a_position, 1.0);
             
+            // Azimuth rotation (here around z axis)
             pos = u_mapcalib_rotate_z * pos;
             
-            // Stretch sphere
-            pos = u_mapcalib_inv_rotate_elev * pos;
-            pos.xy = pos.xy - pos.xy * abs(pos.z) * 0.2;
-            pos = u_mapcalib_rotate_elev * pos;
-            pos = u_mapcalib_rotate_elev * pos;
-
+            // 90 degrees in x axis
             pos = u_mapcalib_rotate_x * pos;
             
-            pos = u_mapcalib_translation * pos;
-            pos = u_mapcalib_projection * pos;
+            // Stretch sphere
+            //pos = u_mapcalib_inv_rotate_elev * pos;
+            //pos.xy = pos.xy - pos.xy * abs(pos.z) * 0.2;
+            //pos = u_mapcalib_rotate_elev * pos;
+            //pos = u_mapcalib_rotate_elev * pos;
             
+            // Change elevation (here around x axis)
+            pos = u_mapcalib_rotate_elev * pos;
+            
+            // Squish xy
+            //pos.xy /= 1.2;
+            //pos.xy *= 0.8;
+            
+            
+            //pos.z += 0.05 * length(pos.xy);
+
+
+            // 90 degrees in x axis
+            //pos = u_mapcalib_rotate_x * pos;
+            //pos = u_mapcalib_rotate_x * pos;
+            
+            //pos.xy *= 0.7 + 0.3 * length(pos.xy);
+            
+            // Direction of position vector (normalize to be sure)
+            //vec3 dir = pos.xyz/ length(pos.xyz);
+            
+            
+            // Translate along z
+            pos = u_mapcalib_translation * pos;
+            
+            //pos.w += 10.0 * length(pos.xy);
+            
+            // Project
+            pos = u_mapcalib_projection * pos;
+                        
+            // Increase virtual distance for peripheral vertices (AFTER PROJECTION!)
+            //pos.w *= 1.0 + 0.01 * length(pos.xy);
+            
+            // 2D transforms (AFTER 3D projection!)
             pos = vec4(((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale  + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, pos.z, pos.w);
                 
             return pos;
@@ -304,12 +336,15 @@ class SphericalVisual(AbstractVisual):
             u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
 
-        # Set relative size
-        self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array ([1, 1])
-
         # Set 3D transform
         distance = Config.Display[Def.DisplayCfg.sph_view_distance]
-        fov = 240.0/distance # Config.Display[Def.DisplayCfg.sph_view_fov]
+        #fov = 240.0/distance #
+        fov = Config.Display[Def.DisplayCfg.sph_view_fov]
+
+        # Set relative size
+        self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array([1, 1])
+        #self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array([1,1])
+
         #dist = 1.05 + frame_time / 300
         #print('Distance', dist)
         translate3d = transforms.translate((0, 0, -distance))
