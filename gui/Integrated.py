@@ -456,11 +456,11 @@ class Camera(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Camera', *args)
 
-        self.stream_fps = 30
+        self.stream_fps = 20
 
-        self._setup_ui()
+        self.setMinimumSize(400, 400)
+        self.setMaximumSize(1000, 700)
 
-    def _setup_ui(self):
         self.setLayout(QtWidgets.QVBoxLayout())
         # FPS counter
         self.fps_counter = QtWidgets.QWidget(parent=self)
@@ -479,7 +479,7 @@ class Camera(IntegratedWidget):
         self.tab_widget = QtWidgets.QTabWidget()
         self.layout().addWidget(self.tab_widget)
 
-        ### Add camera addons
+        # Add camera addons
         avail_addons = Config.Gui[Def.GuiCfg.addons]
         use_addons = list()
         if Def.Process.Camera in avail_addons:

@@ -46,9 +46,9 @@ class BlackWhiteGrating(SphericalVisual):
         self.elevation_buffer = gloo.VertexBuffer(self.sphere.a_elevation)
 
         # Set up program
-        self.grating = gloo.Program(
-            BasicFileShader().addShaderFile('spherical/grating.vert').read(),
-            BasicFileShader().addShaderFile('spherical/grating.frag').read())
+        vert = self.load_vertex_shader('spherical/grating.vert')
+        frag = self.load_shader('spherical/grating.frag')
+        self.grating = gloo.Program(vert, frag)
         self.grating['a_position'] = self.position_buffer
         self.grating['a_azimuth'] = self.azimuth_buffer
         self.grating['a_elevation'] = self.elevation_buffer
