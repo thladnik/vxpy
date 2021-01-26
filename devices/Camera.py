@@ -1,5 +1,5 @@
 """
-MappApp .devices/CameraRoutines.py - Camera device abstraction layer. New camera types may be added here.
+MappApp .devices/Core.py - Camera device abstraction layer. New camera types may be added here.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,6 +21,7 @@ import numpy as np
 import os
 import re
 import platform
+import time
 
 import Def
 import Logging
@@ -75,19 +76,39 @@ class AbstractCamera:
 
 class VirtualCamera(AbstractCamera):
 
-    _models = ['Multi_Fish_Eyes_Cam',
-                'Single_Fish_Eyes_Cam']
+    _models = ['Multi_Fish_Eyes_Cam@20fps',
+               'Single_Fish_Eyes_Cam@20fps',
+               'Single_Fish_Spontaneous_1@115fps',
+               'Single_Fish_Spontaneous_2@115fps',
+               'Single_Fish_Spontaneous_3@115fps',
+               'Single_Fish_Spontaneous_4@115fps',
+               'Single_Fish_Spontaneous_1@30fps']
 
-    _formats = {'Multi_Fish_Eyes_Cam' : ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)', 'RGB8 (480x480)', 'Y800 (480x480)'],
-                'Single_Fish_Eyes_Cam' : ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)']}
+    _formats = {'Multi_Fish_Eyes_Cam@20fps': ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)', 'RGB8 (480x480)', 'Y800 (480x480)'],
+                'Single_Fish_Eyes_Cam@20fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+                'Single_Fish_Spontaneous_1@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+                'Single_Fish_Spontaneous_2@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+                'Single_Fish_Spontaneous_3@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+                'Single_Fish_Spontaneous_4@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+                'Single_Fish_Spontaneous_1@30fps': ['RGB8 (640x480)', 'Y800 (600x380)', ]}
 
-    _sampleFile = {'Multi_Fish_Eyes_Cam' : 'Fish_eyes_multiple_fish_30s.avi',
-                   'Single_Fish_Eyes_Cam' : 'Fish_eyes_spontaneous_saccades_40s.avi'}
+    _sampleFile = {'Multi_Fish_Eyes_Cam@20fps': 'Fish_eyes_multiple_fish_30s.avi',
+                   'Single_Fish_Eyes_Cam@20fps': 'Fish_eyes_spontaneous_saccades_40s.avi',
+                   'Single_Fish_Spontaneous_1@115fps': 'single_zebrafish_eyes.avi',
+                   'Single_Fish_Spontaneous_2@115fps': 'single_zebrafish_eyes0001.avi',
+                   'Single_Fish_Spontaneous_3@115fps': 'single_zebrafish_eyes0002.avi',
+                   'Single_Fish_Spontaneous_4@115fps': 'single_zebrafish_eyes0003.avi',
+                   'Single_Fish_Spontaneous_1@30fps': 'OKR_2020-12-08_multi_phases.avi'}
 
     def __init__(self, *args):
         AbstractCamera.__init__(self, *args)
 
         self._device = cv2.VideoCapture(os.path.join(Def.Path.Sample, self._sampleFile[self.model]))
+        self._fps = self._device.get(cv2.CAP_PROP_FPS)
+        self.t_start = time.perf_counter()
+        self.t_last = time.perf_counter()
+        self.i_last = -1
+        self.f_last = None
 
         ### Extract resolution from format
         s = re.search('\((.*?)x(.*?)\)', self.format)
@@ -114,10 +135,15 @@ class VirtualCamera(AbstractCamera):
         pass
 
     def get_image(self):
+        #i = int(self._fps * (time.perf_counter()-self.t_start))
+        #self._device.set(cv2.CAP_PROP_POS_FRAMES, i)
+
         ret, frame = self._device.read()
         if ret:
             return frame[:self.res_y,:self.res_x,0]
         else:
+            # Reset
+            #self.t_start = time.perf_counter()
             self._device.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return self.get_image()
 

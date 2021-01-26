@@ -16,25 +16,19 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-import os
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
 import Def
 import Config
-import Process
+import process
 import IPC
-import Logging
 import gui.Camera
 import gui.Integrated
 import gui.Io
 
-import process.Controller
-import process.Camera
-import process.Display
 
-class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
+class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     name = Def.Process.GUI
 
     app : QtWidgets.QApplication
@@ -44,7 +38,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         self.app = _app
 
         # Set up parents
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon
@@ -68,8 +62,9 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         w, h = self.screenGeo.width(), self.screenGeo.height()
         if w > 1920 and h > 1080:
             self.resize(1920, 1080)
+            self.show()
         else:
-            self.resize(w,h)
+            self.showMaximized()
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
@@ -79,34 +74,39 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
 
-        ## Protocols
+        # Protocols
         self.protocols = gui.Integrated.Protocols(self)
         self.centralWidget().layout().addWidget(self.protocols, 0, 0, 1, 3)
 
-        ## Camera
+        # Camera
         self.camera = gui.Integrated.Camera(self)
-        self.camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
-        self.camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
-        self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
+        #self.camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
+        #self.camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
+        #self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
+        self.centralWidget().layout().addWidget(self.camera, 0, 3, 1, 1)
 
-        ## Add Plotter
+        # Add Plotter
         self.plotter = gui.Integrated.Plotter(self)
+        self.plotter.setMinimumHeight(300)
+        self.plotter.setMaximumHeight(400)
         self.plotter.create_hooks()
-        self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
+        #self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
+        self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 4)
 
-        ## Process monitor
+        # Process monitor
         self.process_monitor = gui.Integrated.ProcessMonitor(self)
-        self.process_monitor.setMaximumHeight(500)
+        self.process_monitor.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.process_monitor, 2, 0)
 
-        ## Recordings
+        # Recordings
         self.recordings = gui.Integrated.Recording(self)
-        self.recordings.setMaximumHeight(500)
+        self.recordings.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.recordings, 2, 1)
 
-        ## Logger
+        # Logger
         self.log_display = gui.Integrated.Log(self)
-        self.log_display.setMaximumHeight(500)
+        self.log_display.setMinimumHeight(300)
+        self.log_display.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.log_display, 2, 2, 1, 2)
 
         # Setup menubar
@@ -130,7 +130,6 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
         # Bind shortcuts
         self._bind_shortcuts()
 
-        self.show()
 
     def restart_camera(self):
         IPC.rpc(Def.Process.Controller,
@@ -154,7 +153,7 @@ class Gui(QtWidgets.QMainWindow, Process.AbstractProcess):
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Inform controller of close event
-        IPC.send(Def.Process.Controller, Def.Signal.Shutdown)
+        IPC.send(Def.Process.Controller, Def.Signal.shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
         IPC.set_state(Def.State.STOPPED)

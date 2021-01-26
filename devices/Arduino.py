@@ -12,57 +12,62 @@ class Device:
 
         _dmodel = Config.Io[Def.IoCfg.device_model]
 
-        ### Set up and connect device on configured comport
+        # Set up and connect device on configured comport
         if _dmodel == 'Virtual':
-            self._board = Virtual()
+            self._board = Virtual_board()
         else:
             import pyfirmata
             self._board = getattr(pyfirmata, _dmodel)(Config.Io[Def.IoCfg.device_port])
 
-        Logging.write(logging.INFO, 'Using device {}>>{}'
-                      .format(Config.Io[Def.IoCfg.device_type],
-                              _dmodel))
+        Logging.write(Logging.INFO, f'Using device {Config.Io[Def.IoCfg.device_type]}>>{_dmodel}')
 
         return True
 
     def setup(self):
 
-        self._digital_pins = dict()
-        self._digin_pins = list()
+        self.pins = dict()
+        self.in_pins = list()
+        self.out_pins = list()
 
-        for digitPin in Config.Io[Def.IoCfg.pins]:
-            name, num, ptype = digitPin.split(':')
+        for pin in Config.Io[Def.IoCfg.pins]:
+            pin_id, pin_num, pin_type = pin.split(':')
 
-            typeStr = ''
-            if ptype == 'i':
-                typeStr = 'input'
-            elif ptype == 'o':
-                typeStr = 'output'
-            elif ptype == 'p':
-                typeStr = 'pwm'
+            type_name = ''
+            if 'i' in pin_type:
+                type_name = 'input'
+            elif 'o' in pin_type:
+                type_name = 'output'
+            elif pin_type == 'p':
+                type_name = 'pwm'
 
-            msg = 'Configuration of \'{}\' for \'{}\' on pin {}'.format(name, typeStr, num)
+            msg = f'Configuration of \'{pin_id}\' for \'{type_name}\' on pin {pin_num}'
             try:
-                self._digital_pins[name] = self._board.get_pin('d:{}:{}'.format(int(num), ptype))
-                if ptype == 'i':
-                    self._digin_pins.append(name)
-                Logging.write(logging.INFO, msg)
+                self.pins[pin_id] = self._board.get_pin(f'd:{int(pin_num)}:{pin_type}')
+
+                if pin_type in ['ai', 'di']:
+                    self.in_pins.append(pin_id)
+                elif pin_type in ['ao', 'do', 'p']:
+                    self.out_pins.append(pin_id)
+                else:
+                    Logging.write(Logging.WARNING, f'Unknown pin type {pin_type} for {pin_id}')
+                    continue
+
+                Logging.write(Logging.INFO, msg)
 
             except Exception as exc:
-                Logging.write(logging.WARNING, '{} failed'.format(msg))
+                Logging.write(logging.WARNING, f'{msg} failed')
 
         return True
 
-    def read_digitals(self):
-        return {name : self._digital_pins[name].read() for name in self._digin_pins}
+    def write(self, **data):
+        for pin_id, pin_data in data.items():
+            self.pins[pin_id].write(pin_data)
 
-    def readAnalogs(self):
-        return {name : self._digital_pins[name].read() for name in self._digin_pins}
+    def read_all(self):
+        return {name: self.pins[name].read() for name in self.in_pins}
 
-    def readAll(self):
-        return {**self.read_digitals()}#, **self.readAnalogs()}
 
-class Virtual:
+class Virtual_board:
 
     class Pin:
 
@@ -75,10 +80,9 @@ class Virtual:
 
         def read(self):
             return -0.5 + 0.1 * np.random.rand() + self.sawtooth(time.time()+self.pin/20 * 2 * np.pi * 1.0 )
-            #return np.random.randint(2)
 
-
-    _pins = list()
+        def write(self, data):
+            pass
 
     def get_pin(self, pin_descr):
-        return Virtual.Pin(pin_descr)
+        return Virtual_board.Pin(pin_descr)

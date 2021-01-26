@@ -1,5 +1,5 @@
 """
-MappApp ./gui/DefaultIoRoutines.py - Custom addons which handle UI and visualization of IO.
+MappApp ./gui/Core.py - Custom addons which handle UI and visualization of IO.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ import pyqtgraph as pg
 import Config
 import Def
 import IPC
-import routines.io.DefaultIoRoutines
+import routines.io.Core
 
 class IoWidget(QtWidgets.QGroupBox):
     def __init__(self, parent):
@@ -38,7 +38,7 @@ class IoWidget(QtWidgets.QGroupBox):
         for routine_file, routine_list in Config.Display[Def.DisplayCfg.routines].items():
             for routine_name in routine_list:
 
-                routine = getattr(routines.io.DefaultIoRoutines, routine_name)
+                routine = getattr(routines.io.Core, routine_name)
 
                 self.data[routine_name] = dict()
 

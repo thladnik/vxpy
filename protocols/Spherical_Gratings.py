@@ -20,6 +20,7 @@ import numpy as np
 from Protocol import StaticProtocol
 
 from visuals.spherical.Grating import BlackWhiteGrating
+from visuals.Blank import Blank
 
 
 class StaticGratingDemo(StaticProtocol):
@@ -28,6 +29,7 @@ class StaticGratingDemo(StaticProtocol):
         StaticProtocol.__init__(self, *args)
 
         for sp in np.arange(10,50,10):
+            self.add_phase(Blank, 3, {Blank.p_color: (0.0, 0.0, 0.0, 1.0)})
 
             self.add_phase(
                 BlackWhiteGrating, 4,
@@ -36,6 +38,7 @@ class StaticGratingDemo(StaticProtocol):
                  BlackWhiteGrating.u_ang_velocity: 0,
                  BlackWhiteGrating.u_spat_period: sp}
             )
+
 
 class MovingGratingDemo(StaticProtocol):
 

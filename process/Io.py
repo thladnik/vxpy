@@ -1,5 +1,5 @@
 """
-MappApp ./process/DefaultIoRoutines.py - General purpose digital/analog input/output process.
+MappApp ./process/Core.py - General purpose digital/analog input/output process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,20 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
-
 import Config
 import Def
 import IPC
 import Logging
-import Process
+import process
 import protocols
 
-class Io(Process.AbstractProcess):
+class Io(process.AbstractProcess):
     name = Def.Process.Io
 
     def __init__(self, **kwargs):
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         ################################
         ### Set up device
@@ -46,15 +44,15 @@ class Io(Process.AbstractProcess):
                 run = self.device.connect() and self.device.setup()
 
         except Exception as exc:
-            Logging.logger.log_display(logging.WARNING, 'Could not connect to device. // Exception: {}'
+            Logging.write(Logging.WARNING, 'Could not connect to device. // Exception: {}'
                                        .format(exc))
             self.set_state(Def.State.STOPPED)
 
 
-        ### Disable timeout during idle
+        # Disable timeout during idle
         self.enable_idle_timeout = False
 
-        ### Run event loop
+        # Run event loop
         if run:
             self.run(interval=1./Config.Io[Def.IoCfg.sample_rate])
 
@@ -62,17 +60,15 @@ class Io(Process.AbstractProcess):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def _prepare_phase(self):
-        return
-        self.protocol.setCurrentPhase(IPC.Control.Protocol[Def.ProtocolCtrl.phase_id])
+        pass
 
     def _cleanup_protocol(self):
         pass
 
-
     def main(self):
 
         # Update routines
-        IPC.Routines.Io.update(self.device.readAll())
+        IPC.Routines.Io.update(self.device.read_all(), self.device)
 
         if self._run_protocol():
             pass

@@ -20,12 +20,11 @@ from glumpy import gl
 import numpy as np
 import imageio
 import logging
-import time
 
 import Config
 import Def
 import Logging
-from Visuals import SphericalVisual
+from visuals.__init__ import SphericalVisual
 from models import BasicSphere
 from Shader import BasicFileShader
 

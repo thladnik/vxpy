@@ -1,3 +1,5 @@
+from process.Process import *
+
 from process.Controller import Controller
 from process.Camera import Camera
 from process.Display import Display

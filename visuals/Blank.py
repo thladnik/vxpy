@@ -21,16 +21,13 @@ import numpy as np
 
 from visuals.__init__ import PlanarVisual
 from models import BasicPlane
-from Shader import BasicFileShader
 
 
-class Checkerboard(PlanarVisual):
+class Blank(PlanarVisual):
 
-    u_rows = 'u_rows'
-    u_cols = 'u_cols'
+    p_color = 'p_color'
 
-    parameters = {u_rows: None,
-                  u_cols: None}
+    parameters = {p_color: None}
 
     def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
@@ -41,13 +38,7 @@ class Checkerboard(PlanarVisual):
         self.position_buffer = gloo.VertexBuffer(
             np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.checker = gloo.Program(
-            BasicFileShader().addShaderFile('planar/checker.vert').read(),
-            BasicFileShader().addShaderFile('planar/checker.frag').read())
-        self.checker['a_position'] = self.position_buffer
-
         self.update(**params)
 
     def render(self, frame_time):
-        self.apply_transform(self.checker)
-        self.checker.draw('triangles', self.index_buffer)
+        gloo.clear(self.parameters[self.p_color])

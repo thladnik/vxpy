@@ -22,30 +22,27 @@ import logging
 import multiprocessing as mp
 import os
 import time
+from typing import List, Dict, Tuple
 
-import Routine
+import routines
 import Config
 import Def
 from helper import Basic
 import IPC
 import Logging
 import process
-from Process import AbstractProcess
 import protocols
 
-class Controller(AbstractProcess):
+class Controller(process.AbstractProcess):
     name = Def.Process.Controller
 
-    configfile = None
+    configfile: str = None
 
-    _processes: dict = dict()
-    _registered_processes:list = list()
+    _processes: Dict[str, mp.Process] = dict()
+    _registered_processes: List[Tuple[process.AbstractProcess, Dict]] = list()
 
-    _protocol_processes: list = [Def.Process.Camera,
-                                 Def.Process.Display,
-                                 Def.Process.Io,
-                                 Def.Process.Worker]
-    _active_protocols: list = []
+    _protocol_processes: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
+    _active_protocols: List[str] = list()
 
     def __init__(self):
         # Set up manager
@@ -70,7 +67,7 @@ class Controller(AbstractProcess):
         self.logger.addHandler(h)
 
         # Initialize AbstractProcess
-        AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
+        process.AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
                                              if not (k.startswith('_'))})
         # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
@@ -100,6 +97,10 @@ class Controller(AbstractProcess):
             print('Loading of configuration file {} failed.'.format(self.configfile))
             import traceback
             traceback.print_exc()
+
+        # TODO: check if recording routines contains any entries
+        #  for inactive processes or inactive routines on active processes
+        #  print warning or just shut down completely in-case?
 
         ################################
         # Set up STATES
@@ -154,19 +155,19 @@ class Controller(AbstractProcess):
 
         # Set up routines
         # Camera
-        IPC.Routines.Camera = Routine.Routines(
+        IPC.Routines.Camera = routines.Routines(
             Def.Process.Camera,
             routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
         )
 
         # Display
-        IPC.Routines.Display = Routine.Routines(
+        IPC.Routines.Display = routines.Routines(
             Def.Process.Display,
             routines=Config.Display[Def.DisplayCfg.routines] if Config.Display[Def.DisplayCfg.use] else None
         )
 
         # IO
-        IPC.Routines.Io = Routine.Routines(
+        IPC.Routines.Io = routines.Routines(
             Def.Process.Io,
             routines=Config.Io[Def.IoCfg.routines] if Config.Io[Def.IoCfg.use] else None
         )
@@ -341,9 +342,10 @@ class Controller(AbstractProcess):
         #TODO: compose proper metadata, append sessiondata and save to file
 
         # Let worker compose all individual recordings into one data structure
-        IPC.rpc(Def.Process.Worker, process.Worker.run_task,
-                 'ComposeRecordings',
-                IPC.Control.Recording[Def.RecCtrl.folder])
+        if False:
+            IPC.rpc(Def.Process.Worker, process.Worker.run_task,
+                     'ComposeRecordings',
+                    IPC.Control.Recording[Def.RecCtrl.folder])
 
         Logging.write(Logging.INFO, 'Stop recording')
         self.set_state(Def.State.IDLE)
@@ -517,4 +519,4 @@ class Controller(AbstractProcess):
         Logging.write(Logging.DEBUG, 'Shut down processes')
         self._shutdown = True
         for process_name in self._processes:
-            IPC.send(process_name, Def.Signal.Shutdown)
+            IPC.send(process_name, Def.Signal.shutdown)

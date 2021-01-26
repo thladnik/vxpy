@@ -23,7 +23,7 @@ from vispy.gloo import gl
 
 from Shader import BasicFileShader
 from helper import Geometry
-from Visuals import SphericalVisual
+from visuals import SphericalVisual
 from models import CMNSpheres
 
 

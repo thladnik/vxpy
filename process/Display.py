@@ -1,5 +1,5 @@
 """
-MappApp ./process/DisplayRoutines.py - Process which handles rendering of visual visuals.
+MappApp ./process/Core.py - Process which handles rendering of visual visuals.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -23,17 +23,16 @@ import time
 import Config
 import Def
 import IPC
-import Process
+import process
 import Protocol
 import protocols
-import Visuals
-from PyQt5 import QtCore
-
+from visuals import AbstractVisual
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
-app.use_app('pyqt5')
+app.use_app('PyQt5')
+gloo.gl.use_gl('gl2')
 
 class Canvas(app.Canvas):
 
@@ -80,14 +79,14 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *event.physical_size)
 
 
-class Display(Process.AbstractProcess):
+class Display(process.AbstractProcess):
     name = Def.Process.Display
 
     protocol: Protocol.AbstractProtocol = None
-    visual: Visuals.AbstractVisual = None
+    visual: AbstractVisual = None
 
     def __init__(self, **kwargs):
-        Process.AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         # Create canvas
         _interval = 1./Config.Display[Def.DisplayCfg.fps]
@@ -117,18 +116,24 @@ class Display(Process.AbstractProcess):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         self.canvas.visual = self.visual
+        IPC.Routines.Display.set_record_group(f'phase_{phase_id}',
+                                              group_attributes=self.visual.parameters)
 
     def _cleanup_protocol(self):
         self.visual = None
         self.canvas.visual = self.visual
 
     def _start_shutdown(self):
-        Process.AbstractProcess._start_shutdown(self)
+        process.AbstractProcess._start_shutdown(self)
 
     def main(self):
         app.process_events()
-        self._run_protocol()
 
-        if self.visual is not None:
-            IPC.Routines.Display.update(self.visual)
-        IPC.Routines.Display.get_container()
+        try:
+            if self._run_protocol():
+                IPC.Routines.Display.update(self.visual)
+            else:
+                IPC.Routines.Display.update()
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
