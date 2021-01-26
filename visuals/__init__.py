@@ -142,28 +142,6 @@ class AbstractVisual:
 class SphericalVisual(AbstractVisual):
 
     # Standard transforms of sphere for 4-way display configuration
-    _sphere_map_backtup = """
-        uniform mat2 u_mapcalib_aspectscale;
-        uniform vec2 u_mapcalib_scale;
-        uniform mat4 u_mapcalib_transform3d;
-        uniform mat4 u_mapcalib_rotate3d;
-        uniform vec2 u_mapcalib_translate2d;
-        uniform mat2 u_mapcalib_rotate2d;
-        
-        attribute vec3 a_position;   // Vertex positions
-        
-        void main()
-        {
-            // Final position
-            vec4 pos = u_mapcalib_transform3d * u_mapcalib_rotate3d * vec4(a_position,1.0);
-            gl_Position = vec4(
-                ((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale 
-                + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, 
-                pos.z, 
-                pos.w);
-        }
-    """
-
     _vertex_map = """
         uniform mat2 u_mapcalib_aspectscale;
         uniform vec2 u_mapcalib_scale;
@@ -188,44 +166,15 @@ class SphericalVisual(AbstractVisual):
             
             // 90 degrees in x axis
             pos = u_mapcalib_rotate_x * pos;
-            
-            // Stretch sphere
-            //pos = u_mapcalib_inv_rotate_elev * pos;
-            //pos.xy = pos.xy - pos.xy * abs(pos.z) * 0.2;
-            //pos = u_mapcalib_rotate_elev * pos;
-            //pos = u_mapcalib_rotate_elev * pos;
-            
+                        
             // Change elevation (here around x axis)
             pos = u_mapcalib_rotate_elev * pos;
-            
-            // Squish xy
-            //pos.xy /= 1.2;
-            //pos.xy *= 0.8;
-            
-            
-            //pos.z += 0.05 * length(pos.xy);
-
-
-            // 90 degrees in x axis
-            //pos = u_mapcalib_rotate_x * pos;
-            //pos = u_mapcalib_rotate_x * pos;
-            
-            //pos.xy *= 0.7 + 0.3 * length(pos.xy);
-            
-            // Direction of position vector (normalize to be sure)
-            //vec3 dir = pos.xyz/ length(pos.xyz);
-            
             
             // Translate along z
             pos = u_mapcalib_translation * pos;
             
-            //pos.w += 10.0 * length(pos.xy);
-            
             // Project
             pos = u_mapcalib_projection * pos;
-                        
-            // Increase virtual distance for peripheral vertices (AFTER PROJECTION!)
-            //pos.w *= 1.0 + 0.01 * length(pos.xy);
             
             // 2D transforms (AFTER 3D projection!)
             pos = vec4(((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale  + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, pos.z, pos.w);
@@ -378,11 +327,9 @@ class SphericalVisual(AbstractVisual):
         for i in range(4):
 
             # Set spheroid transformation uniforms
-            #self.transform_uniforms['u_mapcalib_inv_rotate3d'] = transforms.rotate(225, (0, 0, 1)) @ inv_rotate_elev_3d
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45, (0,0,1))
-            self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1,0,0))
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45, (0, 0, 1))
+            self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
-            self.transform_uniforms['u_mapcalib_inv_rotate_elev'] = inv_rotate_elev_3d
             self.transform_uniforms['u_mapcalib_rotate_elev'] = rotate_elev_3d
 
             # 2D rotation around center of screen
@@ -403,7 +350,7 @@ class SphericalVisual(AbstractVisual):
 
             # Apply 90*i degree rotation
             azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45 + 90 * i, (0,0,1))
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_angle + 90 * i, (0,0,1))
 
             # And render actual stimulus sphere
             with self._raw_fb:

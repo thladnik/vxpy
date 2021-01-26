@@ -34,7 +34,10 @@ class FrameStream(QtWidgets.QWidget):
     frame_routine = routines.camera.Core.Frames
 
     def __init__(self, parent, **kwargs):
-        # Set module always to active
+        # Check if camera is being used (since detector relies on camera input)
+        if not(Config.Camera[Def.CameraCfg.use]):
+            self.moduleIsActive = False
+            return
         self.moduleIsActive = True
         QtWidgets.QWidget.__init__(self, parent, **kwargs)
         self.setLayout(QtWidgets.QGridLayout())

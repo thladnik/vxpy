@@ -32,7 +32,7 @@ import Def
 import Default
 from helper import Basic
 import process.Controller
-from routines.__init__ import AbstractRoutine
+from routines import AbstractRoutine
 
 import wres
 
@@ -186,7 +186,12 @@ class CameraWidget(ModuleWidget):
                 if not(isclass(attr))\
                         or not(issubclass(attr, AbstractRoutine)) \
                         or attr == AbstractRoutine:
+                    if cname == 'Frames':
+                        import IPython
+                        IPython.embed()
                     continue
+
+                print(cname)
 
                 avail_routines.append('.'.join([fname, cname]))
 
@@ -721,10 +726,10 @@ class DisplayScreenSelection(QtWidgets.QGroupBox):
                 print('Set display to fullscreen on screen {}'.format(i))
                 global current_config, winapp
 
-                self.main.global_settings.spn_win_x.setValue(screen[0])
-                self.main.global_settings.spn_win_y.setValue(screen[1])
-                self.main.global_settings.spn_win_width.setValue(screen[2])
-                self.main.global_settings.spn_win_height.setValue(screen[3])
+                self.main.global_settings.spn_win_x.set_value(screen[0])
+                self.main.global_settings.spn_win_y.set_value(screen[1])
+                self.main.global_settings.spn_win_width.set_value(screen[2])
+                self.main.global_settings.spn_win_height.set_value(screen[3])
 
 
                 # Update window settings
@@ -881,95 +886,101 @@ class DisplayCalibration(QtWidgets.QGroupBox):
                                                  RegularMesh.u_cols : cols})
 
 
+
+
 class GlobalDisplaySettings(QtWidgets.QGroupBox):
 
     def __init__(self, parent):
         QtWidgets.QGroupBox.__init__(self, 'Global')
         self.main = parent
+        self.setLayout(QtWidgets.QVBoxLayout())
 
         global current_config
 
-        ### Set layout
-        self.setLayout(QtWidgets.QGridLayout())
+
+        from helper.gui import DoubleSliderWidget, IntSliderWidget
 
         # Window x pos
-        self.layout().addWidget(QtWidgets.QLabel('Window x-Position'), 0, 0)
-        self.spn_win_x = QtWidgets.QSpinBox()
-        self.spn_win_x.setMinimum(-9999)
-        self.spn_win_x.setMaximum(9999)
-        self.spn_win_x.setSingleStep(1)
-        self.spn_win_x.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.window_pos_x,
-                                                                             self.spn_win_x.value()))
-        self.spn_win_x.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(self.spn_win_x, 0, 1)
+        self.spn_win_x = IntSliderWidget('Window X-Position', -5000, 5000, 0,
+                                         step_size=1, label_width=100)
+        self.spn_win_x.connect_to_result(self.update_window_x_pos)
+        self.layout().addWidget(self.spn_win_x)
 
         # Window y pos
-        self.layout().addWidget(QtWidgets.QLabel('Window y-Position'), 1, 0)
-        self.spn_win_y = QtWidgets.QSpinBox()
-        self.spn_win_y.setMinimum(-9999)
-        self.spn_win_y.setMaximum(9999)
-        self.spn_win_y.setSingleStep(1)
-        self.spn_win_y.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.window_pos_y,
-                                                                             self.spn_win_y.value()))
-        self.spn_win_y.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(self.spn_win_y, 1, 1)
+        self.spn_win_y = IntSliderWidget('Window Y-Position', -5000, 5000, 0,
+                                         step_size=1, label_width=100)
+        self.spn_win_y.connect_to_result(self.update_window_y_pos)
+        self.layout().addWidget(self.spn_win_y)
+
 
         # Window width
-        self.layout().addWidget(QtWidgets.QLabel('Window width'), 20, 0)
-        self.spn_win_width = QtWidgets.QSpinBox()
-        self.spn_win_width.setMinimum(1)
-        self.spn_win_width.setMaximum(9999)
-        self.spn_win_width.setSingleStep(1)
-        self.spn_win_width.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.window_width,
-                                                                             self.spn_win_width.value()))
-        self.spn_win_width.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(self.spn_win_width, 20, 1)
+        self.spn_win_width = IntSliderWidget('Window width', 1, 5000, 0,
+                                         step_size=1, label_width=100)
+        self.spn_win_width.connect_to_result(self.update_window_width)
+        self.layout().addWidget(self.spn_win_width)
 
         # Window height
-        self.layout().addWidget(QtWidgets.QLabel('Window height'), 21, 0)
-        self.spn_win_height = QtWidgets.QSpinBox()
-        self.spn_win_height.setMinimum(1)
-        self.spn_win_height.setMaximum(9999)
-        self.spn_win_height.setSingleStep(1)
-        self.spn_win_height.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.window_height,
-                                                                             self.spn_win_height.value()))
-        self.spn_win_height.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(self.spn_win_height, 21, 1)
+        self.spn_win_height = IntSliderWidget('Window Y-Position', 1, 5000, 0,
+                                         step_size=1, label_width=100)
+        self.spn_win_height.connect_to_result(self.update_window_height)
+        self.layout().addWidget(self.spn_win_height)
+
 
         self.btn_use_current_window = QtWidgets.QPushButton('Use current window settings')
         self.btn_use_current_window.clicked.connect(self.use_current_window_settings)
-        self.layout().addWidget(self.btn_use_current_window, 25, 0, 1, 2)
+        self.layout().addWidget(self.btn_use_current_window)
 
         # X Position
-        self.layout().addWidget(QtWidgets.QLabel('X-position'), 40, 0)
-        self.dspn_x_pos = QtWidgets.QDoubleSpinBox()
-        self.dspn_x_pos.setDecimals(3)
-        self.dspn_x_pos.setMinimum(-1.0)
-        self.dspn_x_pos.setMaximum(1.0)
-        self.dspn_x_pos.setSingleStep(.001)
-        self.dspn_x_pos.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.glob_x_pos,
-                                                                             self.dspn_x_pos.value()))
-        self.dspn_x_pos.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(self.dspn_x_pos, 40, 1)
+        self.dspn_x_pos = DoubleSliderWidget('X-position', -1., 1., 0.,
+                                                     step_size=.001, decimals=3, label_width=100)
+        self.dspn_x_pos.connect_to_result(self.update_x_pos)
+        self.layout().addWidget(self.dspn_x_pos)
 
-        # Y position
-        self.layout().addWidget(QtWidgets.QLabel('Y-position'), 50, 0)
-        self.dspn_y_pos = QtWidgets.QDoubleSpinBox()
-        self.dspn_y_pos.setDecimals(3)
-        self.dspn_y_pos.setMinimum(-1.0)
-        self.dspn_y_pos.setMaximum(1.0)
-        self.dspn_y_pos.setSingleStep(.001)
-        self.dspn_y_pos.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.glob_y_pos,
-                                                                             self.dspn_y_pos.value()))
-        self.dspn_y_pos.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(self.dspn_y_pos, 50, 1)
+        # Y Position
+        self.dspn_y_pos = DoubleSliderWidget('Y-position', -1., 1., 0.,
+                                                     step_size=.001, decimals=3, label_width=100)
+        self.dspn_y_pos.connect_to_result(self.update_y_pos)
+        self.layout().addWidget(self.dspn_y_pos)
 
+
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.layout().addItem(spacer)
+
+    def update_window_x_pos(self, win_x_pos):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.window_pos_x,
+                                 win_x_pos)
+        self.main.update_window()
+
+    def update_window_y_pos(self, win_y_pos):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.window_pos_y,
+                                 win_y_pos)
+        self.main.update_window()
+
+    def update_window_width(self, width):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.window_width,
+                                 width)
+        self.main.update_window()
+
+    def update_window_height(self, height):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.window_height,
+                                 height)
+        self.main.update_window()
+
+    def update_x_pos(self, x_pos):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.glob_x_pos,
+                                 x_pos)
+        self.main.update_window()
+
+    def update_y_pos(self, y_pos):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.glob_y_pos,
+                                 y_pos)
+        self.main.update_window()
 
     def use_current_window_settings(self):
 
@@ -986,12 +997,12 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         section = Def.DisplayCfg.name
         global current_config
 
-        self.spn_win_x.setValue(current_config.getParsed(section, Def.DisplayCfg.window_pos_x))
-        self.spn_win_y.setValue(current_config.getParsed(section, Def.DisplayCfg.window_pos_y))
-        self.spn_win_width.setValue(current_config.getParsed(section, Def.DisplayCfg.window_width))
-        self.spn_win_height.setValue(current_config.getParsed(section, Def.DisplayCfg.window_height))
-        self.dspn_x_pos.setValue(current_config.getParsed(section, Def.DisplayCfg.glob_x_pos))
-        self.dspn_y_pos.setValue(current_config.getParsed(section, Def.DisplayCfg.glob_y_pos))
+        self.spn_win_x.set_value(current_config.getParsed(section, Def.DisplayCfg.window_pos_x))
+        self.spn_win_y.set_value(current_config.getParsed(section, Def.DisplayCfg.window_pos_y))
+        self.spn_win_width.set_value(current_config.getParsed(section, Def.DisplayCfg.window_width))
+        self.spn_win_height.set_value(current_config.getParsed(section, Def.DisplayCfg.window_height))
+        self.dspn_x_pos.set_value(current_config.getParsed(section, Def.DisplayCfg.glob_x_pos))
+        self.dspn_y_pos.set_value(current_config.getParsed(section, Def.DisplayCfg.glob_y_pos))
 
 
 class SphericalDisplaySettings(QtWidgets.QGroupBox):
@@ -999,94 +1010,96 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
     def __init__(self, parent):
         QtWidgets.QGroupBox.__init__(self, 'Spherical')
         self.main = parent
+        self.setLayout(QtWidgets.QVBoxLayout())
 
-        ## Setup widget
-        self.setLayout(QtWidgets.QGridLayout())
+        from helper.gui import DoubleSliderWidget
 
-        ## Radial position (distance from center)
-        self.dspn_radial_offset = QtWidgets.QDoubleSpinBox()
-        self.dspn_radial_offset.setDecimals(3)
-        self.dspn_radial_offset.setMinimum(-1.0)
-        self.dspn_radial_offset.setMaximum(1.0)
-        self.dspn_radial_offset.setSingleStep(.001)
-        self.dspn_radial_offset.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.sph_pos_glob_radial_offset,
-                                                                             self.dspn_radial_offset.value()))
-        self.dspn_radial_offset.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Radial offset'), 0, 0)
-        self.layout().addWidget(self.dspn_radial_offset, 0, 1)
+        # Radial offset
+        self.dspn_radial_offset = DoubleSliderWidget('Radial offset', -1., 1., 0.,
+                                                     step_size=.001, decimals=3, label_width=100)
+        self.dspn_radial_offset.connect_to_result(self.update_radial_offset)
+        self.layout().addWidget(self.dspn_radial_offset)
 
         # Elevation
-        self.dspn_view_elev_angle = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_elev_angle.setDecimals(1)
-        self.dspn_view_elev_angle.setSingleStep(0.1)
-        self.dspn_view_elev_angle.setMinimum(-90.0)
-        self.dspn_view_elev_angle.setMaximum(90.0)
-        self.dspn_view_elev_angle.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.sph_view_elev_angle,
-                                                                             self.dspn_view_elev_angle.value()))
-        self.dspn_view_elev_angle.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Elevation [deg]'), 5, 0)
-        self.layout().addWidget(self.dspn_view_elev_angle, 5, 1)
+        self.dspn_view_elev_angle = DoubleSliderWidget('Elevation [deg]', -90., 90., 0.,
+                                                       step_size=.1, decimals=1, label_width=100)
+        self.dspn_view_elev_angle.connect_to_result(self.update_elevation)
+        self.layout().addWidget(self.dspn_view_elev_angle)
 
         # Azimuth
-        self.dspn_view_azim_angle = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_azim_angle.setDecimals(1)
-        self.dspn_view_azim_angle.setSingleStep(0.1)
-        self.dspn_view_azim_angle.setMinimum(-180.0)
-        self.dspn_view_azim_angle.setMaximum(180.0)
-        self.dspn_view_azim_angle.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.sph_view_azim_angle,
-                                                                             self.dspn_view_azim_angle.value()))
-        self.dspn_view_azim_angle.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Azimuth [deg]'), 10, 0)
-        self.layout().addWidget(self.dspn_view_azim_angle, 10, 1)
+        self.dspn_view_azim_angle = DoubleSliderWidget('Azimuth [deg]', -180., 180., 0.,
+                                                       step_size=.1, decimals=1, label_width=100)
+        self.dspn_view_azim_angle.connect_to_result(self.update_azimuth)
+        self.layout().addWidget(self.dspn_view_azim_angle)
 
-        # View distance(from origin of sphere)
-        self.dspn_view_distance = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_distance.setDecimals(2)
-        self.dspn_view_distance.setSingleStep(0.05)
-        self.dspn_view_distance.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.sph_view_distance,
-                                                                             self.dspn_view_distance.value()))
-        self.dspn_view_distance.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Distance [a.u.]'), 15, 0)
-        self.layout().addWidget(self.dspn_view_distance, 15, 1)
+        # View distance
+        self.dspn_view_distance = DoubleSliderWidget('Distance [norm]', 1., 50., 5.,
+                                                       step_size=.05, decimals=2, label_width=100)
+        self.dspn_view_distance.connect_to_result(self.update_view_distance)
+        self.layout().addWidget(self.dspn_view_distance)
 
-        # View FOV
-        self.dspn_view_fov = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_fov.setDecimals(2)
-        self.dspn_view_fov.setMinimum(0.1)
-        self.dspn_view_fov.setMaximum(180)
-        self.dspn_view_fov.setSingleStep(0.05)
-        self.dspn_view_fov.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                                   Def.DisplayCfg.sph_view_fov,
-                                                                                   self.dspn_view_fov.value()))
-        self.dspn_view_fov.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('FOV [deg]'), 17, 0)
-        self.layout().addWidget(self.dspn_view_fov, 17, 1)
+        # FOV
+        self.dspn_view_fov = DoubleSliderWidget('FOV [deg]', .1, 179., 70.,
+                                                       step_size=.05, decimals=2, label_width=100)
+        self.dspn_view_fov.connect_to_result(self.update_view_fov)
+        self.layout().addWidget(self.dspn_view_fov)
 
         # View scale
-        self.dspn_view_scale = QtWidgets.QDoubleSpinBox()
-        self.dspn_view_scale.setDecimals(3)
-        self.dspn_view_scale.setSingleStep(0.001)
-        self.dspn_view_scale.valueChanged.connect(lambda: current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.sph_view_scale,
-                                                                             self.dspn_view_scale.value()))
-        self.dspn_view_scale.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Scale [a.u.]'), 20, 0)
-        self.layout().addWidget(self.dspn_view_scale, 20, 1)
+        self.dspn_view_scale = DoubleSliderWidget('Scale [norm]', .001, 10., 1.,
+                                                       step_size=.001, decimals=3, label_width=100)
+        self.dspn_view_scale.connect_to_result(self.update_view_scale)
+        self.layout().addWidget(self.dspn_view_scale)
+
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.layout().addItem(spacer)
+
+
+    def update_radial_offset(self, offset):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.sph_pos_glob_radial_offset,
+                                 offset)
+        self.main.update_window()
+
+    def update_elevation(self, elevation):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.sph_view_elev_angle,
+                                 elevation)
+        self.main.update_window()
+
+    def update_azimuth(self, azimuth):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.sph_view_azim_angle,
+                                 azimuth)
+        self.main.update_window()
+
+    def update_view_distance(self, distance):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.sph_view_distance,
+                                distance)
+        self.main.update_window()
+
+    def update_view_fov(self, fov):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.sph_view_fov,
+                                 fov)
+        self.main.update_window()
+
+    def update_view_scale(self, scale):
+        current_config.setParsed(Def.DisplayCfg.name,
+                                 Def.DisplayCfg.sph_view_scale,
+                                 scale)
+        self.main.update_window()
 
     def load_settings_from_config(self):
         section = Def.DisplayCfg.name
         global current_config
 
-        self.dspn_radial_offset.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_pos_glob_radial_offset))
-        self.dspn_view_elev_angle.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_elev_angle))
-        self.dspn_view_azim_angle.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_azim_angle))
-        self.dspn_view_distance.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_distance))
-        self.dspn_view_fov.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_fov))
-        self.dspn_view_scale.setValue(current_config.getParsed(section, Def.DisplayCfg.sph_view_scale))
+        self.dspn_radial_offset.set_value(current_config.getParsed(section, Def.DisplayCfg.sph_pos_glob_radial_offset))
+        self.dspn_view_elev_angle.set_value(current_config.getParsed(section, Def.DisplayCfg.sph_view_elev_angle))
+        self.dspn_view_azim_angle.set_value(current_config.getParsed(section, Def.DisplayCfg.sph_view_azim_angle))
+        self.dspn_view_distance.set_value(current_config.getParsed(section, Def.DisplayCfg.sph_view_distance))
+        self.dspn_view_fov.set_value(current_config.getParsed(section, Def.DisplayCfg.sph_view_fov))
+        self.dspn_view_scale.set_value(current_config.getParsed(section, Def.DisplayCfg.sph_view_scale))
 
 
 class PlanarDisplaySettings(QtWidgets.QGroupBox):
