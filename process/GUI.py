@@ -60,11 +60,15 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
         self.move(0, 0)
         self.screenGeo = self.app.primaryScreen().geometry()
         w, h = self.screenGeo.width(), self.screenGeo.height()
+        print(w,h)
         if w > 1920 and h > 1080:
+            print('YAY?')
             self.resize(1920, 1080)
-            self.show()
         else:
-            self.showMaximized()
+            self.resize(1800, 1000)
+            print('NO?')
+            #self.showMaximized()
+        self.show()
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
@@ -105,7 +109,7 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
 
         # Logger
         self.log_display = gui.Integrated.Log(self)
-        self.log_display.setMinimumHeight(300)
+        self.log_display.setMinimumHeight(200)
         self.log_display.setMaximumHeight(400)
         self.centralWidget().layout().addWidget(self.log_display, 2, 2, 1, 2)
 

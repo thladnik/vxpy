@@ -98,10 +98,7 @@ class EyePositionDetection(AbstractRoutine):
         # Set up parameter variables (accessible externally)
         self.rois = dict()
         self.thresh = None
-        self.thresh_range = None
-        self.thresh_iter = None
         self.min_size = None
-        self.maxvalue = 255 # Not useful here? Keep in case if becomes useful
         self.detection_mode = None
         self.saccade_threshold = None
 
@@ -190,7 +187,7 @@ class EyePositionDetection(AbstractRoutine):
     def tuple_o_ints(t):
         return tuple((int(i) for i in t))
 
-    def ellipse_from_moments(self, rect, thresh_dev=0):
+    def from_ellipse(self, rect):
         # Formatting for drawing
         line_thickness = np.ceil(np.mean(rect.shape) / 50).astype(int)
         line_thickness = 1 if line_thickness == 0 else line_thickness
@@ -200,7 +197,7 @@ class EyePositionDetection(AbstractRoutine):
         rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
 
         # Apply threshold
-        _, thresh = cv2.threshold(rect[:,:], self.thresh+thresh_dev, self.maxvalue, cv2.THRESH_BINARY_INV)
+        _, thresh = cv2.threshold(rect[:,:], self.thresh, 255, cv2.THRESH_BINARY_INV)
 
         # Detect contours
         cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -228,26 +225,33 @@ class EyePositionDetection(AbstractRoutine):
                 del cnts[i]
                 continue
 
-            areas.append(A)
-
+            # Particle center
             center = (M['m10']/A, M['m01']/A)
-            barycenters.append(center)
 
+            # Hull of particle
             hull = cv2.convexHull(cnt).squeeze()
-            hulls.append(hull)
 
-            dists.append(distance.euclidean(center, rect_center))
-
+            # Ellipse axes lengths
             a = M['m20'] / M['m00'] - center[0] ** 2
             b = 2 * (M['m11'] / M['m00'] - center[0] * center[1])
             c = M['m02'] / M['m00'] - center[1] ** 2
 
+            # Avoid divisions by zero
+            if (a - c) == 0.:
+                del cnts[i]
+                continue
+
+            # Ellipse's major axis angle
             theta = (1 / 2 * np.arctan(b / (a - c)) + (a < c) - 1) / np.pi * 180 #* np.pi / 2
-            thetas.append(theta)
             W = np.sqrt(8 * (a + c - np.sqrt(b ** 2 + (a - c) ** 2))) / 2
             L = np.sqrt(8 * (a + c + np.sqrt(b ** 2 + (a - c) ** 2))) / 2
-            axes.append((W, L))
 
+            thetas.append(theta)
+            barycenters.append(center)
+            axes.append((W, L))
+            areas.append(A)
+            hulls.append(hull)
+            dists.append(distance.euclidean(center, rect_center))
             feret_points.append((hull[np.argmin(hull[:,1])], hull[np.argmax(hull[:,1])]))
 
             i += 1
@@ -298,7 +302,7 @@ class EyePositionDetection(AbstractRoutine):
         return [thetas[le_idx], thetas[re_idx]], thresh
 
 
-    def feret_diameter(self, rect, thresh_dev=0):
+    def feret_diameter(self, rect):
         """Method for extracting angular fish eye position estimates using the Feret diameter.
 
         :param rect: 2d image which contains both of the fish's eyes.
@@ -319,7 +323,7 @@ class EyePositionDetection(AbstractRoutine):
         rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
 
         # Apply threshold
-        _, thresh = cv2.threshold(rect[:,:], self.thresh+thresh_dev, self.maxvalue, cv2.THRESH_BINARY_INV)
+        _, thresh = cv2.threshold(rect[:,:], self.thresh, 255, cv2.THRESH_BINARY_INV)
 
         # Detect contours
         cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
@@ -493,35 +497,12 @@ class EyePositionDetection(AbstractRoutine):
                 ####
                 # Calculate eye angular POSITIONS
 
-                if self.thresh_iter <= 1:
-                    thresh_devs = [0]
-                else:
-                    trange = self.thresh_range
-                    thresh_devs = np.linspace(-trange, trange, self.thresh_iter)
-
-                #decors = [-5, -2, 0, 2, 5]
-                eye_pos = np.zeros((len(thresh_devs),2))
-                new_rects = np.zeros((len(thresh_devs),*rot_rect.shape, 3))
-                for i, n in enumerate(thresh_devs):
-                    # Apply detection function on cropped rect which contains eyes
-                    eye_pos[i], new_rects[i] = getattr(self, self.detection_mode)(rot_rect, thresh_dev=n)
-
-                bvec = np.isfinite(eye_pos[:,0])
-                eye_pos = eye_pos[bvec,:]
-                new_rect = new_rects[bvec].mean(axis=0)
+                # Apply detection function on cropped rect which contains eyes
+                (le_pos, re_pos), new_rect = getattr(self, self.detection_mode)(rot_rect)
 
                 # Get corresponding position attributes
                 le_pos_attr = getattr(self.buffer, f'{self.ang_le_pos_prefix}{id}')
                 re_pos_attr = getattr(self.buffer, f'{self.ang_re_pos_prefix}{id}')
-
-                # Append angular eye positions to shared list
-                if eye_pos.shape[0] > 0:
-                    positions = eye_pos.mean(axis=0)
-                    le_pos = positions[0]
-                    re_pos = positions[1]
-                else:
-                    le_pos = 0.
-                    re_pos = 0.
 
                 # Write to buffer
                 le_pos_attr.write(le_pos)
@@ -569,25 +550,5 @@ class EyePositionDetection(AbstractRoutine):
                 getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
                 getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)
 
-
-                #     IPC.rpc(Def.Process.Io,
-                #             routines.io.IoRoutines.TriggerLedArenaFlash.trigger_flash,
-                #             0.01, 2.0)
-
                 # Set current rect ROI data
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
-
-    def to_file01(self):
-        for id in self.rois:
-            ang_le_pos_attr_name = f'{self.ang_le_pos_prefix}{id}'
-            ang_re_pos_attr_name = f'{self.ang_re_pos_prefix}{id}'
-
-            _, le_time, le_ang_pos = getattr(self.buffer, ang_le_pos_attr_name).read(0)
-            _, re_time, re_ang_pos = getattr(self.buffer, ang_re_pos_attr_name).read(0)
-
-            if le_ang_pos[0] is None or re_ang_pos[0] is None:
-                continue
-
-            yield ang_le_pos_attr_name, le_time[0], le_ang_pos[0]
-            yield ang_re_pos_attr_name, re_time[0], re_ang_pos[0]
-

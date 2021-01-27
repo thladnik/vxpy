@@ -39,15 +39,18 @@ class Canvas(app.Canvas):
     def __init__(self, _interval, *args, **kwargs):
         app.Canvas.__init__(self, *args, **kwargs)
         self.tick = 0
-        self.measure_fps(0.1, self.show_fps)
+        #self.measure_fps(0.1, self.show_fps)
         self.visual = None
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
         self._timer = app.Timer(_interval, connect=self.on_timer, start=True)
 
-        #self.native.setWindowFlags(QtCore.Qt.FramelessWindowHint)
-        self.t = time.perf_counter()
+        self.debug = False
+        if self.debug:
+            self.times = []
+            self.t = time.perf_counter()
+
         self.show()
 
     def on_draw(self, event):
@@ -57,13 +60,19 @@ class Canvas(app.Canvas):
 
         gloo.clear()
 
+        if self.debug:
+            if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
+                diff = [b-a for a, b in zip(self.times[:-1], self.times[1:])]
+                print('Avg frametime {:.4f}'.format(sum(diff)/len(diff)), diff)
+                self.times = []
+
+            self.times.append(time.perf_counter())
+            self.t = time.perf_counter()
+
         if self.visual is not None:
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
-
-                #print(time.time()-self.t)
-                self.t = time.time()
                 self.visual.draw(time.perf_counter())
             except Exception as exc:
                 import traceback
@@ -71,9 +80,9 @@ class Canvas(app.Canvas):
 
         self.update()
 
+
     def show_fps(self, fps):
-        pass
-        #print("FPS {:.2f}".format(fps))
+        print("FPS {:.2f}".format(fps))
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
@@ -90,10 +99,13 @@ class Display(process.AbstractProcess):
 
         # Create canvas
         _interval = 1./Config.Display[Def.DisplayCfg.fps]
+
         _size = (Config.Display[Def.DisplayCfg.window_width],
                  Config.Display[Def.DisplayCfg.window_height])
+
         _position = (Config.Display[Def.DisplayCfg.window_pos_x],
                      Config.Display[Def.DisplayCfg.window_pos_y])
+
         self.canvas = Canvas(_interval,
                              size=_size,
                              resizable=False,
@@ -102,7 +114,7 @@ class Display(process.AbstractProcess):
         self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
         # Run event loop
-        self.run(1/200)
+        self.run(1/300)
 
     def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
@@ -116,8 +128,7 @@ class Display(process.AbstractProcess):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         self.canvas.visual = self.visual
-        IPC.Routines.Display.set_record_group(f'phase_{phase_id}',
-                                              group_attributes=self.visual.parameters)
+        IPC.Routines.Display.set_record_group(f'phase_{phase_id}', group_attributes=self.visual.parameters)
 
     def _cleanup_protocol(self):
         self.visual = None
@@ -137,3 +148,4 @@ class Display(process.AbstractProcess):
         except Exception as exc:
             import traceback
             traceback.print_exc()
+
