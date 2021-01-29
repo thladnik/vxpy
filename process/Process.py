@@ -138,12 +138,12 @@ class AbstractProcess:
         IPC.set_state(Def.State.IDLE)
 
         min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
-        # Run event loop
         self.t = time.perf_counter()
+        # Run event loop
         while self._is_running():
             self.handle_inbox()
 
-            ## Wait until interval time is up
+            # Wait until interval time is up
             dt = self.t + interval - time.perf_counter()
             if self.enable_idle_timeout and dt > 1.2 * min_sleep_time:
                 # Sleep to reduce CPU usage
@@ -152,12 +152,12 @@ class AbstractProcess:
             # Busy loop until next main execution for precise timing
             while self.t + interval - time.perf_counter() >= 0:
                 pass
-            ## Set new time
+
+            # Set new time
             self.t = time.perf_counter()
 
-            ## Execute main method
+            # Execute main method
             self.main()
-
 
     def main(self):
         """Event loop to be re-implemented in subclass"""

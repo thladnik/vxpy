@@ -68,7 +68,7 @@ class DoubleSliderWidget(QtWidgets.QWidget):
         self._callbacks.append(callback)
 
     def emit_current_value(self):
-        self.spinner.setValue(self.spinner.value())
+        self.spinner.valueChanged.emit(self.spinner.value())
 
     def _exc_callback(self):
         for callback in self._callbacks:

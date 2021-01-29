@@ -17,9 +17,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 import Config
-import process
 import Def
+from gui import Integrated
 import IPC
+import process
 import Logging
 
 if Def.Env == Def.EnvTypes.Dev:
@@ -72,8 +73,10 @@ class Camera(process.AbstractProcess):
                           .format(target_fps))
 
 
-        self.enable_idle_timeout = False
+        self.times = []
+
         # Run event loop
+        self.enable_idle_timeout = False
         self.run(interval=1/target_fps)
 
     def _prepare_protocol(self):
@@ -95,3 +98,12 @@ class Camera(process.AbstractProcess):
 
         # Update routines
         IPC.Routines.Camera.update(**{device_id: cam.get_image() for device_id, cam in self.cameras.items()})
+
+        self.times.append(self.t)
+
+        if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
+            diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
+            avg_frametime = sum(diff) / len(diff)
+            IPC.rpc(Def.Process.GUI, Integrated.Camera.update_fps_estimate, 1./avg_frametime)
+            #print('Avg. fps {:.2f}'.format(1./avg_frametime))
+            self.times = []

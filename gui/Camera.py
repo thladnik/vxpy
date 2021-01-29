@@ -46,19 +46,18 @@ class FrameStream(QtWidgets.QWidget):
         # Get frame routine buffer
         self.frame_buffer = IPC.Routines.Camera.get_buffer(self.frame_routine)
         min_dim_size = max(*Config.Camera[Def.CameraCfg.res_x], *Config.Camera[Def.CameraCfg.res_y])
-        self.setMinimumWidth(min_dim_size)
-        self.setMinimumHeight(min_dim_size)
 
         hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.layout().addItem(hspacer, 0, 1)
 
         self.tab_camera_views = QtWidgets.QTabWidget()
+        self.tab_camera_views.setTabPosition(QtWidgets.QTabWidget.West)
         self.layout().addWidget(self.tab_camera_views, 1, 0, 1, 2)
 
         # Add one view per camera device
         self.view_wdgts = dict()
         for device_id in Config.Camera[Def.CameraCfg.device_id]:
-            self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id)
+            self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
 
     def update_frame(self):
@@ -67,57 +66,41 @@ class FrameStream(QtWidgets.QWidget):
 
     class CameraWidget(QtWidgets.QWidget):
         def __init__(self, main, device_id, **kwargs):
-            QtWidgets.QWidget.__init__(self)
+            QtWidgets.QWidget.__init__(self, **kwargs)
             self.main = main
             self.device_id = device_id
 
             # Set layout
-            self.setLayout(QtWidgets.QGridLayout())
+            self.setLayout(QtWidgets.QHBoxLayout())
+
+            self.lpanel = QtWidgets.QWidget()
+            self.lpanel.setLayout(QtWidgets.QVBoxLayout())
+            self.layout().addWidget(self.lpanel)
 
             # Add Rotate/flip controls
             self._rotation = 0
             self.cb_rotation = QtWidgets.QComboBox()
-            self.layout().addWidget(QtWidgets.QLabel('Rotation'), 0, 0)
+            self.lpanel.layout().addWidget(QtWidgets.QLabel('Rotation'))
             self.cb_rotation.addItems(['None', '90CCW', '180', '270CCW'])
             self.cb_rotation.currentIndexChanged.connect(lambda i: self.set_rotation(i))
             self.cb_rotation.currentIndexChanged.connect(self.update_frame)
-            self.layout().addWidget(self.cb_rotation, 0, 1)
+            self.lpanel.layout().addWidget(self.cb_rotation)
             self._flip_ud = False
             self.check_flip_ud = QtWidgets.QCheckBox('Flip vertical')
-            self.check_flip_ud.stateChanged.connect(lambda: self.set_flip_ud(self.check_flip_ud.isChecked()))
+            self.check_flip_ud.stateChanged.connect(lambda s: self.set_flip_ud(s))
             self.check_flip_ud.stateChanged.connect(self.update_frame)
-            self.layout().addWidget(self.check_flip_ud, 0, 2)
+            self.lpanel.layout().addWidget(self.check_flip_ud)
             self._flip_lr = False
             self.check_flip_lr = QtWidgets.QCheckBox('Flip horizontal')
-            self.check_flip_lr.stateChanged.connect(lambda: self.set_flip_lr(self.check_flip_lr.isChecked()))
+            self.check_flip_lr.stateChanged.connect(lambda s: self.set_flip_lr(s))
             self.check_flip_lr.stateChanged.connect(self.update_frame)
-            self.layout().addWidget(self.check_flip_lr, 0, 3)
-            hspacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-            self.layout().addItem(hspacer, 0, 4)
+            self.lpanel.layout().addWidget(self.check_flip_lr)
+            spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Expanding)
+            self.lpanel.layout().addItem(spacer)
 
             # Add graphics widget
-            self.graphics_widget = pg.GraphicsLayoutWidget(**kwargs)
-            self.layout().addWidget(self.graphics_widget, 1, 0, 1, 5)
-
-            # Add plot
-            self.image_plot = self.graphics_widget.addPlot(0, 0, 1, 10)
-
-            # Set up plot image item
-            self.image_item = pg.ImageItem()
-            self.image_plot.hideAxis('left')
-            self.image_plot.hideAxis('bottom')
-            self.image_plot.setAspectLocked(True)
-            #self.image_plot.vb.setMouseEnabled(x=False, y=False)
-            self.image_plot.addItem(self.image_item)
-
-        def set_rotation(self, dir):
-            self._rotation = dir
-
-        def set_flip_ud(self, flip):
-            self._flip_ud = flip
-
-        def set_flip_lr(self, flip):
-            self._flip_lr = flip
+            self.graphics_widget = FrameStream.GraphicsWidget(self.main, parent=self)
+            self.layout().addWidget(self.graphics_widget)
 
         def update_frame(self):
             idx, time, frame = self.main.frame_buffer.read(f'{self.device_id}_frame')
@@ -131,7 +114,34 @@ class FrameStream(QtWidgets.QWidget):
             if self._flip_ud:
                 frame = np.flipud(frame)
 
-            self.image_item.setImage(frame)
+            #self.image_plot.vb.autoRange()
+
+            self.graphics_widget.image_item.setImage(frame)
+
+        def set_rotation(self, dir):
+            self._rotation = dir
+
+        def set_flip_ud(self, flip):
+            self._flip_ud = flip
+
+        def set_flip_lr(self, flip):
+            self._flip_lr = flip
+
+    class GraphicsWidget(pg.GraphicsLayoutWidget):
+
+        def __init__(self, main, **kwargs):
+            pg.GraphicsLayoutWidget.__init__(self, **kwargs)
+
+            # Add plot
+            self.image_plot = self.addPlot(0, 0, 1, 10)
+
+            # Set up plot image item
+            self.image_item = pg.ImageItem()
+            self.image_plot.hideAxis('left')
+            self.image_plot.hideAxis('bottom')
+            self.image_plot.setAspectLocked(True)
+            #self.image_plot.vb.setMouseEnabled(x=False, y=False)
+            self.image_plot.addItem(self.image_item)
 
 
 ################################
@@ -152,14 +162,6 @@ class EyePositionDetector(QtWidgets.QWidget):
         self.setLayout(QtWidgets.QHBoxLayout())
 
         self.detection_buffer = IPC.Routines.Camera.get_buffer(self.detection_routine)
-
-        # Panel
-        self.panel_wdgt = QtWidgets.QWidget(parent=self)
-        self.panel_wdgt.setSizePolicy(QtWidgets.QSizePolicy.Maximum,
-                                      QtWidgets.QSizePolicy.Expanding)
-        self.panel_wdgt.setMinimumWidth(200)
-        self.panel_wdgt.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self.panel_wdgt)
 
         from helper.gui import IntSliderWidget
 
@@ -194,7 +196,7 @@ class EyePositionDetector(QtWidgets.QWidget):
 
         # Saccade detection
         self.lpanel.layout().addWidget(QLabel('<b>Saccade detection</b>'))
-        self.sacc_threshold = IntSliderWidget('Sacc. threshold [deg/s]', 1, 2000, 250, label_width=label_width, step_size=1)
+        self.sacc_threshold = IntSliderWidget('Sacc. threshold [deg/s]', 1, 10000, 2000, label_width=label_width, step_size=1)
         self.sacc_threshold.connect_to_result(self.update_sacc_threshold)
         self.sacc_threshold.emit_current_value()
         self.lpanel.layout().addWidget(self.sacc_threshold)
@@ -343,13 +345,11 @@ class EyePositionDetector(QtWidgets.QWidget):
 
                 self.subplots[id]['imageitem'].setImage(np.rot90(rect, -1))
 
-
     class Line(pg.LineSegmentROI):
         def __init__(self, parent, id, *args, **kwargs):
             self.parent = parent
             self.id = id
             pg.LineSegmentROI.__init__(self, *args, **kwargs, movable=False, removable=True)
-
 
     class Rect(pg.RectROI):
 
@@ -392,30 +392,3 @@ class EyePositionDetector(QtWidgets.QWidget):
             self.parent.roi_params[self.id] = self.rect
             # Send update to detector routine
             IPC.rpc(Def.Process.Camera, routines.camera.Core.EyePositionDetection.set_roi, self.id, self.rect)
-
-
-    class SliderWidget(QtWidgets.QWidget):
-
-        def __init__(self, slider_name, min_val, max_val, default_val, *args, **kwargs):
-            QtWidgets.QWidget.__init__(self, *args, **kwargs)
-
-            self.setLayout(QtWidgets.QGridLayout())
-            self.setMaximumWidth(200)
-
-            self.layout().addWidget(QtWidgets.QLabel(slider_name), 0, 0)
-            self.line_edit = QtWidgets.QLineEdit()
-            self.line_edit.setEnabled(False)
-            self.layout().addWidget(self.line_edit, 0, 1)
-            self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-            self.slider.setMaximumHeight(20)
-            self.slider.setTickInterval((max_val - min_val) // 10)
-            self.slider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
-            self.slider.setMinimum(min_val)
-            self.slider.setMaximum(max_val)
-            self.slider.valueChanged.connect(lambda: self.line_edit.setText(str(self.slider.value())))
-
-            self.slider.setValue(default_val)
-            self.layout().addWidget(self.slider, 1, 0, 1, 2)
-
-        def emitValueChanged(self):
-            self.slider.valueChanged.emit(self.slider.value())

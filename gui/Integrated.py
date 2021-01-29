@@ -48,6 +48,7 @@ class IntegratedWidget(QtWidgets.QGroupBox):
     def create_hooks(self):
         for fun in self.exposed:
             fun_str = fun.__qualname__
+            print('REG ', fun_str)
             self.main.register_rpc_callback(self, fun_str, fun)
 
 class Protocols(IntegratedWidget):
@@ -454,30 +455,30 @@ class Log(IntegratedWidget):
 class Camera(IntegratedWidget):
 
     def __init__(self, *args):
-        IntegratedWidget.__init__(self, 'Camera', *args)
+        IntegratedWidget.__init__(self, 'Camera>', *args)
+
+        self.exposed.append(Camera.update_fps_estimate)
 
         self.stream_fps = 20
 
         self.setMinimumSize(400, 400)
-        self.setMaximumSize(1000, 700)
+        self.setMaximumSize(800, 700)
 
-        self.setLayout(QtWidgets.QVBoxLayout())
+        self.setLayout(QtWidgets.QGridLayout())
+
+        # Top-left spacer
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.layout().addItem(spacer, 0, 0)
+
         # FPS counter
-        self.fps_counter = QtWidgets.QWidget(parent=self)
+        self.fps_counter = QtWidgets.QLineEdit('FPS N/A')
+        self.fps_counter.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
         self.fps_counter.setEnabled(False)
-        self.fps_counter.setLayout(QtWidgets.QHBoxLayout())
-        self.fps_counter.layout().setContentsMargins(0, 0, 0, 0)
-        # Spacer
-        self.fps_counter.spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.fps_counter.layout().addItem(self.fps_counter.spacer)
-        # Lineedit
-        self.fps_counter.le = QtWidgets.QLineEdit('FPS N/A')
-        self.fps_counter.le.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-        self.fps_counter.layout().addWidget(self.fps_counter.le)
-        self.layout().addWidget(self.fps_counter)
+        self.layout().addWidget(self.fps_counter, 0, 1)
 
+        # Tab widget
         self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget)
+        self.layout().addWidget(self.tab_widget, 1, 0, 1, 2)
 
         # Add camera addons
         avail_addons = Config.Gui[Def.GuiCfg.addons]
@@ -520,6 +521,9 @@ class Camera(IntegratedWidget):
             self.timer_frame_update.timeout.connect(self.update_frames)
             self.timer_frame_update.start()
 
+    def update_fps_estimate(self, fps):
+        self.fps_counter.setText('FPS {:.1f}/{:.1f}'.format(fps, Config.Camera[Def.CameraCfg.fps]))
+
     def update_frames(self):
 
         # Update frames in tabbed widgets
@@ -527,19 +531,19 @@ class Camera(IntegratedWidget):
             self.tab_widget.widget(idx).update_frame()
 
         # Update FPS counter
-        target_fps = Config.Camera[Def.CameraCfg.fps]
-        frametimes = getattr(self.used_buffer, self.first_attr_name).get_times(target_fps//2)
+        # target_fps = Config.Camera[Def.CameraCfg.fps]
+        # frametimes = getattr(self.used_buffer, self.first_attr_name).get_times(target_fps//2)
 
-        if any([t is None for t in frametimes]):
-            return
+        # if any([t is None for t in frametimes]):
+        #     return
 
         # Display FPS
-        frame_dts = [v2-v1 for v1, v2 in zip(frametimes[:-1], frametimes[1:])]
-        mean_frame_dt = sum(frame_dts) / (len(frametimes)-1)
-        fps = 1./mean_frame_dt
-        if any([dt < 0 for dt in frame_dts]):
-            print('FPS:', fps, frametimes)
-        self.fps_counter.le.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
+        # frame_dts = [v2-v1 for v1, v2 in zip(frametimes[:-1], frametimes[1:])]
+        # mean_frame_dt = sum(frame_dts) / (len(frametimes)-1)
+        # fps = 1./mean_frame_dt
+        # if any([dt < 0 for dt in frame_dts]):
+        #     print('FPS:', fps, frametimes)
+        # self.fps_counter.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
 
 import h5py

@@ -39,7 +39,7 @@ class Canvas(app.Canvas):
     def __init__(self, _interval, *args, **kwargs):
         app.Canvas.__init__(self, *args, **kwargs)
         self.tick = 0
-        #self.measure_fps(0.1, self.show_fps)
+        self.measure_fps(0.1, self.show_fps)
         self.visual = None
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
@@ -47,9 +47,8 @@ class Canvas(app.Canvas):
         self._timer = app.Timer(_interval, connect=self.on_timer, start=True)
 
         self.debug = False
-        if self.debug:
-            self.times = []
-            self.t = time.perf_counter()
+        self.times = []
+        self.t = time.perf_counter()
 
         self.show()
 
@@ -59,15 +58,6 @@ class Canvas(app.Canvas):
     def on_timer(self, event):
 
         gloo.clear()
-
-        if self.debug:
-            if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
-                diff = [b-a for a, b in zip(self.times[:-1], self.times[1:])]
-                print('Avg frametime {:.4f}'.format(sum(diff)/len(diff)), diff)
-                self.times = []
-
-            self.times.append(time.perf_counter())
-            self.t = time.perf_counter()
 
         if self.visual is not None:
             # Leave catch in here for now.
@@ -82,7 +72,10 @@ class Canvas(app.Canvas):
 
 
     def show_fps(self, fps):
-        print("FPS {:.2f}".format(fps))
+        if self.debug:
+            print("FPS {:.2f}".format(fps))
+
+        # Optional: report to gui
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)

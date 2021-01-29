@@ -74,19 +74,13 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
         self.centralWidget().setLayout(QtWidgets.QGridLayout())
 
-        # Add spacers
-        hvSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        #hSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-
         # Protocols
         self.protocols = gui.Integrated.Protocols(self)
         self.centralWidget().layout().addWidget(self.protocols, 0, 0, 1, 3)
 
         # Camera
         self.camera = gui.Integrated.Camera(self)
-        #self.camera.setMinimumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 1.0))
-        #self.camera.setMaximumWidth(int(Config.Camera[Def.CameraCfg.res_x][0] * 2.0))
-        #self.centralWidget().layout().addWidget(self.camera, 0, 3, 2, 1)
+        self.camera.create_hooks()
         self.centralWidget().layout().addWidget(self.camera, 0, 3, 1, 1)
 
         # Add Plotter
@@ -94,7 +88,6 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
         self.plotter.setMinimumHeight(300)
         self.plotter.setMaximumHeight(400)
         self.plotter.create_hooks()
-        #self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 3)
         self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 4)
 
         # Process monitor
