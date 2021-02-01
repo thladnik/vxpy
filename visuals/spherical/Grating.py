@@ -18,9 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from vispy import gloo
 
-from Shader import BasicFileShader
-from visuals import SphericalVisual
-from models import BasicSphere
+from core.visual import SphericalVisual
+from utils import sphere
 
 
 class BlackWhiteGrating(SphericalVisual):
@@ -39,7 +38,7 @@ class BlackWhiteGrating(SphericalVisual):
         SphericalVisual.__init__(self, *args)
 
         # Set up sphere
-        self.sphere = BasicSphere.UVSphere(azim_lvls=60, elev_lvls=30)
+        self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)

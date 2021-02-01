@@ -31,7 +31,7 @@ import Logging
 from process import Gui
 import protocols
 
-from routines.__init__ import Routines
+from core.routine import Routines
 
 if Def.Env == Def.EnvTypes.Dev:
     pass

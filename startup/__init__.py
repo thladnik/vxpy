@@ -1,5 +1,5 @@
 """
-MappApp ./startup/__init__.py - Startup script is used for creation and
+MappApp ./startup/routine.py - Startup script is used for creation and
 modification of program configuration files.
 Copyright (C) 2020 Tim Hladnik
 

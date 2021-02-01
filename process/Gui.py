@@ -21,14 +21,15 @@ import sys
 
 import Def
 import Config
-import process
+from core.process import AbstractProcess
 import IPC
 import gui.Camera
 import gui.Integrated
 import gui.Io
+import process
 
 
-class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
+class Gui(QtWidgets.QMainWindow, AbstractProcess):
     name = Def.Process.GUI
 
     app : QtWidgets.QApplication
@@ -38,7 +39,7 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
         self.app = _app
 
         # Set up parents
-        process.AbstractProcess.__init__(self, **kwargs)
+        AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon
@@ -57,18 +58,6 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
 
         # Set up main window
         self.setWindowTitle('MappApp')
-        self.move(0, 0)
-        self.screenGeo = self.app.primaryScreen().geometry()
-        w, h = self.screenGeo.width(), self.screenGeo.height()
-        print(w,h)
-        if w > 1920 and h > 1080:
-            print('YAY?')
-            self.resize(1920, 1080)
-        else:
-            self.resize(1800, 1000)
-            print('NO?')
-            #self.showMaximized()
-        self.show()
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
@@ -126,6 +115,18 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
 
         # Bind shortcuts
         self._bind_shortcuts()
+
+        # Set geometry
+        self.move(0, 0)
+        self.screenGeo = self.app.primaryScreen().geometry()
+        w, h = self.screenGeo.width(), self.screenGeo.height()
+
+        if w > 1920 and h > 1080:
+            self.resize(1920, 1080)
+            self.show()
+        else:
+            #self.resize(800, 800)
+            self.showMaximized()
 
 
     def restart_camera(self):

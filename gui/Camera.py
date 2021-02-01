@@ -23,7 +23,7 @@ import pyqtgraph as pg
 
 import Config
 import Def
-from helper import Geometry
+from utils import geometry
 import IPC
 import routines.camera.Core
 
@@ -45,7 +45,6 @@ class FrameStream(QtWidgets.QWidget):
 
         # Get frame routine buffer
         self.frame_buffer = IPC.Routines.Camera.get_buffer(self.frame_routine)
-        min_dim_size = max(*Config.Camera[Def.CameraCfg.res_x], *Config.Camera[Def.CameraCfg.res_y])
 
         hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.layout().addItem(hspacer, 0, 1)
@@ -163,7 +162,7 @@ class EyePositionDetector(QtWidgets.QWidget):
 
         self.detection_buffer = IPC.Routines.Camera.get_buffer(self.detection_routine)
 
-        from helper.gui import IntSliderWidget
+        from utils.gui import IntSliderWidget
 
         self.lpanel = QtWidgets.QWidget(self)
         self.lpanel.setLayout(QtWidgets.QVBoxLayout())
@@ -373,8 +372,8 @@ class EyePositionDetector(QtWidgets.QWidget):
             line_coords = [[line_points[0].x(), line_points[0].y()], [line_points[1].x(), line_points[1].y()]]
             line_start = np.array(line_coords[0])
             lineEnd = np.array(line_coords[1])
-            line = Geometry.vecNormalize(lineEnd - line_start)
-            line_angle_rad = np.arccos(np.dot(Geometry.vecNormalize(np.array([-1.0, 0.0])), line))
+            line = geometry.vecNormalize(lineEnd - line_start)
+            line_angle_rad = np.arccos(np.dot(geometry.vecNormalize(np.array([-1.0,0.0])),line))
 
             if line[1] > 0:
                line_angle_rad = 2 * np.pi - line_angle_rad

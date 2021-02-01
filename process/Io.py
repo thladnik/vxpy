@@ -20,14 +20,14 @@ import Config
 import Def
 import IPC
 import Logging
-import process
+from core.process import AbstractProcess
 import protocols
 
-class Io(process.AbstractProcess):
+class Io(AbstractProcess):
     name = Def.Process.Io
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        AbstractProcess.__init__(self, **kwargs)
 
         ################################
         ### Set up device

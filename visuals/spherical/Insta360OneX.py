@@ -3,9 +3,8 @@ import h5py
 import numpy as np
 import os
 
-from visuals.__init__ import SphericalVisual
+from core.visual import SphericalVisual
 from models import Insta360OneX
-from Shader import BasicFileShader
 
 class Calibrated(SphericalVisual):
 
@@ -20,8 +19,8 @@ class Calibrated(SphericalVisual):
                                    Insta360OneX.Calibrated,
                                    filename=insta)
         self.program = self.addProgram('program',
-                                       BasicFileShader().addShaderFile('v_tex.glsl', subdir='spherical').read(),
-                                       BasicFileShader().addShaderFile('f_tex.glsl').read())
+                                       self.load_vertex_shader('v_tex.glsl', subdir='spherical'),
+                                       self.load_shader('f_tex.glsl'))
         self.program.bind(self.model.vertexBuffer)
 
         self.file = h5py.File(os.path.join('media', self.filename), 'r')

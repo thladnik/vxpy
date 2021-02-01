@@ -19,10 +19,8 @@ import time
 from vispy import gloo
 import numpy as np
 
-from visuals.__init__ import PlanarVisual
-from models import BasicPlane
-from Shader import BasicFileShader
-
+from core.visual import PlanarVisual
+from utils import plane
 
 class BlackAndWhiteGrating(PlanarVisual):
 
@@ -48,15 +46,14 @@ class BlackAndWhiteGrating(PlanarVisual):
         """
         PlanarVisual.__init__(self, *args)
 
-        self.plane = BasicPlane.VerticalXYPlane()
+        self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(
             np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(
             np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.grating = gloo.Program(
-            BasicFileShader().addShaderFile('planar/grating.vert').read(),
-            BasicFileShader().addShaderFile('planar/grating.frag').read())
+        self.grating = gloo.Program(self.load_vertex_shader('planar/grating.vert'),
+                                    self.load_shader('planar/grating.frag'))
         self.grating['a_position'] = self.position_buffer
 
         self.update(**params)

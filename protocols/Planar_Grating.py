@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-from Protocol import StaticProtocol
+from core.protocol import StaticProtocol
 
 from visuals.planar.Grating import BlackAndWhiteGrating as BWG
 

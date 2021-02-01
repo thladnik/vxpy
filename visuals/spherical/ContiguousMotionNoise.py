@@ -21,10 +21,9 @@ from scipy import signal
 from vispy import gloo
 from vispy.gloo import gl
 
-from Shader import BasicFileShader
-from helper import Geometry
-from visuals import SphericalVisual
-from models import CMNSpheres
+from utils import geometry
+from core.visual import SphericalVisual
+from utils.sphere import CMNIcoSphere
 
 
 class IcoCMN(SphericalVisual):
@@ -33,15 +32,14 @@ class IcoCMN(SphericalVisual):
         SphericalVisual.__init__(self, *args)
 
         # Set up model
-        self.sphere = CMNSpheres.IcoSphere(subdivisionTimes=2)
+        self.sphere = CMNIcoSphere(subdivisionTimes=2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         # Set up program and bind buffer
-        self.cmn = gloo.Program(
-            BasicFileShader().addShaderFile('spherical/v_tex.glsl').read(),
-            BasicFileShader().addShaderFile('f_tex.glsl').read())
+        self.cmn = gloo.Program(self.load_vertex_shader('spherical/v_tex.glsl'),
+                                self.load_shader('f_tex.glsl'))
 
-        Isize = self.sphere.indexBuffer.size
+        Isize = self.index_buffer.size
         sp_sigma = 1  # spatial CR
         tp_sigma = 20  # temporal CR
         spkernel = np.exp(-(self.sphere.intertile_distance ** 2) / (2 * sp_sigma ** 2))
@@ -52,22 +50,22 @@ class IcoCMN(SphericalVisual):
         tpkernel *= tpkernel > .0001
 
         flowvec = np.random.normal(size=[np.int(Isize / 3), 500, 3])  # Random white noise motion vector
-        flowvec /= Geometry.vecNorm(flowvec)[:, :, None]
+        flowvec /= geometry.vecNorm(flowvec)[:,:,None]
         tpsmooth_x = signal.convolve(flowvec[:, :, 0], tpkernel[np.newaxis, :], mode='same')
         tpsmooth_y = signal.convolve(flowvec[:, :, 1], tpkernel[np.newaxis, :], mode='same')
         tpsmooth_z = signal.convolve(flowvec[:, :, 2], tpkernel[np.newaxis, :], mode='same')
         spsmooth_x = np.dot(spkernel, tpsmooth_x)
         spsmooth_y = np.dot(spkernel, tpsmooth_y)
         spsmooth_z = np.dot(spkernel, tpsmooth_z)  #
-        spsmooth_Q = Geometry.qn(np.array([spsmooth_x, spsmooth_y, spsmooth_z]).transpose([1, 2, 0]))
+        spsmooth_Q = geometry.qn(np.array([spsmooth_x,spsmooth_y,spsmooth_z]).transpose([1,2,0]))
 
-        tileCen_Q = Geometry.qn(self.sphere.tile_center)
-        tileOri_Q1 = Geometry.qn(np.real(self.sphere.tile_orientation)).normalize[:, None]
-        tileOri_Q2 = Geometry.qn(np.imag(self.sphere.tile_orientation)).normalize[:, None]
-        projected_motmat = Geometry.projection(tileCen_Q[:, None], spsmooth_Q)
-        self.motmatFull = Geometry.qdot(tileOri_Q1, projected_motmat) - 1.j * Geometry.qdot(tileOri_Q2,
-                                                                                            projected_motmat)
-        startpoint = Geometry.cen2tri(np.random.rand(np.int(Isize / 3)), np.random.rand(np.int(Isize / 3)), .1)
+        tileCen_Q = geometry.qn(self.sphere.tile_center)
+        tileOri_Q1 = geometry.qn(np.real(self.sphere.tile_orientation)).normalize[:,None]
+        tileOri_Q2 = geometry.qn(np.imag(self.sphere.tile_orientation)).normalize[:,None]
+        projected_motmat = geometry.projection(tileCen_Q[:,None],spsmooth_Q)
+        self.motmatFull = geometry.qdot(tileOri_Q1,projected_motmat) - 1.j * geometry.qdot(tileOri_Q2,
+                                                                                           projected_motmat)
+        startpoint = geometry.cen2tri(np.random.rand(np.int(Isize / 3)),np.random.rand(np.int(Isize / 3)),.1)
 
         self.cmn['a_texcoord'] = startpoint.reshape([-1, 2]) / 2
         self.cmn['u_texture'] = np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)

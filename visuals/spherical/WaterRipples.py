@@ -24,9 +24,8 @@ import logging
 import Config
 import Def
 import Logging
-from visuals.__init__ import SphericalVisual
-from models import BasicSphere
-from Shader import BasicFileShader
+from core.visual import SphericalVisual
+from utils import sphere
 
 class RipplesOnStaticBackground(SphericalVisual):
 
@@ -39,8 +38,8 @@ class RipplesOnStaticBackground(SphericalVisual):
 
         ### Create model
         self.sphere_model = self.addModel('sphere',
-                                   BasicSphere.UVSphere,
-                                   theta_lvls=100, phi_lvls=50, theta_range=2*np.pi, upper_phi=np.pi/2)
+                                          sphere.UVSphere,
+                                          theta_lvls=100,phi_lvls=50,theta_range=2*np.pi,upper_phi=np.pi/2)
         ### Set texture coords
         self.sphere_model.setTextureCoords('uv_standard')
         ## Create routines
@@ -48,9 +47,8 @@ class RipplesOnStaticBackground(SphericalVisual):
 
         ### Create program
         self.texture_program = self.addProgram('sphere',
-                                  BasicFileShader().addShaderFile('v_tex.glsl', subdir='spherical').read(),
-                                  BasicFileShader().addShaderFile('f_tex.glsl').read()
-                                  )
+                                                self.load_vertex_shader('spherical/v_tex.glsl'),
+                                                self.load_shader('spherical/f_tex.glsl'))
         self.texture_program.bind(self.sphere_model.vertexBuffer)
 
         ### TODO: loading jpg causes stimulus presentation to hang in beginning; fix this in display class

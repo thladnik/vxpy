@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import Config
 import Def
-from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+from core.routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 class StaticParameters(AbstractRoutine):
     """This routine buffers the visual parameters,

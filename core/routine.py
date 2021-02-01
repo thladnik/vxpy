@@ -1,5 +1,5 @@
 """
-MappApp ./Process.py - Routine wrapper, abstract routine and ring buffer implementations.
+MappApp ./process.py - Routine wrapper, abstract routine and ring buffer implementations.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ import Def
 import gui
 import IPC
 import Logging
-import process
+from core.process import AbstractProcess
 
 
 ################################
@@ -38,7 +38,7 @@ class Routines:
     """Wrapper class for all routines in a process.
     """
 
-    process_instance: process.AbstractProcess = None
+    process_instance: AbstractProcess = None
 
     def __init__(self, name, routines=None):
         self.name = name

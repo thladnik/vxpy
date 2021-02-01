@@ -9,7 +9,7 @@ import Default
 from devices import Camera
 from startup import settings
 from startup.utils import ModuleWidget
-from routines import AbstractRoutine
+from core.routine import AbstractRoutine
 
 
 class CameraWidget(ModuleWidget):

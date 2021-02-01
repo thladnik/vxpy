@@ -1,5 +1,5 @@
 """
-MappApp ./Process.py - Base stimulus classes which is inherited by
+MappApp ./process.py - Base stimulus classes which is inherited by
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik, Yue Zhang
 
@@ -24,9 +24,9 @@ from vispy.util import transforms
 
 import Config
 import Def
-from helper import Geometry
+from utils import geometry,sphere
 import Logging
-from models import BasicSphere
+
 
 ################################
 # Abstract visual class
@@ -233,11 +233,11 @@ class SphericalVisual(AbstractVisual):
 
 
         # Create mask model
-        self._mask_model = BasicSphere.UVSphere(azim_lvls=50,
-                                                elev_lvls=50,
-                                                azimuth_range=np.pi / 2,
-                                                upper_elev=np.pi / 4,
-                                                radius=1.0)
+        self._mask_model = sphere.UVSphere(azim_lvls=50,
+                                           elev_lvls=50,
+                                           azimuth_range=np.pi / 2,
+                                           upper_elev=np.pi / 4,
+                                           radius=1.0)
         self._mask_position_buffer = gloo.VertexBuffer(self._mask_model.a_position)
         self._mask_index_buffer = gloo.IndexBuffer(self._mask_model.indices)
 
@@ -333,7 +333,7 @@ class SphericalVisual(AbstractVisual):
             self.transform_uniforms['u_mapcalib_rotate_elev'] = rotate_elev_3d
 
             # 2D rotation around center of screen
-            self.transform_uniforms['u_mapcalib_rotate2d'] = Geometry.rotation2D(np.pi / 4 - np.pi / 2 * i)
+            self.transform_uniforms['u_mapcalib_rotate2d'] = geometry.rotation2D(np.pi / 4 - np.pi / 2 * i)
 
             # 2D translation radially
             radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset]

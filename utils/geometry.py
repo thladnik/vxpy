@@ -1,5 +1,5 @@
 """
-MappApp ./Geometry.py - Helper class for geometric operations.
+MappApp ./geometry.py - Helper class for geometric operations.
 Copyright (C) 2020 Yue Zhang, Tim Hladnik
 
 * The "qn" class was originally created by Yue Zhang and is also available

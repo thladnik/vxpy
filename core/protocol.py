@@ -1,5 +1,5 @@
 """
-MappApp ./Protocol.py - Collection of protocol classes.
+MappApp ./protocol.py - Collection of protocol classes.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

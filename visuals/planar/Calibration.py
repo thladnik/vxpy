@@ -19,9 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from visuals.__init__ import PlanarVisual
-from models import BasicPlane
-from Shader import BasicFileShader
+from core.visual import PlanarVisual
+from utils import plane
 
 
 class Checkerboard(PlanarVisual):
@@ -35,15 +34,14 @@ class Checkerboard(PlanarVisual):
     def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
 
-        self.plane = BasicPlane.VerticalXYPlane()
+        self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(
             np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(
             np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.checker = gloo.Program(
-            BasicFileShader().addShaderFile('planar/checker.vert').read(),
-            BasicFileShader().addShaderFile('planar/checker.frag').read())
+        self.checker = gloo.Program(self.load_vertex_shader('planar/checker.vert'),
+                                    self.load_shader('planar/checker.frag'))
         self.checker['a_position'] = self.position_buffer
 
         self.update(**params)

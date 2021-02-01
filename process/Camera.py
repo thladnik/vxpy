@@ -20,17 +20,17 @@ import Config
 import Def
 from gui import Integrated
 import IPC
-import process
+from core.process import AbstractProcess
 import Logging
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
-class Camera(process.AbstractProcess):
+class Camera(AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        AbstractProcess.__init__(self, **kwargs)
 
         self.cameras = dict()
         for device_id, manufacturer, model, format, gain, exposure \

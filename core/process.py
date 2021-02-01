@@ -1,5 +1,5 @@
 """
-MappApp ./Process.py - Base process and controller class called to start program.
+MappApp ./process.py - Base process and controller class called to start program.
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 

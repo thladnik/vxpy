@@ -4,13 +4,13 @@ import os
 from PyQt5 import QtWidgets
 
 import Def
-from helper import Basic
+from utils import misc
 from startup import settings
 from startup.utils import ModuleWidget
 from startup.camera_setup import CameraWidget
 from startup.display_setup import DisplayWidget
 
-settings.current_config = Basic.ConfigParser()
+settings.current_config = misc.ConfigParser()
 
 import Logging
 import Config

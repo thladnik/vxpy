@@ -316,7 +316,7 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
 
-        from helper.gui import DoubleSliderWidget, IntSliderWidget
+        from utils.gui import DoubleSliderWidget, IntSliderWidget
 
         # Window x pos
         self.spn_win_x = IntSliderWidget('Window X-Position', -5000, 5000, 0,
@@ -429,7 +429,7 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.main = parent
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        from helper.gui import DoubleSliderWidget
+        from utils.gui import DoubleSliderWidget
 
         # Radial offset
         self.dspn_radial_offset = DoubleSliderWidget('Radial offset', -1., 1., 0.,

@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 
-from Protocol import StaticProtocol
+from core.protocol import StaticProtocol
 
 from visuals.spherical.WaterRipples import RipplesOnStaticBackground
 

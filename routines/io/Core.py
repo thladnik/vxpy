@@ -21,7 +21,7 @@ import numpy as np
 import Config
 import Def
 
-from routines import AbstractRoutine, ArrayAttribute, ArrayDType
+from core.routine import AbstractRoutine, ArrayAttribute, ArrayDType
 
 class ReadAnalog(AbstractRoutine):
 

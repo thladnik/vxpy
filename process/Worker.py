@@ -20,15 +20,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from time import time
 import importlib
 
-import process
+from core.process import AbstractProcess
 import Def
 import Logging
 
-class Worker(process.AbstractProcess):
+class Worker(AbstractProcess):
     name = Def.Process.Worker
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        AbstractProcess.__init__(self, **kwargs)
 
         self._task_intervals = list()
         self._scheduled_times = list()

@@ -23,7 +23,7 @@ import Config
 import Def
 import gui.Integrated
 import IPC
-from routines import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+from core.routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
 
 
 class Frames(AbstractRoutine):

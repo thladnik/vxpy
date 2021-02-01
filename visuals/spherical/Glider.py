@@ -20,9 +20,8 @@ from vispy import gloo
 import numpy as np
 import time
 
-from Shader import BasicFileShader
-from visuals import SphericalVisual
-from models import BasicSphere
+from core.visual import SphericalVisual
+from utils import sphere
 
 
 class Glider2Point(SphericalVisual):
@@ -39,15 +38,14 @@ class Glider2Point(SphericalVisual):
         SphericalVisual.__init__(self, *args)
 
         # Set up model
-        self.sphere = BasicSphere.UVSphere(azim_lvls=60, elev_lvls=30)
+        self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
         self.vertex_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         # Set up program
-        self.glider = gloo.Program(
-            BasicFileShader().addShaderFile('spherical/v_glider.glsl').read(),
-            BasicFileShader().addShaderFile('spherical/f_glider.glsl').read())
+        self.glider = gloo.Program(self.load_vertex_shader('spherical/v_glider.glsl'),
+                                    self.load_shader('spherical/f_glider.glsl'))
         self.glider['a_position'] = self.vertex_buffer
         self.glider['a_azimuth'] = self.azimuth_buffer
 
@@ -110,7 +108,7 @@ class Glider3Point(SphericalVisual):
         SphericalVisual.__init__(self, *args)
 
         # Set up model
-        self.sphere = BasicSphere.UVSphere(azim_lvls=60, elev_lvls=30)
+        self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
         self.vertex_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)

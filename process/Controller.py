@@ -24,22 +24,23 @@ import os
 import time
 from typing import List, Dict, Tuple
 
-import routines
 import Config
+from core.process import AbstractProcess
+from core.routine import Routines
 import Def
-from helper import Basic
+from utils import misc
 import IPC
 import Logging
 import process
 import protocols
 
-class Controller(process.AbstractProcess):
+class Controller(AbstractProcess):
     name = Def.Process.Controller
 
     configfile: str = None
 
     _processes: Dict[str, mp.Process] = dict()
-    _registered_processes: List[Tuple[process.AbstractProcess, Dict]] = list()
+    _registered_processes: List[Tuple[AbstractProcess, Dict]] = list()
 
     _protocol_processes: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
     _active_protocols: List[str] = list()
@@ -67,7 +68,7 @@ class Controller(process.AbstractProcess):
         self.logger.addHandler(h)
 
         # Initialize AbstractProcess
-        process.AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
+        AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
                                              if not (k.startswith('_'))})
         # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
@@ -76,7 +77,7 @@ class Controller(process.AbstractProcess):
         try:
             Logging.write(Logging.INFO,
                           'Using configuration from file {}'.format(self.configfile))
-            self.configuration = Basic.ConfigParser()
+            self.configuration = misc.ConfigParser()
             self.configuration.read(self.configfile)
             # Camera
             Config.Camera = IPC.Manager.dict()
@@ -155,19 +156,19 @@ class Controller(process.AbstractProcess):
 
         # Set up routines
         # Camera
-        IPC.Routines.Camera = routines.Routines(
+        IPC.Routines.Camera = Routines(
             Def.Process.Camera,
             routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
         )
 
         # Display
-        IPC.Routines.Display = routines.Routines(
+        IPC.Routines.Display = Routines(
             Def.Process.Display,
             routines=Config.Display[Def.DisplayCfg.routines] if Config.Display[Def.DisplayCfg.use] else None
         )
 
         # IO
-        IPC.Routines.Io = routines.Routines(
+        IPC.Routines.Io = Routines(
             Def.Process.Io,
             routines=Config.Io[Def.IoCfg.routines] if Config.Io[Def.IoCfg.use] else None
         )

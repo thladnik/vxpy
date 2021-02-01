@@ -1,5 +1,5 @@
 """
-MappApp ./models/BasicSphere.py - Basic sphere models for re-use.
+MappApp ./models/sphere.py - Basic sphere models for re-use.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -23,11 +23,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-from helper import Geometry
-from Model import SphereModel
+from utils import geometry
 
-################################
-# UV Sphere
+
 class UVSphere:
 
     def __init__(self,
@@ -52,7 +50,7 @@ class UVSphere:
         # Set vertex attributes
         self.a_azimuth = np.ascontiguousarray(self.azims.flatten(), dtype=np.float32)
         self.a_elevation = np.ascontiguousarray(self.elevs.flatten(), dtype=np.float32)
-        self.a_position = Geometry.SphereHelper.sph2cart(self.a_azimuth, self.a_elevation, self.radius)
+        self.a_position = geometry.SphereHelper.sph2cart(self.a_azimuth,self.a_elevation,self.radius)
         self.a_position = np.ascontiguousarray(self.a_position.T, dtype=np.float32)
 
         # Set indices
@@ -66,10 +64,12 @@ class UVSphere:
 
 
 
-################################
-# ICO SPHERE
-gr = 1.61803398874989484820
-class IcosahedronSphere(SphereModel):
+class IcosahedronSphere:
+    """
+    !!! DOESN'T WORK CURRENTLY
+    TODO: fix Icosphere
+    """
+    gr = 1.61803398874989484820
 
     corners = [
         [-1, gr,  0],
@@ -178,4 +178,105 @@ class IcosahedronSphere(SphereModel):
             self.faces = new_faces
 
     def getSphericalCoords(self):
-        return np.array(Geometry.SphereHelper.cart2sph(self.a_position[0,:], self.a_position[1,:], self.a_position[2,:]))
+        return np.array(geometry.SphereHelper.cart2sph(self.a_position[0,:],self.a_position[1,:],self.a_position[2,:]))
+
+
+class CMNIcoSphere:
+
+    def __init__(self, subdivisionTimes : int = 1):
+
+        ### Create sphere
+        self.r = 1#(1 + np.sqrt(5)) / 2
+        self.init_vertices = np.array([
+                    [-1.0, self.r, 0.0],
+                    [1.0, self.r, 0.0],
+                    [-1.0, -self.r, 0.0],
+                    [1.0, -self.r, 0.0],
+                    [0.0, -1.0, self.r],
+                    [0.0, 1.0, self.r],
+                    [0.0, -1.0, -self.r],
+                    [0.0, 1.0, -self.r],
+                    [self.r, 0.0, -1.0],
+                    [self.r, 0.0, 1.0],
+                    [-self.r, 0.0, -1.0],
+                    [-self.r, 0.0, 1.0]
+                ])
+        self.init_faces = np.array([
+                    [0, 11, 5],
+                    [0, 5, 1],
+                    [0, 1, 7],
+                    [0, 7, 10],
+                    [0, 10, 11],
+                    [1, 5, 9],
+                    [5, 11, 4],
+                    [11, 10, 2],
+                    [10, 7, 6],
+                    [7, 1, 8],
+                    [3, 9, 4],
+                    [3, 4, 2],
+                    [3, 2, 6],
+                    [3, 6, 8],
+                    [3, 8, 9],
+                    [4, 9, 5],
+                    [2, 4, 11],
+                    [6, 2, 10],
+                    [8, 6, 7],
+                    [9, 8, 1]
+                ])
+        self.sdtimes = subdivisionTimes
+        [usV, usF] = geometry.subdivide_triangle(self.init_vertices,self.init_faces,self.sdtimes) # Compute the radius of all the vertices
+        sphereR = geometry.vecNorm(usV[0,:])  # Compute the radius of all the vertices
+        tileCen = np.mean(usV[usF, :], axis=1)  # Compute the center of each triangle tiles
+
+        # Create index buffer
+        Iout = np.arange(usF.size, dtype=np.uint32)
+        self.indices = Iout
+
+        # Create vertex buffer
+        # The orientation of each triangle tile is defined as the direction perpendicular to the first edge of the triangle;
+        # Here each orientation vector is represented by a complex number for the convenience of later computation
+        tileOri = geometry.vecNormalize(np.cross(tileCen,usV[usF[:,1],:] - usV[usF[:,0],:])) \
+                  + 1.j * geometry.vecNormalize(usV[usF[:,1],:] - usV[usF[:,0],:])
+        tileDist = geometry.sphAngle(tileCen,sphereR)  # Spherical distance for each tile pair
+        usF = np.uint32(usF.flatten())
+        # Triangles must not share edges/vertices while doing texture mapping, this line duplicate the shared vertices for each triangle
+        self.a_position = geometry.vecNormalize(usV[usF,:])
+        self.a_texcoord = geometry.cen2tri(np.random.rand(np.int(Iout.size / 3)),np.random.rand(np.int(Iout.size / 3)),.1).reshape([Iout.size,2])
+
+        self.tile_orientation = tileOri
+        self.tile_center      = tileCen
+        self.intertile_distance = tileDist
+
+class Insta360Calibrated:
+    """
+    !!! DOESN'T WORK CURRENTLY !!!
+    """
+
+    def __init__(self, filename):
+
+        self.addAttribute(('a_texcoord', np.float32, 2))
+
+        self.filename = '{}.mat'.format(filename)
+
+        self.file = h5py.File(os.path.join(Path.Model, 'LUTs', self.filename), 'r')
+        data = self.file['xyz0'][:]
+        self.validIdcs = np.arange(data.shape[0])[np.isfinite(data[:,0])]
+
+        x = (self.validIdcs / 315) / 630
+        y = (self.validIdcs % 315) / 315
+
+        self.a_texcoord = np.array([x,y])
+        vertices = geometry.vecNormalize(data[self.validIdcs,:])
+        vertices = geometry.qn(vertices)
+
+        vertices = geometry.rotate(geometry.qn([1,0,0]),vertices,np.pi / 2)
+        #vertices = Geometry.rotate(Geometry.qn([0, 0, 1]), vertices, -np.pi / 4)
+        #vertices = Geometry.rotate(Geometry.qn([0, 1, 0]), vertices, np.pi / 2)
+
+        vertices = vertices.matrixform[:,1:]
+        self.a_position = vertices
+
+        self.indices = Delaunay(self.a_texcoord.T).simplices
+
+
+        self.createBuffers()

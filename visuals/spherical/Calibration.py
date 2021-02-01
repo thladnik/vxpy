@@ -19,9 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from visuals import SphericalVisual
-from models import BasicSphere
-from Shader import BasicFileShader
+from core.visual import SphericalVisual
+from utils import sphere
+
 
 class BlackWhiteCheckerboard(SphericalVisual):
 
@@ -39,7 +39,7 @@ class BlackWhiteCheckerboard(SphericalVisual):
         """
         SphericalVisual.__init__(self, *args)
 
-        self.sphere = BasicSphere.UVSphere(azim_lvls=100, elev_lvls=50, azimuth_range=2*np.pi, upper_elev=np.pi/2)
+        self.sphere = sphere.UVSphere(azim_lvls=100,elev_lvls=50,azimuth_range=2 * np.pi,upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
@@ -77,7 +77,7 @@ class RegularMesh(SphericalVisual):
     def __init__(self, *args, **params):
         SphericalVisual.__init__(self, *args)
 
-        self.sphere = BasicSphere.UVSphere(azim_lvls=100, elev_lvls=50, azimuth_range=2*np.pi, upper_elev=np.pi/2)
+        self.sphere = sphere.UVSphere(azim_lvls=100,elev_lvls=50,azimuth_range=2 * np.pi,upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)

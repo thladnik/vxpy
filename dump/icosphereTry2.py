@@ -5,7 +5,7 @@
 # -----------------------------------------------------------------------------
 import numpy as np
 from scipy import signal
-from helper.Geometry import *
+from utils.geometry import *
 from glumpy import app, gl, glm, gloo
 
 ## Define vertex and fragment shaders
