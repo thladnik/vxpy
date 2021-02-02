@@ -25,10 +25,11 @@ from utils import sphere
 
 class BlackWhiteCheckerboard(SphericalVisual):
 
-    u_rows = 'u_rows'
-    u_cols = 'u_cols'
+    u_elevation_sf = 'u_elevation_sf'
+    u_azimuth_sf = 'u_azimuth_sf'
 
-    parameters = {u_rows: None, u_cols: None}
+    parameters = {u_elevation_sf: None,
+                  u_azimuth_sf: None}
 
     def __init__(self, *args, **params):
         """Black-and-white checkerboard for calibration.

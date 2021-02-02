@@ -26,9 +26,9 @@ class Calibration16x16(StaticProtocol):
     def __init__(self, *args):
         StaticProtocol.__init__(self, *args)
 
-        self.add_phase(BlackWhiteCheckerboard, 10**6,
-                       {BlackWhiteCheckerboard.u_rows: 16,
-                        BlackWhiteCheckerboard.u_cols: 16})
+        self.add_phase(BlackWhiteCheckerboard,10 ** 6,
+                       {BlackWhiteCheckerboard.u_elevation_sf: 16,
+                        BlackWhiteCheckerboard.u_azimuth_sf: 16})
 
 
 class CalibrationMultiple(StaticProtocol):
@@ -39,9 +39,9 @@ class CalibrationMultiple(StaticProtocol):
 
         for num in range(5):
 
-            self.add_phase(BlackWhiteCheckerboard, 10,
-                           {BlackWhiteCheckerboard.u_rows: 4 * (1 + num),
-                            BlackWhiteCheckerboard.u_cols: 4 * (1 + num)})
+            self.add_phase(BlackWhiteCheckerboard,10,
+                           {BlackWhiteCheckerboard.u_elevation_sf: 4 * (1 + num),
+                            BlackWhiteCheckerboard.u_azimuth_sf: 4 * (1 + num)})
 
 class RegularMesh16x16(StaticProtocol):
 

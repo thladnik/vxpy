@@ -23,25 +23,25 @@ from core.visual import PlanarVisual
 from utils import plane
 
 
-class Checkerboard(PlanarVisual):
+class Sinusoid2d(PlanarVisual):
 
-    u_rows = 'u_rows'
-    u_cols = 'u_cols'
+    u_sf_vertical = 'u_sf_vertical'
+    u_sf_horizontal = 'u_sf_horizontal'
+    u_checker_pattern = 'u_checker_pattern'
 
-    parameters = {u_rows: None,
-                  u_cols: None}
+    parameters = {u_sf_vertical: None,
+                  u_sf_horizontal: None,
+                  u_checker_pattern: None}
 
     def __init__(self, *args, **params):
         PlanarVisual.__init__(self, *args)
 
         self.plane = plane.VerticalXYPlane()
-        self.index_buffer = gloo.IndexBuffer(
-            np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
-        self.position_buffer = gloo.VertexBuffer(
-            np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.checker = gloo.Program(self.load_vertex_shader('planar/checker.vert'),
-                                    self.load_shader('planar/checker.frag'))
+        self.checker = gloo.Program(self.load_vertex_shader('planar/sinusoid_2d.vert'),
+                                    self.load_shader('planar/sinusoid_2d.frag'))
         self.checker['a_position'] = self.position_buffer
 
         self.update(**params)

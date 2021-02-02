@@ -62,8 +62,6 @@ class UVSphere:
         self.indices = np.ascontiguousarray(np.array(idcs).flatten(), dtype=np.uint32)
 
 
-
-
 class IcosahedronSphere:
     """
     !!! DOESN'T WORK CURRENTLY

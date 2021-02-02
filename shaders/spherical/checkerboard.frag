@@ -2,17 +2,17 @@
 
 const float c_pi = 3.14159265359;
 
-uniform int u_rows;
-uniform int u_cols;
+uniform float u_elevation_sf; // in 1/deg
+uniform float u_azimuth_sf; // in 1/deg
 
-varying float v_azimuth;
-varying float v_elevation;
+varying float v_azimuth; // in rad
+varying float v_elevation; // in rad
 
 void main()
 {
 
     // Construct checkerboard
-    float c = sin(float(u_cols) / 2.0 * v_azimuth) * sin(float(u_rows) * v_elevation);
+    float c = sin(u_azimuth_sf * 360.0 * v_azimuth) * sin(u_elevation_sf * 360.0 * v_elevation);
 
     // Thresholding
     if (c > 0) {

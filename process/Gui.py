@@ -122,7 +122,8 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         w, h = self.screenGeo.width(), self.screenGeo.height()
 
         if w > 1920 and h > 1080:
-            self.resize(1920, 1080)
+            #self.resize(1920, 1080)
+            self.resize(70 * w // 100, 70 * h // 100)
             self.show()
         else:
             #self.resize(800, 800)

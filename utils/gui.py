@@ -61,6 +61,9 @@ class DoubleSliderWidget(QtWidgets.QWidget):
 
         self._exc_callback()
 
+    def get_value(self):
+        return self.spinner.value()
+
     def set_value(self, value):
         self.spinner.setValue(value)
 
@@ -134,6 +137,9 @@ class IntSliderWidget(QtWidgets.QWidget):
         self.slider.blockSignals(False)
 
         self._exc_callback()
+
+    def get_value(self):
+        return self.spinner.value()
 
     def set_value(self, value):
         self.spinner.setValue(value)

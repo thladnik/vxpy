@@ -7,6 +7,7 @@ import Config
 import Def
 from startup import settings
 from startup.utils import ModuleWidget
+from utils.gui import DoubleSliderWidget, IntSliderWidget
 
 class Canvas(app.Canvas):
 
@@ -151,10 +152,10 @@ class DisplayScreenSelection(QtWidgets.QGroupBox):
 
                 print('Set display to fullscreen on screen {}'.format(i))
 
-                self.main.global_settings.spn_win_x.set_value(screen[0])
-                self.main.global_settings.spn_win_y.set_value(screen[1])
-                self.main.global_settings.spn_win_width.set_value(screen[2])
-                self.main.global_settings.spn_win_height.set_value(screen[3])
+                self.main.global_settings.win_x_pos.set_value(screen[0])
+                self.main.global_settings.win_y_pos.set_value(screen[1])
+                self.main.global_settings.win_width.set_value(screen[2])
+                self.main.global_settings.win_height.set_value(screen[3])
 
 
                 # Update window settings
@@ -225,41 +226,24 @@ class DisplayCalibration(QtWidgets.QGroupBox):
 
         # Planar checkerboard
         self.grp_pla_checker = QtWidgets.QGroupBox('Planar Checkerboard')
-        self.grp_pla_checker.setLayout(QtWidgets.QGridLayout())
+        self.grp_pla_checker.setLayout(QtWidgets.QVBoxLayout())
         self.layout().addWidget(self.grp_pla_checker)
-        # Rows
-        self.grp_pla_checker.layout().addWidget(QtWidgets.QLabel('Num. rows [1/mm]'), 0, 0)
-        self.grp_pla_checker.dspn_rows = QtWidgets.QSpinBox()
-        self.grp_pla_checker.dspn_rows.setValue(9)
-        self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.dspn_rows, 0, 1)
-        # Cols
-        self.grp_pla_checker.layout().addWidget(QtWidgets.QLabel('Num. cols [1/mm]'), 1, 0)
-        self.grp_pla_checker.dspn_cols = QtWidgets.QSpinBox()
-        self.grp_pla_checker.dspn_cols.setValue(9)
-        self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.dspn_cols, 1, 1)
+        # Vertical SF
+        self.grp_pla_checker.vertical_sf = DoubleSliderWidget('Vertical SF [1/mm]', .001, 1., .1,
+                                                              step_size=.001, decimals=3, label_width=100)
+        self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.vertical_sf)
+        # Horizontal SF
+        self.grp_pla_checker.horizontal_sf = DoubleSliderWidget('Horizontal SF [1/mm]', .001, 1., .1,
+                                                                step_size=.001, decimals=3, label_width=100)
+        self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.horizontal_sf)
         # Show button
         self.grp_pla_checker.btn_show = QtWidgets.QPushButton('Show')
         self.grp_pla_checker.btn_show.clicked.connect(self.show_planar_checkerboard)
-        self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.btn_show, 2, 0, 1, 2)
+        self.grp_pla_checker.layout().addWidget(self.grp_pla_checker.btn_show)
 
         # Spherical checkerboard
-        self.grp_sph_checker = QtWidgets.QGroupBox('Spherical Checkerboard')
-        self.grp_sph_checker.setLayout(QtWidgets.QGridLayout())
+        self.grp_sph_checker = DisplaySphericalCheckerCalibration(self.main)
         self.layout().addWidget(self.grp_sph_checker)
-        # Rows
-        self.grp_sph_checker.layout().addWidget(QtWidgets.QLabel('Num. rows'), 0, 0)
-        self.grp_sph_checker.dspn_rows = QtWidgets.QSpinBox()
-        self.grp_sph_checker.dspn_rows.setValue(32)
-        self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.dspn_rows, 0, 1)
-        # Cols
-        self.grp_sph_checker.layout().addWidget(QtWidgets.QLabel('Num. cols'), 1, 0)
-        self.grp_sph_checker.dspn_cols = QtWidgets.QSpinBox()
-        self.grp_sph_checker.dspn_cols.setValue(32)
-        self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.dspn_cols, 1, 1)
-        # Show button
-        self.grp_sph_checker.btn_show = QtWidgets.QPushButton('Show')
-        self.grp_sph_checker.btn_show.clicked.connect(self.show_spherical_checkerboard)
-        self.grp_sph_checker.layout().addWidget(self.grp_sph_checker.btn_show, 2, 0, 1, 2)
 
         # Spherical mesh
         self.grp_sph_mesh = QtWidgets.QGroupBox('Spherical Mesh')
@@ -284,20 +268,13 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         self.layout().addItem(vSpacer)
 
     def show_planar_checkerboard(self):
-        from visuals.planar.Calibration import Checkerboard
-        rows = self.grp_pla_checker.dspn_rows.value(),
-        cols = self.grp_pla_checker.dspn_cols.value()
-        self.main.canvas.visual = Checkerboard(self.main.canvas,
-                                               **{Checkerboard.u_rows : rows,
-                                                  Checkerboard.u_cols : cols})
-
-    def show_spherical_checkerboard(self):
-        from visuals.spherical.Calibration import BlackWhiteCheckerboard
-        rows = self.grp_sph_checker.dspn_rows.value(),
-        cols = self.grp_sph_checker.dspn_cols.value()
-        self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
-                                                         **{BlackWhiteCheckerboard.u_rows : rows,
-                                                            BlackWhiteCheckerboard.u_cols : cols})
+        from visuals.planar.Calibration import Sinusoid2d
+        vertical_sf = self.grp_pla_checker.vertical_sf.get_value(),
+        horizontal_sf = self.grp_pla_checker.horizontal_sf.get_value()
+        self.main.canvas.visual = Sinusoid2d(self.main.canvas,
+                                             **{Sinusoid2d.u_sf_vertical: vertical_sf,
+                                                Sinusoid2d.u_sf_horizontal: horizontal_sf,
+                                                Sinusoid2d.u_checker_pattern: True})
 
     def show_spherical_mesh(self):
         from visuals.spherical.Calibration import RegularMesh
@@ -307,6 +284,39 @@ class DisplayCalibration(QtWidgets.QGroupBox):
                                               **{RegularMesh.u_rows : rows,
                                                  RegularMesh.u_cols : cols})
 
+class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
+    def __init__(self, main):
+        QtWidgets.QGroupBox.__init__(self, 'Spherical Checkerboard')
+        self.main = main
+
+        self.setLayout(QtWidgets.QVBoxLayout())
+        # Vertical SF
+        self.vertical_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
+                                                              step_size=.001, decimals=3, label_width=100)
+        self.vertical_sf.connect_to_result(self.update_sph_checker_elevation_sp)
+        self.layout().addWidget(self.vertical_sf)
+        # Vertical SP
+        self.vertical_sp = QtWidgets.QLineEdit('')
+        self.layout().addWidget(self.vertical_sp)
+        # Horizontal SF
+        self.horizontal_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
+                                                                step_size=.001, decimals=3, label_width=100)
+        self.layout().addWidget(self.horizontal_sf)
+        # Show button
+        self.btn_show = QtWidgets.QPushButton('Show')
+        self.btn_show.clicked.connect(self.show_spherical_checkerboard)
+        self.layout().addWidget(self.btn_show)
+
+    def update_sph_checker_elevation_sp(self, sf):
+        self.vertical_sp.setText('Elevation SP {:.1f} [deg]'.format(1./sf))
+
+    def show_spherical_checkerboard(self):
+        from visuals.spherical.Calibration import BlackWhiteCheckerboard
+        vertical_sf = self.vertical_sf.get_value(),
+        horizontal_sf = self.horizontal_sf.get_value()
+        self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
+                                                         **{BlackWhiteCheckerboard.u_elevation_sf: vertical_sf,
+                                                            BlackWhiteCheckerboard.u_azimuth_sf: horizontal_sf})
 
 class GlobalDisplaySettings(QtWidgets.QGroupBox):
 
@@ -315,50 +325,46 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.main = parent
         self.setLayout(QtWidgets.QVBoxLayout())
 
-
-        from utils.gui import DoubleSliderWidget, IntSliderWidget
-
         # Window x pos
-        self.spn_win_x = IntSliderWidget('Window X-Position', -5000, 5000, 0,
-                                         step_size=1, label_width=100)
-        self.spn_win_x.connect_to_result(self.update_window_x_pos)
-        self.layout().addWidget(self.spn_win_x)
+        self.win_x_pos = IntSliderWidget('Window X-Position',-5000,5000,0,
+                                         step_size=1,label_width=100)
+        self.win_x_pos.connect_to_result(self.update_window_x_pos)
+        self.layout().addWidget(self.win_x_pos)
 
         # Window y pos
-        self.spn_win_y = IntSliderWidget('Window Y-Position', -5000, 5000, 0,
-                                         step_size=1, label_width=100)
-        self.spn_win_y.connect_to_result(self.update_window_y_pos)
-        self.layout().addWidget(self.spn_win_y)
-
+        self.win_y_pos = IntSliderWidget('Window Y-Position',-5000,5000,0,
+                                         step_size=1,label_width=100)
+        self.win_y_pos.connect_to_result(self.update_window_y_pos)
+        self.layout().addWidget(self.win_y_pos)
 
         # Window width
-        self.spn_win_width = IntSliderWidget('Window width', 1, 5000, 0,
-                                         step_size=1, label_width=100)
-        self.spn_win_width.connect_to_result(self.update_window_width)
-        self.layout().addWidget(self.spn_win_width)
+        self.win_width = IntSliderWidget('Window width',1,5000,0,
+                                         step_size=1,label_width=100)
+        self.win_width.connect_to_result(self.update_window_width)
+        self.layout().addWidget(self.win_width)
 
         # Window height
-        self.spn_win_height = IntSliderWidget('Window Y-Position', 1, 5000, 0,
-                                         step_size=1, label_width=100)
-        self.spn_win_height.connect_to_result(self.update_window_height)
-        self.layout().addWidget(self.spn_win_height)
+        self.win_height = IntSliderWidget('Window Y-Position',1,5000,0,
+                                          step_size=1,label_width=100)
+        self.win_height.connect_to_result(self.update_window_height)
+        self.layout().addWidget(self.win_height)
 
-
+        # Use current window settings
         self.btn_use_current_window = QtWidgets.QPushButton('Use current window settings')
         self.btn_use_current_window.clicked.connect(self.use_current_window_settings)
         self.layout().addWidget(self.btn_use_current_window)
 
         # X Position
-        self.dspn_x_pos = DoubleSliderWidget('X-position', -1., 1., 0.,
-                                                     step_size=.001, decimals=3, label_width=100)
-        self.dspn_x_pos.connect_to_result(self.update_x_pos)
-        self.layout().addWidget(self.dspn_x_pos)
+        self.x_pos = DoubleSliderWidget('X-position',-1.,1.,0.,
+                                        step_size=.001,decimals=3,label_width=100)
+        self.x_pos.connect_to_result(self.update_x_pos)
+        self.layout().addWidget(self.x_pos)
 
         # Y Position
-        self.dspn_y_pos = DoubleSliderWidget('Y-position', -1., 1., 0.,
-                                                     step_size=.001, decimals=3, label_width=100)
-        self.dspn_y_pos.connect_to_result(self.update_y_pos)
-        self.layout().addWidget(self.dspn_y_pos)
+        self.y_pos = DoubleSliderWidget('Y-position',-1.,1.,0.,
+                                        step_size=.001,decimals=3,label_width=100)
+        self.y_pos.connect_to_result(self.update_y_pos)
+        self.layout().addWidget(self.y_pos)
 
 
         spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -405,21 +411,21 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         geo = self.main.canvas._native_window.geometry()
         fgeo = self.main.canvas._native_window.frameGeometry()
 
-        self.spn_win_width.setValue(geo.width())
-        self.spn_win_height.setValue(geo.height())
+        self.win_width.setValue(geo.width())
+        self.win_height.setValue(geo.height())
 
-        self.spn_win_x.setValue(fgeo.x())
-        self.spn_win_y.setValue(fgeo.y())
+        self.win_x_pos.setValue(fgeo.x())
+        self.win_y_pos.setValue(fgeo.y())
 
     def load_settings_from_config(self):
         section = Def.DisplayCfg.name
 
-        self.spn_win_x.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.window_pos_x))
-        self.spn_win_y.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.window_pos_y))
-        self.spn_win_width.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.window_width))
-        self.spn_win_height.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.window_height))
-        self.dspn_x_pos.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.glob_x_pos))
-        self.dspn_y_pos.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.glob_y_pos))
+        self.win_x_pos.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.window_pos_x))
+        self.win_y_pos.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.window_pos_y))
+        self.win_width.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.window_width))
+        self.win_height.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.window_height))
+        self.x_pos.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.glob_x_pos))
+        self.y_pos.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.glob_y_pos))
 
 
 class SphericalDisplaySettings(QtWidgets.QGroupBox):
@@ -429,43 +435,41 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
         self.main = parent
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        from utils.gui import DoubleSliderWidget
-
         # Radial offset
-        self.dspn_radial_offset = DoubleSliderWidget('Radial offset', -1., 1., 0.,
-                                                     step_size=.001, decimals=3, label_width=100)
-        self.dspn_radial_offset.connect_to_result(self.update_radial_offset)
-        self.layout().addWidget(self.dspn_radial_offset)
+        self.radial_offset = DoubleSliderWidget('Radial offset',-1.,1.,0.,
+                                                step_size=.001,decimals=3,label_width=100)
+        self.radial_offset.connect_to_result(self.update_radial_offset)
+        self.layout().addWidget(self.radial_offset)
 
         # Elevation
-        self.dspn_view_elev_angle = DoubleSliderWidget('Elevation [deg]', -90., 90., 0.,
-                                                       step_size=.1, decimals=1, label_width=100)
-        self.dspn_view_elev_angle.connect_to_result(self.update_elevation)
-        self.layout().addWidget(self.dspn_view_elev_angle)
+        self.view_elev_angle = DoubleSliderWidget('Elevation [deg]',-90.,90.,0.,
+                                                  step_size=.1,decimals=1,label_width=100)
+        self.view_elev_angle.connect_to_result(self.update_elevation)
+        self.layout().addWidget(self.view_elev_angle)
 
         # Azimuth
-        self.dspn_view_azim_angle = DoubleSliderWidget('Azimuth [deg]', -180., 180., 0.,
-                                                       step_size=.1, decimals=1, label_width=100)
-        self.dspn_view_azim_angle.connect_to_result(self.update_azimuth)
-        self.layout().addWidget(self.dspn_view_azim_angle)
+        self.view_azim_angle = DoubleSliderWidget('Azimuth [deg]',-180.,180.,0.,
+                                                  step_size=.1,decimals=1,label_width=100)
+        self.view_azim_angle.connect_to_result(self.update_azimuth)
+        self.layout().addWidget(self.view_azim_angle)
 
         # View distance
-        self.dspn_view_distance = DoubleSliderWidget('Distance [norm]', 1., 50., 5.,
-                                                       step_size=.05, decimals=2, label_width=100)
-        self.dspn_view_distance.connect_to_result(self.update_view_distance)
-        self.layout().addWidget(self.dspn_view_distance)
+        self.view_distance = DoubleSliderWidget('Distance [norm]',1.,50.,5.,
+                                                step_size=.05,decimals=2,label_width=100)
+        self.view_distance.connect_to_result(self.update_view_distance)
+        self.layout().addWidget(self.view_distance)
 
         # FOV
-        self.dspn_view_fov = DoubleSliderWidget('FOV [deg]', .1, 179., 70.,
-                                                       step_size=.05, decimals=2, label_width=100)
-        self.dspn_view_fov.connect_to_result(self.update_view_fov)
-        self.layout().addWidget(self.dspn_view_fov)
+        self.view_fov = DoubleSliderWidget('FOV [deg]',.1,179.,70.,
+                                           step_size=.05,decimals=2,label_width=100)
+        self.view_fov.connect_to_result(self.update_view_fov)
+        self.layout().addWidget(self.view_fov)
 
         # View scale
-        self.dspn_view_scale = DoubleSliderWidget('Scale [norm]', .001, 10., 1.,
-                                                       step_size=.001, decimals=3, label_width=100)
-        self.dspn_view_scale.connect_to_result(self.update_view_scale)
-        self.layout().addWidget(self.dspn_view_scale)
+        self.view_scale = DoubleSliderWidget('Scale [norm]',.001,10.,1.,
+                                             step_size=.001,decimals=3,label_width=100)
+        self.view_scale.connect_to_result(self.update_view_scale)
+        self.layout().addWidget(self.view_scale)
 
         spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(spacer)
@@ -510,12 +514,12 @@ class SphericalDisplaySettings(QtWidgets.QGroupBox):
     def load_settings_from_config(self):
         section = Def.DisplayCfg.name
 
-        self.dspn_radial_offset.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.sph_pos_glob_radial_offset))
-        self.dspn_view_elev_angle.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.sph_view_elev_angle))
-        self.dspn_view_azim_angle.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.sph_view_azim_angle))
-        self.dspn_view_distance.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.sph_view_distance))
-        self.dspn_view_fov.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.sph_view_fov))
-        self.dspn_view_scale.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.sph_view_scale))
+        self.radial_offset.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.sph_pos_glob_radial_offset))
+        self.view_elev_angle.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.sph_view_elev_angle))
+        self.view_azim_angle.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.sph_view_azim_angle))
+        self.view_distance.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.sph_view_distance))
+        self.view_fov.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.sph_view_fov))
+        self.view_scale.set_value(settings.current_config.getParsed(section,Def.DisplayCfg.sph_view_scale))
 
 
 class PlanarDisplaySettings(QtWidgets.QGroupBox):
@@ -524,44 +528,46 @@ class PlanarDisplaySettings(QtWidgets.QGroupBox):
         QtWidgets.QGroupBox.__init__(self, 'Planar')
         self.main = parent
 
-        self.setLayout(QtWidgets.QGridLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
 
         # X extent
-        self.dspn_x_extent = QtWidgets.QDoubleSpinBox()
-        self.dspn_x_extent.setDecimals(3)
-        self.dspn_x_extent.setMinimum(0.0)
-        self.dspn_x_extent.setSingleStep(.001)
-        self.dspn_x_extent.valueChanged.connect(lambda: settings.current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.pla_xextent,
-                                                                             self.dspn_x_extent.value()))
-        self.dspn_x_extent.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('X-Extent [rel]'), 0, 0)
-        self.layout().addWidget(self.dspn_x_extent, 0, 1)
+        self.x_extent = DoubleSliderWidget('X-extent [rel]', 0., 10., 1.,
+                                                     step_size=.001, decimals=3, label_width=100)
+        self.x_extent.connect_to_result(self.update_x_extent)
+        self.layout().addWidget(self.x_extent)
+
         # Y extent
-        self.dspn_y_extent = QtWidgets.QDoubleSpinBox()
-        self.dspn_y_extent.setDecimals(3)
-        self.dspn_y_extent.setMinimum(0.0)
-        self.dspn_y_extent.setSingleStep(.001)
-        self.dspn_y_extent.valueChanged.connect(lambda: settings.current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.pla_yextent,
-                                                                             self.dspn_y_extent.value()))
-        self.dspn_y_extent.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Y-Extent [rel]'), 1, 0)
-        self.layout().addWidget(self.dspn_y_extent, 1, 1)
-        # Small side dimensions
-        self.dspn_small_side = QtWidgets.QDoubleSpinBox()
-        self.dspn_small_side.setDecimals(3)
-        self.dspn_small_side.setSingleStep(.001)
-        self.dspn_small_side.valueChanged.connect(lambda: settings.current_config.setParsed(Def.DisplayCfg.name,
-                                                                             Def.DisplayCfg.pla_small_side,
-                                                                             self.dspn_small_side.value()))
-        self.dspn_small_side.valueChanged.connect(self.main.update_window)
-        self.layout().addWidget(QtWidgets.QLabel('Small side [mm]'), 2, 0)
-        self.layout().addWidget(self.dspn_small_side, 2, 1)
+        self.y_extent = DoubleSliderWidget('Y-extent [rel]', 0., 10., 1.,
+                                                     step_size=.001, decimals=3, label_width=100)
+        self.y_extent.connect_to_result(self.update_y_extent)
+        self.layout().addWidget(self.y_extent)
+
+        # Small side
+        self.small_side = IntSliderWidget('Small side [mm]', 1, 10*4, 100, label_width=100)
+        self.small_side.connect_to_result(self.update_small_side)
+        self.layout().addWidget(self.small_side)
+
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.layout().addItem(spacer)
 
     def load_settings_from_config(self):
         section = Def.DisplayCfg.name
 
-        self.dspn_x_extent.setValue(settings.current_config.getParsed(section, Def.DisplayCfg.pla_xextent))
-        self.dspn_y_extent.setValue(settings.current_config.getParsed(section, Def.DisplayCfg.pla_yextent))
-        self.dspn_small_side.setValue(settings.current_config.getParsed(section, Def.DisplayCfg.pla_small_side))
+        self.x_extent.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.pla_xextent))
+        self.y_extent.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.pla_yextent))
+        self.small_side.set_value(settings.current_config.getParsed(section, Def.DisplayCfg.pla_small_side))
+
+    def update_x_extent(self, x_extent):
+        settings.current_config.setParsed(Def.DisplayCfg.name,
+                                          Def.DisplayCfg.pla_xextent,
+                                          x_extent)
+
+    def update_y_extent(self, y_extent):
+        settings.current_config.setParsed(Def.DisplayCfg.name,
+                                          Def.DisplayCfg.pla_yextent,
+                                          y_extent)
+
+    def update_small_side(self, small_side):
+        settings.current_config.setParsed(Def.DisplayCfg.name,
+                                          Def.DisplayCfg.pla_small_side,
+                                          small_side)

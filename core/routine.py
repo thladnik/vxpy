@@ -143,7 +143,7 @@ class Routines:
 
             dshape = value.shape
             dtype = value.dtype
-            assert np.issubdtype(dtype, np.number), \
+            assert np.issubdtype(dtype, np.number) or dtype == bool, \
                 f'Unable save non-numerical value "{value}" to dataset "{key}" in group {grp.name}'
 
             self._create_dataset(grp.name.split('/')[-1], key, dshape, dtype)

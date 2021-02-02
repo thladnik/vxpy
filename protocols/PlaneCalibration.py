@@ -18,46 +18,61 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from core.protocol import StaticProtocol
 
-from visuals.planar.Calibration import Checkerboard
+from visuals.planar.Calibration import Sinusoid2d
 
-class Checkerboard_2x2(StaticProtocol):
-
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
-        self.add_phase(Checkerboard, 10 ** 8,
-                       {Checkerboard.u_cols: 2, Checkerboard.u_rows: 2})
-
-class Checkerboard_3x3(StaticProtocol):
+class Checkerboard_sp10xsp10(StaticProtocol):
 
     def __init__(self, canvas):
         StaticProtocol.__init__(self, canvas)
-        self.add_phase(Checkerboard, 10 ** 8,
-                       {Checkerboard.u_cols: 3, Checkerboard.u_rows: 3})
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 10, Sinusoid2d.u_sf_vertical: 1. / 10, Sinusoid2d.u_checker_pattern: True})
 
-class Checkerboard_4x4(StaticProtocol):
-
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
-        self.add_phase(Checkerboard, 10 ** 8,
-                       {Checkerboard.u_cols: 4, Checkerboard.u_rows: 4})
-
-class Checkerboard_6x6(StaticProtocol):
+class Checkerboard_sp20xsp20(StaticProtocol):
 
     def __init__(self, canvas):
         StaticProtocol.__init__(self, canvas)
-        self.add_phase(Checkerboard, 10 ** 8,
-                       {Checkerboard.u_cols: 6, Checkerboard.u_rows: 6})
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 20, Sinusoid2d.u_sf_vertical: 1. / 20, Sinusoid2d.u_checker_pattern: True})
 
-class Checkerboard_8x8(StaticProtocol):
-
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
-        self.add_phase(Checkerboard, 10 ** 8,
-                       {Checkerboard.u_cols: 8, Checkerboard.u_rows: 8})
-
-class Checkerboard_16x16(StaticProtocol):
+class Checkerboard_sp20xsp40(StaticProtocol):
 
     def __init__(self, canvas):
         StaticProtocol.__init__(self, canvas)
-        self.add_phase(Checkerboard, 10 ** 8,
-                       {Checkerboard.u_cols: 16, Checkerboard.u_rows: 16})
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 20, Sinusoid2d.u_sf_vertical: 1. / 40, Sinusoid2d.u_checker_pattern: True})
+
+class Checkerboard_sp40xsp40(StaticProtocol):
+
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 40, Sinusoid2d.u_sf_vertical: 1. / 40, Sinusoid2d.u_checker_pattern: True})
+
+class Checkerboard_sp80xsp40(StaticProtocol):
+
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 80, Sinusoid2d.u_sf_vertical: 1. / 40, Sinusoid2d.u_checker_pattern: True})
+
+class Checkerboard_sp80xsp80(StaticProtocol):
+
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 80, Sinusoid2d.u_sf_vertical: 1. / 80, Sinusoid2d.u_checker_pattern: True})
+
+
+class Sinusoid2d_sp10xsp10(StaticProtocol):
+
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 10, Sinusoid2d.u_sf_vertical: 1. / 10, Sinusoid2d.u_checker_pattern: False})
+
+class Sinusoid2d_sp20xsp20(StaticProtocol):
+
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+        self.add_phase(Sinusoid2d,10 ** 8,
+                       {Sinusoid2d.u_sf_horizontal: 1. / 20, Sinusoid2d.u_sf_vertical: 1. / 20, Sinusoid2d.u_checker_pattern: False})
