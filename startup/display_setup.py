@@ -543,7 +543,7 @@ class PlanarDisplaySettings(QtWidgets.QGroupBox):
         self.layout().addWidget(self.y_extent)
 
         # Small side
-        self.small_side = IntSliderWidget('Small side [mm]', 1, 10*4, 100, label_width=100)
+        self.small_side = IntSliderWidget('Small side [mm]', 1, 1000, 100, label_width=100)
         self.small_side.connect_to_result(self.update_small_side)
         self.layout().addWidget(self.small_side)
 
@@ -561,13 +561,16 @@ class PlanarDisplaySettings(QtWidgets.QGroupBox):
         settings.current_config.setParsed(Def.DisplayCfg.name,
                                           Def.DisplayCfg.pla_xextent,
                                           x_extent)
+        self.main.update_window()
 
     def update_y_extent(self, y_extent):
         settings.current_config.setParsed(Def.DisplayCfg.name,
                                           Def.DisplayCfg.pla_yextent,
                                           y_extent)
+        self.main.update_window()
 
     def update_small_side(self, small_side):
         settings.current_config.setParsed(Def.DisplayCfg.name,
                                           Def.DisplayCfg.pla_small_side,
                                           small_side)
+        self.main.update_window()
