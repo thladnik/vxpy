@@ -30,7 +30,7 @@ import process
 
 
 class Gui(QtWidgets.QMainWindow, AbstractProcess):
-    name = Def.Process.GUI
+    name = Def.Process.Gui
 
     app : QtWidgets.QApplication
 

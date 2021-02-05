@@ -153,21 +153,21 @@ class EyePositionDetection(CameraRoutine):
             start_idx = self.buffer.get_index() + 1
             # Send buffer attributes to plotter
             # Position
-            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_le_pos_prefix}{id}',
+            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_le_pos_prefix}{id}',
                                           start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
-            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_re_pos_prefix}{id}',
+            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_re_pos_prefix}{id}',
                                           start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
 
             # Velocity
-            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_le_vel_prefix}{id}',
+            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_le_vel_prefix}{id}',
                                           start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
-            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.ang_re_vel_prefix}{id}',
+            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_re_vel_prefix}{id}',
                                           start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
 
             # Saccade trigger
-            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.le_sacc_prefix}{id}',
+            self.register_with_ui_plotter(EyePositionDetection, f'{self.le_sacc_prefix}{id}',
                                           start_idx, name=f'sacc(LE {id})', axis='sacc')
-            self.register_with_ui_plotter(f'{EyePositionDetection.__name__}/{self.re_sacc_prefix}{id}',
+            self.register_with_ui_plotter(EyePositionDetection, f'{self.re_sacc_prefix}{id}',
                                           start_idx, name=f'sacc(RE {id})', axis='sacc')
 
             # Add attributes to save-to-file list:
@@ -177,7 +177,6 @@ class EyePositionDetection(CameraRoutine):
             self.file_attrs.append(f'{self.ang_re_vel_prefix}{id}')
             self.file_attrs.append(f'{self.le_sacc_prefix}{id}')
             self.file_attrs.append(f'{self.re_sacc_prefix}{id}')
-
 
         self.rois[id] = params
 

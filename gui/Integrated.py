@@ -31,7 +31,6 @@ import Logging
 from process import Gui
 import protocols
 
-from core.routine import Routines
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -189,7 +188,7 @@ class ProcessMonitor(IntegratedWidget):
         ## Gui process status
         self._le_guiState = QtWidgets.QLineEdit('')
         self._le_guiState.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.GUI), 3, 0)
+        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Gui),3,0)
         self.layout().addWidget(self._le_guiState, 3, 1)
 
         ## IO process status
@@ -239,7 +238,7 @@ class ProcessMonitor(IntegratedWidget):
         self._setProcessState(self._le_controllerState, IPC.get_state(Def.Process.Controller))
         self._setProcessState(self._le_cameraState, IPC.get_state(Def.Process.Camera))
         self._setProcessState(self._le_displayState, IPC.get_state(Def.Process.Display))
-        self._setProcessState(self._le_guiState, IPC.get_state(Def.Process.GUI))
+        self._setProcessState(self._le_guiState,IPC.get_state(Def.Process.Gui))
         self._setProcessState(self._le_ioState, IPC.get_state(Def.Process.Io))
         self._setProcessState(self._le_workerState, IPC.get_state(Def.Process.Worker))
 
@@ -503,17 +502,7 @@ class Camera(IntegratedWidget):
 
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
-        routines = Config.Camera[Def.CameraCfg.routines]
-        if bool(routines):
-            # Use first routine in list
-            routine = routines[list(routines.keys())[0]][0]
-            self.used_buffer = IPC.Routines.Camera.get_buffer(routine)
-            # Grab times for first random attribute
-            self.first_attr_name = self.used_buffer.list_attributes()[0]
-
-            Logging.write(Logging.INFO,
-                          f'Camera UI using attribute "{routine}/{self.first_attr_name}"'
-                          'for FPS estimation')
+        if bool(Config.Camera[Def.CameraCfg.routines]):
 
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
@@ -529,21 +518,6 @@ class Camera(IntegratedWidget):
         # Update frames in tabbed widgets
         for idx in range(self.tab_widget.count()):
             self.tab_widget.widget(idx).update_frame()
-
-        # Update FPS counter
-        # target_fps = Config.Camera[Def.CameraCfg.fps]
-        # frametimes = getattr(self.used_buffer, self.first_attr_name).get_times(target_fps//2)
-
-        # if any([t is None for t in frametimes]):
-        #     return
-
-        # Display FPS
-        # frame_dts = [v2-v1 for v1, v2 in zip(frametimes[:-1], frametimes[1:])]
-        # mean_frame_dt = sum(frame_dts) / (len(frametimes)-1)
-        # fps = 1./mean_frame_dt
-        # if any([dt < 0 for dt in frame_dts]):
-        #     print('FPS:', fps, frametimes)
-        # self.fps_counter.setText('FPS {:.1f}/{:.1f}'.format(fps, target_fps))
 
 
 import h5py
@@ -681,9 +655,9 @@ class Plotter(IntegratedWidget):
             ax['vb'].setGeometry(self.plot_item.vb.sceneBoundingRect())
             ax['vb'].linkedViewChanged(self.plot_item.vb, ax['vb'].XAxis)
 
-    def add_buffer_attribute(self, process_name, attr_name, start_idx=0, name=None, axis=None):
+    def add_buffer_attribute(self, routine_cls, attr_name, start_idx=0, name=None, axis=None):
 
-        id = (process_name, attr_name)
+        id = (routine_cls, attr_name)
 
         # Set axis
         if axis is None:
@@ -691,7 +665,7 @@ class Plotter(IntegratedWidget):
 
         # Set name
         if name is None:
-            name = f'{process_name}:{attr_name}'
+            name = f'{routine_cls}:{attr_name}'
 
         if axis not in self.axes:
             self.axes[axis] = dict(axis=pg.AxisItem('left'), vb=pg.ViewBox())
@@ -742,12 +716,12 @@ class Plotter(IntegratedWidget):
 
     def read_buffer_data(self):
 
-        for (process_name, attr_name), data in self.plot_data.items():
+        for (routine_cls, attr_name), data in self.plot_data.items():
 
             # Read new values from buffer
-            routines: Routines = getattr(IPC.Routines, process_name)
+            process_name = routine_cls.process_name
             try:
-                n_idcs, n_times, n_data = routines.read(attr_name, from_idx=data['last_idx'])
+                n_idcs, n_times, n_data = getattr(IPC, process_name).read(routine_cls, attr_name, from_idx=data['last_idx'])
             except Exception as exc:
                 Logging.write(Logging.WARNING,
                               f'Problem trying to read {process_name}:{attr_name} from_idx={data["last_idx"]}'

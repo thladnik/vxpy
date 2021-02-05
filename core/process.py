@@ -16,7 +16,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
+from __future__ import annotations
+import h5py
+import multiprocessing as mp
+import numpy as np
+import os
 import signal
 import sys
 import time
@@ -25,6 +29,7 @@ import Config
 import Def
 import IPC
 import Logging
+from core.routine import ArrayAttribute
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -32,7 +37,7 @@ if Def.Env == Def.EnvTypes.Dev:
 # Type hinting
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Tuple
+    from typing import Any, Callable, Dict, Tuple, Type, Union
     from core.routine import AbstractRoutine
 
 ##################################
@@ -56,12 +61,16 @@ class AbstractProcess:
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
 
-    _routines: dict = dict()
+    _routines: Dict[str, Dict[str, AbstractRoutine]] = dict()
+    h5_file: Union[None, h5py.File] = None
+    record_group: Union[None, h5py.Group] = None
+    compression_args: Dict[str, Any] = dict()
 
     def __init__(self,
                  _configurations=None,
                  _controls=None,
                  _log=None,
+                 _proxies=None,
                  _pipes=None,
                  _routines=None,
                  _states=None,
@@ -71,29 +80,26 @@ class AbstractProcess:
         IPC.Process = self
 
         # Set routines and let routine wrapper create hooks in process instance and initialize buffers
-        if not(_routines is None):
-            for bkey, routines in _routines.items():
-                ## Set routines object
-                setattr(IPC.Routines, bkey, routines)
+        if isinstance(_routines, dict):
+            self._routines = _routines
 
-                if not(routines is None):
-                    ## Create method hooks in process class instance
-                    try:
-                        routines.create_hooks(self)
-                    except:
-                        # This is a workaround. Please do not remove or you'll break the GUI.
-                        # In order for some IPC features to work the, AbstractProcess init has to be
-                        # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI process.
-                        # Doing this, however, causes an exception about failing to call
-                        # the QMainWindow super-class init, since "createHooks" directly sets attributes
-                        # on the new, uninitialized QMainWindow sub-class.
-                        # Catching this exception prevents a crash.
-                        # Why this is the case? Well... once upon a time in land far, far away...
-                        # -> #JustPythonStuff
-                        pass
+            for process_routines in self._routines.values():
+                for routine in process_routines.values():
+                    for fun in routine.exposed:
+                        try:
+                            self.register_rpc_callback(routine, fun.__qualname__, fun)
+                        except:
+                            # This is a workaround. Please do not remove or you'll break the GUI.
+                            # In order for some IPC features to work the, AbstractProcess init has to be
+                            # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI process.
+                            # Doing this, however, causes an exception about failing to call
+                            # the QMainWindow super-class init, since "createHooks" directly sets attributes
+                            # on the new, uninitialized QMainWindow sub-class.
+                            # Catching this (unimportant) exception prevents a crash.
+                            pass
 
-                    ## Initialize buffers
-                    routines.initialize_buffers()
+                    # Initialize buffers
+                    routine.buffer.build()
 
         # Set configurations
         if _configurations is not None:
@@ -104,10 +110,16 @@ class AbstractProcess:
             for ckey, control in _controls.items():
                 setattr(IPC.Control, ckey, control)
 
+        if _proxies is not None:
+            for pkey, proxy in _proxies.items():
+                setattr(IPC, pkey, proxy)
+
         # Set log
         if not(_log is None):
             for lkey, log in _log.items():
                 setattr(IPC.Log, lkey, log)
+            # Setup logging
+            Logging.setup_logger(self.name)
 
         # Set pipes
         if not(_pipes is None):
@@ -126,8 +138,6 @@ class AbstractProcess:
         if not(getattr(IPC.State, self.name) is None):
             IPC.set_state(Def.State.STARTING)
 
-        # Setup logging
-        Logging.setup_logger(self.name)
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
@@ -362,6 +372,8 @@ class AbstractProcess:
                 Logging.write(Logging.WARNING,
                               f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                               f' // Exception: {exc}')
+                import traceback
+                traceback.print_exc()
 
         else:
             Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
@@ -386,12 +398,218 @@ class AbstractProcess:
         elif signal == Def.Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
+    def _create_dataset(self,routine_name: str,attr_name: str,attr_shape: tuple,attr_dtype: Any):
+
+        # Get group for this particular routine
+        routine_grp = self.record_group.require_group(routine_name)
+
+        # Skip if dataset exists already
+        if attr_name in routine_grp:
+            Logging.write(Logging.WARNING, f'Tried to create existing attribute {routine_grp[attr_name]}')
+            return
+
+        try:
+            routine_grp.create_dataset(attr_name,
+                                       shape=(0,*attr_shape,),
+                                       dtype=attr_dtype,
+                                       maxshape=(None,*attr_shape,),
+                                       chunks=(1,*attr_shape,),
+                                       **self.compression_args)
+            Logging.write(Logging.DEBUG,
+                          f'Create record dataset "{routine_grp[attr_name]}"')
+
+        except Exception as exc:
+            import traceback
+            Logging.write(Logging.WARNING,
+                          f'Failed to create record dataset "{routine_grp[attr_name]}"'
+                          f' // Exception: {exc}')
+            traceback.print_exc()
+
+    def _append_to_dataset(self,grp: h5py.Group,key: str,value: Any):
+
+        # Create dataset (if necessary)
+        if key not in grp:
+            # Some datasets may not be created on record group creation
+            # (this is e.g. the the case for parameters of visuals,
+            # because unless the data types are specifically declared,
+            # there's no way to know them ahead of time)
+
+            # Iterate over dictionary contents
+            if isinstance(value,dict):
+                for k,v in value.items():
+                    self._append_to_dataset(grp,f'{key}_{k}',v)
+                return
+
+            # Try to cast to numpy arrays
+            if isinstance(value,list):
+                value = np.array(value)
+            else:
+                value = np.array([value])
+
+            dshape = value.shape
+            dtype = value.dtype
+            assert np.issubdtype(dtype,np.number) or dtype == bool, \
+                f'Unable save non-numerical value "{value}" to dataset "{key}" in group {grp.name}'
+
+            self._create_dataset(grp.name.split('/')[-1],key,dshape,dtype)
+
+        # Get dataset
+        dset = grp[key]
+        # Increment time dimension by 1
+        dset.resize((dset.shape[0] + 1,*dset.shape[1:]))
+        # Write new value
+        dset[dset.shape[0] - 1] = value
+
+    def _routine_on_record(self,routine_name):
+        return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
+
+    def set_record_group(self,group_name: str,group_attributes: dict = None):
+        if self.h5_file is None:
+            return
+
+        # Set group
+        Logging.write(Logging.INFO,f'Set record group "{group_name}"')
+        self.record_group = self.h5_file.require_group(group_name)
+        if group_attributes is not None:
+            self.record_group.attrs.update(group_attributes)
+
+        # Create routine groups
+        for routine_name,routine in self._routines[self.name].items():
+
+            if not (self._routine_on_record(routine_name)):
+                continue
+
+            Logging.write(Logging.INFO,f'Set routine group {routine_name}')
+            self.record_group.require_group(routine_name)
+
+            # Create datasets in routine group
+            for attr_name in routine.file_attrs:
+                attr = getattr(routine.buffer, attr_name)
+                # Atm only ArrayAttributes have declared data types
+                # Other attributes (if compatible) will be created at recording time
+                if isinstance(attr, ArrayAttribute):
+                    self._create_dataset(routine_name,attr_name,attr._shape,attr._dtype[1])
+                    self._create_dataset(routine_name,f'{attr_name}_time',(1,),np.float64)
+
+    def update_routines(self,*args,**kwargs):
+
+        # Fetch current group
+        # (this also closes open files so it should be executed in any case)
+        record_grp = self.get_container()
+
+        if not (bool(args)) and not (bool(kwargs)):
+            return
+
+        for routine_name,routine in self._routines[self.name].items():
+            # Advance buffer
+            routine.buffer.next()
+
+            # Execute routine function
+            routine.execute(*args,**kwargs)
+
+            # If no file object was provided or this particular buffer is not supposed to stream to file: return
+            if record_grp is None or not (self._routine_on_record(routine_name)):
+                continue
+
+            # Iterate over data in group (buffer)
+            for attr_name,time,attr_data in routine.to_file():
+
+                if time is None:
+                    continue
+
+                self._append_to_dataset(record_grp[routine_name],attr_name,attr_data)
+                self._append_to_dataset(record_grp[routine_name],f'{attr_name}_time',time)
+
+    def get_buffer(self,routine_cls: Type[AbstractRoutine]):
+        """Return buffer of a routine class"""
+
+        process_name = routine_cls.process_name
+        routine_name = routine_cls.__name__
+
+        assert process_name in self._routines and routine_name in self._routines[process_name], \
+            f'Routine {routine_name} is not set in {self.name}'
+
+        return self._routines[process_name][routine_name].buffer
+
+    def read(self,attr_name: str, routine_cls: AbstractRoutine = None, *args, **kwargs):
+        """Read shared attribute from buffer.
+
+        :param attr_name: string name of attribute or string format <attrName>/<bufferName>
+        :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
+
+        :return: value of the buffer
+        """
+        #
+        # if routine_name is None:
+        #     parts = attr_name.split('/')
+        #     attr_name = parts[1]
+        #     routine_name = parts[0]
+
+        return self._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name,*args, **kwargs)
+
+    @property
+    def routines(self):
+        return self._routines
+
+    def get_container(self) -> Union[h5py.File,h5py.Group,None]:
+        """Method checks if application is currently recording.
+        Opens and closes output file if necessary and returns either a file/group object or a None.
+        """
+
+        # If recording is running and file is open: return record group
+        if IPC.Control.Recording[Def.RecCtrl.active] and self.record_group is not None:
+            return self.record_group
+
+        # If recording is running and file not open: open file and return record group
+        elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5_file is None:
+            # If output folder is not set: log warning and return None
+            if not (bool(IPC.Control.Recording[Def.RecCtrl.folder])):
+                Logging.write(Logging.WARNING,'Recording has been started but output folder is not set.')
+                return None
+
+            # If output folder is set: open file
+            filepath = os.path.join(Config.Recording[Def.RecCfg.output_folder],
+                                    IPC.Control.Recording[Def.RecCtrl.folder],
+                                    f'{self.name}.hdf5')
+
+            # Open new file
+            Logging.write(Logging.DEBUG,f'Open new file {filepath}')
+            self.h5_file = h5py.File(filepath,'w')
+
+            # Set compression
+            compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
+            compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
+            self.compression_args = dict()
+            if compr_method is not None:
+                self.compression_args = {'compression': compr_method,**compr_opts}
+
+            # Set current group to root
+            self.set_record_group('/')
+
+            return self.record_group
+
+        # Recording is not running at the moment
+        else:
+
+            # If current recording folder is still set: recording is paused
+            if bool(IPC.Control.Recording[Def.RecCtrl.folder]):
+                # Do nothing; return nothing
+                return None
+
+            # If folder is not set anymore
+            else:
+                # Close open file (if open)
+                if not (self.h5_file is None):
+                    self.h5_file.close()
+                    self.h5_file = None
+                    self.record_group = None
+                # Return nothing
+                return None
+
     def handle_SIGINT(self, sig, frame):
         print(f'> SIGINT handled in  {self.__class__}')
         sys.exit(0)
 
-
-import multiprocessing as mp
 
 class ProcessProxy:
     def __init__(self, name, state):
@@ -408,6 +626,10 @@ class ProcessProxy:
             self._state.value = new_state
         else:
             Logging.write(Logging.WARNING, f'Trying to set state of process {self.name} from process {IPC.Process.name}')
+
+    def read(self, routine_cls, attr_name, *args, **kwargs):
+        return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
+
 
     # def routine(self, routine) -> AbstractRoutine:
     #     pass

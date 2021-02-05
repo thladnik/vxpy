@@ -32,8 +32,6 @@ import routines.camera.Core
 
 class FrameStream(QtWidgets.QWidget):
 
-    frame_routine = routines.camera.Core.Frames
-
     def __init__(self, parent, **kwargs):
         # Check if camera is being used (since detector relies on camera input)
         if not(Config.Camera[Def.CameraCfg.use]):
@@ -42,9 +40,6 @@ class FrameStream(QtWidgets.QWidget):
         self.moduleIsActive = True
         QtWidgets.QWidget.__init__(self, parent, **kwargs)
         self.setLayout(QtWidgets.QGridLayout())
-
-        # Get frame routine buffer
-        self.frame_buffer = IPC.Routines.Camera.get_buffer(self.frame_routine)
 
         hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.layout().addItem(hspacer, 0, 1)
@@ -102,7 +97,7 @@ class FrameStream(QtWidgets.QWidget):
             self.layout().addWidget(self.graphics_widget)
 
         def update_frame(self):
-            idx, time, frame = self.main.frame_buffer.read(f'{self.device_id}_frame')
+            idx, time, frame = IPC.Camera.read(routines.camera.Core.Frames, f'{self.device_id}_frame')
 
             if frame is None:
                 return
@@ -148,8 +143,6 @@ class FrameStream(QtWidgets.QWidget):
 
 class EyePositionDetector(QtWidgets.QWidget):
 
-    detection_routine = routines.camera.Core.EyePositionDetection
-
     def __init__(self, parent, **kwargs):
         # Check if camera is being used (since detector relies on camera input)
         if not(Config.Camera[Def.CameraCfg.use]):
@@ -159,8 +152,6 @@ class EyePositionDetector(QtWidgets.QWidget):
 
         QtWidgets.QWidget.__init__(self, parent, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
-
-        self.detection_buffer = IPC.Routines.Camera.get_buffer(self.detection_routine)
 
         from utils.gui import IntSliderWidget
 
@@ -230,7 +221,8 @@ class EyePositionDetector(QtWidgets.QWidget):
                 sacc_threshold)
 
     def update_frame(self):
-        idx, time, frame = self.detection_buffer.frame.read()
+        routine_cls = routines.camera.Core.EyePositionDetection
+        idx, time, frame = IPC.Camera.read(routine_cls, 'frame')
         frame = frame[0]
 
         if frame is None:
@@ -333,10 +325,10 @@ class EyePositionDetector(QtWidgets.QWidget):
         def update_subplots(self):
 
             # Draw rectangular ROIs
-            routine = EyePositionDetector.detection_routine
-            attr_path = f'{routine.__name__}/{routine.extracted_rect_prefix}'
+            routine_cls = routines.camera.Core.EyePositionDetection
+            #attr_path = f'{routine_cls.__name__}/{routine_cls.extracted_rect_prefix}'
             for id in self.roi_rects:
-                idx, time, rect = IPC.Routines.Camera.read(f'{attr_path}{id}')
+                idx, time, rect = IPC.Camera.read(routine_cls, f'{routine_cls.extracted_rect_prefix}{id}')
                 rect = rect[0]
 
                 if rect is None:

@@ -97,13 +97,13 @@ class Camera(AbstractProcess):
             cam.snap_image()
 
         # Update routines
-        IPC.Routines.Camera.update(**{device_id: cam.get_image() for device_id, cam in self.cameras.items()})
+        self.update_routines(**{device_id: cam.get_image() for device_id, cam in self.cameras.items()})
 
         self.times.append(self.t)
 
         if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
             diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
             avg_frametime = sum(diff) / len(diff)
-            IPC.rpc(Def.Process.GUI, Integrated.Camera.update_fps_estimate, 1./avg_frametime)
+            IPC.rpc(Def.Process.Gui,Integrated.Camera.update_fps_estimate,1. / avg_frametime)
             #print('Avg. fps {:.2f}'.format(1./avg_frametime))
             self.times = []

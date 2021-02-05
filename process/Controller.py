@@ -16,23 +16,28 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
+from __future__ import annotations
 import ctypes
 import logging
 import multiprocessing as mp
 import os
 import time
-from typing import List, Dict, Tuple
 
 import Config
 from core.process import AbstractProcess
-from core.routine import AbstractRoutine, Routines
+from core.routine import AbstractRoutine
 import Def
 from utils import misc
 import IPC
 import Logging
 import process
 import protocols
+from core.process import ProcessProxy
+
+# Type hinting
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import List, Dict, Tuple
 
 class Controller(AbstractProcess):
     name = Def.Process.Controller
@@ -42,30 +47,10 @@ class Controller(AbstractProcess):
     _processes: Dict[str, mp.Process] = dict()
     _registered_processes: List[Tuple[AbstractProcess, Dict]] = list()
 
-    _protocol_processes: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
+    _protocolized: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
     _active_protocols: List[str] = list()
 
     def __init__(self, config_file):
-
-        # Set program configuration
-        try:
-            Logging.write(Logging.INFO, 'Using configuration from file {}'.format(config_file))
-            configuration = misc.ConfigParser()
-            configuration.read(config_file)
-            for section in configuration.sections():
-                setattr(Config, section.capitalize(), configuration.getParsedSection(section))
-            config_loaded = True
-
-        except Exception:
-            config_loaded = False
-            import traceback
-            traceback.print_exc()
-
-        assert config_loaded, 'Loading of configuration file {} failed.'.format(config_file)
-
-        # TODO: check if recording routines contains any entries
-        #  for inactive processes or inactive routines on active processes
-        #  print warning or just shut down completely in-case?
 
         # Set up manager
         IPC.Manager = mp.Manager()
@@ -82,17 +67,44 @@ class Controller(AbstractProcess):
         # Set up logger, formatte and handler
         self.logger = logging.getLogger('mylog')
         h = logging.handlers.TimedRotatingFileHandler(
-            os.path.join(Def.Path.Log, IPC.Log.File.value), 
+            os.path.join(Def.Path.Log, IPC.Log.File.value),
             'd')
         h.setFormatter(logging.Formatter(
             '%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<'))
         self.logger.addHandler(h)
+        Logging.setup_logger(self.name)
 
-        # Initialize AbstractProcess
-        AbstractProcess.__init__(self, _log={k: v for k, v in IPC.Log.__dict__.items()
-                                             if not (k.startswith('_'))})
+        # Set program configuration
+        try:
+            Logging.write(Logging.INFO, f'Using configuration from file {config_file}')
+            configuration = misc.ConfigParser()
+            configuration.read(config_file)
+            for section in configuration.sections():
+                setattr(Config, section.capitalize(), configuration.getParsedSection(section))
+            config_loaded = True
+
+        except Exception:
+            config_loaded = False
+            import traceback
+            traceback.print_exc()
+
+        assert config_loaded, f'Loading of configuration file {config_file} failed.'
+
+        # TODO: check if recording routines contains any entries
+        #  for inactive processes or inactive routines on active processes
+        #  print warning or just shut down completely in-case?
+
         # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
+
+        # Set up process proxies (TODO: get rid of IPC.State)
+        _proxies = {
+            Def.Process.Controller: ProcessProxy(Def.Process.Controller, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Camera: ProcessProxy(Def.Process.Camera, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Display: ProcessProxy(Def.Process.Display, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Gui:  ProcessProxy(Def.Process.Gui, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Io: ProcessProxy(Def.Process.Io, IPC.Manager.Value(ctypes.c_int8, Def.State.NA))
+        }
 
         # Set up STATES
         IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
@@ -113,7 +125,7 @@ class Controller(AbstractProcess):
             t = time.perf_counter()
             time.sleep(10**-10)
             times.append(time.perf_counter()-t)
-        IPC.Control.General.update({Def.GenCtrl.min_sleep_time : max(times)})
+        IPC.Control.General.update({Def.GenCtrl.min_sleep_time: max(times)})
         Logging.write(Logging.INFO, 'Minimum sleep period is {0:.3f}ms'.format(1000*max(times)))
         IPC.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
 
@@ -145,55 +157,35 @@ class Controller(AbstractProcess):
 
         # Set up routines
         # Camera
-        # _routines = dict()
-        # _routines_to_load = dict()
-        # if Config.Camera[Def.CameraCfg.use]:
-        #     _routines_to_load[Def.Process.Camera] = Config.Camera[Def.CameraCfg.routines]
-        # if Config.Display[Def.DisplayCfg.use]:
-        #     _routines_to_load[Def.Process.Display] = Config.Display[Def.DisplayCfg.routines]
-        # if Config.Io[Def.CameraCfg.use]:
-        #     _routines_to_load[Def.Process.Io] = Config.Io[Def.IoCfg.routines]
-        #
-        # for process_name, routines in _routines_to_load.items():
-        #
-        #     _routines[process_name] = dict()
-        #
-        #     for routine_file,routine_list in routines.items():
-        #
-        #         importpath = f'{Def.Path.Routines}.{process_name.lower()}.{routine_file}'
-        #
-        #
-        #         # Load module (routine file)
-        #         module = __import__(importpath,fromlist=routine_list)
-        #
-        #         # Load routine classes from module
-        #         for routine_name in routine_list:
-        #             Logging.write(Logging.DEBUG, f'Load {process_name} routine from {importpath}.{routine_name}')
-        #
-        #             routine_cls = getattr(module,routine_name)
-        #
-        #             # Instantiate routine class
-        #             _routines[process_name][routine_cls.__qualname__]: AbstractRoutine = routine_cls(self)
-        #
-        # import pprint
-        # pprint.pprint(_routines)
-        # return
-        IPC.Routines.Camera = Routines(
-            Def.Process.Camera,
-            routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
-        )
+        _routines = dict()
+        _routines_to_load = dict()
+        if Config.Camera[Def.CameraCfg.use]:
+            _routines_to_load[Def.Process.Camera] = Config.Camera[Def.CameraCfg.routines]
+        if Config.Display[Def.DisplayCfg.use]:
+            _routines_to_load[Def.Process.Display] = Config.Display[Def.DisplayCfg.routines]
+        if Config.Io[Def.CameraCfg.use]:
+            _routines_to_load[Def.Process.Io] = Config.Io[Def.IoCfg.routines]
 
-        # Display
-        IPC.Routines.Display = Routines(
-            Def.Process.Display,
-            routines=Config.Display[Def.DisplayCfg.routines] if Config.Display[Def.DisplayCfg.use] else None
-        )
+        for process_name, routines in _routines_to_load.items():
+            _routines[process_name] = dict()
+            for routine_file,routine_list in routines.items():
 
-        # IO
-        IPC.Routines.Io = Routines(
-            Def.Process.Io,
-            routines=Config.Io[Def.IoCfg.routines] if Config.Io[Def.IoCfg.use] else None
-        )
+                # Load module (routine file)
+                importpath = f'{Def.Path.Routines}.{process_name.lower()}.{routine_file}'
+                module = __import__(importpath, fromlist=routine_list)
+
+                # Load routine classes from module
+                for routine_name in routine_list:
+                    Logging.write(Logging.DEBUG, f'Load {process_name} routine from {importpath}.{routine_name}')
+
+                    routine_cls = getattr(module,routine_name)
+
+                    # Instantiate routine class
+                    _routines[process_name][routine_cls.__name__]: AbstractRoutine = routine_cls(self)
+
+
+        # Initialize AbstractProcess
+        AbstractProcess.__init__(self, _routines=_routines, proxies=_proxies)
 
         # Set up processes
         # Worker
@@ -213,12 +205,30 @@ class Controller(AbstractProcess):
 
         # Select subset of registered processes which should implement
         # the _run_protocol method
-        self._active_protocols = list(set([p[0].__name__ for p in self._registered_processes])
-                                      & set(self._protocol_processes))
+        _active_process_list = [p[0].__name__ for p in self._registered_processes]
+        self._active_protocols = list(set(_active_process_list) & set(self._protocolized))
         Logging.write(Logging.INFO, 'Protocolized processes: {}'.format(str(self._active_protocols)))
 
         # Set up protocol
         self.current_protocol = None
+
+        self._init_params = dict(
+            _pipes=IPC.Pipes,
+            _configurations={k: v for k, v
+                                               in Config.__dict__.items()
+                                               if not (k.startswith('_'))},
+                              _states={k: v for k, v
+                                       in IPC.State.__dict__.items()
+                                       if not (k.startswith('_'))},
+                              _proxies=_proxies,
+                              _routines=self._routines,
+                              _controls={k: v for k, v
+                                         in IPC.Control.__dict__.items()
+                                         if not (k.startswith('_'))},
+                              _log={k: v for k, v
+                                    in IPC.Log.__dict__.items()
+                                    if not (k.startswith('_'))}
+                      )
 
         # Initialize all pipes
         for target,kwargs in self._registered_processes:
@@ -226,7 +236,7 @@ class Controller(AbstractProcess):
 
         # Initialize all processes
         for target,kwargs in self._registered_processes:
-            self.initialize_process(target,**kwargs)
+            self.initialize_process(target, **kwargs)
 
         # Run event loop
         self.start()
@@ -256,24 +266,7 @@ class Controller(AbstractProcess):
             del self._processes[process_name]
 
         # Update keyword args
-        kwargs.update(dict(
-                          _pipes=IPC.Pipes,
-                          _configurations={k: v for k, v
-                                           in Config.__dict__.items()
-                                           if not (k.startswith('_'))},
-                          _states={k: v for k, v
-                                   in IPC.State.__dict__.items()
-                                   if not (k.startswith('_'))},
-                          _routines={k: v for k, v
-                                     in IPC.Routines.__dict__.items()
-                                     if not (k.startswith('_'))},
-                          _controls={k: v for k, v
-                                     in IPC.Control.__dict__.items()
-                                     if not (k.startswith('_'))},
-                          _log={k: v for k, v
-                                in IPC.Log.__dict__.items()
-                                if not (k.startswith('_'))}
-                      ))
+        kwargs.update(self._init_params)
 
         # Create subprocess
         self._processes[process_name] = mp.Process(target=target,
@@ -369,16 +362,9 @@ class Controller(AbstractProcess):
         metadata = dict(hello1name='test', hello2val=123)
         #TODO: compose proper metadata, append sessiondata and save to file
 
-        # Let worker compose all individual recordings into one data structure
-        if False:
-            IPC.rpc(Def.Process.Worker, process.Worker.run_task,
-                     'ComposeRecordings',
-                    IPC.Control.Recording[Def.RecCtrl.folder])
-
         Logging.write(Logging.INFO, 'Stop recording')
         self.set_state(Def.State.IDLE)
         IPC.Control.Recording[Def.RecCtrl.folder] = ''
-
 
     def start_protocol(self, protocol_path):
         # TODO: also make this dynamic

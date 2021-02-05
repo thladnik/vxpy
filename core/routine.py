@@ -15,318 +15,32 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import ctypes
 import h5py
 import multiprocessing as mp
 import numpy as np
 import os
 import time
-from typing import Any, Dict, List, Union
 
 import Config
 import Def
 import gui
 import IPC
 import Logging
-from core.process import AbstractProcess
 
+# Type hinting
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from core.process import AbstractProcess
+    from typing import Any, Dict, List, Type, Union
 
-################################
-## Routine wrapper class
-
-class Routines:
-    """Wrapper class for all routines in a process.
-    """
-
-    process_instance: AbstractProcess = None
-
-    def __init__(self, name, routines=None):
-        self.name = name
-        self._routine_paths: Dict[str, str] = dict()
-        self._routines: Dict[str, AbstractRoutine] = dict()
-        self.h5_file: Union[None, h5py.File] = None
-        self.record_group: Union[None, h5py.Group] = None
-        self.compression_args: Dict[str, Any] = dict()
-
-        # Automatically add routines, if provided
-        if not(routines is None) and isinstance(routines, dict):
-            for routine_file, routine_list in routines.items():
-                module = __import__('{}.{}.{}'.format(Def.Path.Routines,
-                                                      self.name.lower(),
-                                                      routine_file),
-                                    fromlist=routine_list)
-                for routine_name in routine_list:
-                    self.add_routine(getattr(module, routine_name))
-
-
-    def create_hooks(self, process):
-        """Provide process instance with callback signatures for RPC.
-
-        Method is called by process immediately after initialization on fork.
-        For each method listed in the routines 'exposed' attribute,
-        a callback reference is provided to the process instance.
-        This makes routine methods accessible via RPC.
-
-        :arg process: instance object of the current process
-        """
-
-        self.process_instance = process
-
-        for name, routine in self._routines.items():
-            for fun in routine.exposed:
-                fun_str = fun.__qualname__
-                self.process_instance.register_rpc_callback(routine, fun_str, fun)
-
-    def add_routine(self, routine_cls, **kwargs):
-        """To be called by Controller.
-
-        Creates an instance of the provided routine class (which
-        has to happen before subprocess fork).
-
-        :arg routine_cls: class object of routine
-        :**kwargs: keyword arguments to be passed upon initialization of routine
-        """
-
-        if routine_cls.__name__ in self._routine_paths:
-            raise Exception(
-                f'Routine \"{routine_cls.__name__}\" exists already '
-                f'for path \"{self._routine_paths[routine_cls.__name__]}\"'
-                f'Unable to add routine of same name from path \"{routine_cls.__module__}\"')
-
-        self._routine_paths[routine_cls.__name__] = routine_cls.__module__
-        self._routines[routine_cls.__name__]: AbstractRoutine = routine_cls(self, **kwargs)
-
-    def initialize_buffers(self):
-        """Initialize each buffer after subprocess fork.
-
-        This call the RingBuffer.initialize method in each routine which can
-        be used for operations that have to happen
-        after forking the process (e.g. ctype mapped numpy arrays)
-        """
-
-        for name, routine in self._routines.items():
-            routine.buffer.build()
-
-
-    def get_buffer(self, routine_cls: Union[str, type]):
-        """Return buffer of a routine class"""
-
-        if isinstance(routine_cls, str):
-            routine_name = routine_cls
-        else:
-            routine_name = routine_cls.__name__
-
-        assert routine_name in self._routines, f'Routine {routine_name} is not set in {self.name}'
-
-        return self._routines[routine_name].buffer
-
-    def _append_to_dataset(self, grp: h5py.Group, key: str, value: Any):
-
-        # Create dataset (if necessary)
-        if key not in grp:
-            # Some datasets may not be created on record group creation
-            # (this is e.g. the the case for parameters of visuals,
-            # because unless the data types are specifically declared,
-            # there's no way to know them ahead of time)
-
-            # Iterate over dictionary contents
-            if isinstance(value, dict):
-                for k, v in value.items():
-                    self._append_to_dataset(grp, f'{key}_{k}', v)
-                return
-
-            # Try to cast to numpy arrays
-            if isinstance(value, list):
-                value = np.array(value)
-            else:
-                value = np.array([value])
-
-            dshape = value.shape
-            dtype = value.dtype
-            assert np.issubdtype(dtype, np.number) or dtype == bool, \
-                f'Unable save non-numerical value "{value}" to dataset "{key}" in group {grp.name}'
-
-            self._create_dataset(grp.name.split('/')[-1], key, dshape, dtype)
-
-        # Get dataset
-        dset = grp[key]
-        # Increment time dimension by 1
-        dset.resize((dset.shape[0] + 1, *dset.shape[1:]))
-        # Write new value
-        dset[dset.shape[0] - 1] = value
-
-    def update(self, *args, **kwargs):
-
-        # Fetch current group
-        # (this also closes open files so it should be executed in any case)
-        record_grp = self.get_container()
-
-        if not(bool(args)) and not(bool(kwargs)):
-            return
-
-        for routine_name, routine in self._routines.items():
-            # Advance buffer
-            routine.buffer.next()
-
-            # Execute routine function
-            routine.execute(*args, **kwargs)
-
-            # If no file object was provided or this particular buffer is not supposed to stream to file: return
-            if record_grp is None or not(self._routine_on_record(routine_name)):
-                continue
-
-            # Iterate over data in group (buffer)
-            for attr_name, time, attr_data in routine.to_file():
-
-                if time is None:
-                    continue
-
-                self._append_to_dataset(record_grp[routine_name], attr_name, attr_data)
-                self._append_to_dataset(record_grp[routine_name], f'{attr_name}_time', time)
-
-
-    def _create_dataset(self, routine_name: str, attr_name: str, attr_shape: tuple, attr_dtype: Any):
-
-        # Get group for this particular routine
-        routine_grp = self.record_group.require_group(routine_name)
-
-        # Skip if dataset exists already
-        if attr_name in routine_grp:
-            Logging.write(Logging.WARNING,
-                          f'Tried to create existing attribute {routine_grp[attr_name]}')
-            return
-
-        try:
-            routine_grp.create_dataset(attr_name,
-                                       shape=(0, *attr_shape,),
-                                       dtype=attr_dtype,
-                                       maxshape=(None, *attr_shape,),
-                                       chunks=(1, *attr_shape,),
-                                       **self.compression_args)
-            Logging.write(Logging.DEBUG,
-                          f'Create record dataset "{routine_grp[attr_name]}"')
-
-        except Exception as exc:
-            import traceback
-            Logging.write(Logging.WARNING,
-                          f'Failed to create record dataset "{routine_grp[attr_name]}"'
-                          f' // Exception: {exc}')
-            traceback.print_exc()
-
-    def _routine_on_record(self, routine_name):
-        return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
-
-    def set_record_group(self, group_name: str, group_attributes: dict = None):
-        if self.h5_file is None:
-            return
-
-        # Set group
-        Logging.write(Logging.INFO, f'Set record group "{group_name}"')
-        self.record_group = self.h5_file.require_group(group_name)
-        if group_attributes is not None:
-            self.record_group.attrs.update(group_attributes)
-
-        # Create routine groups
-        for routine_name, routine in self._routines.items():
-
-            if not(self._routine_on_record(routine_name)):
-                continue
-
-            Logging.write(Logging.INFO, f'Set routine group {routine_name}')
-            self.record_group.require_group(routine_name)
-
-            # Create datasets in routine group
-            for attr_name in routine.file_attrs:
-                attr = getattr(self.get_buffer(routine_name), attr_name)
-                # Atm only ArrayAttributes have declared data types
-                # Other attributes (if compatible) will be created at during
-                if isinstance(attr, ArrayAttribute):
-                    self._create_dataset(routine_name, attr_name, attr._shape, attr._dtype[1])
-                    self._create_dataset(routine_name, f'{attr_name}_time', (1,), np.float64)
-
-
-
-    def read(self, attr_name: str, routine_name: str = None, **kwargs):
-        """Read shared attribute from buffer.
-
-        :param attr_name: string name of attribute or string format <attrName>/<bufferName>
-        :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
-
-        :return: value of the buffer
-        """
-
-        if routine_name is None:
-            parts = attr_name.split('/')
-            attr_name = parts[1]
-            routine_name = parts[0]
-
-        return self._routines[routine_name].read(attr_name, **kwargs)
-
-    def routines(self):
-        return self._routines
-
-    def get_container(self) -> Union[h5py.File, h5py.Group, None]:
-        """Method checks if application is currently recording.
-        Opens and closes output file if necessary and returns either a file/group object or a None.
-        """
-
-        # If recording is running and file is open: return record group
-        if IPC.Control.Recording[Def.RecCtrl.active] and self.record_group is not None:
-            return self.record_group
-
-        # If recording is running and file not open: open file and return record group
-        elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5_file is None:
-            # If output folder is not set: log warning and return None
-            if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
-                Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
-                return None
-
-            # If output folder is set: open file
-            filepath = os.path.join(Config.Recording[Def.RecCfg.output_folder],
-                                    IPC.Control.Recording[Def.RecCtrl.folder],
-                                    '{}.hdf5'.format(self.name))
-
-            # Open new file
-            Logging.write(Logging.DEBUG, f'Open new file {filepath}')
-            self.h5_file = h5py.File(filepath, 'w')
-
-            # Set compression
-            compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
-            compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
-            self.compression_args = dict()
-            if compr_method is not None:
-                self.compression_args = {'compression': compr_method, **compr_opts}
-
-            # Set current group to root
-            self.set_record_group('/')
-
-            return self.record_group
-
-        # Recording is not running at the moment
-        else:
-
-            # If current recording folder is still set: recording is paused
-            if bool(IPC.Control.Recording[Def.RecCtrl.folder]):
-                # Do nothing; return nothing
-                return None
-
-            # If folder is not set anymore
-            else:
-                # Close open file (if open)
-                if not(self.h5_file is None):
-                    self.h5_file.close()
-                    self.h5_file = None
-                    self.record_group = None
-                # Return nothing
-                return None
-
-
-################################
-# Abstract Routine class
 
 class AbstractRoutine:
     """AbstractRoutine to be subclassed by all implementations of routines.
     """
+
+    process_name: str = None
 
     def __init__(self, _bo: Routines):
         self._bo = _bo
@@ -357,9 +71,9 @@ class AbstractRoutine:
 
         self.file_attrs.append(attr_name)
 
-    def register_with_ui_plotter(self, attr_name: str, start_idx: int, *args, **kwargs):
-        IPC.rpc(Def.Process.GUI, gui.Integrated.Plotter.add_buffer_attribute,
-                self._bo.process_instance.name, attr_name, start_idx, *args, **kwargs)
+    def register_with_ui_plotter(self, routine_cls: Type[AbstractRoutine], attr_name: str, start_idx: int, *args, **kwargs):
+        IPC.rpc(Def.Process.Gui,gui.Integrated. Plotter.add_buffer_attribute,
+                routine_cls, attr_name,start_idx,*args,**kwargs)
 
     def to_file(self) -> (str, float, Any):
         """Method may be reimplemented. Can be used to alter the output to file.
@@ -384,7 +98,23 @@ class AbstractRoutine:
 
 class CameraRoutine(AbstractRoutine):
 
-    decorated = dict()
+    process_name = Def.Process.Camera
+
+    def __init__(self, *args, **kwargs):
+        AbstractRoutine.__init__(self, *args, **kwargs)
+
+
+class DisplayRoutine(AbstractRoutine):
+
+    process_name = Def.Process.Display
+
+    def __init__(self, *args, **kwargs):
+        AbstractRoutine.__init__(self, *args, **kwargs)
+
+
+class IoRoutine(AbstractRoutine):
+
+    process_name = Def.Process.Io
 
     def __init__(self, *args, **kwargs):
         AbstractRoutine.__init__(self, *args, **kwargs)

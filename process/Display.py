@@ -135,9 +135,9 @@ class Display(AbstractProcess):
 
         try:
             if self._run_protocol():
-                IPC.Routines.Display.update(self.visual)
+                self.update_routines(self.visual)
             else:
-                IPC.Routines.Display.update()
+                self.update_routines()
         except Exception as exc:
             import traceback
             traceback.print_exc()

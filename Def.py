@@ -52,7 +52,7 @@ class Process:
     Camera     = 'Camera'
     Controller = 'Controller'
     Display    = 'Display'
-    GUI        = 'Gui'
+    Gui        = 'Gui'
     Io         = 'Io'
     Logger     = 'Logger'
     Worker     = 'Worker'
@@ -179,7 +179,7 @@ class DisplayCfg(Cfg):
 # GUI
 
 class GuiCfg(Cfg):
-    name = Process.GUI.lower()
+    name = Process.Gui.lower()
 
     # Addons
     addons      = 'json_addons'
