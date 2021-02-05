@@ -26,7 +26,7 @@ from typing import List, Dict, Tuple
 
 import Config
 from core.process import AbstractProcess
-from core.routine import Routines
+from core.routine import AbstractRoutine, Routines
 import Def
 from utils import misc
 import IPC
@@ -45,7 +45,28 @@ class Controller(AbstractProcess):
     _protocol_processes: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
     _active_protocols: List[str] = list()
 
-    def __init__(self):
+    def __init__(self, config_file):
+
+        # Set program configuration
+        try:
+            Logging.write(Logging.INFO, 'Using configuration from file {}'.format(config_file))
+            configuration = misc.ConfigParser()
+            configuration.read(config_file)
+            for section in configuration.sections():
+                setattr(Config, section.capitalize(), configuration.getParsedSection(section))
+            config_loaded = True
+
+        except Exception:
+            config_loaded = False
+            import traceback
+            traceback.print_exc()
+
+        assert config_loaded, 'Loading of configuration file {} failed.'.format(config_file)
+
+        # TODO: check if recording routines contains any entries
+        #  for inactive processes or inactive routines on active processes
+        #  print warning or just shut down completely in-case?
+
         # Set up manager
         IPC.Manager = mp.Manager()
 
@@ -73,39 +94,7 @@ class Controller(AbstractProcess):
         # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
 
-        # Set configurations
-        try:
-            Logging.write(Logging.INFO,
-                          'Using configuration from file {}'.format(self.configfile))
-            self.configuration = misc.ConfigParser()
-            self.configuration.read(self.configfile)
-            # Camera
-            Config.Camera = IPC.Manager.dict()
-            Config.Camera.update(self.configuration.getParsedSection(Def.CameraCfg.name))
-            # Display
-            Config.Display = IPC.Manager.dict()
-            Config.Display.update(self.configuration.getParsedSection(Def.DisplayCfg.name))
-            # Gui
-            Config.Gui = IPC.Manager.dict()
-            Config.Gui.update(self.configuration.getParsedSection(Def.GuiCfg.name))
-            # IO
-            Config.Io = IPC.Manager.dict()
-            Config.Io.update(self.configuration.getParsedSection(Def.IoCfg.name))
-            # Recording
-            Config.Recording = IPC.Manager.dict()
-            Config.Recording.update(self.configuration.getParsedSection(Def.RecCfg.name))
-        except Exception:
-            print('Loading of configuration file {} failed.'.format(self.configfile))
-            import traceback
-            traceback.print_exc()
-
-        # TODO: check if recording routines contains any entries
-        #  for inactive processes or inactive routines on active processes
-        #  print warning or just shut down completely in-case?
-
-        ################################
         # Set up STATES
-
         IPC.State.Controller = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Camera = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
         IPC.State.Display = IPC.Manager.Value(ctypes.c_int8, Def.State.NA)
@@ -156,6 +145,39 @@ class Controller(AbstractProcess):
 
         # Set up routines
         # Camera
+        # _routines = dict()
+        # _routines_to_load = dict()
+        # if Config.Camera[Def.CameraCfg.use]:
+        #     _routines_to_load[Def.Process.Camera] = Config.Camera[Def.CameraCfg.routines]
+        # if Config.Display[Def.DisplayCfg.use]:
+        #     _routines_to_load[Def.Process.Display] = Config.Display[Def.DisplayCfg.routines]
+        # if Config.Io[Def.CameraCfg.use]:
+        #     _routines_to_load[Def.Process.Io] = Config.Io[Def.IoCfg.routines]
+        #
+        # for process_name, routines in _routines_to_load.items():
+        #
+        #     _routines[process_name] = dict()
+        #
+        #     for routine_file,routine_list in routines.items():
+        #
+        #         importpath = f'{Def.Path.Routines}.{process_name.lower()}.{routine_file}'
+        #
+        #
+        #         # Load module (routine file)
+        #         module = __import__(importpath,fromlist=routine_list)
+        #
+        #         # Load routine classes from module
+        #         for routine_name in routine_list:
+        #             Logging.write(Logging.DEBUG, f'Load {process_name} routine from {importpath}.{routine_name}')
+        #
+        #             routine_cls = getattr(module,routine_name)
+        #
+        #             # Instantiate routine class
+        #             _routines[process_name][routine_cls.__qualname__]: AbstractRoutine = routine_cls(self)
+        #
+        # import pprint
+        # pprint.pprint(_routines)
+        # return
         IPC.Routines.Camera = Routines(
             Def.Process.Camera,
             routines=Config.Camera[Def.CameraCfg.routines] if Config.Camera[Def.CameraCfg.use] else None
@@ -193,11 +215,18 @@ class Controller(AbstractProcess):
         # the _run_protocol method
         self._active_protocols = list(set([p[0].__name__ for p in self._registered_processes])
                                       & set(self._protocol_processes))
-        Logging.write(Logging.INFO,
-                      'Protocolled processes: {}'.format(str(self._active_protocols)))
+        Logging.write(Logging.INFO, 'Protocolized processes: {}'.format(str(self._active_protocols)))
 
         # Set up protocol
         self.current_protocol = None
+
+        # Initialize all pipes
+        for target,kwargs in self._registered_processes:
+            IPC.Pipes[target.name] = mp.Pipe()
+
+        # Initialize all processes
+        for target,kwargs in self._registered_processes:
+            self.initialize_process(target,**kwargs)
 
         # Run event loop
         self.start()
@@ -252,22 +281,20 @@ class Controller(AbstractProcess):
                                                   kwargs=kwargs)
 
         # Start subprocess
-        self._processes[process_name].start()
+        #self._processes[process_name].start()
 
         # Set state to IDLE
         self.set_state(Def.State.IDLE)
 
     def start(self):
-        # Initialize all pipes
-        for target, kwargs in self._registered_processes:
-            IPC.Pipes[target.name] = mp.Pipe()
-
-        # Initialize all processes
-        for target, kwargs in self._registered_processes:
-            self.initialize_process(target, **kwargs)
+        # Start all processes
+        for process_name, process in self._processes.items():
+            process.start()
 
         # Run controller
         self.run(interval=0.001)
+
+        # This is where everything happens
 
         # Shutdown procedure
         Logging.write(Logging.DEBUG, 'Wait for processes to terminate')

@@ -29,6 +29,12 @@ import Logging
 if Def.Env == Def.EnvTypes.Dev:
     pass
 
+# Type hinting
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Callable, Dict, Tuple
+    from core.routine import AbstractRoutine
+
 ##################################
 ## Process BASE class
 
@@ -50,6 +56,8 @@ class AbstractProcess:
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
 
+    _routines: dict = dict()
+
     def __init__(self,
                  _configurations=None,
                  _controls=None,
@@ -59,6 +67,8 @@ class AbstractProcess:
                  _states=None,
                  **kwargs):
 
+        # Set process instance
+        IPC.Process = self
 
         # Set routines and let routine wrapper create hooks in process instance and initialize buffers
         if not(_routines is None):
@@ -86,12 +96,11 @@ class AbstractProcess:
                     routines.initialize_buffers()
 
         # Set configurations
-        if not(_configurations is None):
-            for ckey, config in _configurations.items():
-                setattr(Config, ckey, config)
+        if _configurations is not None:
+            Config.__dict__.update(_configurations)
 
         # Set controls
-        if not(_controls is None):
+        if _controls is not None:
             for ckey, control in _controls.items():
                 setattr(IPC.Control, ckey, control)
 
@@ -112,9 +121,6 @@ class AbstractProcess:
         # Set additional attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
-
-        # Set process name in IPC
-        IPC.State.local_name = self.name
 
         # Set process state
         if not(getattr(IPC.State, self.name) is None):
@@ -321,15 +327,15 @@ class AbstractProcess:
     ################################
     # Private functions
 
-    def _execute_rpc(self, fun: str, *args, **kwargs):
+    def _execute_rpc(self,fun_str: str,*args,**kwargs):
         """Execute a remote call to the specified function and pass *args, **kwargs
 
-        :param fun: function name
+        :param fun_str: function name
         :param args: list of arguments
         :param kwargs: dictionary of keyword arguments
         :return:
         """
-        fun_path = fun.split('.')
+        fun_path = fun_str.split('.')
 
         # RPC on process class
         if fun_path[0] == self.__class__.__name__:
@@ -346,20 +352,21 @@ class AbstractProcess:
                               f' // Exception: {exc}')
 
         # RPC on registered callback
-        elif fun in self._registered_callbacks:
+        elif fun_str in self._registered_callbacks:
             try:
                 Logging.write(Logging.DEBUG,
-                              f'RPC call to callback <{fun}> with Args {args} and Kwargs {kwargs}')
-                self._registered_callbacks[fun][1](self._registered_callbacks[fun][0], *args, **kwargs)
+                              f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                instance, fun = self._registered_callbacks[fun_str]
+                fun(instance, *args, **kwargs)
             except Exception as exc:
                 Logging.write(Logging.WARNING,
-                              f'RPC call to callback <{fun}> failed with Args {args} and Kwargs {kwargs}'
+                              f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                               f' // Exception: {exc}')
 
         else:
-            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun))
+            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
 
-    def handle_inbox(self, *args):  # needs *args for compatibility with Glumpy's schedule_interval
+    def handle_inbox(self, *args):
 
         # Poll pipe
         if not(IPC.Pipes[self.name][1].poll()):
@@ -367,8 +374,7 @@ class AbstractProcess:
 
         msg = IPC.Pipes[self.name][1].recv()
 
-        Logging.write(Logging.DEBUG, 'Received message: {}'.
-                                   format(msg))
+        Logging.write(Logging.DEBUG, f'Received message: {msg}')
 
         # Unpack message
         signal, args, kwargs = msg
@@ -381,5 +387,37 @@ class AbstractProcess:
             self._execute_rpc(*args, **kwargs)
 
     def handle_SIGINT(self, sig, frame):
-        print('> SIGINT handled in  {}'.format(self.__class__))
+        print(f'> SIGINT handled in  {self.__class__}')
         sys.exit(0)
+
+
+import multiprocessing as mp
+
+class ProcessProxy:
+    def __init__(self, name, state):
+        self.name = name
+        self._state: mp.Value = state
+
+    @property
+    def state(self):
+        return self._state.value
+
+    @state.setter
+    def state(self, new_state):
+        if self.name == IPC.Process.name:
+            self._state.value = new_state
+        else:
+            Logging.write(Logging.WARNING, f'Trying to set state of process {self.name} from process {IPC.Process.name}')
+
+    # def routine(self, routine) -> AbstractRoutine:
+    #     pass
+    #
+    # def rpc(self, function: Callable, *args, **kwargs) -> None:
+    #     """Send a remote procedure call of given function to another process.
+    #
+    #     @param process_name:
+    #     @param function:
+    #     @param args:
+    #     @param kwargs:
+    #     """
+    #     IPC.send(self.name, Def.Signal.rpc, function.__qualname__, *args, **kwargs)

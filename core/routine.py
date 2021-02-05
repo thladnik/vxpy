@@ -382,6 +382,14 @@ class AbstractRoutine:
         return self.buffer.read(attr_name, *args, **kwargs)
 
 
+class CameraRoutine(AbstractRoutine):
+
+    decorated = dict()
+
+    def __init__(self, *args, **kwargs):
+        AbstractRoutine.__init__(self, *args, **kwargs)
+
+
 class DummyLockContext:
 
     def __enter__(self):

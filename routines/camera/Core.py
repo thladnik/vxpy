@@ -59,7 +59,8 @@ class Frames(AbstractRoutine):
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
 
-class EyePositionDetection(AbstractRoutine):
+from core.routine import CameraRoutine
+class EyePositionDetection(CameraRoutine):
 
     camera_device_id = 'behavior'
     extracted_rect_prefix = 'extracted_rect_'
@@ -72,7 +73,7 @@ class EyePositionDetection(AbstractRoutine):
     roi_maxnum = 10
 
     def __init__(self, *args, **kwargs):
-        AbstractRoutine.__init__(self, *args, **kwargs)
+        CameraRoutine.__init__(self, *args, **kwargs)
 
         # Set accessible methods
         self.exposed.append(EyePositionDetection.set_threshold)

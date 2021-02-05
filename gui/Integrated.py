@@ -797,6 +797,9 @@ class Plotter(IntegratedWidget):
 
             grp = self.plot_data[id]['h5grp']
 
+            if grp['x'].shape[0] == 0:
+                continue
+
             if self.auto_scale:
                 last_t = grp['x'][-1]
             else:

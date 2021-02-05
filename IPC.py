@@ -14,23 +14,28 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import logging
 import multiprocessing as mp
-from multiprocessing import managers
-from typing import Callable, Dict, Tuple
+from multiprocessing.managers import SyncManager
 
 import Def
 import Logging
 
-Manager: managers.SyncManager
+# Type hinting
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Callable, Dict, Tuple
+    from core.process import AbstractProcess, ProcessProxy
 
+Manager: SyncManager
+
+Process: AbstractProcess
 
 ########
 # States
 
 class State:
-    local_name: str = None
-
     Camera: mp.Value = None
     Controller: mp.Value = None
     Display: mp.Value = None
@@ -40,9 +45,17 @@ class State:
     Worker: mp.Value = None
 
 
+# Proxies
+Controller: ProcessProxy
+Camera: ProcessProxy
+Display: ProcessProxy
+Gui: ProcessProxy
+Io: ProcessProxy
+Worker: ProcessProxy
+
 def set_state(new_state: int):
     """Set state of local process to new_state"""
-    getattr(State, State.local_name).value = new_state
+    getattr(State, Process.name).value = new_state
 
 
 def get_state(process_name: str = None):
@@ -51,7 +64,7 @@ def get_state(process_name: str = None):
     By default, if process_name is None, the local process's name is used
     """
     if process_name is None:
-        process_name = State.local_name
+        process_name = Process.name
 
     return getattr(State, process_name).value
 
@@ -62,7 +75,7 @@ def in_state(state: int, process_name: str = None):
     By default, if process_name is None, the local process's name is used
     """
     if process_name is None:
-        process_name = State.local_name
+        process_name = Process.name
 
     return get_state(process_name) == state
 
@@ -82,7 +95,7 @@ def in_state(state: int, process_name: str = None):
 Pipes: Dict[str, Tuple[mp.connection.Connection]] = dict()
 
 
-def send(process_name: str, signal: int, *args, **kwargs):
+def send(process_name: str, signal: int, *args, **kwargs) -> None:
     """Send a message to another process via pipe.
 
     Convenience function for sending messages to process with process_name.
@@ -98,7 +111,7 @@ def send(process_name: str, signal: int, *args, **kwargs):
                   f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
     Pipes[process_name][0].send([signal, args, kwargs])
 
-def rpc(process_name: str, function: Callable, *args, **kwargs):
+def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
     """Send a remote procedure call of given function to another process.
 
     @param process_name:
@@ -106,7 +119,9 @@ def rpc(process_name: str, function: Callable, *args, **kwargs):
     @param args:
     @param kwargs:
     """
-    send(process_name, Def.Signal.rpc, function.__qualname__, *args, **kwargs)
+    if not(isinstance(function, str)):
+        function = function.__qualname__
+    send(process_name, Def.Signal.rpc, function, *args, **kwargs)
 
 
 ########

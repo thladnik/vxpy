@@ -40,9 +40,10 @@ def run():
         minres, maxres, curres = wres.query_resolution()
         with wres.set_resolution(maxres):
 
+            configfile = None
 
             if args.ini_file is not None:
-                Controller.configfile = args.ini_file
+                configfile = args.ini_file
 
             else:
 
@@ -50,10 +51,13 @@ def run():
                 settings.startupwin = StartupConfiguration()
                 settings.winapp.exec_()
 
-                if settings.configfile is None:
-                    exit()
+                configfile = settings.configfile
 
-                Controller.configfile = settings.configfile
-                ctrl = Controller()
+
+            if configfile is None:
+                print('No configuration selected. Exit.')
+                exit()
+
+            ctrl = Controller(configfile)
     else:
         print('Sorry, probably not gonna work on \"{}\"'.format(sys.platform))

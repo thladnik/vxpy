@@ -391,3 +391,4 @@ class EyePositionDetector(QtWidgets.QWidget):
             self.parent.roi_params[self.id] = self.rect
             # Send update to detector routine
             IPC.rpc(Def.Process.Camera, routines.camera.Core.EyePositionDetection.set_roi, self.id, self.rect)
+            #routines.camera.Core.EyePositionDetection.set_roi(self.id, self.rect)
