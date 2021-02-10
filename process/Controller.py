@@ -99,11 +99,11 @@ class Controller(AbstractProcess):
 
         # Set up process proxies (TODO: get rid of IPC.State)
         _proxies = {
-            Def.Process.Controller: ProcessProxy(Def.Process.Controller, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Camera: ProcessProxy(Def.Process.Camera, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Display: ProcessProxy(Def.Process.Display, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Gui:  ProcessProxy(Def.Process.Gui, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Io: ProcessProxy(Def.Process.Io, IPC.Manager.Value(ctypes.c_int8, Def.State.NA))
+            Def.Process.Controller: ProcessProxy(Def.Process.Controller),#, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Camera: ProcessProxy(Def.Process.Camera),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Display: ProcessProxy(Def.Process.Display),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Gui:  ProcessProxy(Def.Process.Gui),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Io: ProcessProxy(Def.Process.Io),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA))
         }
 
         # Set up STATES
@@ -181,8 +181,7 @@ class Controller(AbstractProcess):
                     routine_cls = getattr(module,routine_name)
 
                     # Instantiate routine class
-                    _routines[process_name][routine_cls.__name__]: AbstractRoutine = routine_cls(self)
-
+                    _routines[process_name][routine_cls.__name__]: AbstractRoutine = routine_cls()
 
         # Initialize AbstractProcess
         AbstractProcess.__init__(self, _routines=_routines, proxies=_proxies)
@@ -214,9 +213,7 @@ class Controller(AbstractProcess):
 
         self._init_params = dict(
             _pipes=IPC.Pipes,
-            _configurations={k: v for k, v
-                                               in Config.__dict__.items()
-                                               if not (k.startswith('_'))},
+            _configurations={k: v for k, v in Config.__dict__.items() if not (k.startswith('_'))},
                               _states={k: v for k, v
                                        in IPC.State.__dict__.items()
                                        if not (k.startswith('_'))},

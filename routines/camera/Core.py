@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import cv2
 import numpy as np
 from scipy.spatial import distance
@@ -23,8 +24,13 @@ import Config
 import Def
 import gui.Integrated
 import IPC
-from core.routine import AbstractRoutine, ArrayAttribute, ArrayDType, ObjectAttribute
+import Logging
+from core.routine import AbstractRoutine, Trigger, ArrayAttribute, ArrayDType, ObjectAttribute
 
+# Type hinting
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Callable
 
 class Frames(AbstractRoutine):
 
@@ -60,6 +66,7 @@ class Frames(AbstractRoutine):
 
 
 from core.routine import CameraRoutine
+import time
 class EyePositionDetection(CameraRoutine):
 
     camera_device_id = 'behavior'
@@ -72,8 +79,11 @@ class EyePositionDetection(CameraRoutine):
     re_sacc_prefix = 're_saccade_'
     roi_maxnum = 10
 
+
     def __init__(self, *args, **kwargs):
         CameraRoutine.__init__(self, *args, **kwargs)
+
+        self.add_trigger('saccade_trigger')
 
         # Set accessible methods
         self.exposed.append(EyePositionDetection.set_threshold)
@@ -546,6 +556,9 @@ class EyePositionDetection(CameraRoutine):
 
                 le_sacc = int(last_le_vel < self.saccade_threshold and le_vel > self.saccade_threshold)
                 re_sacc = int(last_re_vel < self.saccade_threshold and re_vel > self.saccade_threshold)
+
+                if bool(le_sacc) or bool(re_sacc):
+                    self._triggers['saccade_trigger'].emit()
 
                 getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
                 getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)

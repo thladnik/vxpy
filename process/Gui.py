@@ -155,4 +155,4 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         IPC.send(Def.Process.Controller, Def.Signal.shutdown)
 
         # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
-        IPC.set_state(Def.State.STOPPED)
+        IPC.Process.set_state(Def.State.STOPPED)

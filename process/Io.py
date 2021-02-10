@@ -44,8 +44,7 @@ class Io(AbstractProcess):
                 run = self.device.connect() and self.device.setup()
 
         except Exception as exc:
-            Logging.write(Logging.WARNING, 'Could not connect to device. // Exception: {}'
-                                       .format(exc))
+            Logging.write(Logging.WARNING, f'Could not connect to device. // Exception: {exc}')
             self.set_state(Def.State.STOPPED)
 
 
@@ -68,7 +67,7 @@ class Io(AbstractProcess):
     def main(self):
 
         # Update routines
-        IPC.Routines.Io.update(self.device.read_all(), self.device)
+        self.update_routines(self.device.read_all(), self.device)
 
         if self._run_protocol():
             pass

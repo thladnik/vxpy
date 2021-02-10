@@ -47,7 +47,6 @@ class IntegratedWidget(QtWidgets.QGroupBox):
     def create_hooks(self):
         for fun in self.exposed:
             fun_str = fun.__qualname__
-            print('REG ', fun_str)
             self.main.register_rpc_callback(self, fun_str, fun)
 
 class Protocols(IntegratedWidget):

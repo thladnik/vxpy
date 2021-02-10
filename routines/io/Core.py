@@ -54,6 +54,29 @@ class ReadDigital(AbstractRoutine):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
+import IPC
+import time
+from core.routine import IoRoutine
+from routines.camera.Core import EyePositionDetection
+
+class TestTrigger(IoRoutine):
+
+    def __init__(self, *args, **kwargs):
+        IoRoutine.__init__(self, *args, **kwargs)
+
+        self.exposed.append(TestTrigger.do_trigger)
+
+        self.connect_to_trigger('saccade_trigger', EyePositionDetection, TestTrigger.do_trigger01)
+
+    def execute(self, *args, **kwargs):
+        pass
+
+    def do_trigger01(self):
+        print('I am so triggered!!! -.-"')
+
+    def do_trigger(self,there):
+        here = time.time()
+        print('Time sent {:.5f} // Time received {:.5f} // Time diff {:.5f}'.format(there,here,here-there))
 
 class TriggerLedArenaFlash(AbstractRoutine):
 

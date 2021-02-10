@@ -121,7 +121,7 @@ class Display(AbstractProcess):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         self.canvas.visual = self.visual
-        IPC.Routines.Display.set_record_group(f'phase_{phase_id}', group_attributes=self.visual.parameters)
+        IPC.Process.set_record_group(f'phase_{phase_id}', group_attributes=self.visual.parameters)
 
     def _cleanup_protocol(self):
         self.visual = None

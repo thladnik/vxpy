@@ -42,10 +42,15 @@ class AbstractRoutine:
 
     process_name: str = None
 
-    def __init__(self, _bo: Routines):
-        self._bo = _bo
+
+    def __init__(self):
+
+        self._triggers = dict()
+
+        self._trigger_callbacks = dict()
+
         # List of methods open to rpc calls
-        self.exposed = list()
+        self.exposed = []
 
         # List of required device names
         self.required = list()
@@ -56,17 +61,20 @@ class AbstractRoutine:
         # Default ring buffer instance for routine
         self.buffer: RingBuffer = RingBuffer()
 
+    def initialize(self):
+        """Called in forked process"""
+        pass
+
     def execute(self, *args, **kwargs):
         """Method is called on every iteration of the producer.
 
         Compute method is called on data updates (in the producer process).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
-        raise NotImplementedError('_compute not implemented in {}'.format(self.__class__.__name__))
+        raise NotImplementedError(f'_compute not implemented in {self.__class__.__name__}')
 
     def add_file_attribute(self, attr_name):
         if attr_name in self.file_attrs:
-            Logging.write(Logging.WARNING,
-                          f'Attribute "{attr_name}" already set to be written to file')
+            Logging.write(Logging.WARNING, f'Attribute "{attr_name}" already set to be written to file')
             return
 
         self.file_attrs.append(attr_name)
@@ -89,11 +97,44 @@ class AbstractRoutine:
 
             yield attr_name, t[0], data[0]
 
-        #raise NotImplementedError('method _out not implemented in {}'.format(self.__class__.__name__))
-
     def read(self, attr_name: str, *args, **kwargs):
         """Pass-through to buffer read method for convenience"""
         return self.buffer.read(attr_name, *args, **kwargs)
+
+    def add_trigger(self, trigger_name):
+        print(f'Add trigger {trigger_name} on process {self.process_name}')
+        self._triggers[trigger_name] = Trigger(self)
+
+    def connect_to_trigger(self, trigger_name, routine, callback):
+        self.exposed.append(callback)
+
+        if routine.process_name not in self._trigger_callbacks:
+            self._trigger_callbacks[routine.process_name] = dict()
+
+        if routine.__qualname__ not in self._trigger_callbacks[routine.process_name]:
+            self._trigger_callbacks[routine.process_name][routine.__qualname__] = dict()
+
+        self._trigger_callbacks[routine.process_name][routine.__qualname__][trigger_name] = callback
+
+    def connect_triggers(self, _routines):
+        for process_name, routines in self._trigger_callbacks.items():
+            for routine_name, callbacks in routines.items():
+                for trigger_name, callback in callbacks.items():
+                    _routines[process_name][routine_name]._triggers[trigger_name].add_callback(self.process_name, callback)
+
+
+class Trigger:
+    _registered = []
+    def __init__(self, routine):
+        self.routine = routine
+
+    def add_callback(self, process_name, callback):
+        print(f'Recv callback {callback}')
+        self._registered.append((process_name, callback))
+
+    def emit(self):
+        for process_name, callback in self._registered:
+            IPC.rpc(process_name, callback)
 
 
 class CameraRoutine(AbstractRoutine):

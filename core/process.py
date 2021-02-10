@@ -79,6 +79,10 @@ class AbstractProcess:
         # Set process instance
         IPC.Process = self
 
+        # Set pipes
+        if not(_pipes is None):
+            IPC.Pipes.update(_pipes)
+
         # Set routines and let routine wrapper create hooks in process instance and initialize buffers
         if isinstance(_routines, dict):
             self._routines = _routines
@@ -97,6 +101,11 @@ class AbstractProcess:
                             # on the new, uninitialized QMainWindow sub-class.
                             # Catching this (unimportant) exception prevents a crash.
                             pass
+
+                    routine.connect_triggers(_routines)
+
+                    if self.name == routine.process_name:
+                        routine.initialize()
 
                     # Initialize buffers
                     routine.buffer.build()
@@ -120,10 +129,6 @@ class AbstractProcess:
                 setattr(IPC.Log, lkey, log)
             # Setup logging
             Logging.setup_logger(self.name)
-
-        # Set pipes
-        if not(_pipes is None):
-            IPC.Pipes.update(_pipes)
 
         # Set states
         if not(_states is None):
@@ -463,7 +468,7 @@ class AbstractProcess:
     def _routine_on_record(self,routine_name):
         return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
 
-    def set_record_group(self,group_name: str,group_attributes: dict = None):
+    def set_record_group(self, group_name: str,group_attributes: dict = None):
         if self.h5_file is None:
             return
 
@@ -481,6 +486,7 @@ class AbstractProcess:
 
             Logging.write(Logging.INFO,f'Set routine group {routine_name}')
             self.record_group.require_group(routine_name)
+
 
             # Create datasets in routine group
             for attr_name in routine.file_attrs:
@@ -508,7 +514,7 @@ class AbstractProcess:
             routine.execute(*args,**kwargs)
 
             # If no file object was provided or this particular buffer is not supposed to stream to file: return
-            if record_grp is None or not (self._routine_on_record(routine_name)):
+            if record_grp is None or not(self._routine_on_record(routine_name)):
                 continue
 
             # Iterate over data in group (buffer)
@@ -612,20 +618,16 @@ class AbstractProcess:
 
 
 class ProcessProxy:
-    def __init__(self, name, state):
+    def __init__(self, name):
         self.name = name
-        self._state: mp.Value = state
+        self._state: mp.Value = getattr(IPC.State, self.name)
 
     @property
     def state(self):
         return self._state.value
 
-    @state.setter
-    def state(self, new_state):
-        if self.name == IPC.Process.name:
-            self._state.value = new_state
-        else:
-            Logging.write(Logging.WARNING, f'Trying to set state of process {self.name} from process {IPC.Process.name}')
+    def in_state(self, state):
+        return self.state == state
 
     def read(self, routine_cls, attr_name, *args, **kwargs):
         return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
@@ -633,13 +635,13 @@ class ProcessProxy:
 
     # def routine(self, routine) -> AbstractRoutine:
     #     pass
-    #
-    # def rpc(self, function: Callable, *args, **kwargs) -> None:
-    #     """Send a remote procedure call of given function to another process.
-    #
-    #     @param process_name:
-    #     @param function:
-    #     @param args:
-    #     @param kwargs:
-    #     """
-    #     IPC.send(self.name, Def.Signal.rpc, function.__qualname__, *args, **kwargs)
+
+    def rpc(self, function: Callable, *args, **kwargs) -> None:
+        """Send a remote procedure call of given function to another process.
+
+        @param process_name:
+        @param function:
+        @param args:
+        @param kwargs:
+        """
+        IPC.rpc(self.name,Def.Signal.rpc,function,*args,**kwargs)
