@@ -1,5 +1,5 @@
 """
-MappApp ./geometry.py - Helper class for geometric operations.
+MappApp ./utils/geometry.py
 Copyright (C) 2020 Yue Zhang, Tim Hladnik
 
 * The "qn" class was originally created by Yue Zhang and is also available
@@ -18,7 +18,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
 import numpy as np
 import warnings
 

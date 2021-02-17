@@ -1,5 +1,5 @@
 """
-MappApp ./__init__.py
+MappApp ./protocols/spherical_gratings.py - Example protocol for demonstration.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,13 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-if __name__ == '__main__':
-    from mappapp.startup import run
+from mappapp.core.protocol import StaticProtocol
 
-    run()
+from mappapp.visuals.spherical.cmn import IcoCMN
+
+class IcoCMNProtocol(StaticProtocol):
+
+    def __init__(self, canvas):
+        StaticProtocol.__init__(self, canvas)
+
+        self.add_phase(IcoCMN, 10, {})

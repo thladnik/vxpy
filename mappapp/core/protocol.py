@@ -1,5 +1,5 @@
 """
-MappApp ./protocol.py - Collection of protocol classes.
+MappApp ./core/protocol.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 class AbstractProtocol:
     pass
+
 
 class StaticProtocol(AbstractProtocol):
     """Static experimental protocol which does NOT support closed-loop designs.

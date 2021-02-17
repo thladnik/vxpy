@@ -1,5 +1,5 @@
 """
-MappApp ./core/gui.py - GUI addons meant to be integrated into the main window.
+MappApp ./core/gui.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,13 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import importlib
 from PyQt5 import QtWidgets
 
-from mappapp import Logging,Def,Config
-
+from mappapp import Config
+from mappapp import Def
+from mappapp import Logging
 
 # Type hinting
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from mappapp.process.Gui import Gui
+    from mappapp.process.gui import Gui
+
 
 class AddonWidget(QtWidgets.QWidget):
 

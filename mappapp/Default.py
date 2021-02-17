@@ -1,5 +1,5 @@
 """
-MappApp ./Default.py - Default values and settings required to run program.
+MappApp ./Default.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,64 +21,64 @@ import Def
 Configuration = {
 
     Def.CameraCfg.name: {
-        Def.CameraCfg.use                     : True,
+        Def.CameraCfg.use: True,
 
-        Def.CameraCfg.device_id               : '',
-        Def.CameraCfg.manufacturer            : 'virtual',
-        Def.CameraCfg.model                   : 'cam01',
-        Def.CameraCfg.format                  : 'RGB (600, 400)',
-        Def.CameraCfg.res_y                   : 600,
-        Def.CameraCfg.res_x                   : 400,
-        Def.CameraCfg.fps                     : 60,
-        Def.CameraCfg.exposure                : 2.0,
-        Def.CameraCfg.gain                    : 1.0,
-        Def.CameraCfg.routines                 : ''
+        Def.CameraCfg.device_id: '',
+        Def.CameraCfg.manufacturer: 'virtual',
+        Def.CameraCfg.model: 'cam01',
+        Def.CameraCfg.format: 'RGB (600, 400)',
+        Def.CameraCfg.res_y: 600,
+        Def.CameraCfg.res_x: 400,
+        Def.CameraCfg.fps: 60,
+        Def.CameraCfg.exposure: 2.0,
+        Def.CameraCfg.gain: 1.0,
+        Def.CameraCfg.routines: ''
     },
 
-    Def.DisplayCfg.name : {
-        Def.DisplayCfg.use                    : True,
-        Def.DisplayCfg.type                   : 'spherical',
-        Def.DisplayCfg.fps                    : 60,
-        Def.DisplayCfg.window_backend         : 'qt5',
-        Def.DisplayCfg.gl_version_major       : 4,
-        Def.DisplayCfg.gl_version_minor       : 6,
-        Def.DisplayCfg.gl_profile             : 'core',
+    Def.DisplayCfg.name: {
+        Def.DisplayCfg.use: True,
+        Def.DisplayCfg.type: 'spherical',
+        Def.DisplayCfg.fps: 60,
+        Def.DisplayCfg.window_backend: 'qt5',
+        Def.DisplayCfg.gl_version_major: 4,
+        Def.DisplayCfg.gl_version_minor: 6,
+        Def.DisplayCfg.gl_profile: 'core',
 
         # Window
-        Def.DisplayCfg.window_screen_id       : 0,
-        Def.DisplayCfg.window_fullscreen      : False,
-        Def.DisplayCfg.window_width           : 900,
-        Def.DisplayCfg.window_height          : 600,
-        Def.DisplayCfg.window_pos_x           : 400,
-        Def.DisplayCfg.window_pos_y           : 400,
+        Def.DisplayCfg.window_screen_id: 0,
+        Def.DisplayCfg.window_fullscreen: False,
+        Def.DisplayCfg.window_width: 900,
+        Def.DisplayCfg.window_height: 600,
+        Def.DisplayCfg.window_pos_x: 400,
+        Def.DisplayCfg.window_pos_y: 400,
 
         # Calibration
         # Spherical
-        Def.DisplayCfg.glob_x_pos                 : 0.0,
-        Def.DisplayCfg.glob_y_pos                 : 0.0,
-        Def.DisplayCfg.sph_pos_glob_radial_offset : 1.0,
+        Def.DisplayCfg.glob_x_pos: 0.0,
+        Def.DisplayCfg.glob_y_pos: 0.0,
+        Def.DisplayCfg.sph_pos_glob_radial_offset: 1.0,
 
-        Def.DisplayCfg.sph_view_elev_angle        : 0.0,
-        Def.DisplayCfg.sph_view_azim_angle        : 0.0,
-        Def.DisplayCfg.sph_view_distance          : 5.0,
-        Def.DisplayCfg.sph_view_fov                    : 80.0,
-        Def.DisplayCfg.sph_view_scale             : 1.0,
+        Def.DisplayCfg.sph_view_elev_angle: 0.0,
+        Def.DisplayCfg.sph_view_azim_angle: 0.0,
+        Def.DisplayCfg.sph_view_distance: 5.0,
+        Def.DisplayCfg.sph_view_fov: 80.0,
+        Def.DisplayCfg.sph_view_scale: 1.0,
 
         # Planar
-        Def.DisplayCfg.pla_xextent                : 1.0,
-        Def.DisplayCfg.pla_yextent                : 1.0,
-        Def.DisplayCfg.pla_small_side             : 1.0,
+        Def.DisplayCfg.pla_xextent: 1.0,
+        Def.DisplayCfg.pla_yextent: 1.0,
+        Def.DisplayCfg.pla_small_side: 1.0,
     },
 
-    Def.GuiCfg.name : {
-        Def.GuiCfg.use                        : True,
+    Def.GuiCfg.name: {
+        Def.GuiCfg.use: True,
 
-        Def.GuiCfg.addons                     : ''
+        Def.GuiCfg.addons: ''
     },
 
-    Def.RecCfg.name : {
-        Def.RecCfg.enabled              : True,
-        Def.RecCfg.routines             : [],
-        Def.RecCfg.output_folder        : 'output'
+    Def.RecCfg.name: {
+        Def.RecCfg.enabled: True,
+        Def.RecCfg.routines: [],
+        Def.RecCfg.output_folder: 'output'
     }
 }

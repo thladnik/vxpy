@@ -15,12 +15,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
-
 import logging
 import logging.handlers
 
-import mappapp.IPC as IPC
+from mappapp import IPC
 
 logger = None
 write = None
@@ -39,5 +37,4 @@ def setup_logger(_name):
         h = logging.handlers.QueueHandler(IPC.Log.Queue)
         logger.addHandler(h)
         logger.setLevel(logging.DEBUG)
-        #write = lambda *args: None
         write = logging.getLogger(_name).log

@@ -1,6 +1,5 @@
 """
-MappApp ./process.py - Base stimulus classes which is inherited by
-all stimulus implementations in ./stimulus/.
+MappApp ./core/visual.py
 Copyright (C) 2020 Tim Hladnik, Yue Zhang
 
 This program is free software: you can redistribute it and/or modify

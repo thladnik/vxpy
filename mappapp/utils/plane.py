@@ -1,5 +1,5 @@
 """
-MappApp ./models/plane.py - Basic planar models for re-use.
+MappApp ./utils/plane.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,13 +15,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-########
-## !!! BE EXTREMELY CAREFUL WHEN EDITING THESE MODELS !!!
-## Any changes will affect all visuals associated with the models!
-####
-########
-
 import numpy as np
+
+########
+# !!! BE EXTREMELY CAREFUL WHEN EDITING THESE MODELS !!!
+# Any changes will affect all visuals associated with the models!
+#
+########
 
 class VerticalXYPlane:
 

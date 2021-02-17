@@ -1,5 +1,5 @@
 """
-MappApp ./__init__.py
+MappApp ./gui/io/core.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,8 +15,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from PyQt5 import QtWidgets
 
-if __name__ == '__main__':
-    from mappapp.startup import run
+from mappapp.core.gui import AddonWidget
 
-    run()
+class IoTuner(AddonWidget):
+
+    def __init__(self, *args, **kwargs):
+        AddonWidget.__init__(self, *args, **kwargs)
+        self.setLayout(QtWidgets.QGridLayout())

@@ -1,5 +1,5 @@
 """
-MappApp ./Config.py - Configuration placeholders
+MappApp ./Config.py
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik
 
@@ -17,9 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-## Known configuration properties
-Display   : dict = None
-Camera    : dict = None
-Gui       : dict = None
-Io        : dict = None
-Recording : dict = None
+# Known configuration properties
+Display: dict
+Camera: dict
+Gui: dict
+Io: dict
+Recording: dict

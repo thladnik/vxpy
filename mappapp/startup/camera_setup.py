@@ -1,11 +1,29 @@
+"""
+MappApp ./startup/camera_setup.py
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
 from inspect import isclass
 import os
 from PyQt5 import QtCore, QtWidgets
 import pyqtgraph as pg
 from typing import Union
 
-from mappapp import Def,Default
-from mappapp.devices import Camera
+from mappapp import Def
+from mappapp import Default
+from mappapp.devices import camera
 from mappapp.startup import settings
 from mappapp.startup.utils import ModuleWidget
 from mappapp.core.routine import AbstractRoutine
@@ -86,17 +104,13 @@ class CameraWidget(ModuleWidget):
 
         # Get routines listed in configuration
         used_routines = list()
-        for fname, routines in settings.current_config.getParsed(
-                Def.CameraCfg.name,
-                Def.CameraCfg.routines).items():
+        for fname, routines in settings.current_config.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines).items():
             for cname in routines:
                 used_routines.append('{}.{}'.format(fname, cname))
 
         # Get all available routines for camera
-        routine_path = Def.Path.Routines
         modules_list = list()
-        for fname in os.listdir(os.path.join(routine_path,
-                                             Def.CameraCfg.name.lower())):
+        for fname in os.listdir(os.path.join(Def.package, Def.Path.Routines, Def.CameraCfg.name)):
             if fname.startswith('_') \
                 or fname.startswith('.') \
                    or not(fname.endswith('.py')):
@@ -316,9 +330,9 @@ class CameraWidget(ModuleWidget):
         if self.camera is not None:
             self.camera.stop()
 
-        import mappapp.devices.Camera
+        import mappapp.devices.camera
         try:
-            cam = getattr(mappapp.devices.Camera,section[Def.CameraCfg.manufacturer][row_idx])
+            cam = getattr(mappapp.devices.camera,section[Def.CameraCfg.manufacturer][row_idx])
             self.camera = cam(section[Def.CameraCfg.model][row_idx],section[Def.CameraCfg.format][row_idx])
             self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx],section[Def.CameraCfg.res_y][row_idx]
             self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx] + 30)
@@ -368,7 +382,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         # Manufacturer
         self.layout().addWidget(QtWidgets.QLabel('Manufacturer'), 5, 0)
         self.manufacturer = QtWidgets.QComboBox()
-        self.manufacturer.addItems([Camera.TISCamera.__name__,Camera.VirtualCamera.__name__])
+        self.manufacturer.addItems([camera.TISCamera.__name__,camera.VirtualCamera.__name__])
         self.manufacturer.currentTextChanged.connect(self.update_models)
         self.layout().addWidget(self.manufacturer, 5, 1)
         # Models
@@ -414,7 +428,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         section = settings.current_config.getParsedSection(Def.CameraCfg.name)
         select_models = section[Def.CameraCfg.model]
 
-        avail_models = getattr(Camera,self.manufacturer.currentText()).get_models()
+        avail_models = getattr(camera,self.manufacturer.currentText()).get_models()
 
         if self.camera_idx < len(select_models) and not(select_models[self.camera_idx] in avail_models):
             avail_models.append(select_models[self.camera_idx])
@@ -422,7 +436,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         self.model.addItems(avail_models)
 
     def check_model(self, m):
-        if m in getattr(Camera,self.manufacturer.currentText()).get_models():
+        if m in getattr(camera,self.manufacturer.currentText()).get_models():
             self.model.setStyleSheet('')
         else:
             self.model.setStyleSheet('QComboBox {color: red;}')
@@ -433,14 +447,14 @@ class EditCameraWidget(QtWidgets.QDialog):
         section = settings.current_config.getParsedSection(Def.CameraCfg.name)
         select_formats = section[Def.CameraCfg.format]
 
-        avail_formats = getattr(Camera,self.manufacturer.currentText()).get_formats(self.model.currentText())
+        avail_formats = getattr(camera,self.manufacturer.currentText()).get_formats(self.model.currentText())
         if self.camera_idx < len(select_formats) and not(select_formats[self.camera_idx] in avail_formats):
             avail_formats.append(select_formats[self.camera_idx])
 
         self.vidformat.addItems(avail_formats)
 
     def check_format(self, f):
-        if f in getattr(Camera,self.manufacturer.currentText()).get_formats(self.model.currentText()):
+        if f in getattr(camera,self.manufacturer.currentText()).get_formats(self.model.currentText()):
             self.vidformat.setStyleSheet('')
         else:
             self.vidformat.setStyleSheet('QComboBox {color: red;}')

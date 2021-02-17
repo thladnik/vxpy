@@ -1,5 +1,5 @@
 """
-MappApp ./process.py - Base process and controller class called to start program.
+MappApp ./core/process.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
@@ -25,14 +25,11 @@ import signal
 import sys
 import time
 
-import mappapp.Config as Config
-import mappapp.Def as Def
-import mappapp.IPC as IPC
-import mappapp.Logging as Logging
+from mappapp import Config
+from mappapp import Def
+from mappapp import IPC
+from mappapp import Logging
 from mappapp.core.routine import ArrayAttribute
-
-if Def.Env == Def.EnvTypes.Dev:
-    pass
 
 # Type hinting
 from typing import TYPE_CHECKING

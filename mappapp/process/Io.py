@@ -1,5 +1,5 @@
 """
-MappApp ./process/Core.py - General purpose digital/analog input/output process.
+MappApp ./process/core.py - General purpose digital/analog input/output process.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -30,8 +30,8 @@ class Io(AbstractProcess):
         ### Set up device
         self.device = None
         if Config.Io[Def.IoCfg.device_type] == 'Arduino':
-            import mappapp.devices.Arduino
-            self.device = mappapp.devices.Arduino.Device()
+            import mappapp.devices.arduino
+            self.device = mappapp.devices.arduino.Device()
 
         run = False
         try:

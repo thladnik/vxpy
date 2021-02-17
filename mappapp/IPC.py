@@ -18,7 +18,7 @@ from __future__ import annotations
 import multiprocessing as mp
 from multiprocessing.managers import SyncManager
 
-import Def
+from mappapp import Def
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -51,6 +51,7 @@ Gui: ProcessProxy
 Io: ProcessProxy
 Worker: ProcessProxy
 
+
 def set_state(new_state: int):
     """Set state of local process to new_state"""
     getattr(State, Process.name).value = new_state
@@ -78,7 +79,7 @@ def in_state(state: int, process_name: str = None):
     return get_state(process_name) == state
 
 
-########
+
 # Pipes
 # TODO: pipes have *limited buffer size*. This means if processes send
 #  messages more quickly than the consumer can sort them out, this will crash
@@ -121,17 +122,6 @@ def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
         function = function.__qualname__
     send(process_name,Def.Signal.rpc,function,*args,**kwargs)
 
-
-
-########
-# Buffer objects
-
-class Routines:
-    # Routine names *MUST* be identical to the corresponding process names in 'Def.Process'
-    # e.g. Def.Process.Camera = 'Camera' -> Routines.Camera
-    Camera = None
-    Display = None
-    Io = None
 
 class Log:
     File = None

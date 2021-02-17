@@ -1,5 +1,5 @@
 """
-MappApp ./__init__.py
+MappApp ./protocols/spherical_gratings.py - Example protocol for demonstration.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,15 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-if __name__ == '__main__':
-    from mappapp.startup import run
+from mappapp.core.protocol import StaticProtocol
 
-    run()
+from mappapp.visuals.spherical.insta360_onex import Calibrated
+
+class Insta360Protocol(StaticProtocol):
+
+    _name = 'insta360'
+
+    def __init__(self, _glWindow):
+        super().__init__(_glWindow)
+        self.newPhase(duration=10**4)
+        self.addVisual(Calibrated, dict(filename='insta1_virtMapsConverted'))

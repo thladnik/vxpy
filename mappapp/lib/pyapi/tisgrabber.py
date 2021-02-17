@@ -6,7 +6,7 @@ Created on Mon Nov 21 09:44:40 2016
 """
 
 ####
-## Compat with MappApp:
+# Compat with MappApp:
 import os
 from mappapp import Def
 

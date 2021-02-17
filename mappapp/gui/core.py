@@ -1,5 +1,5 @@
 """
-MappApp ./gui/core.py - GUI addons meant to be integrated into the main window.
+MappApp ./gui/core.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -29,9 +29,6 @@ from mappapp import Logging
 from mappapp import process
 from mappapp.core.gui import IntegratedWidget
 
-if Def.Env == Def.EnvTypes.Dev:
-    pass
-
 
 class ProcessMonitor(IntegratedWidget):
 
@@ -46,42 +43,42 @@ class ProcessMonitor(IntegratedWidget):
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
 
-        ## Setup widget
+        # Setup widget
         self.setLayout(QtWidgets.QGridLayout())
         self.setMinimumSize(QtCore.QSize(0,0))
         self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
 
-        ## Controller process status
+        # Controller process status
         self._le_controllerState = QtWidgets.QLineEdit('')
         self._le_controllerState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Controller),0,0)
         self.layout().addWidget(self._le_controllerState, 0, 1)
 
-        ## Camera process status
+        # Camera process status
         self._le_cameraState = QtWidgets.QLineEdit('')
         self._le_cameraState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Camera),1,0)
         self.layout().addWidget(self._le_cameraState, 1, 1)
 
-        ## Display process status
+        # Display process status
         self._le_displayState = QtWidgets.QLineEdit('')
         self._le_displayState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Display),2,0)
         self.layout().addWidget(self._le_displayState, 2, 1)
 
-        ## Gui process status
+        # Gui process status
         self._le_guiState = QtWidgets.QLineEdit('')
         self._le_guiState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Gui),3,0)
         self.layout().addWidget(self._le_guiState, 3, 1)
 
-        ## IO process status
+        # IO process status
         self._le_ioState = QtWidgets.QLineEdit('')
         self._le_ioState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Io),4,0)
         self.layout().addWidget(self._le_ioState, 4, 1)
 
-        ## Worker process status
+        # Worker process status
         self._le_workerState = QtWidgets.QLineEdit('')
         self._le_workerState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker),5,0)
@@ -89,18 +86,18 @@ class ProcessMonitor(IntegratedWidget):
 
         self.layout().addItem(vSpacer, 6, 0)
 
-        ## Set timer for GUI update
+        # Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
         self._tmr_updateGUI.setInterval(100)
-        self._tmr_updateGUI.timeout.connect(self._updateStates)
+        self._tmr_updateGUI.timeout.connect(self._update_states)
         self._tmr_updateGUI.start()
 
 
     def _set_process_state(self,le: QtWidgets.QLineEdit,code):
-        ### Set text
+        # Set text
         le.setText(Def.MapStateToStr[code] if code in Def.MapStateToStr else '')
 
-        ### Set style
+        # Set style
         if code == Def.State.IDLE:
             le.setStyleSheet('color: #3bb528; font-weight:bold;')
         elif code == Def.State.STARTING:
@@ -114,11 +111,7 @@ class ProcessMonitor(IntegratedWidget):
         else:
             le.setStyleSheet('color: #000000')
 
-    def _updateStates(self):
-        """This method sets the process state according to the current global state variables.
-        Additionally it modifies 
-        """
-
+    def _update_states(self):
         self._set_process_state(self._le_controllerState,IPC.get_state(Def.Process.Controller))
         self._set_process_state(self._le_cameraState,IPC.get_state(Def.Process.Camera))
         self._set_process_state(self._le_displayState,IPC.get_state(Def.Process.Display))
@@ -303,7 +296,7 @@ class Recording(IntegratedWidget):
             self.btn_stop.setEnabled(False)
 
 
-class Log(IntegratedWidget):
+class Logger(IntegratedWidget):
 
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Log', *args)
@@ -320,11 +313,11 @@ class Log(IntegratedWidget):
 
         # Set timer for updating of log
         self.timer_logging = QtCore.QTimer()
-        self.timer_logging.timeout.connect(self.printLog)
+        self.timer_logging.timeout.connect(self.print_log)
         self.timer_logging.start(50)
 
 
-    def printLog(self):
+    def print_log(self):
         if IPC.Log.File is None:
             return
 
@@ -405,6 +398,13 @@ class Io(IntegratedWidget):
 
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'I/O', *args)
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        # Tab widget
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_widget)
+
+        self.add_widgets(Def.Process.Io)
 
 
 class Plotter(IntegratedWidget):

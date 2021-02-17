@@ -1,5 +1,5 @@
 """
-MappApp ./process.py - Routine wrapper, abstract routine and ring buffer implementations.
+MappApp ./core/process.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,9 @@ import multiprocessing as mp
 import numpy as np
 import time
 
-from mappapp import Logging,IPC,Def
+from mappapp import Def
+from mappapp import IPC
+from mappapp import Logging
 from mappapp.gui.core import Plotter
 
 # Type hinting

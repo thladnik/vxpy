@@ -1,12 +1,31 @@
+"""
+MappApp ./startup/display_setup.py
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
 import numpy as np
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
-from mappapp import Def,Config
+from mappapp import Config
+from mappapp import Def
 from mappapp.startup import settings
 from mappapp.startup.utils import ModuleWidget
 from mappapp.utils.gui import DoubleSliderWidget, IntSliderWidget
+
 
 class Canvas(app.Canvas):
 
@@ -60,16 +79,6 @@ class DisplayWidget(ModuleWidget):
         # Set layout
         self.setLayout(QtWidgets.QGridLayout())
 
-        # Screen settings
-        def button_reset():
-            btn_reset_normal = QtWidgets.QPushButton('Reset to normal')
-            btn_reset_normal.clicked.connect(self.canvas._native_window.showNormal)
-            btn_reset_normal.clicked.connect(
-                lambda: self.canvas._native_window.resize(512, 512))
-            btn_reset_normal.clicked.connect(
-                lambda: settings.current_config.setParsed(Def.DisplayCfg.name,Def.DisplayCfg.window_fullscreen,False))
-            return btn_reset_normal
-
         self.fullscreen_select = QtWidgets.QGroupBox('Fullscreen selection')
         self.layout().addWidget(self.fullscreen_select, 0, 0, 1, 2)
         self.fullscreen_select.setLayout(QtWidgets.QGridLayout())
@@ -122,7 +131,6 @@ class DisplayWidget(ModuleWidget):
         self.canvas.close()
 
     def on_draw(self, dt):
-
         if not(self.visual is None):
             self.visual.draw(0.0)
 
@@ -267,7 +275,7 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         self.layout().addItem(vSpacer)
 
     def show_planar_checkerboard(self):
-        from mappapp.visuals.planar.Calibration import Sinusoid2d
+        from mappapp.visuals.planar.calibration import Sinusoid2d
         vertical_sf = self.grp_pla_checker.vertical_sf.get_value(),
         horizontal_sf = self.grp_pla_checker.horizontal_sf.get_value()
         self.main.canvas.visual = Sinusoid2d(self.main.canvas,
@@ -276,7 +284,7 @@ class DisplayCalibration(QtWidgets.QGroupBox):
                                                 Sinusoid2d.u_checker_pattern: True})
 
     def show_spherical_mesh(self):
-        from mappapp.visuals.spherical.Calibration import RegularMesh
+        from mappapp.visuals.spherical.calibration import RegularMesh
         rows = self.grp_sph_mesh.dspn_rows.value(),
         cols = self.grp_sph_mesh.dspn_cols.value()
         self.main.canvas.visual = RegularMesh(self.main.canvas,
@@ -310,7 +318,7 @@ class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
         self.vertical_sp.setText('Elevation SP {:.1f} [deg]'.format(1./sf))
 
     def show_spherical_checkerboard(self):
-        from mappapp.visuals.spherical.Calibration import BlackWhiteCheckerboard
+        from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard
         vertical_sf = self.vertical_sf.get_value(),
         horizontal_sf = self.horizontal_sf.get_value()
         self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
