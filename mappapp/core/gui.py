@@ -31,6 +31,7 @@ class AddonWidget(QtWidgets.QWidget):
     def __init__(self,main):
         QtWidgets.QWidget.__init__(self)
         self.main = main
+        self.module_active = True
 
 
 class IntegratedWidget(QtWidgets.QGroupBox):
@@ -57,8 +58,8 @@ class IntegratedWidget(QtWidgets.QGroupBox):
                 path = '.'.join([Def.Path.Gui,process_name.lower(),module_name])
                 module = importlib.import_module(path)
 
-                wdgt = getattr(module,widget_name)(self)
-                if not (wdgt.moduleIsActive):
+                wdgt = getattr(module,widget_name)(self.main)
+                if not (wdgt.module_active):
                     Logging.write(Logging.WARNING,f'Addon {widget_name} could not be activated')
                     continue
                 self.tab_widget.addTab(wdgt,widget_name)

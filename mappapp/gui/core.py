@@ -1,5 +1,5 @@
 """
-MappApp ./gui/integrated.py - GUI addons meant to be integrated into the main window.
+MappApp ./gui/core.py - GUI addons meant to be integrated into the main window.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -22,9 +22,12 @@ from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
 import time
 
+from mappapp import Config
+from mappapp import Def
+from mappapp import IPC
+from mappapp import Logging
+from mappapp import process
 from mappapp.core.gui import IntegratedWidget
-import mappapp.process.Controller
-from mappapp import Logging,IPC,Def,Config
 
 if Def.Env == Def.EnvTypes.Dev:
     pass
@@ -170,7 +173,7 @@ class Recording(IntegratedWidget):
         self.wdgt.layout().addWidget(self.btn_start, 3, 0, 1, 2)
         # Pause
         self.btn_pause = QtWidgets.QPushButton('Pause')
-        self.btn_pause.clicked.connect(lambda: IPC.rpc(Def.Process.Controller,Controller.pause_recording))
+        self.btn_pause.clicked.connect(self.pause_recording)
         self.wdgt.layout().addWidget(self.btn_pause, 4, 0, 1, 2)
         # Stop
         self.btn_stop = QtWidgets.QPushButton('Stop')
@@ -198,13 +201,16 @@ class Recording(IntegratedWidget):
         compression_opts = self.get_compression_opts()
 
         # Call controller
-        IPC.rpc(Def.Process.Controller,mappapp.process.Controller.start_recording,
+        IPC.rpc(Def.Process.Controller,process.Controller.start_recording,
                 compression_method=compression_method,
                 compression_opts=compression_opts)
 
+    def pause_recording(self):
+        IPC.rpc(Def.Process.Controller,process.Controller.pause_recording)
+
     def finalize_recording(self):
         # First: pause recording
-        IPC.rpc(Def.Process.Controller,mappapp.process.Controller.pause_recording)
+        IPC.rpc(Def.Process.Controller,process.Controller.pause_recording)
 
         reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
                                                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
@@ -222,10 +228,10 @@ class Recording(IntegratedWidget):
 
         # Finally: stop recording
         print('Stop recording...')
-        IPC.rpc(Def.Process.Controller,mappapp.process.Controller.stop_recording)
+        IPC.rpc(Def.Process.Controller,process.Controller.stop_recording)
 
     def toggle_enable(self, newstate):
-        IPC.rpc(Def.Process.Controller,mappapp.process.Controller.set_enable_recording,newstate)
+        IPC.rpc(Def.Process.Controller,process.Controller.set_enable_recording,newstate)
 
     def get_compression_method(self):
         method = self.cb_compression.currentText()
@@ -386,6 +392,13 @@ class Display(IntegratedWidget):
 
     def __init__(self,*args):
         IntegratedWidget.__init__(self,'Display',*args)
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        # Tab widget
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_widget)
+
+        self.add_widgets(Def.Process.Display)
 
 
 class Io(IntegratedWidget):

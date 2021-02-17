@@ -19,16 +19,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PyQt5 import QtCore, QtGui, QtWidgets
 import sys
 
+from mappapp import Config
+from mappapp import Def
+from mappapp import IPC
+from mappapp import process
 from mappapp.core.process import AbstractProcess
-import mappapp.gui.integrated
-import mappapp.gui.Display
-from mappapp import process,IPC,Def,Config
+from mappapp.gui.core import Camera, Display, Io, Log, Plotter, ProcessMonitor, Recording
 
 
 class Gui(QtWidgets.QMainWindow, AbstractProcess):
     name = Def.Process.Gui
 
-    app : QtWidgets.QApplication
+    app: QtWidgets.QApplication
 
     def __init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs):
         # Create application
@@ -57,39 +59,59 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
-        self.centralWidget().setLayout(QtWidgets.QGridLayout())
+        self.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
-        # Protocols
-        self.protocols = mappapp.gui.Display.Protocols(self)
-        self.centralWidget().layout().addWidget(self.protocols, 0, 0, 1, 3)
+        # Upper
+        self.upper_widget = QtWidgets.QWidget()
+        self.upper_widget.setLayout(QtWidgets.QHBoxLayout())
+        self.centralWidget().layout().addWidget(self.upper_widget)
+
+        # Display
+        if Config.Display[Def.DisplayCfg.use]:
+            self.display = Display(self)
+            self.display.create_hooks()
+            self.upper_widget.layout().addWidget(self.display)
+
+        # Display
+        if Config.Io[Def.IoCfg.use]:
+            self.io = Io(self)
+            self.io.create_hooks()
+            self.upper_widget.layout().addWidget(self.io)
 
         # Camera
-        self.camera = mappapp.gui.integrated.Camera(self)
-        self.camera.create_hooks()
-        self.centralWidget().layout().addWidget(self.camera, 0, 3, 1, 1)
+        if Config.Camera[Def.CameraCfg.use]:
+            self.camera = Camera(self)
+            self.camera.create_hooks()
+            self.upper_widget.layout().addWidget(self.camera)
 
+        # Middle
         # Add Plotter
-        self.plotter = mappapp.gui.integrated.Plotter(self)
+        self.plotter = Plotter(self)
         self.plotter.setMinimumHeight(300)
         self.plotter.setMaximumHeight(400)
         self.plotter.create_hooks()
-        self.centralWidget().layout().addWidget(self.plotter, 1, 0, 1, 4)
+        self.centralWidget().layout().addWidget(self.plotter)
+
+        # Lower
+        self.lower_widget = QtWidgets.QWidget()
+        self.lower_widget.setLayout(QtWidgets.QHBoxLayout())
+        self.centralWidget().layout().addWidget(self.lower_widget)
 
         # Process monitor
-        self.process_monitor = mappapp.gui.integrated.ProcessMonitor(self)
+        self.process_monitor = ProcessMonitor(self)
         self.process_monitor.setMaximumHeight(400)
-        self.centralWidget().layout().addWidget(self.process_monitor, 2, 0)
+        self.lower_widget.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = mappapp.gui.integrated.Recording(self)
+        self.recordings = Recording(self)
         self.recordings.setMaximumHeight(400)
-        self.centralWidget().layout().addWidget(self.recordings, 2, 1)
+        self.lower_widget.layout().addWidget(self.recordings)
 
         # Logger
-        self.log_display = mappapp.gui.integrated.Log(self)
+        self.log_display = Log(self)
         self.log_display.setMinimumHeight(200)
         self.log_display.setMaximumHeight(400)
-        self.centralWidget().layout().addWidget(self.log_display, 2, 2, 1, 2)
+        self.lower_widget.layout().addWidget(self.log_display)
 
         # Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())

@@ -23,12 +23,12 @@ import multiprocessing as mp
 import os
 import time
 
-import mappapp.Config as Config
-import mappapp.Def as Def
-import mappapp.IPC as IPC
-import mappapp.Logging as Logging
-import mappapp.process as process
-import mappapp.protocols as protocols
+from mappapp import Config
+from mappapp import Def
+from mappapp import IPC
+from mappapp import Logging
+from mappapp import process
+from mappapp import protocols
 from mappapp.core.process import AbstractProcess, ProcessProxy
 from mappapp.utils import misc
 

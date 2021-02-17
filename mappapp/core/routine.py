@@ -22,7 +22,7 @@ import numpy as np
 import time
 
 from mappapp import Logging,IPC,Def
-from mappapp.gui.integrated import Plotter
+from mappapp.gui.core import Plotter
 
 # Type hinting
 from typing import TYPE_CHECKING

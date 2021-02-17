@@ -32,12 +32,9 @@ from mappapp.core.gui import AddonWidget
 class FrameStream(AddonWidget):
 
     def __init__(self, *args, **kwargs):
-        QtWidgets.QWidget.__init__(self, *args, **kwargs)
-        # Check if camera is being used (since detector relies on camera input)
-        if not(Config.Camera[Def.CameraCfg.use]):
-            self.moduleIsActive = False
-            return
-        self.moduleIsActive = True
+        AddonWidget.__init__(self, *args, **kwargs)
+        # TODO: check if requirements are met (e.g. camera device configured?) and set self.module_active
+
         self.setLayout(QtWidgets.QGridLayout())
 
         hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
@@ -140,16 +137,12 @@ class FrameStream(AddonWidget):
 ################################
 # Eye Position Detector Widget
 
-class EyePositionDetector(QtWidgets.QWidget):
+class EyePositionDetector(AddonWidget):
 
-    def __init__(self, parent, **kwargs):
-        # Check if camera is being used (since detector relies on camera input)
-        if not(Config.Camera[Def.CameraCfg.use]):
-            self.moduleIsActive = False
-            return
-        self.moduleIsActive = True
+    def __init__(self, *args, **kwargs):
+        # TODO: check if requirements are met (e.g. correct camera device configured?) and set self.module_active
 
-        QtWidgets.QWidget.__init__(self, parent, **kwargs)
+        AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         from mappapp.utils.gui import IntSliderWidget

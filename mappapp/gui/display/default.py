@@ -1,5 +1,5 @@
 """
-MappApp ./gui/integrated.py - GUI addons meant to be integrated into the main window.
+MappApp ./gui/core.py - GUI addons meant to be integrated into the main window.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -19,15 +19,15 @@ from PyQt5 import QtCore,QtWidgets
 from PyQt5.QtWidgets import QLabel
 import time
 
-from mappapp.process.Controller import Controller
+from mappapp import process
 from mappapp import protocols,IPC,Def
+from mappapp.core.gui import AddonWidget
 
 
-class Protocols(QtWidgets.QWidget):
+class Protocols(AddonWidget):
 
-    def __init__(self, main):
-        self.main = main
-        QtWidgets.QWidget.__init__(self)
+    def __init__(self, *args, **kwargs):
+        AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QGridLayout())
 
         # File list
@@ -89,7 +89,7 @@ class Protocols(QtWidgets.QWidget):
     def update_ui(self):
 
         # Enable/Disable control elements
-        ctrl_is_idle = IPC.in_state(Def.State.IDLE,Def.Process.Controller)
+        ctrl_is_idle = IPC.in_state(Def.State.IDLE, Def.Process.Controller)
         self.wdgt_controls.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
         self.lwdgt_protocols.setEnabled(ctrl_is_idle)
         self._lwdgt_files.setEnabled(ctrl_is_idle)
@@ -116,9 +116,8 @@ class Protocols(QtWidgets.QWidget):
         self.main.recordings.start_recording()
 
         # Start protocol
-        IPC.rpc(Def.Process.Controller,Controller.start_protocol,
-                '.'.join([file_name, protocol_name]))
+        IPC.rpc(Def.Process.Controller, process.Controller.start_protocol, '.'.join([file_name, protocol_name]))
 
     def abort_protocol(self):
-        IPC.rpc(Controller.name,Controller.abortProtocol)
+        IPC.rpc(Def.Process.Controller, process.Controller.abortProtocol)
 
