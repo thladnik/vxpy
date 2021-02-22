@@ -47,6 +47,7 @@ class Path:
     Sample = 'samples'
     Shader = 'shaders'
     Task = 'tasks'
+    Visual = 'visuals'
 
 
 ################################

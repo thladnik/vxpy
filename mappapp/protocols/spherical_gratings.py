@@ -20,7 +20,7 @@ import numpy as np
 from mappapp.core.protocol import StaticProtocol
 
 from mappapp.visuals.spherical.grating import BlackWhiteGrating
-from mappapp.visuals.blank import Blank
+from mappapp.visuals.planar.blank import Blank
 
 
 class StaticGratingDemo(StaticProtocol):

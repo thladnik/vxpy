@@ -15,15 +15,21 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from PyQt5 import QtCore,QtWidgets
+import importlib
+import inspect
+import os
+from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import time
 
 from mappapp import Def
 from mappapp import IPC
+from mappapp import Logging
 from mappapp import protocols
 from mappapp import process
 from mappapp.core.gui import AddonWidget
+from mappapp.core.visual import PlanarVisual, SphericalVisual
+from mappapp.utils.gui import ComboBoxWidget, DoubleSliderWidget, IntSliderWidget
 
 
 class Protocols(AddonWidget):
@@ -137,4 +143,149 @@ class VisualInteractor(AddonWidget):
 
     def __init__(self, *args, **kwargs):
         AddonWidget.__init__(self, *args, **kwargs)
-        self.setLayout(QtWidgets.QGridLayout())
+        self.setLayout(QtWidgets.QHBoxLayout())
+
+        self.left_widget = QtWidgets.QWidget(self)
+        self.left_widget.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self.left_widget)
+
+        self.right_widget = QtWidgets.QWidget(self)
+        self.right_widget.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self.right_widget)
+
+        # Set stretch
+        self.layout().setStretchFactor(self.left_widget, 1)
+        self.layout().setStretchFactor(self.right_widget, 1)
+
+        # Tree widget
+        self.tree = QtWidgets.QTreeWidget(self.left_widget)
+        self.tree.setColumnCount(2)
+        self.tree.setHeaderLabels(['', 'Description'])
+        self.tree.itemCollapsed.connect(self.resize_columns)
+        self.tree.itemExpanded.connect(self.resize_columns)
+        self.left_widget.layout().addWidget(self.tree)
+        self.tree.itemDoubleClicked.connect(self.start_visual)
+
+        self.folders = dict()
+        self.files = dict()
+        self.visuals = dict()
+        # TODO: add recursion for more directory levels?
+        for folder in os.listdir(os.path.join(Def.package, Def.Path.Visual)):
+            folder = str(folder)
+            base_path = os.path.join(Def.package, Def.Path.Visual, folder)
+            if os.path.isfile(base_path) or folder.startswith('_'):
+                continue
+
+            self.folders[folder] = QtWidgets.QTreeWidgetItem(self.tree)
+            self.folders[folder].setText(0, folder)
+            self.files[folder] = dict()
+            self.visuals[folder] = dict()
+
+            for file in os.listdir(base_path):
+                file = str(file)
+                full_path = os.path.join(base_path, file)
+                if os.path.isdir(full_path) or file.startswith('_'):
+                    continue
+
+                self.files[folder][file] = QtWidgets.QTreeWidgetItem(self.folders[folder])
+                self.files[folder][file].setText(0, file)
+                self.visuals[folder][file] = dict()
+
+                # Import module
+                module = importlib.import_module('.'.join([Def.package,Def.Path.Visual,folder, file.split('.')[0]]))
+
+                for clsname, cls in inspect.getmembers(module, inspect.isclass):
+                    if not(issubclass(cls, (PlanarVisual, SphericalVisual))) or cls in (PlanarVisual, SphericalVisual):
+                        continue
+
+                    self.visuals[folder][file][clsname] = (cls, QtWidgets.QTreeWidgetItem(self.files[folder][file]))
+                    self.visuals[folder][file][clsname][1].setText(0, clsname)
+                    self.visuals[folder][file][clsname][1].setText(1, cls.description)
+                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ToolTipRole, cls.description)
+                    self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ToolTipRole, cls.description)
+                    # Set visual class to UserRole
+                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, cls)
+
+        # Add items
+        self.tree.addTopLevelItems([folder_item for folder_item in self.folders.values()])
+
+        # Buttons
+        # Start
+        self.btn_start = QtWidgets.QPushButton('Start visual')
+        self.btn_start.clicked.connect(self.start_visual)
+        self.left_widget.layout().addWidget(self.btn_start)
+        # Stop
+        self.btn_stop = QtWidgets.QPushButton('Stop visual')
+        self.btn_stop.clicked.connect(self.stop_visual)
+        self.left_widget.layout().addWidget(self.btn_stop)
+
+        # Visual tuning widget
+        self.tuner = QtWidgets.QGroupBox('Visual parameters',self.right_widget)
+        self.tuner.setLayout(QtWidgets.QVBoxLayout())
+        self.right_widget.layout().addWidget(self.tuner)
+
+    def resize_columns(self):
+        self.tree.resizeColumnToContents(0)
+        self.tree.resizeColumnToContents(1)
+
+    def start_visual(self, item=False, column=False):
+        if not(item):
+            item = self.tree.currentItem()
+
+        visual_cls = item.data(0, QtCore.Qt.UserRole)
+        if visual_cls is None:
+            return
+
+        # Clear layout
+        self.clear_layout(self.tuner.layout())
+
+        # Add UI components for visual
+        for name, *args in visual_cls.interface:
+            if isinstance(args[0], str):
+                wdgt = ComboBoxWidget(name, args)
+                wdgt.setParent(self.tuner)
+            elif isinstance(args[0], int):
+                kwargs = dict()
+                if len(args) > 3:
+                    kwargs = args.pop(-1)
+                vdef, vmin, vmax = args
+                wdgt = IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt.setParent(self.tuner)
+            elif isinstance(args[0], float):
+                kwargs = dict()
+                if len(args) > 3:
+                    kwargs = args.pop(-1)
+                vdef, vmin, vmax = args
+                wdgt = DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt.setParent(self.tuner)
+            else:
+                wdgt = QLabel(f'<{name}> has unclear type {type(args[0])}', self.tuner)
+
+            wdgt.connect_to_result(self.update_parameter(name))
+            self.tuner.layout().addWidget(wdgt)
+
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.tuner.layout().addItem(spacer)
+
+        if None in visual_cls.parameters.values():
+            Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
+
+        IPC.rpc(Def.Process.Display, process.Display.start_visual, visual_cls, **visual_cls.parameters)
+
+    def update_parameter(self, name):
+        def _update(value):
+            IPC.rpc(Def.Process.Display,process.Display.update_visual, **{name: value})
+        return _update
+
+    def stop_visual(self):
+        IPC.rpc(Def.Process.Display, process.Display.stop_visual)
+
+    def clear_layout(self, layout: QtWidgets.QLayout):
+        while layout.count():
+            child = layout.itemAt(0)
+            if isinstance(child, QtWidgets.QSpacerItem):
+                layout.removeItem(child)
+            elif child.widget() is not None:
+                child.widget().setParent(None)
+            elif child.layout() is not None:
+                self.clear_layout(child.layout())

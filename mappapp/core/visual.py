@@ -29,6 +29,9 @@ from mappapp import Logging,Def,Config
 # Abstract visual class
 
 class AbstractVisual:
+    description = ''
+    interface = []
+
 
     # Display shaders
     _vertex_display = """

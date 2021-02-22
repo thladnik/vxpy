@@ -23,17 +23,26 @@ from mappapp.utils import plane
 
 
 class BlackAndWhiteGrating(PlanarVisual):
+    description = 'Black und white contrast grating stimulus'
 
     u_shape = 'u_shape'
     u_direction = 'u_direction'
-    u_spat_period = 'u_spat_period'
     u_lin_velocity = 'u_lin_velocity'
+    u_spat_period = 'u_spat_period'
 
     parameters = {
-        u_shape: None,
-        u_direction: None,
-        u_lin_velocity: None,
-        u_spat_period: None}
+        u_shape: 'rectangular',
+        u_direction: 'horizontal',
+        u_lin_velocity: 5.,
+        u_spat_period: 10.
+    }
+
+    interface = [
+        (u_shape, 'rectangular', 'sinusoidal'),
+        (u_direction, 'horizontal', 'vertical'),
+        (u_lin_velocity, 5., 0., 100., dict(step_size=1.)),
+        (u_spat_period, 10., 1.0, 200., dict(step_size=1.))
+    ]
 
     def __init__(self, *args, **params):
         """
@@ -57,6 +66,7 @@ class BlackAndWhiteGrating(PlanarVisual):
         self.grating['a_position'] = self.position_buffer
 
         self.update(**params)
+        print(self.parameters)
 
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time#time.time() - self.start_time

@@ -19,6 +19,7 @@ import multiprocessing as mp
 from multiprocessing.managers import SyncManager
 
 from mappapp import Def
+from mappapp import Logging
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -106,8 +107,8 @@ def send(process_name: str, signal: int, *args, **kwargs) -> None:
     @param kwargs:
 
     """
-    #Logging.write(logging.DEBUG,
-    #              f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
+    Logging.write(Logging.DEBUG,
+                  f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
     Pipes[process_name][0].send([signal, args, kwargs])
 
 def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:

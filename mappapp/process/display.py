@@ -57,11 +57,11 @@ class Canvas(app.Canvas):
 
         gloo.clear()
 
-        if self.visual is not None:
+        if IPC.Process.visual is not None:
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
-                self.visual.draw(time.perf_counter())
+                IPC.Process.visual.draw(time.perf_counter())
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
@@ -104,6 +104,8 @@ class Display(AbstractProcess):
                              always_on_top=True)
         self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
+        self._display_visual = False
+
         # Run event loop
         self.run(1/300)
 
@@ -118,21 +120,38 @@ class Display(AbstractProcess):
     def _prepare_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
         self.visual = self.protocol.fetch_phase_visual(phase_id)
-        self.canvas.visual = self.visual
+        #self.canvas.visual = self.visual
         IPC.Process.set_record_group(f'phase_{phase_id}',group_attributes=self.visual.parameters)
 
     def _cleanup_protocol(self):
         self.visual = None
         self.canvas.visual = self.visual
 
+    def start_visual(self, visual_cls, **parameters):
+        self.visual = visual_cls(self.canvas, **parameters)
+        self._display_visual = True
+
+    def stop_visual(self):
+        self.visual = None
+        self._display_visual = False
+
     def _start_shutdown(self):
         AbstractProcess._start_shutdown(self)
+
+    def update_visual(self, **parameters):
+        if self.visual is None:
+            return
+
+        self.visual.update(**parameters)
+
+    def _display(self):
+        return self._run_protocol() or self._display_visual
 
     def main(self):
         app.process_events()
 
         try:
-            if self._run_protocol():
+            if self._display():
                 self.update_routines(self.visual)
             else:
                 self.update_routines()

@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from PyQt5 import QtCore, QtWidgets
-
+from PyQt5.QtWidgets import QLabel
 
 class DoubleSliderWidget(QtWidgets.QWidget):
 
@@ -33,7 +33,7 @@ class DoubleSliderWidget(QtWidgets.QWidget):
             step_size = (max_val - min_val) / 10
 
         self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,3,0,3)
+        self.layout().setContentsMargins(0,0,0,0)
 
         # Label
         self.label = QtWidgets.QLabel(slider_name)
@@ -111,7 +111,7 @@ class IntSliderWidget(QtWidgets.QWidget):
             step_size = (max_val - min_val) // 10
 
         self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,3,0,3)
+        self.layout().setContentsMargins(0,0,0,0)
 
         # Label
         self.label = QtWidgets.QLabel(slider_name)
@@ -165,7 +165,7 @@ class IntSliderWidget(QtWidgets.QWidget):
     def set_value(self, value):
         self.spinner.setValue(value)
 
-    def connect_to_result(self,callback):
+    def connect_to_result(self, callback):
         self._callbacks.append(callback)
 
     def emit_current_value(self):
@@ -174,3 +174,29 @@ class IntSliderWidget(QtWidgets.QWidget):
     def _exc_callback(self):
         for callback in self._callbacks:
             callback(self.spinner.value())
+
+class ComboBoxWidget(QtWidgets.QWidget):
+    def __init__(self, name, options, *args, **kwargs):
+        QtWidgets.QWidget.__init__(self, *args, **kwargs)
+
+        self._callbacks = []
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+        self.lbl = QLabel(name,self)
+        self.lbl.setContentsMargins(0,0,0,0)
+        self.layout().addWidget(self.lbl)
+        self.cb = QtWidgets.QComboBox(self)
+        self.cb.addItems(options)
+        self.cb.setContentsMargins(0,0,0,0)
+        self.cb.addItems(args)
+        self.layout().addWidget(self.cb)
+
+    def connect_to_result(self, callback):
+        self.cb.currentTextChanged.connect(callback)
+
+    def get_value(self):
+        return self.spinner.value()
+
+    def set_value(self,value):
+        self.spinner.setValue(value)

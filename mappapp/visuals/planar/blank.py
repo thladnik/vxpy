@@ -1,5 +1,5 @@
 """
-MappApp ./visuals/blank.py
+MappApp ./visuals/planar/blank.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@ from mappapp.utils import plane
 
 
 class Blank(PlanarVisual):
+    description = 'A blank screen of arbitrary uniform color.'
 
     p_color = 'p_color'
 
