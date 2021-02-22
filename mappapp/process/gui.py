@@ -149,14 +149,10 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
 
 
     def restart_camera(self):
-        IPC.rpc(Def.Process.Controller,
-                process.Controller.initialize_process,
-                process.Camera)
+        IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Camera)
 
     def restart_display(self):
-        IPC.rpc(Def.Process.Controller,
-                process.Controller.initialize_process,
-                process.Display)
+        IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Display)
 
     def _bind_shortcuts(self):
 

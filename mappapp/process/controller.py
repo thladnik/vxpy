@@ -265,20 +265,15 @@ class Controller(AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
-        self._processes[process_name] = mp.Process(target=target,
-                                                  name=process_name,
-                                                  kwargs=kwargs)
+        self._processes[process_name] = mp.Process(target=target, name=process_name, kwargs=kwargs)
 
         # Start subprocess
-        #self._processes[process_name].start()
+        self._processes[process_name].start()
 
         # Set state to IDLE
         self.set_state(Def.State.IDLE)
 
     def start(self):
-        # Start all processes
-        for process_name, process in self._processes.items():
-            process.start()
 
         # Run controller
         self.run(interval=0.001)
