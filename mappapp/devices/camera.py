@@ -98,6 +98,9 @@ class VirtualCamera(AbstractCamera):
 
         self._device = cv2.VideoCapture(os.path.join(Def.package, Def.Path.Sample,self._sampleFile[self.model]))
         self._fps = self._device.get(cv2.CAP_PROP_FPS)
+        self._data = []
+
+
         self.t_start = time.perf_counter()
         self.t_last = time.perf_counter()
         self.i_last = -1
@@ -107,6 +110,17 @@ class VirtualCamera(AbstractCamera):
         s = re.search('\((.*?)x(.*?)\)', self.format)
         self.res_x = int(s.group(1))
         self.res_y = int(s.group(2))
+
+        self._preload_file = False
+        if self._preload_file:
+            self.index = 0
+            while True:
+                ret, frame = self._device.read()
+                if ret:
+                    self._data.append(frame[:self.res_y,:self.res_x,0])
+                else:
+                    break
+            self._data = np.array(self._data)
 
     @staticmethod
     def get_models():
@@ -128,15 +142,17 @@ class VirtualCamera(AbstractCamera):
         pass
 
     def get_image(self):
-        #i = int(self._fps * (time.perf_counter()-self.t_start))
-        #self._device.set(cv2.CAP_PROP_POS_FRAMES, i)
+        if self._preload_file:
+            self.index += 1
+            if self._data.shape[0] <= self.index:
+                self.index = 0
+
+            return self._data[self.index]
 
         ret, frame = self._device.read()
         if ret:
             return frame[:self.res_y,:self.res_x,0]
         else:
-            # Reset
-            #self.t_start = time.perf_counter()
             self._device.set(cv2.CAP_PROP_POS_FRAMES, 0)
             return self.get_image()
 

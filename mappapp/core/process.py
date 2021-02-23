@@ -80,6 +80,13 @@ class AbstractProcess:
         if not(_pipes is None):
             IPC.Pipes.update(_pipes)
 
+        # Set log
+        if not(_log is None):
+            for lkey, log in _log.items():
+                setattr(IPC.Log,lkey,log)
+            # Setup logging
+            Logging.setup_logger(self.name)
+
         # Set routines and let routine wrapper create hooks in process instance and initialize buffers
         if isinstance(_routines, dict):
             self._routines = _routines
@@ -119,13 +126,6 @@ class AbstractProcess:
         if _proxies is not None:
             for pkey, proxy in _proxies.items():
                 setattr(IPC,pkey,proxy)
-
-        # Set log
-        if not(_log is None):
-            for lkey, log in _log.items():
-                setattr(IPC.Log,lkey,log)
-            # Setup logging
-            Logging.setup_logger(self.name)
 
         # Set states
         if not(_states is None):
@@ -503,25 +503,29 @@ class AbstractProcess:
         if not (bool(args)) and not (bool(kwargs)):
             return
 
+        current_time = time.time()
         for routine_name,routine in self._routines[self.name].items():
-            # Advance buffer
-            routine.buffer.next()
+            # Update time
+            routine.buffer.set_time(current_time)
 
             # Execute routine function
             routine.execute(*args,**kwargs)
+
+            # Advance buffer
+            routine.buffer.next()
 
             # If no file object was provided or this particular buffer is not supposed to stream to file: return
             if record_grp is None or not(self._routine_on_record(routine_name)):
                 continue
 
             # Iterate over data in group (buffer)
-            for attr_name,time,attr_data in routine.to_file():
+            for attr_name,attr_time,attr_data in routine.to_file():
 
-                if time is None:
+                if attr_time is None:
                     continue
 
                 self._append_to_dataset(record_grp[routine_name],attr_name,attr_data)
-                self._append_to_dataset(record_grp[routine_name],f'{attr_name}_time',time)
+                self._append_to_dataset(record_grp[routine_name],f'{attr_name}_time',attr_time)
 
     def get_buffer(self,routine_cls: Type[AbstractRoutine]):
         """Return buffer of a routine class"""

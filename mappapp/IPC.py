@@ -107,9 +107,14 @@ def send(process_name: str, signal: int, *args, **kwargs) -> None:
     @param kwargs:
 
     """
-    Logging.write(Logging.DEBUG,
-                  f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
-    Pipes[process_name][0].send([signal, args, kwargs])
+    try:
+        Logging.write(Logging.DEBUG,
+                      f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
+        Pipes[process_name][0].send([signal, args, kwargs])
+
+
+    except:
+        print('Meh', Logging.write)
 
 def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
     """Send a remote procedure call of given function to another process.

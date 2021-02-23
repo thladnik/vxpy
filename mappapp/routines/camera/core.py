@@ -517,11 +517,10 @@ class EyePositionDetection(CameraRoutine):
                 ####
                 # Calculate eye angular VELOCITIES
 
-                # Read last positions
-                _, _, last_le_pos = le_pos_attr.read(3)
-                last_le_pos = np.median(last_le_pos)
-                _, last_time, last_re_pos = re_pos_attr.read(3)
-                last_re_pos = np.median(last_re_pos)
+                _, _, last_le_pos = le_pos_attr.read(1)
+                last_le_pos = last_le_pos[0]
+                _, last_time, last_re_pos = re_pos_attr.read(1)
+                last_re_pos = last_re_pos[0]
                 last_time = last_time[-1]
                 if last_time is None:
                     last_time = -np.inf

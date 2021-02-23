@@ -82,6 +82,13 @@ class TriggerLedArenaFlash(IoRoutine):
 
         # Make trigger function accessible
         self.exposed.append(TriggerLedArenaFlash.trigger_flash)
+        self.exposed.append(TriggerLedArenaFlash.set_delay_ms)
+        self.exposed.append(TriggerLedArenaFlash.set_delay_s)
+        self.exposed.append(TriggerLedArenaFlash.set_duration_ms)
+        self.exposed.append(TriggerLedArenaFlash.set_duration_s)
+
+        # Connect to saccade trigger
+        #self.connect_to_trigger('saccade_trigger', EyePositionDetection, TriggerLedArenaFlash.trigger_flash)
 
         self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
         self.pins = [pin for pin in self.pins if pin[0].startswith('pwm_chan_out')]
@@ -93,11 +100,37 @@ class TriggerLedArenaFlash(IoRoutine):
 
         # Set buffer attribute
         self.buffer.trigger_set = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
-        #self.register_with_ui_plotter('trigger_set', 1, name='Flash trigger', axis='di')
         self.buffer.flash_state = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
-        #self.register_with_ui_plotter('flash_state', 1, name='Flash state', axis='di')
+
+        self.delay = None
+        self.duration = None
+
+    def initialize(self):
+        self.register_with_ui_plotter(TriggerLedArenaFlash, 'trigger_set', 1, name='Flash trigger', axis='di')
+        self.register_with_ui_plotter(TriggerLedArenaFlash, 'flash_state', 1, name='Flash state', axis='di')
+
+    def set_delay_ms(self, delay):
+        self.set_delay_s(delay/1000)
+
+    def set_delay_s(self,delay):
+        self.delay = delay
+
+    def set_duration_ms(self, duration):
+        self.set_duration_s(duration/1000)
+
+    def set_duration_s(self, duration):
+        self.duration = duration
 
     def execute(self, pin_data, device):
+        # Check saccade
+        from mappapp import IPC
+        from mappapp.routines.camera.core import EyePositionDetection
+        _, _, le_sacc_val = IPC.Camera.read(EyePositionDetection, 'le_saccade_0')
+        _, sacc_time, re_sacc_val = IPC.Camera.read(EyePositionDetection, 're_saccade_0')
+
+        if re_sacc_val[0] > 0 or le_sacc_val[0] > 0:
+            self.trigger_flash()
+
         t = time.time()
         state = self.flash_start_time <= t and self.flash_end_time > t
 
@@ -117,14 +150,7 @@ class TriggerLedArenaFlash(IoRoutine):
         if self.trigger_set:
             self.trigger_set = not(self.trigger_set)
 
-    def to_file01(self):
-        _, _, triggers = self.buffer.trigger_set.read(0)
-        _, times, flash_states = self.buffer.flash_state.read(0)
-
-        yield 'flash_trigger', times[0], triggers[0]
-        yield 'flash_state', times[0], flash_states[0]
-
-    def trigger_flash(self, delay, duration):
+    def trigger_flash(self):
         # Can't trigger flash while script is reacting to last event
         if self.trigger_state:
             return
@@ -132,5 +158,5 @@ class TriggerLedArenaFlash(IoRoutine):
         print('Set flash start/end')
         self.trigger_set = not(self.trigger_set)
         self.trigger_state = not(self.trigger_state)
-        self.flash_start_time = time.time() + delay
-        self.flash_end_time = self.flash_start_time + duration
+        self.flash_start_time = time.time() + self.delay
+        self.flash_end_time = self.flash_start_time + self.duration

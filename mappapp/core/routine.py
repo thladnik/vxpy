@@ -76,8 +76,7 @@ class AbstractRoutine:
         self.file_attrs.append(attr_name)
 
     def register_with_ui_plotter(self, routine_cls: Type[AbstractRoutine], attr_name: str, start_idx: int, *args, **kwargs):
-        IPC.rpc(Def.Process.Gui, Plotter.add_buffer_attribute,
-                routine_cls,attr_name,start_idx,*args,**kwargs)
+        IPC.rpc(Def.Process.Gui, Plotter.add_buffer_attribute, routine_cls, attr_name, start_idx, *args, **kwargs)
 
     def to_file(self) -> (str, float, Any):
         """Method may be reimplemented. Can be used to alter the output to file.
@@ -434,6 +433,9 @@ class RingBuffer:
     def set_time(self, time):
         self.__dict__['current_time'] = time
 
+    def update_time(self):
+        self.set_time(time.time())
+
     def get_time(self):
         return self.__dict__['current_time']
 
@@ -460,5 +462,5 @@ class RingBuffer:
             self.__getattribute__(item)
 
     def next(self):
-        self.set_time(time.time())
+        #self.set_time(time.time())
         self.set_index(self.get_index() + 1)
