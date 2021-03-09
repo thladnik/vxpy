@@ -63,6 +63,7 @@ class Frames(CameraRoutine):
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
 
+
 class EyePositionDetection(CameraRoutine):
 
     camera_device_id = 'behavior'
@@ -457,7 +458,7 @@ class EyePositionDetection(CameraRoutine):
             return
 
         # Write frame to buffer
-        self.buffer.frame.write(frame[:,:])
+        self.buffer.frame.write(frame[:,:,0])
 
         # Do eye detection and angular position estimation
         if bool(self.rois):

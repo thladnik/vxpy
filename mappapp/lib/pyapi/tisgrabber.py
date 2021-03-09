@@ -10,7 +10,7 @@ Created on Mon Nov 21 09:44:40 2016
 import os
 from mappapp import Def
 
-os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(),Def.Path.Libdll))
+os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.package, Def.Path.Libdll))
 ##
 ####
 

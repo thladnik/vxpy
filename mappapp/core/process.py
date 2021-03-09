@@ -354,8 +354,8 @@ class AbstractProcess:
             fun_str = fun_path[1]
 
             try:
-                Logging.write(Logging.DEBUG,
-                              f'RPC call to process <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                # Logging.write(Logging.DEBUG,
+                #               f'RPC call to process <{fun_str}> with Args {args} and Kwargs {kwargs}')
                 getattr(self, fun_str)(*args, **kwargs)
 
             except Exception as exc:

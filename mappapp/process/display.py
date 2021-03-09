@@ -158,4 +158,5 @@ class Display(AbstractProcess):
         except Exception as exc:
             import traceback
             traceback.print_exc()
+            # TODO: quit process here and restart!
 
