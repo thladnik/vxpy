@@ -106,7 +106,7 @@ class AbstractProcess:
                             # Catching this (unimportant) exception prevents a crash.
                             pass
 
-                    routine.connect_triggers(_routines)
+                    routine._connect_triggers(_routines)
 
                     if self.name == routine.process_name:
                         routine.initialize()

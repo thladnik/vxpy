@@ -25,7 +25,7 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp.core.gui import AddonWidget
-from mappapp.routines.camera.core import EyePositionDetection, Frames
+from mappapp.routines.camera.core import EyePositionDetection, FishPosDirDetection, Frames
 from mappapp.utils import geometry
 
 
@@ -373,3 +373,104 @@ class EyePositionDetector(AddonWidget):
             # Send update to detector routine
             IPC.rpc(Def.Process.Camera,EyePositionDetection.set_roi,self.id,self.rect)
             #routines.camera.Core.EyePositionDetection.set_roi(self.id, self.rect)
+
+
+class FishPosDirDetector(AddonWidget):
+
+    def __init__(self, *args, **kwargs):
+
+        AddonWidget.__init__(self, *args, **kwargs)
+        self.setLayout(QtWidgets.QHBoxLayout())
+
+        from mappapp.utils.gui import IntSliderWidget
+
+        self.lpanel = QtWidgets.QWidget(self)
+        self.lpanel.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self.lpanel)
+
+        # Set up left control panel
+        self.lpanel.layout().addWidget(QLabel('<b>Eye detection</b>'))
+
+        label_width = 125
+        # Image threshold
+        self.image_threshold = IntSliderWidget('Threshold', 1, 255, 60, label_width=label_width, step_size=1)
+        self.image_threshold.connect_to_result(self.update_image_threshold)
+        self.image_threshold.emit_current_value()
+        self.lpanel.layout().addWidget(self.image_threshold)
+
+        # Particle size
+        self.particle_minsize = IntSliderWidget('Min. particle size',1, 1000, 60, label_width=label_width, step_size=1)
+        self.particle_minsize.connect_to_result(self.update_particle_minsize)
+        self.particle_minsize.emit_current_value()
+        self.lpanel.layout().addWidget(self.particle_minsize)
+
+        # BG calculation range
+        self.bg_calc_range = IntSliderWidget('Background range',1, FishPosDirDetection.buffer_size-1, 200, label_width=label_width, step_size=1)
+        self.bg_calc_range.connect_to_result(self.update_bg_calc_range)
+        self.bg_calc_range.emit_current_value()
+        self.lpanel.layout().addWidget(self.bg_calc_range)
+
+        self.btn_calc_background = QtWidgets.QPushButton('Calculate background')
+        self.btn_calc_background.clicked.connect(self.calculate_background)
+        self.lpanel.layout().addWidget(self.btn_calc_background)
+
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.MinimumExpanding)
+        self.lpanel.layout().addItem(spacer)
+
+        # Set up image plot
+        self.graphics_widget = EyePositionDetector.GraphicsWidget(parent=self)
+        self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
+                                           QtWidgets.QSizePolicy.Expanding)
+        self.layout().addWidget(self.graphics_widget)
+
+    def update_bg_calc_range(self, value):
+        IPC.rpc(Def.Process.Camera, FishPosDirDetection.set_bg_calc_range, value)
+
+    def calculate_background(self, value):
+        IPC.rpc(Def.Process.Camera, FishPosDirDetection.calculate_background)
+
+    def update_image_threshold(self, value):
+        IPC.rpc(Def.Process.Camera, FishPosDirDetection.set_threshold, value)
+
+    def update_particle_minsize(self, value):
+        IPC.rpc(Def.Process.Camera, FishPosDirDetection.set_min_particle_size, value)
+
+    def update_frame(self):
+        idx, time, frame = IPC.Camera.read(FishPosDirDetection, 'tframe')
+        frame = frame[0]
+
+        if frame is None:
+            return
+
+        self.graphics_widget.image_item.setImage(np.rot90(frame, -1))
+
+
+    class GraphicsWidget(pg.GraphicsLayoutWidget):
+        def __init__(self, **kwargs):
+            pg.GraphicsLayoutWidget.__init__(self, **kwargs)
+
+            # Set up basics
+            self.lines = dict()
+            self.roi_params = dict()
+            self.roi_rects = dict()
+            self.subplots = dict()
+            self.new_marker = None
+            self.current_id = 0
+
+            # Set context menu
+            self.context_menu = QtWidgets.QMenu()
+
+            # Set new line
+            self.menu_new = QtWidgets.QAction('New ROI')
+            self.menu_new.triggered.connect(self.add_marker)
+            self.context_menu.addAction(self.menu_new)
+
+            # Set up plot image item
+            self.image_plot = self.addPlot(0, 0, 1, 10)
+            self.image_item = pg.ImageItem()
+            self.image_plot.hideAxis('left')
+            self.image_plot.hideAxis('bottom')
+            self.image_plot.setAspectLocked(True)
+            self.image_plot.addItem(self.image_item)
+
+

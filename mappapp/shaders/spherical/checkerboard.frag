@@ -15,13 +15,14 @@ void main()
     float c = sin(u_azimuth_sf * 360.0 * v_azimuth) * sin(u_elevation_sf * 360.0 * v_elevation);
 
     // Thresholding
-    if (c > 0) {
-       c = 1.0;
-    } else {
-         c = 0.0;
-    }
+    c = step(c, 0.0);
+//    if (c > 0) {
+//       c = 1.0;
+//    } else {
+//         c = 0.0;
+//    }
 
     // Final color
-    gl_FragColor = vec4(c, c, c, 1.0);;
+    gl_FragColor = vec4(c, c, c, 1.0);
 
 }

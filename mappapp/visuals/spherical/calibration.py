@@ -57,22 +57,13 @@ class BlackWhiteCheckerboard(SphericalVisual):
         self.apply_transform(self.checker)
         self.checker.draw('triangles', self.index_buffer)
 
-    def update(self, **params):
-
-        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
-        for k, p in self.parameters.items():
-            if hasattr(self, 'parse_{}'.format(k)):
-                self.checker[k] = getattr(self, 'parse_{}'.format(k))(p)
-            else:
-                self.checker[k] = p
-
 
 class RegularMesh(SphericalVisual):
 
-    u_rows = 'u_rows'
-    u_cols = 'u_cols'
+    u_elevation_sf = 'u_elevation_sf'
+    u_azimuth_sf = 'u_azimuth_sf'
 
-    parameters = {u_rows: None, u_cols: None}
+    parameters = {u_elevation_sf: 0.01, u_azimuth_sf: 0.01}
 
     def __init__(self, *args, **params):
         SphericalVisual.__init__(self, *args)
@@ -88,6 +79,7 @@ class RegularMesh(SphericalVisual):
         self.mesh['a_position'] = self.position_buffer
         self.mesh['a_azimuth'] = self.azimuth_buffer
         self.mesh['a_elevation'] = self.elevation_buffer
+
         self.update(**params)
 
     def render(self, frame_time):

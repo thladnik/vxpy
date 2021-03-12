@@ -253,23 +253,26 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         self.layout().addWidget(self.grp_sph_checker)
 
         # Spherical mesh
-        self.grp_sph_mesh = QtWidgets.QGroupBox('Spherical Mesh')
-        self.grp_sph_mesh.setLayout(QtWidgets.QGridLayout())
-        self.layout().addWidget(self.grp_sph_mesh)
-        # Rows
-        self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. rows'), 0, 0)
-        self.grp_sph_mesh.dspn_rows = QtWidgets.QSpinBox()
-        self.grp_sph_mesh.dspn_rows.setValue(32)
-        self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_rows, 0, 1)
-        # Cols
-        self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. cols'), 1, 0)
-        self.grp_sph_mesh.dspn_cols = QtWidgets.QSpinBox()
-        self.grp_sph_mesh.dspn_cols.setValue(32)
-        self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_cols, 1, 1)
-        # Show button
-        self.grp_sph_mesh.btn_show = QtWidgets.QPushButton('Show')
-        self.grp_sph_mesh.btn_show.clicked.connect(self.show_spherical_mesh)
-        self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.btn_show, 2, 0, 1, 2)
+        self.grp_sph_checker = DisplaySphericalMeshCalibration(self.main)
+        self.layout().addWidget(self.grp_sph_checker)
+
+        # self.grp_sph_mesh = QtWidgets.QGroupBox('Spherical Mesh')
+        # self.grp_sph_mesh.setLayout(QtWidgets.QGridLayout())
+        # self.layout().addWidget(self.grp_sph_mesh)
+        # # Rows
+        # self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. rows'), 0, 0)
+        # self.grp_sph_mesh.dspn_rows = QtWidgets.QSpinBox()
+        # self.grp_sph_mesh.dspn_rows.setValue(32)
+        # self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_rows, 0, 1)
+        # # Cols
+        # self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. cols'), 1, 0)
+        # self.grp_sph_mesh.dspn_cols = QtWidgets.QSpinBox()
+        # self.grp_sph_mesh.dspn_cols.setValue(32)
+        # self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_cols, 1, 1)
+        # # Show button
+        # self.grp_sph_mesh.btn_show = QtWidgets.QPushButton('Show')
+        # self.grp_sph_mesh.btn_show.clicked.connect(self.show_spherical_mesh)
+        # self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.btn_show, 2, 0, 1, 2)
 
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(vSpacer)
@@ -291,39 +294,139 @@ class DisplayCalibration(QtWidgets.QGroupBox):
                                               **{RegularMesh.u_rows : rows,
                                                  RegularMesh.u_cols : cols})
 
-class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
+
+
+class DisplaySphericalMeshCalibration(QtWidgets.QGroupBox):
     def __init__(self, main):
-        QtWidgets.QGroupBox.__init__(self, 'Spherical Checkerboard')
+        QtWidgets.QGroupBox.__init__(self, 'Spherical mesh')
         self.main = main
 
         self.setLayout(QtWidgets.QVBoxLayout())
+
         # Vertical SF
-        self.vertical_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
-                                                              step_size=.001, decimals=3, label_width=100)
-        self.vertical_sf.connect_to_result(self.update_sph_checker_elevation_sp)
-        self.layout().addWidget(self.vertical_sf)
+        self.elevation_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
+                                               step_size=.001, decimals=3, label_width=100)
+        self.elevation_sf.connect_to_result(self.update_elevation_sp)
+        self.layout().addWidget(self.elevation_sf)
         # Vertical SP
-        self.vertical_sp = QtWidgets.QLineEdit('')
-        self.layout().addWidget(self.vertical_sp)
+        self.elevation_sp = QtWidgets.QLineEdit('')
+        self.elevation_sp.setDisabled(True)
+        self.layout().addWidget(self.elevation_sp)
+        self.elevation_sf.emit_current_value()
+
         # Horizontal SF
-        self.horizontal_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
-                                                                step_size=.001, decimals=3, label_width=100)
-        self.layout().addWidget(self.horizontal_sf)
+        self.azimuth_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
+                                             step_size=.001, decimals=3, label_width=100)
+        self.azimuth_sf.connect_to_result(self.update_azimuth_sp)
+        self.layout().addWidget(self.azimuth_sf)
+        # Horizontal SP
+        self.azimuth_sp = QtWidgets.QLineEdit('')
+        self.azimuth_sp.setDisabled(True)
+        self.layout().addWidget(self.azimuth_sp)
+        self.azimuth_sf.emit_current_value()
+
         # Show button
         self.btn_show = QtWidgets.QPushButton('Show')
-        self.btn_show.clicked.connect(self.show_spherical_checkerboard)
+        self.btn_show.clicked.connect(self.show_visual)
         self.layout().addWidget(self.btn_show)
 
-    def update_sph_checker_elevation_sp(self, sf):
-        self.vertical_sp.setText('Elevation SP {:.1f} [deg]'.format(1./sf))
+    def update_elevation_sp(self, sf):
+        self.elevation_sp.setText('Elevation SP {:.1f} [deg]'.format(1. / sf))
 
-    def show_spherical_checkerboard(self):
+    def update_azimuth_sp(self, sf):
+        self.azimuth_sp.setText('Azimuth SP {:.1f} [deg]'.format(1. / sf))
+
+    def show_visual(self):
+        from mappapp.visuals.spherical.calibration import RegularMesh
+        elevation_sf = self.elevation_sf.get_value(),
+        azimuth_sf = self.azimuth_sf.get_value()
+        self.main.canvas.visual = RegularMesh(self.main.canvas,
+                                              **{RegularMesh.u_elevation_sf: elevation_sf,
+                                                 RegularMesh.u_azimuth_sf: azimuth_sf})
+
+
+
+class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
+    def __init__(self, main):
+        QtWidgets.QGroupBox.__init__(self, 'Spherical mesh')
+        self.main = main
+
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        # Vertical SF
+        self.elevation_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
+                                               step_size=.001, decimals=3, label_width=100)
+        self.elevation_sf.connect_to_result(self.update_elevation_sp)
+        self.layout().addWidget(self.elevation_sf)
+        # Vertical SP
+        self.elevation_sp = QtWidgets.QLineEdit('')
+        self.elevation_sp.setDisabled(True)
+        self.layout().addWidget(self.elevation_sp)
+        self.elevation_sf.emit_current_value()
+
+        # Horizontal SF
+        self.azimuth_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
+                                             step_size=.001, decimals=3, label_width=100)
+        self.azimuth_sf.connect_to_result(self.update_azimuth_sp)
+        self.layout().addWidget(self.azimuth_sf)
+        # Horizontal SP
+        self.azimuth_sp = QtWidgets.QLineEdit('')
+        self.azimuth_sp.setDisabled(True)
+        self.layout().addWidget(self.azimuth_sp)
+        self.azimuth_sf.emit_current_value()
+
+        # Show button
+        self.btn_show = QtWidgets.QPushButton('Show')
+        self.btn_show.clicked.connect(self.show_visual)
+        self.layout().addWidget(self.btn_show)
+
+    def update_elevation_sp(self, sf):
+        self.elevation_sp.setText('Elevation SP {:.1f} [deg]'.format(1. / sf))
+
+    def update_azimuth_sp(self, sf):
+        self.azimuth_sp.setText('Azimuth SP {:.1f} [deg]'.format(1. / sf))
+
+    def show_visual(self):
         from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard
-        vertical_sf = self.vertical_sf.get_value(),
-        horizontal_sf = self.horizontal_sf.get_value()
+        elevation_sf = self.elevation_sf.get_value(),
+        azimuth_sf = self.azimuth_sf.get_value()
         self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
-                                                         **{BlackWhiteCheckerboard.u_elevation_sf: vertical_sf,
-                                                            BlackWhiteCheckerboard.u_azimuth_sf: horizontal_sf})
+                                                         **{BlackWhiteCheckerboard.u_elevation_sf: elevation_sf,
+                                                            BlackWhiteCheckerboard.u_azimuth_sf: azimuth_sf})
+
+# class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
+#     def __init__(self, main):
+#         QtWidgets.QGroupBox.__init__(self, 'Spherical Checkerboard')
+#         self.main = main
+#
+#         self.setLayout(QtWidgets.QVBoxLayout())
+#         # Vertical SF
+#         self.vertical_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
+#                                                               step_size=.001, decimals=3, label_width=100)
+#         self.vertical_sf.connect_to_result(self.update_sph_checker_elevation_sp)
+#         self.layout().addWidget(self.vertical_sf)
+#         # Vertical SP
+#         self.vertical_sp = QtWidgets.QLineEdit('')
+#         self.layout().addWidget(self.vertical_sp)
+#         # Horizontal SF
+#         self.horizontal_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
+#                                                                 step_size=.001, decimals=3, label_width=100)
+#         self.layout().addWidget(self.horizontal_sf)
+#         # Show button
+#         self.btn_show = QtWidgets.QPushButton('Show')
+#         self.btn_show.clicked.connect(self.show_spherical_checkerboard)
+#         self.layout().addWidget(self.btn_show)
+#
+#     def update_sph_checker_elevation_sp(self, sf):
+#         self.vertical_sp.setText('Elevation SP {:.1f} [deg]'.format(1./sf))
+#
+#     def show_spherical_checkerboard(self):
+#         from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard
+#         vertical_sf = self.vertical_sf.get_value(),
+#         horizontal_sf = self.horizontal_sf.get_value()
+#         self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
+#                                                          **{BlackWhiteCheckerboard.u_elevation_sf: vertical_sf,
+#                                                             BlackWhiteCheckerboard.u_azimuth_sf: horizontal_sf})
 
 class GlobalDisplaySettings(QtWidgets.QGroupBox):
 
