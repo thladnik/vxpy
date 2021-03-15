@@ -63,6 +63,7 @@ class Frames(CameraRoutine):
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
 
+
 class EyePositionDetection(CameraRoutine):
 
     camera_device_id = 'behavior'
@@ -457,7 +458,7 @@ class EyePositionDetection(CameraRoutine):
             return
 
         # Write frame to buffer
-        self.buffer.frame.write(frame[:,:])
+        self.buffer.frame.write(frame[:,:,0])
 
         # Do eye detection and angular position estimation
         if bool(self.rois):
@@ -560,3 +561,134 @@ class EyePositionDetection(CameraRoutine):
 
                 # Set current rect ROI data
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
+
+
+
+class FishPosDirDetection(CameraRoutine):
+
+    buffer_size = 500
+
+    camera_device_id = 'behavior'
+
+    def __init__(self, *args, **kwargs):
+        CameraRoutine.__init__(self, *args, **kwargs)
+
+        self.add_trigger('saccade_trigger')
+
+        self.exposed.append(FishPosDirDetection.set_threshold)
+        self.exposed.append(FishPosDirDetection.set_min_particle_size)
+        self.exposed.append(FishPosDirDetection.set_bg_calc_range)
+        self.exposed.append(FishPosDirDetection.calculate_background)
+
+        # Set required devices
+        self.required.append(self.camera_device_id)
+
+        # Get camera specs
+        assert self.camera_device_id in Config.Camera[Def.CameraCfg.device_id], \
+            f'Camera device "{self.camera_device_id}" not configured for {self.__class__.__name__}'
+        idx = Config.Camera[Def.CameraCfg.device_id].index(self.camera_device_id)
+        self.res_x = Config.Camera[Def.CameraCfg.res_x][idx]
+        self.res_y = Config.Camera[Def.CameraCfg.res_y][idx]
+        target_fps = Config.Camera[Def.CameraCfg.fps]
+
+        # Add attributes
+        self.buffer.frame = ArrayAttribute((self.res_y, self.res_x, 3), ArrayDType.uint8, length=self.buffer_size)
+        self.buffer.tframe = ArrayAttribute((self.res_y, self.res_x, 3), ArrayDType.uint8, length=self.buffer_size)
+
+        self.background = None
+        self.thresh = None
+        self.min_size = None
+        self.bg_calc_range = None
+
+    def calculate_background(self):
+
+        _, _, frames = self.buffer.frame.read(last=self.bg_calc_range)
+
+        mog = cv2.createBackgroundSubtractorMOG2()
+        for frame in frames:
+            img = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            mog.apply(img)
+
+        # Get background
+        self.background = mog.getBackgroundImage()
+
+    def set_bg_calc_range(self, value):
+        self.bg_calc_range = value
+
+    def set_threshold(self, value):
+        self.thresh = value
+
+    def set_min_particle_size(self, value):
+        self.min_size = value
+
+    def execute(self, **frames):
+
+        # Read frame
+        frame = frames.get(self.camera_device_id)
+        self.buffer.frame.write(frame)
+
+        # Check if frame was returned
+        if frame is None:
+            return
+
+        if self.background is None:
+            return
+
+
+        im = cv2.absdiff(self.background[:,:,0], frame[:,:,0])
+
+        #self.buffer.tframe.write(im)
+
+
+        # Apply threshold
+        _, thresh = cv2.threshold(im, self.thresh, 255, cv2.THRESH_BINARY)
+
+        # Detect contours
+        cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+        hulls = []
+        i = 0
+        while i < len(cnts):
+
+            cnt = cnts[i]
+            M = cv2.moments(cnt)
+            A = M['m00']
+
+            self.min_size = 1
+            # Discard if contour has no area
+            if A < self.min_size:
+                del cnts[i]
+                continue
+
+            # Particle center
+            center = (M['m10'] / A, M['m01'] / A)
+
+            # Hull of particle
+            hull = cv2.convexHull(cnt).squeeze()
+            hulls.append(hull)
+
+            # Ellipse axes lengths
+            a = M['m20'] / M['m00'] - center[0] ** 2
+            b = 2 * (M['m11'] / M['m00'] - center[0] * center[1])
+            c = M['m02'] / M['m00'] - center[1] ** 2
+
+            # Avoid divisions by zero
+            if (a - c) == 0.:
+                del cnts[i]
+                continue
+
+            # Ellipse's major axis angle
+            theta = (1 / 2 * np.arctan(b / (a - c)) + (a < c) - 1) / np.pi * 180  # * np.pi / 2
+            W = np.sqrt(8 * (a + c - np.sqrt(b ** 2 + (a - c) ** 2))) / 2
+            L = np.sqrt(8 * (a + c + np.sqrt(b ** 2 + (a - c) ** 2))) / 2
+
+            i += 1
+
+        # Draw hull contours for debugging (before possible premature return)
+        thresh = np.repeat(thresh[:,:,np.newaxis], 3, axis=-1)
+        try:
+            cv2.drawContours(thresh, hulls, -1, (255, 0, 0), 1)
+        except:
+            pass
+
+        self.buffer.tframe.write(thresh)

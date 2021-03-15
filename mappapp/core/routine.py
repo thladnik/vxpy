@@ -68,7 +68,7 @@ class AbstractRoutine:
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
         raise NotImplementedError(f'_compute not implemented in {self.__class__.__name__}')
 
-    def add_file_attribute(self, attr_name):
+    def add_to_file(self, attr_name):
         if attr_name in self.file_attrs:
             Logging.write(Logging.WARNING,f'Attribute "{attr_name}" already set to be written to file')
             return
@@ -110,7 +110,7 @@ class AbstractRoutine:
 
         self._trigger_callbacks[routine.process_name][routine.__qualname__][trigger_name] = callback
 
-    def connect_triggers(self, _routines):
+    def _connect_triggers(self, _routines):
         for process_name, routines in self._trigger_callbacks.items():
             for routine_name, callbacks in routines.items():
                 for trigger_name, callback in callbacks.items():

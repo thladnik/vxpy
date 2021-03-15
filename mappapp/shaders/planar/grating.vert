@@ -9,6 +9,7 @@ uniform float u_glob_x_position;
 uniform float u_glob_y_position;
 
 varying vec2 v_position;
+varying vec2 v_nposition;
 
 void main() {
     gl_Position = vec4(
@@ -18,4 +19,8 @@ void main() {
     v_position = vec2(
                     (1.0 + a_position.x) / 2.0 * u_mapcalib_xextent * u_small_side_size,
                     (1.0 + a_position.y) / 2.0 * u_mapcalib_yextent * u_small_side_size);
+
+     v_nposition= vec2(
+                    (1.0 + a_position.x) / 2.0,
+                    (1.0 + a_position.y) / 2.0);
 }

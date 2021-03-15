@@ -25,7 +25,7 @@ from mappapp import Logging
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Callable, Dict, Tuple
-    from core.process import AbstractProcess, ProcessProxy
+    from mappapp.core.process import AbstractProcess, ProcessProxy
 
 Manager: SyncManager
 
@@ -108,8 +108,8 @@ def send(process_name: str, signal: int, *args, **kwargs) -> None:
 
     """
     try:
-        Logging.write(Logging.DEBUG,
-                      f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
+        # Logging.write(Logging.DEBUG,
+        #               f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
         Pipes[process_name][0].send([signal, args, kwargs])
 
 
