@@ -33,9 +33,11 @@ from mappapp.core.routine import ArrayAttribute
 
 # Type hinting
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict,Type, Union
+    from typing import Any, Callable, Dict, Type, Union
     from mappapp.core.routine import AbstractRoutine
+
 
 ##################################
 ## Process BASE class
@@ -77,13 +79,13 @@ class AbstractProcess:
         IPC.Process = self
 
         # Set pipes
-        if not(_pipes is None):
+        if not (_pipes is None):
             IPC.Pipes.update(_pipes)
 
         # Set log
-        if not(_log is None):
+        if not (_log is None):
             for lkey, log in _log.items():
-                setattr(IPC.Log,lkey,log)
+                setattr(IPC.Log, lkey, log)
             # Setup logging
             Logging.setup_logger(self.name)
 
@@ -121,25 +123,24 @@ class AbstractProcess:
         # Set controls
         if _controls is not None:
             for ckey, control in _controls.items():
-                setattr(IPC.Control,ckey,control)
+                setattr(IPC.Control, ckey, control)
 
         if _proxies is not None:
             for pkey, proxy in _proxies.items():
-                setattr(IPC,pkey,proxy)
+                setattr(IPC, pkey, proxy)
 
         # Set states
-        if not(_states is None):
+        if not (_states is None):
             for skey, state in _states.items():
-                setattr(IPC.State,skey,state)
+                setattr(IPC.State, skey, state)
 
         # Set additional attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
 
         # Set process state
-        if not(getattr(IPC.State,self.name) is None):
+        if not (getattr(IPC.State, self.name) is None):
             IPC.set_state(Def.State.STARTING)
-
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
@@ -225,8 +226,7 @@ class AbstractProcess:
         elif self.in_state(Def.State.IDLE):
 
             ## Ctrl PREPARE_PROTOCOL
-            if self.in_state(Def.State.PREPARE_PROTOCOL,Def.Process.Controller):
-
+            if self.in_state(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
                 self._prepare_protocol()
 
                 # Set next state
@@ -241,7 +241,7 @@ class AbstractProcess:
         # WAIT_FOR_PHASE
         elif self.in_state(Def.State.WAIT_FOR_PHASE):
 
-            if not(self.in_state(Def.State.PREPARE_PHASE,Def.Process.Controller)):
+            if not (self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller)):
                 return False
 
             self._prepare_phase()
@@ -254,17 +254,17 @@ class AbstractProcess:
         # READY
         elif self.in_state(Def.State.READY):
             # If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not(self.in_state(Def.State.RUNNING,Def.Process.Controller)):
+            if not (self.in_state(Def.State.RUNNING, Def.Process.Controller)):
                 return False
 
             # Wait for go time
             # TODO: there is an issue where Process gets stuck on READY, when protocol is
             #       aborted while it is waiting in this loop. Fix: periodic checking? Might mess up timing?
-            while self.in_state(Def.State.RUNNING,Def.Process.Controller):
+            while self.in_state(Def.State.RUNNING, Def.Process.Controller):
                 # TODO: sync of starts could also be done with multiprocessing.Barrier
                 t = time.time()
                 if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
-                    Logging.write(Logging.INFO,'Start at {}'.format(t))
+                    Logging.write(Logging.INFO, 'Start at {}'.format(t))
                     self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
                     break
@@ -277,11 +277,11 @@ class AbstractProcess:
 
             ####
             ## Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.in_state(Def.State.PREPARE_PHASE,Def.Process.Controller):
+            if self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller):
                 self.set_state(Def.State.WAIT_FOR_PHASE)
 
 
-            elif self.in_state(Def.State.PROTOCOL_END,Def.Process.Controller):
+            elif self.in_state(Def.State.PROTOCOL_END, Def.Process.Controller):
 
                 self._cleanup_protocol()
 
@@ -301,7 +301,6 @@ class AbstractProcess:
         if self.enable_idle_timeout:
             time.sleep(IPC.Control.General[Def.GenCtrl.min_sleep_time])
 
-
     def get_state(self, process=None):
         """Convenience function for access in process class"""
         return IPC.get_state()
@@ -314,7 +313,7 @@ class AbstractProcess:
         """Convenience function for access in process class"""
         if process_name is None:
             process_name = self.name
-        return IPC.in_state(code,process_name)
+        return IPC.in_state(code, process_name)
 
     def _start_shutdown(self):
         # Handle all pipe messages before shutdown
@@ -327,19 +326,18 @@ class AbstractProcess:
         self._shutdown = True
 
     def _is_running(self):
-        return self._running and not(self._shutdown)
+        return self._running and not (self._shutdown)
 
     def register_rpc_callback(self, instance, fun_str, fun):
         if fun_str not in self._registered_callbacks:
             self._registered_callbacks[fun_str] = (instance, fun)
         else:
-            Logging.write(Logging.WARNING,'Trying to register callback \"{}\" more than once'.format(fun_str))
-
+            Logging.write(Logging.WARNING, 'Trying to register callback \"{}\" more than once'.format(fun_str))
 
     ################################
     # Private functions
 
-    def _execute_rpc(self,fun_str: str,*args,**kwargs):
+    def _execute_rpc(self, fun_str: str, *args, **kwargs):
         """Execute a remote call to the specified function and pass *args, **kwargs
 
         :param fun_str: function name
@@ -349,16 +347,22 @@ class AbstractProcess:
         """
         fun_path = fun_str.split('.')
 
+        _send_verbosely = kwargs.pop('_send_verbosely')
+
         # RPC on process class
         if fun_path[0] == self.__class__.__name__:
             fun_str = fun_path[1]
 
             try:
-                # Logging.write(Logging.DEBUG,
-                #               f'RPC call to process <{fun_str}> with Args {args} and Kwargs {kwargs}')
+
+                if _send_verbosely:
+                    Logging.write(Logging.DEBUG,
+                                  f'RPC call to process <{fun_str}> with Args {args} and Kwargs {kwargs}')
+
                 getattr(self, fun_str)(*args, **kwargs)
 
             except Exception as exc:
+
                 Logging.write(Logging.WARNING,
                               f'RPC call to process <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                               f' // Exception: {exc}')
@@ -366,56 +370,66 @@ class AbstractProcess:
         # RPC on registered callback
         elif fun_str in self._registered_callbacks:
             try:
-                Logging.write(Logging.DEBUG,
-                              f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
+
+                if _send_verbosely:
+                    Logging.write(Logging.DEBUG,
+                                  f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
+
                 instance, fun = self._registered_callbacks[fun_str]
                 fun(instance, *args, **kwargs)
+
             except Exception as exc:
+
                 Logging.write(Logging.WARNING,
                               f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                               f' // Exception: {exc}')
+
                 import traceback
                 traceback.print_exc()
 
         else:
-            Logging.write(Logging.WARNING,'Function for RPC of method \"{}\" not found'.format(fun_str))
+            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
 
     def handle_inbox(self, *args):
 
         # Poll pipe
-        if not(IPC.Pipes[self.name][1].poll()):
+        if not (IPC.Pipes[self.name][1].poll()):
             return
 
+        # Receive
         msg = IPC.Pipes[self.name][1].recv()
 
-        Logging.write(Logging.DEBUG,f'Received message: {msg}')
-
-        # Unpack message
+        # Unpack
         signal, args, kwargs = msg
 
+        # Log
+        if kwargs.get('_send_verbosely'):
+            Logging.write(Logging.DEBUG, f'Received message: {msg}')
+
+        # If shutdown signal
         if signal == Def.Signal.shutdown:
             self._start_shutdown()
 
-        # RPC calls
+        # If RPC
         elif signal == Def.Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
-    def _create_dataset(self,routine_name: str,attr_name: str,attr_shape: tuple,attr_dtype: Any):
+    def _create_dataset(self, routine_name: str, attr_name: str, attr_shape: tuple, attr_dtype: Any):
 
         # Get group for this particular routine
         routine_grp = self.record_group.require_group(routine_name)
 
         # Skip if dataset exists already
         if attr_name in routine_grp:
-            Logging.write(Logging.WARNING,f'Tried to create existing attribute {routine_grp[attr_name]}')
+            Logging.write(Logging.WARNING, f'Tried to create existing attribute {routine_grp[attr_name]}')
             return
 
         try:
             routine_grp.create_dataset(attr_name,
-                                       shape=(0,*attr_shape,),
+                                       shape=(0, *attr_shape,),
                                        dtype=attr_dtype,
-                                       maxshape=(None,*attr_shape,),
-                                       chunks=(1,*attr_shape,),
+                                       maxshape=(None, *attr_shape,),
+                                       chunks=(1, *attr_shape,),
                                        **self.compression_args)
             Logging.write(Logging.DEBUG,
                           f'Create record dataset "{routine_grp[attr_name]}"')
@@ -427,7 +441,7 @@ class AbstractProcess:
                           f' // Exception: {exc}')
             traceback.print_exc()
 
-    def _append_to_dataset(self,grp: h5py.Group,key: str,value: Any):
+    def _append_to_dataset(self, grp: h5py.Group, key: str, value: Any):
 
         # Create dataset (if necessary)
         if key not in grp:
@@ -437,53 +451,52 @@ class AbstractProcess:
             # there's no way to know them ahead of time)
 
             # Iterate over dictionary contents
-            if isinstance(value,dict):
-                for k,v in value.items():
-                    self._append_to_dataset(grp,f'{key}_{k}',v)
+            if isinstance(value, dict):
+                for k, v in value.items():
+                    self._append_to_dataset(grp, f'{key}_{k}', v)
                 return
 
             # Try to cast to numpy arrays
-            if isinstance(value,list):
+            if isinstance(value, list):
                 value = np.array(value)
             else:
                 value = np.array([value])
 
             dshape = value.shape
             dtype = value.dtype
-            assert np.issubdtype(dtype,np.number) or dtype == bool, \
+            assert np.issubdtype(dtype, np.number) or dtype == bool, \
                 f'Unable save non-numerical value "{value}" to dataset "{key}" in group {grp.name}'
 
-            self._create_dataset(grp.name.split('/')[-1],key,dshape,dtype)
+            self._create_dataset(grp.name.split('/')[-1], key, dshape, dtype)
 
         # Get dataset
         dset = grp[key]
         # Increment time dimension by 1
-        dset.resize((dset.shape[0] + 1,*dset.shape[1:]))
+        dset.resize((dset.shape[0] + 1, *dset.shape[1:]))
         # Write new value
         dset[dset.shape[0] - 1] = value
 
-    def _routine_on_record(self,routine_name):
+    def _routine_on_record(self, routine_name):
         return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
 
-    def set_record_group(self, group_name: str,group_attributes: dict = None):
+    def set_record_group(self, group_name: str, group_attributes: dict = None):
         if self.h5_file is None:
             return
 
         # Set group
-        Logging.write(Logging.INFO,f'Set record group "{group_name}"')
+        Logging.write(Logging.INFO, f'Set record group "{group_name}"')
         self.record_group = self.h5_file.require_group(group_name)
         if group_attributes is not None:
             self.record_group.attrs.update(group_attributes)
 
         # Create routine groups
-        for routine_name,routine in self._routines[self.name].items():
+        for routine_name, routine in self._routines[self.name].items():
 
             if not (self._routine_on_record(routine_name)):
                 continue
 
-            Logging.write(Logging.INFO,f'Set routine group {routine_name}')
+            Logging.write(Logging.INFO, f'Set routine group {routine_name}')
             self.record_group.require_group(routine_name)
-
 
             # Create datasets in routine group
             for attr_name in routine.file_attrs:
@@ -491,10 +504,10 @@ class AbstractProcess:
                 # Atm only ArrayAttributes have declared data types
                 # Other attributes (if compatible) will be created at recording time
                 if isinstance(attr, ArrayAttribute):
-                    self._create_dataset(routine_name,attr_name,attr._shape,attr._dtype[1])
-                    self._create_dataset(routine_name,f'{attr_name}_time',(1,),np.float64)
+                    self._create_dataset(routine_name, attr_name, attr._shape, attr._dtype[1])
+                    self._create_dataset(routine_name, f'{attr_name}_time', (1,), np.float64)
 
-    def update_routines(self,*args,**kwargs):
+    def update_routines(self, *args, **kwargs):
 
         # Fetch current group
         # (this also closes open files so it should be executed in any case)
@@ -504,30 +517,30 @@ class AbstractProcess:
             return
 
         current_time = time.time()
-        for routine_name,routine in self._routines[self.name].items():
+        for routine_name, routine in self._routines[self.name].items():
             # Update time
             routine.buffer.set_time(current_time)
 
             # Execute routine function
-            routine.execute(*args,**kwargs)
+            routine.execute(*args, **kwargs)
 
             # Advance buffer
             routine.buffer.next()
 
             # If no file object was provided or this particular buffer is not supposed to stream to file: return
-            if record_grp is None or not(self._routine_on_record(routine_name)):
+            if record_grp is None or not (self._routine_on_record(routine_name)):
                 continue
 
             # Iterate over data in group (buffer)
-            for attr_name,attr_time,attr_data in routine.to_file():
+            for attr_name, attr_time, attr_data in routine.to_file():
 
                 if attr_time is None:
                     continue
 
-                self._append_to_dataset(record_grp[routine_name],attr_name,attr_data)
-                self._append_to_dataset(record_grp[routine_name],f'{attr_name}_time',attr_time)
+                self._append_to_dataset(record_grp[routine_name], attr_name, attr_data)
+                self._append_to_dataset(record_grp[routine_name], f'{attr_name}_time', attr_time)
 
-    def get_buffer(self,routine_cls: Type[AbstractRoutine]):
+    def get_buffer(self, routine_cls: Type[AbstractRoutine]):
         """Return buffer of a routine class"""
 
         process_name = routine_cls.process_name
@@ -538,7 +551,7 @@ class AbstractProcess:
 
         return self._routines[process_name][routine_name].buffer
 
-    def read(self,attr_name: str, routine_cls: AbstractRoutine = None, *args, **kwargs):
+    def read(self, attr_name: str, routine_cls: AbstractRoutine = None, *args, **kwargs):
         """Read shared attribute from buffer.
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>
@@ -552,13 +565,13 @@ class AbstractProcess:
         #     attr_name = parts[1]
         #     routine_name = parts[0]
 
-        return self._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name,*args, **kwargs)
+        return self._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name, *args, **kwargs)
 
     @property
     def routines(self):
         return self._routines
 
-    def get_container(self) -> Union[h5py.File,h5py.Group,None]:
+    def get_container(self) -> Union[h5py.File, h5py.Group, None]:
         """Method checks if application is currently recording.
         Opens and closes output file if necessary and returns either a file/group object or a None.
         """
@@ -567,7 +580,7 @@ class AbstractProcess:
         if IPC.Control.Recording[Def.RecCtrl.active] and self.record_group is not None:
             return self.record_group
 
-        elif IPC.Control.Recording[Def.RecCtrl.active] and not(IPC.Control.Recording[Def.RecCtrl.enabled]):
+        elif IPC.Control.Recording[Def.RecCtrl.active] and not (IPC.Control.Recording[Def.RecCtrl.enabled]):
             return None
             return None
 
@@ -575,7 +588,7 @@ class AbstractProcess:
         elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5_file is None:
             # If output folder is not set: log warning and return None
             if not (bool(IPC.Control.Recording[Def.RecCtrl.folder])):
-                Logging.write(Logging.WARNING,'Recording has been started but output folder is not set.')
+                Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
                 return None
 
             # If output folder is set: open file
@@ -585,15 +598,15 @@ class AbstractProcess:
                                     f'{self.name}.hdf5')
 
             # Open new file
-            Logging.write(Logging.DEBUG,f'Open new file {filepath}')
-            self.h5_file = h5py.File(filepath,'w')
+            Logging.write(Logging.DEBUG, f'Open new file {filepath}')
+            self.h5_file = h5py.File(filepath, 'w')
 
             # Set compression
             compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
             compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
             self.compression_args = dict()
             if compr_method is not None:
-                self.compression_args = {'compression': compr_method,**compr_opts}
+                self.compression_args = {'compression': compr_method, **compr_opts}
 
             # Set current group to root
             self.set_record_group('/')
@@ -626,7 +639,7 @@ class AbstractProcess:
 class ProcessProxy:
     def __init__(self, name):
         self.name = name
-        self._state: mp.Value = getattr(IPC.State,self.name)
+        self._state: mp.Value = getattr(IPC.State, self.name)
 
     @property
     def state(self):
@@ -636,8 +649,7 @@ class ProcessProxy:
         return self.state == state
 
     def read(self, routine_cls, attr_name, *args, **kwargs):
-        return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name,*args,**kwargs)
-
+        return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
 
     # def routine(self, routine) -> AbstractRoutine:
     #     pass
@@ -650,4 +662,4 @@ class ProcessProxy:
         @param args:
         @param kwargs:
         """
-        IPC.rpc(self.name,Def.Signal.rpc,function,*args,**kwargs)
+        IPC.rpc(self.name, Def.Signal.rpc, function, *args, **kwargs)
