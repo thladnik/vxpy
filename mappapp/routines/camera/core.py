@@ -604,11 +604,15 @@ class FishPosDirDetection(CameraRoutine):
         # Add attributes
         self.buffer.frame = ArrayAttribute((self.res_y, self.res_x, 3), ArrayDType.uint8, length=self.buffer_size)
         self.buffer.tframe = ArrayAttribute((self.res_y, self.res_x, 3), ArrayDType.uint8, length=self.buffer_size)
+        self.buffer.fish_position = ArrayAttribute((2, ), ArrayDType.float32, length=self.buffer_size)
 
         self.background = None
         self.thresh = None
         self.min_size = None
         self.bg_calc_range = None
+
+    def initialize(self):
+        api.set_display_uniform_attribute('u_fish_position', FishPosDirDetection, 'fish_position')
 
     def calculate_background(self):
 

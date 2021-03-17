@@ -560,11 +560,6 @@ class AbstractProcess:
 
         :return: value of the buffer
         """
-        #
-        # if routine_name is None:
-        #     parts = attr_name.split('/')
-        #     attr_name = parts[1]
-        #     routine_name = parts[0]
 
         return self._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name, *args, **kwargs)
 
@@ -582,7 +577,6 @@ class AbstractProcess:
             return self.record_group
 
         elif IPC.Control.Recording[Def.RecCtrl.active] and not (IPC.Control.Recording[Def.RecCtrl.enabled]):
-            return None
             return None
 
         # If recording is running and file not open: open file and return record group

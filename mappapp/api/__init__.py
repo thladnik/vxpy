@@ -18,11 +18,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from mappapp import Def
 from mappapp import IPC
-from mappapp.process import Io
-from mappapp.process import Display
+from mappapp import process
 
 def camera_rpc(function, *args, **kwargs):
     IPC.rpc(Def.Process.Camera, function, *args, **kwargs)
+
+
+def display_rpc(function, *args, **kwargs):
+    IPC.rpc(Def.Process.Display, function, *args, **kwargs)
 
 
 def io_rpc(function, *args, **kwargs):
@@ -30,8 +33,12 @@ def io_rpc(function, *args, **kwargs):
 
 
 def set_digital_out(id, routine_cls, attr_name):
-    io_rpc(Io.set_digital_out, id, routine_cls, attr_name)
+    io_rpc(process.Io.set_digital_out, id, routine_cls, attr_name)
 
 
 def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):
-    pass
+    display_rpc(process.Display.set_display_uniform_attribute, uniform_name, routine_cls, attr_name)
+
+
+def read_attribute(routine_cls, attr_name, *args, **kwargs):
+    return IPC.Process._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name, *args, **kwargs)

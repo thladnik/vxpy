@@ -20,9 +20,11 @@ from vispy import app
 from vispy import gloo
 import time
 
+from mappapp import api
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
+from mappapp import Logging
 from mappapp import protocols
 from mappapp.core.process import AbstractProcess
 from mappapp.core.protocol import AbstractProtocol
@@ -85,6 +87,8 @@ class Display(AbstractProcess):
     protocol: AbstractProtocol = None
     visual: AbstractVisual = None
 
+    _uniform_maps = dict()
+
     def __init__(self, **kwargs):
         AbstractProcess.__init__(self, **kwargs)
 
@@ -109,6 +113,13 @@ class Display(AbstractProcess):
         # Run event loop
         self.run(1/300)
 
+    def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
+        if uniform_name not in self._uniform_maps:
+            self._uniform_maps[uniform_name] = (routine_cls, attr_name)
+            Logging.write(Logging.INFO, f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
+        else:
+            Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
+
     def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
         try:
@@ -120,7 +131,6 @@ class Display(AbstractProcess):
     def _prepare_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
         self.visual = self.protocol.fetch_phase_visual(phase_id)
-        #self.canvas.visual = self.visual
         IPC.Process.set_record_group(f'phase_{phase_id}',group_attributes=self.visual.parameters)
 
     def _cleanup_protocol(self):
@@ -152,6 +162,12 @@ class Display(AbstractProcess):
 
         try:
             if self._display():
+                # Update uniforms from routine attributes
+                for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
+                    idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
+                    print(uniform_name, uniform_value)
+                    self.visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
+
                 self.update_routines(self.visual)
             else:
                 self.update_routines()

@@ -110,7 +110,7 @@ class AbstractVisual:
     def parse_vertex_shader(self, vert):
         return f'{self._vertex_map}\n{vert}'
 
-    def update(self, **params):
+    def update(self, _update_verbosely=True, **params):
         """
         Method to update stimulus parameters.
 
@@ -126,9 +126,10 @@ class AbstractVisual:
                 value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
             self.parameters[key] = value
 
-        Logging.write(Logging.INFO,
-                      f'Update visual {self.__class__.__name__}. '
-                      'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
+        if _update_verbosely:
+            Logging.write(Logging.INFO,
+                          f'Update visual {self.__class__.__name__}. '
+                          'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
 
         for program_name, program in self._programs.items():
             for key, value in self.parameters.items():
