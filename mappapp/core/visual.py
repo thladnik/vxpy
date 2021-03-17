@@ -154,12 +154,11 @@ class SphericalVisual(AbstractVisual):
         uniform vec2 u_mapcalib_translate2d;
         uniform mat2 u_mapcalib_rotate2d;
 
-        attribute vec3 a_position;   // Vertex positions
 
-        vec4 mapped_position()
+        vec4 gl_position(vec3 position)
         {
             // Final position
-            vec4 pos = vec4(a_position, 1.0);
+            vec4 pos = vec4(position, 1.0);
             
             // Azimuth rotation (here around z axis)
             pos = u_mapcalib_rotate_z * pos;
@@ -184,10 +183,13 @@ class SphericalVisual(AbstractVisual):
     """
 
     _sphere_vert = """
+        attribute vec3 a_position;
+         
         varying vec3 v_position;
         varying vec4 v_map_position;
+        
         void main() {
-            vec4 v_map_position = mapped_position();
+            vec4 v_map_position = gl_position(a_position);
             gl_Position = v_map_position;
             v_position = a_position;
         }
@@ -222,9 +224,7 @@ class SphericalVisual(AbstractVisual):
         uniform sampler2D u_mask_texture;
 
         void main() {
-            gl_FragColor = vec4(
-              texture2D(u_raw_texture, v_texcoord).xyz 
-              * texture2D(u_mask_texture, v_texcoord).x, 1.0);
+            gl_FragColor = vec4(texture2D(u_raw_texture, v_texcoord).xyz * texture2D(u_mask_texture, v_texcoord).x, 1.0);
         }
     """
 
@@ -277,12 +277,12 @@ class SphericalVisual(AbstractVisual):
         self.frame_time = frame_time
 
         # Set 2D scaling for aspect 1
-        width = Config.Display[Def.DisplayCfg.window_width]
-        height = Config.Display[Def.DisplayCfg.window_height]
-        if height > width:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([1, width/height])
+        win_width = Config.Display[Def.DisplayCfg.window_width]
+        win_height = Config.Display[Def.DisplayCfg.window_height]
+        if win_height > win_width:
+            u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width/win_height])
         else:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([height/width, 1])
+            u_mapcalib_aspectscale = np.eye(2) * np.array([win_height/win_width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
 
         # Set 3D transform
@@ -292,25 +292,18 @@ class SphericalVisual(AbstractVisual):
 
         # Set relative size
         self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array([1,1])
-        #self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array([1,1])
 
-        #dist = 1.05 + frame_time / 300
-        #print('Distance', dist)
         translate3d = transforms.translate((0, 0, -distance))
         self.transform_uniforms['u_mapcalib_translation'] = translate3d
-        #project3d = transforms.perspective(fov, 1, 0.1, 200.0)
-        #self.transform_uniforms['u_mapcalib_transform3d'] = translate3d @ project3d
-        # fov = (frame_time * 10) % 90
-        # print('FOV', fov)
-        #print(project3d)
+
         project3d = transforms.perspective(fov, 1., 0.1, 400.0)
         #project3d = transforms.ortho(-2.0, 2.0, -2.0, 2.0, 0.1, 400.0)
         self.transform_uniforms['u_mapcalib_projection'] = project3d
 
-        # Calculate inverse elevation for scaling of sphere into prolate spheroid
-        inv_rotate_elev_3d = transforms.rotate(Config.Display[Def.DisplayCfg.sph_view_elev_angle],(1,0,0))
         # Calculate elevation rotation for projection
         rotate_elev_3d = transforms.rotate(-Config.Display[Def.DisplayCfg.sph_view_elev_angle],(1,0,0))
+
+        xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos] * win_width/win_height, Config.Display[Def.DisplayCfg.glob_y_pos]])
 
         # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
@@ -338,7 +331,6 @@ class SphericalVisual(AbstractVisual):
             # 2D translation radially
             radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * Config.Display[
                 Def.DisplayCfg.sph_pos_glob_radial_offset]
-            xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos],Config.Display[Def.DisplayCfg.glob_y_pos]])
             self.transform_uniforms['u_mapcalib_translate2d'] =  radial_offset + xy_offset
 
             # Render 90 degree mask to mask buffer
@@ -372,6 +364,38 @@ class SphericalVisual(AbstractVisual):
 # Plane stimulus class
 
 class PlanarVisual(AbstractVisual):
+
+    _vertex_map = """
+    uniform float u_mapcalib_xscale;
+    uniform float u_mapcalib_yscale;
+    uniform float u_mapcalib_xextent;
+    uniform float u_mapcalib_yextent;
+    uniform float u_small_side_size;
+    uniform float u_glob_x_position;
+    uniform float u_glob_y_position;
+    
+    vec4 gl_position(vec3 position) {
+        vec4 pos = vec4(position.x * u_mapcalib_xscale * u_mapcalib_xextent + u_glob_x_position,
+                        position.y * u_mapcalib_yscale * u_mapcalib_yextent + u_glob_y_position,
+                        position.z, 
+                        1.0);
+        return pos;
+    }
+    
+    vec2 real_position(vec3 position) {
+        vec2 pos = vec2((1.0 + position.x) / 2.0 * u_mapcalib_xextent * u_small_side_size,
+                        (1.0 + position.y) / 2.0 * u_mapcalib_yextent * u_small_side_size);
+        return pos;
+    }
+    
+    vec2 norm_position(vec3 position) {
+
+        vec2 pos = vec2((1.0 + position.x) / 2.0,
+                        (1.0 + position.y) / 2.0);
+        return pos;
+    }
+    
+    """
 
     def __init__(self, *args):
         AbstractVisual.__init__(self, *args)

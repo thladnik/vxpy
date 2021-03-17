@@ -66,7 +66,6 @@ class BlackAndWhiteGrating(PlanarVisual):
         self.grating['a_position'] = self.position_buffer
 
         self.update(**params)
-        print(self.parameters)
 
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time#time.time() - self.start_time
@@ -74,20 +73,9 @@ class BlackAndWhiteGrating(PlanarVisual):
         self.apply_transform(self.grating)
         self.grating.draw('triangles', self.index_buffer)
 
-    def update(self, **params):
 
-        if params.get(self.u_shape) is not None:
-            params[self.u_shape] = self.parse_shape(params.get(self.u_shape))
-
-        if params.get(self.u_direction) is not None:
-            params[self.u_direction] = self.parse_direction(params.get(self.u_direction))
-
-        self.parameters.update({k : p for k, p in params.items() if not(p is None)})
-        for k, p in self.parameters.items():
-            self.grating[k] = p
-
-    def parse_shape(self, shape):
+    def parse_u_shape(self, shape):
         return 1 if shape == 'rectangular' else 2  # 'sinusoidal'
 
-    def parse_direction(self, orientation):
+    def parse_u_direction(self, orientation):
         return 1 if orientation == 'vertical' else 2  # 'horizontal'
