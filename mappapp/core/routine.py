@@ -231,6 +231,8 @@ class BufferAttribute:
 
 
 class ArrayDType:
+    binary = (ctypes.c_bool, np.bool)
+
     int8 = (ctypes.c_int8, np.int8)
     int16 = (ctypes.c_int16, np.int16)
     int32 = (ctypes.c_int32, np.int32)

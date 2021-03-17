@@ -23,6 +23,8 @@ from mappapp import protocols,Logging,IPC,Def,Config
 class Io(AbstractProcess):
     name = Def.Process.Io
 
+    _id_map = dict()
+
     def __init__(self, **kwargs):
         AbstractProcess.__init__(self, **kwargs)
 
@@ -51,6 +53,15 @@ class Io(AbstractProcess):
         # Run event loop
         if run:
             self.run(interval=1. / Config.Io[Def.IoCfg.sample_rate])
+
+    def set_digital_out(self, id, routine_cls, attr_name):
+        if id not in self._id_map:
+            Logging.write(Logging.INFO, f'Set digital out "{id}" to attribute "{attr_name}" of {routine_cls.__name__}.')
+            self._id_map[id] = (routine_cls, attr_name)
+            if id not in self.device.out_pins:
+                Logging.write(Logging.WARNING, f'Digital out "{id}" has not been configured.')
+        else:
+            Logging.write(Logging.WARNING, f'Digital out "{id}" is already set.')
 
     def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)

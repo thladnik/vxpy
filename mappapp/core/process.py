@@ -110,6 +110,7 @@ class AbstractProcess:
 
                     routine._connect_triggers(_routines)
 
+                    # Run local initialization for producer process
                     if self.name == routine.process_name:
                         routine.initialize()
 

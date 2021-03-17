@@ -63,10 +63,11 @@ class Frames(CameraRoutine):
                 getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
 
-
+from mappapp import api
 class EyePositionDetection(CameraRoutine):
 
-    camera_device_id = 'behavior'
+    camera_device_id = 'fish_embedded'
+
     extracted_rect_prefix = 'extracted_rect_'
     ang_le_pos_prefix = 'angular_le_pos_'
     ang_re_pos_prefix = 'angular_re_pos_'
@@ -133,9 +134,16 @@ class EyePositionDetection(CameraRoutine):
                     ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.re_sacc_prefix}{id}',
                     ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+
+        # Set frame buffer
         self.buffer.frame = ArrayAttribute((self.res_y, self.res_x),
                                            ArrayDType.uint8,
                                            length=2*target_fps)
+        # Set saccade trigger buffer
+        self.buffer.saccade_trigger = ArrayAttribute((1, ), ArrayDType.binary, length=5*target_fps)
+
+    def initialize(self):
+        api.set_digital_out('saccade_trigger', EyePositionDetection, 'saccade_trigger')
 
     def set_detection_mode(self, mode):
         self.detection_mode = mode
@@ -553,8 +561,10 @@ class EyePositionDetection(CameraRoutine):
                 le_sacc = int(last_le_vel < self.saccade_threshold and le_vel > self.saccade_threshold)
                 re_sacc = int(last_re_vel < self.saccade_threshold and re_vel > self.saccade_threshold)
 
-                if bool(le_sacc) or bool(re_sacc):
+                is_saccade = bool(le_sacc) or bool(re_sacc)
+                if is_saccade:
                     self._triggers['saccade_trigger'].emit()
+                self.buffer.saccade_tigger.write(is_saccade)
 
                 getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
                 getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)
@@ -568,7 +578,7 @@ class FishPosDirDetection(CameraRoutine):
 
     buffer_size = 500
 
-    camera_device_id = 'behavior'
+    camera_device_id = 'fish_freeswim'
 
     def __init__(self, *args, **kwargs):
         CameraRoutine.__init__(self, *args, **kwargs)
