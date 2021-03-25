@@ -167,7 +167,7 @@ class AbstractProcess:
             dt = self.t + interval - time.perf_counter()
             if self.enable_idle_timeout and dt > 1.2 * min_sleep_time:
                 # Sleep to reduce CPU usage
-                time.sleep(0.9 * dt)
+                time.sleep(0.6 * dt)
 
             # Busy loop until next main execution for precise timing
             while self.t + interval - time.perf_counter() >= 0:

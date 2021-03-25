@@ -385,13 +385,37 @@ class Display(IntegratedWidget):
 
     def __init__(self,*args):
         IntegratedWidget.__init__(self,'Display',*args)
-        self.setLayout(QtWidgets.QVBoxLayout())
+        self.setLayout(QtWidgets.QGridLayout())
+
+        self.exposed.append(Display.update_fps_estimate)
+
+        # Top-left spacer
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.layout().addItem(spacer, 0, 0)
+
+        # FPS counter
+        self.fps_counter = QtWidgets.QLineEdit('FPS N/A')
+        self.fps_counter.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.fps_counter.setEnabled(False)
+        self.layout().addWidget(self.fps_counter, 0, 1)
 
         # Tab widget
         self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget)
+        self.layout().addWidget(self.tab_widget, 1, 0, 1, 2)
 
         self.add_widgets(Def.Process.Display)
+
+        # self.setLayout(QtWidgets.QVBoxLayout())
+        #
+        # # Tab widget
+        # self.tab_widget = QtWidgets.QTabWidget()
+        # self.layout().addWidget(self.tab_widget)
+        #
+        # self.add_widgets(Def.Process.Display)
+
+    def update_fps_estimate(self, fps):
+        self.fps_counter.setText('FPS {:.1f}/{:.1f}'.format(fps,Config.Display[Def.DisplayCfg.fps]))
+
 
 
 class Io(IntegratedWidget):

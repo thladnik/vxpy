@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from mappapp import api
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
@@ -101,5 +102,6 @@ class Camera(AbstractProcess):
         if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
             diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
             avg_frametime = sum(diff) / len(diff)
-            IPC.rpc(Def.Process.Gui,core.Camera.update_fps_estimate,1. / avg_frametime, _send_verbosely=False)
+            # print('Camera', 1./avg_frametime)
+            api.gui_rpc(core.Camera.update_fps_estimate,1. / avg_frametime, _send_verbosely=False)
             self.times = []

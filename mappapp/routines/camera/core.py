@@ -90,7 +90,6 @@ class EyePositionDetection(CameraRoutine):
         self.exposed.append(EyePositionDetection.set_max_im_value)
         self.exposed.append(EyePositionDetection.set_min_particle_size)
         self.exposed.append(EyePositionDetection.set_roi)
-        self.exposed.append(EyePositionDetection.set_detection_mode)
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
         # Set required devices
@@ -108,7 +107,6 @@ class EyePositionDetection(CameraRoutine):
         self.rois = dict()
         self.thresh = None
         self.min_size = None
-        self.detection_mode = None
         self.saccade_threshold = None
 
         # Set up buffer attributes
@@ -144,9 +142,6 @@ class EyePositionDetection(CameraRoutine):
 
     def initialize(self):
         api.set_digital_out('saccade_trigger', EyePositionDetection, 'saccade_trigger')
-
-    def set_detection_mode(self, mode):
-        self.detection_mode = mode
 
     def set_threshold(self, thresh):
         self.thresh = thresh
@@ -316,143 +311,6 @@ class EyePositionDetection(CameraRoutine):
 
         return [thetas[le_idx], thetas[re_idx]], thresh
 
-
-    def feret_diameter(self, rect):
-        """Method for extracting angular fish eye position estimates using the Feret diameter.
-
-        :param rect: 2d image which contains both of the fish's eyes.
-                     Upward image direction if assumed to be forward fish direction.
-                     Rect center is assumed to be located between both eyes.
-
-        :return:
-            angular eye positions for left and right eye in degree
-            modified 2d image for parameter debugging
-        """
-
-        # Formatting for drawing
-        line_thickness = np.ceil(np.mean(rect.shape) / 100).astype(int)
-        line_thickness = 1 if line_thickness == 0 else line_thickness
-        marker_size = line_thickness * 5
-
-        # Set rect center
-        rect_center = (rect.shape[1] // 2, rect.shape[0] // 2)
-
-        # Apply threshold
-        _, thresh = cv2.threshold(rect[:,:], self.thresh, 255, cv2.THRESH_BINARY_INV)
-
-        # Detect contours
-        cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-
-        # Make RGB
-        thresh = np.stack((thresh, thresh, thresh), axis=-1)
-
-        # Collect contour parameters and filter contours
-        areas = list()
-        centroids = list()
-        hulls = list()
-        feret_points = list()
-        dists = list()
-        i = 0
-        while i < len(cnts):
-
-            cnt = cnts[i]
-            M = cv2.moments(cnt)
-            A = M['m00']
-
-            # Discard if contour has no area
-            if A < self.min_size:
-                del cnts[i]
-                continue
-
-            center = (int(M['m10']/A), int(M['m01']/A))
-            hull = cv2.convexHull(cnt).squeeze()
-
-            areas.append(A)
-            centroids.append(center)
-            dists.append(distance.euclidean(center, rect_center))
-            hulls.append(hull)
-
-            feret_points.append((hull[np.argmin(hull[:,1])], hull[np.argmax(hull[:,1])]))
-
-            i += 1
-
-        # Additional filtering of particles to idenfity both eyes if more than 2
-        if len(cnts) > 2:
-            dists, areas, centroids, hulls, feret_points = list(zip(*sorted(list(zip(dists,
-                                                                                     areas,
-                                                                                     centroids,
-                                                                                     hulls,
-                                                                                     feret_points)))[:2]))
-
-        forward_vec = np.array([0,-1])
-        forward_vec_norm = forward_vec / np.linalg.norm(forward_vec)
-        # Draw rect center and midline marker for debugging
-        # (Important: this has to happen AFTER detection of contours,
-        # as it alters the tresh'ed image)
-        cv2.drawMarker(thresh, rect_center, (0, 255, 0), cv2.MARKER_DIAMOND, marker_size * 2, line_thickness)
-        cv2.arrowedLine(thresh,
-                        tuple(rect_center), tuple((rect_center + rect.shape[0]/3 * forward_vec_norm).astype(int)),
-                        (0, 255, 0), line_thickness, tipLength=0.3)
-
-        # Draw hull contours for debugging (before possible premature return)
-        cv2.drawContours(thresh, hulls, -1, (128,128,0), line_thickness)
-
-        # If less than two particles, return
-        if len(cnts) < 2:
-            return [np.nan, np.nan], thresh
-
-        # At this point there should only be 2 particles left
-        le_idx = 0 if (centroids[0][0] < rect_center[0]) else 1
-        re_idx = 1 if (centroids[0][0] < rect_center[0]) else 0
-
-        # LE
-        le_axis = feret_points[le_idx][0] - feret_points[le_idx][1]
-        le_axis_norm = le_axis / np.linalg.norm(le_axis)
-        le_ortho = np.array([le_axis_norm[1], -le_axis_norm[0]])
-        # RE
-        re_axis = feret_points[re_idx][0] - feret_points[re_idx][1]
-        re_axis_norm = re_axis / np.linalg.norm(re_axis)
-        re_ortho = np.array([-re_axis_norm[1], re_axis_norm[0]])
-
-        # Calculate angles
-        # LE
-        le_ref_norm = np.array([forward_vec_norm[1], forward_vec_norm[0]])
-        le_ortho_norm = le_ortho / np.linalg.norm(le_ortho)
-        le_angle = np.arcsin(np.cross(le_ortho_norm, le_ref_norm)) / (2 * np.pi) * 360
-        # RE
-        re_ref_norm = np.array([-forward_vec_norm[1], forward_vec_norm[0]])
-        re_ortho_norm = re_ortho / np.linalg.norm(re_ortho)
-        re_angle = np.arcsin(np.cross(re_ortho_norm, re_ref_norm)) / (2 * np.pi) * 360
-
-        # Draw eyes and axes
-
-        # LE
-        # Feret diameter
-        cv2.line(thresh, tuple(feret_points[le_idx][0]), tuple(feret_points[le_idx][1]), (0, 0, 255), line_thickness)
-        # Eye center of mass
-        cv2.drawMarker(thresh, centroids[le_idx], (0, 0, 255), cv2.MARKER_CROSS, marker_size, line_thickness)
-        # Reference
-        le_draw_ref = tuple((np.array(rect_center) + le_ref_norm * 0.5 * np.linalg.norm(le_axis)).astype(int))
-        cv2.line(thresh, rect_center, le_draw_ref, (0, 255, 0), line_thickness)
-        # Ortho to feret
-        le_draw_ortho = tuple((np.array(rect_center) + le_ortho * 0.5 * np.linalg.norm(le_axis)).astype(int))
-        cv2.line(thresh, rect_center, le_draw_ortho, (0, 0, 255), line_thickness)
-
-        # RE
-        # Feret diameter
-        cv2.line(thresh, tuple(feret_points[re_idx][0]), tuple(feret_points[re_idx][1]), (255, 0, 0), line_thickness)
-        # Eye center of mass
-        cv2.drawMarker(thresh, centroids[re_idx], (255, 0, 0), cv2.MARKER_CROSS, marker_size, line_thickness)
-        # Reference
-        re_draw_ref = tuple((np.array(rect_center) + re_ref_norm * 0.5 * np.linalg.norm(re_axis)).astype(int))
-        cv2.line(thresh, rect_center, re_draw_ref, (0, 255, 0), line_thickness)
-        # Ortho to feret
-        re_draw_ortho = tuple((np.array(rect_center) + re_ortho * 0.5 * np.linalg.norm(re_axis)).astype(int))
-        cv2.line(thresh, rect_center, re_draw_ortho, (255, 0, 0), line_thickness)
-
-        # Return result
-        return [le_angle, re_angle], thresh
-
     def coord_transform_pg2cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(self.res_y - point[1])]
 
@@ -460,13 +318,14 @@ class EyePositionDetection(CameraRoutine):
 
         # Read frame
         frame = frames.get(self.camera_device_id)
+        frame = frame[:,:,0]
 
         # Check if frame was returned
         if frame is None:
             return
 
         # Write frame to buffer
-        self.buffer.frame.write(frame[:,:,0])
+        self.buffer.frame.write(frame)
 
         # Do eye detection and angular position estimation
         if bool(self.rois):
@@ -513,7 +372,7 @@ class EyePositionDetection(CameraRoutine):
                 # Calculate eye angular POSITIONS
 
                 # Apply detection function on cropped rect which contains eyes
-                (le_pos, re_pos), new_rect = getattr(self, self.detection_mode)(rot_rect)
+                (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
 
                 # Get corresponding position attributes
                 le_pos_attr = getattr(self.buffer, f'{self.ang_le_pos_prefix}{id}')
@@ -564,7 +423,7 @@ class EyePositionDetection(CameraRoutine):
                 is_saccade = bool(le_sacc) or bool(re_sacc)
                 if is_saccade:
                     self._triggers['saccade_trigger'].emit()
-                self.buffer.saccade_tigger.write(is_saccade)
+                self.buffer.saccade_trigger.write(is_saccade)
 
                 getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
                 getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)
@@ -573,7 +432,7 @@ class EyePositionDetection(CameraRoutine):
                 getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
 
 
-
+from mappapp import utils
 class FishPosDirDetection(CameraRoutine):
 
     buffer_size = 500
@@ -618,13 +477,7 @@ class FishPosDirDetection(CameraRoutine):
 
         _, _, frames = self.buffer.frame.read(last=self.bg_calc_range)
 
-        mog = cv2.createBackgroundSubtractorMOG2()
-        for frame in frames:
-            img = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            mog.apply(img)
-
-        # Get background
-        self.background = mog.getBackgroundImage()
+        self.background = utils.calculate_background_mog2(frames)
 
     def set_bg_calc_range(self, value):
         self.bg_calc_range = value

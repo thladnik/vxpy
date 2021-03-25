@@ -164,15 +164,6 @@ class EyePositionDetector(AddonWidget):
         self.particle_minsize.emit_current_value()
         self.lpanel.layout().addWidget(self.particle_minsize)
 
-        # Position calculation mode
-        self.lpanel.layout().addWidget(QtWidgets.QLabel('Position calculation mode'))
-        self.detection_mode = QtWidgets.QComboBox()
-        self.detection_mode.currentTextChanged.connect(self.update_detection_mode)
-        self.lpanel.layout().addWidget(self.detection_mode)
-        self.detection_mode.addItems(
-            [EyePositionDetection.from_ellipse.__name__,
-             EyePositionDetection.feret_diameter.__name__])
-
         # Saccade detection
         self.lpanel.layout().addWidget(QLabel('<b>Saccade detection</b>'))
         self.sacc_threshold = IntSliderWidget('Sacc. threshold [deg/s]', 1, 10000, 2000, label_width=label_width, step_size=1)
