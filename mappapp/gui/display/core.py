@@ -274,8 +274,9 @@ class VisualInteractor(AddonWidget):
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.tuner.layout().addItem(spacer)
 
-        if None in visual_cls.parameters.values():
-            Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
+        # TODO: this causes ValueError if visual_cls.paramters.values() contains a numpy.ndarray
+        # if None in visual_cls.parameters.values():
+        #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
 
         IPC.rpc(Def.Process.Display, process.Display.start_visual, visual_cls, **visual_cls.parameters)
 
