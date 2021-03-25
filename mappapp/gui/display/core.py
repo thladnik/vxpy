@@ -28,7 +28,7 @@ from mappapp import Logging
 from mappapp import protocols
 from mappapp import process
 from mappapp.core.gui import AddonWidget
-from mappapp.core.visual import PlanarVisual, SphericalVisual
+from mappapp.core.visual import BaseVisual, PlanarVisual, SphericalVisual
 from mappapp.utils.gui import ComboBoxWidget, DoubleSliderWidget, IntSliderWidget
 
 
@@ -195,7 +195,7 @@ class VisualInteractor(AddonWidget):
                 module = importlib.import_module('.'.join([Def.package,Def.Path.Visual,folder, file.split('.')[0]]))
 
                 for clsname, cls in inspect.getmembers(module, inspect.isclass):
-                    if not(issubclass(cls, (PlanarVisual, SphericalVisual))) or cls in (PlanarVisual, SphericalVisual):
+                    if not(issubclass(cls, (BaseVisual, PlanarVisual, SphericalVisual))) or cls in (PlanarVisual, SphericalVisual):
                         continue
 
                     self.visuals[folder][file][clsname] = (cls, QtWidgets.QTreeWidgetItem(self.files[folder][file]))
@@ -204,7 +204,8 @@ class VisualInteractor(AddonWidget):
                     self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ToolTipRole, cls.description)
                     self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ToolTipRole, cls.description)
                     # Set visual class to UserRole
-                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, cls)
+                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, (cls.__module__, cls.__name__))
+                    #cls.__module__, cls.__name__
 
         # Add items
         self.tree.addTopLevelItems([folder_item for folder_item in self.folders.values()])
@@ -232,9 +233,15 @@ class VisualInteractor(AddonWidget):
         if not(item):
             item = self.tree.currentItem()
 
-        visual_cls = item.data(0, QtCore.Qt.UserRole)
-        if visual_cls is None:
+        visual = item.data(0, QtCore.Qt.UserRole)
+
+        if visual is None:
             return
+
+        # TODO: Reload does not seem to work yet
+        visual_module, visual_name = visual
+        module = importlib.reload(importlib.import_module(visual_module))
+        visual_cls = getattr(module, visual_name)
 
         # Clear layout
         self.clear_layout(self.tuner.layout())
