@@ -17,6 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 import os
+from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
@@ -31,6 +32,8 @@ from mappapp import Logging,Def,Config
 class AbstractVisual:
     description = ''
     interface = []
+
+    parameters = {}
 
 
     # Display shaders
@@ -59,11 +62,10 @@ class AbstractVisual:
 
     _parse_fun_prefix = 'parse_'
 
-    def __init__(self, canvas):
+    def __init__(self, canvas, **params):
         self.frame_time = None
-        self.canvas = canvas
+        self.canvas: app.Canvas = canvas
         self._programs = dict()
-        self.parameters = dict()
         self.transform_uniforms = dict()
 
         self._buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
@@ -76,6 +78,10 @@ class AbstractVisual:
         self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
         self._display_prog['a_position'] = self.square
         self._display_prog['u_texture'] = self._out_texture
+
+        gloo.set_state(depth_test=True)
+
+        self.update(**params)
 
     def __setattr__(self, key, value):
         # Catch programs being set and add them to dictionary
@@ -137,6 +143,45 @@ class AbstractVisual:
                     program[key] = value
 
 
+class BaseVisual(AbstractVisual):
+
+    _vertex_map = """
+    uniform mat4  u_model;
+    uniform mat4  u_view;
+    uniform mat4  u_projection;
+    
+    vec4 gl_position(vec3 position) {
+    
+        vec4 pos = vec4(position, 1.0);
+        pos = u_projection * u_view * u_model * pos;
+        
+        return pos;
+    }
+    """
+
+    def __init__(self, *args, **kargs):
+        AbstractVisual.__init__(self, *args, **kargs)
+
+    def draw(self, frame_time):
+
+        #self.theta, self.phi = 90, 90
+        #self.model = np.dot(transforms.rotate(self.theta, (0, 0, 1)), transforms.rotate(self.phi, (0, 1, 0)))
+        self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(90, (0, 1, 0)))
+        self.translate = 5
+        self.view = transforms.translate((0, 0, -self.translate))
+
+        self.transform_uniforms['u_view'] = self.view
+        self.transform_uniforms['u_model'] = self.model
+
+        self.apply_zoom()
+
+        self.render(frame_time)
+
+    def apply_zoom(self):
+        gloo.set_viewport(0, 0, self.canvas.physical_size[0], self.canvas.physical_size[1])
+        self.projection = transforms.perspective(45.0, self.canvas.size[0] / float(self.canvas.size[1]), 1.0, 1000.0)
+        self.transform_uniforms['u_projection'] = self.projection
+
 ################################
 # Spherical stimulus class
 
@@ -156,8 +201,7 @@ class SphericalVisual(AbstractVisual):
         uniform mat2 u_mapcalib_rotate2d;
 
 
-        vec4 gl_position(vec3 position)
-        {
+        vec4 gl_position(vec3 position) {
             // Final position
             vec4 pos = vec4(position, 1.0);
             
@@ -229,8 +273,8 @@ class SphericalVisual(AbstractVisual):
         }
     """
 
-    def __init__(self, *args):
-        AbstractVisual.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        AbstractVisual.__init__(self, *args, **kwargs)
 
 
         # Create mask model
@@ -398,9 +442,8 @@ class PlanarVisual(AbstractVisual):
     
     """
 
-    def __init__(self, *args):
-        AbstractVisual.__init__(self, *args)
-        #gloo.set_clear_color('black')
+    def __init__(self, *args, **kwargs):
+        AbstractVisual.__init__(self, *args, **kwargs)
 
     def draw(self, frame_time):
         gloo.clear()
