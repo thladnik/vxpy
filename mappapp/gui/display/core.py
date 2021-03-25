@@ -22,6 +22,7 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import time
 
+from mappapp import api
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
@@ -251,6 +252,7 @@ class VisualInteractor(AddonWidget):
             if isinstance(args[0], str):
                 wdgt = ComboBoxWidget(name, args)
                 wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], int):
                 kwargs = dict()
                 if len(args) > 3:
@@ -258,6 +260,7 @@ class VisualInteractor(AddonWidget):
                 vdef, vmin, vmax = args
                 wdgt = IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], float):
                 kwargs = dict()
                 if len(args) > 3:
@@ -265,10 +268,14 @@ class VisualInteractor(AddonWidget):
                 vdef, vmin, vmax = args
                 wdgt = DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
+            elif callable(args[0]):
+                wdgt = QtWidgets.QPushButton(name)
+                wdgt.clicked.connect(lambda: api.display_rpc(process.Display.trigger_visual, args[0]))
+                wdgt.setParent(self.tuner)
             else:
                 wdgt = QLabel(f'<{name}> has unclear type {type(args[0])}', self.tuner)
 
-            wdgt.connect_to_result(self.update_parameter(name))
             self.tuner.layout().addWidget(wdgt)
 
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)

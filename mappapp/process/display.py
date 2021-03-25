@@ -26,12 +26,10 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
+from mappapp.gui import core
 from mappapp.core.process import AbstractProcess
 from mappapp.core.protocol import AbstractProtocol
 from mappapp.core.visual import AbstractVisual
-
-app.use_app('PyQt5')
-gloo.gl.use_gl('gl2')
 
 
 class Canvas(app.Canvas):
@@ -39,24 +37,20 @@ class Canvas(app.Canvas):
     def __init__(self, _interval, *args, **kwargs):
         app.Canvas.__init__(self, *args, **kwargs)
         self.tick = 0
-        self.measure_fps(0.1, self.show_fps)
+        self.measure_fps(.5, self.show_fps)
         self.visual = None
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
-        self._timer = app.Timer(_interval, connect=self.on_timer, start=True)
+        self._timer = app.Timer(interval=_interval/2., connect=self.on_draw, start=True)
 
         self.debug = False
         self.times = []
         self.t = time.perf_counter()
 
-        self.show()
+        #self.show()
 
     def on_draw(self, event):
-        pass
-
-    def on_timer(self, event):
-
         gloo.clear()
 
         if IPC.Process.visual is not None:
@@ -70,12 +64,11 @@ class Canvas(app.Canvas):
 
         self.update()
 
-
     def show_fps(self, fps):
         if self.debug:
             print("FPS {:.2f}".format(fps))
 
-        # Optional: report to gui
+        api.gui_rpc(core.Display.update_fps_estimate, fps, _send_verbosely=False)
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
@@ -92,6 +85,9 @@ class Display(AbstractProcess):
     def __init__(self, **kwargs):
         AbstractProcess.__init__(self, **kwargs)
 
+        self.app = app.use_app('PyQt5')
+        gloo.gl.use_gl('gl2')
+
         # Create canvas
         _interval = 1. / Config.Display[Def.DisplayCfg.fps]
 
@@ -105,13 +101,18 @@ class Display(AbstractProcess):
                              size=_size,
                              resizable=False,
                              position=_position,
-                             always_on_top=True)
+                             always_on_top=True,
+                             app=self.app,
+                             vsync=False)
         self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
         self._display_visual = False
 
+        self.times = []
+
         # Run event loop
-        self.run(1/300)
+        self.enable_idle_timeout = False
+        self.run(interval=_interval)
 
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
         if uniform_name not in self._uniform_maps:
@@ -148,6 +149,9 @@ class Display(AbstractProcess):
     def _start_shutdown(self):
         AbstractProcess._start_shutdown(self)
 
+    def trigger_visual(self, trigger_fun):
+        self.visual.trigger(trigger_fun)
+
     def update_visual(self, **parameters):
         if self.visual is None:
             return
@@ -158,16 +162,28 @@ class Display(AbstractProcess):
         return self._run_protocol() or self._display_visual
 
     def main(self):
-        app.process_events()
+
+        # self.times.append(self.t)
+        #
+        # if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
+        #     diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
+        #     avg_frametime = sum(diff) / len(diff)
+        #     print('Display', 1./avg_frametime)
+        #     #api.gui_rpc(core.Display.update_fps_estimate,1. / avg_frametime, _send_verbosely=False)
+        #     self.times = []
+
+        self.canvas.on_draw(None)
+        self.app.process_events()
 
         try:
             if self._display():
+
                 # Update uniforms from routine attributes
                 for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
                     idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
-                    print(uniform_name, uniform_value)
                     self.visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
 
+                # Update routines
                 self.update_routines(self.visual)
             else:
                 self.update_routines()
@@ -175,4 +191,3 @@ class Display(AbstractProcess):
             import traceback
             traceback.print_exc()
             # TODO: quit process here and restart!
-

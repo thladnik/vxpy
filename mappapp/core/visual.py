@@ -116,6 +116,9 @@ class AbstractVisual:
     def parse_vertex_shader(self, vert):
         return f'{self._vertex_map}\n{vert}'
 
+    def trigger(self, trigger_fun):
+        getattr(self, trigger_fun.__name__)()
+
     def update(self, _update_verbosely=True, **params):
         """
         Method to update stimulus parameters.
