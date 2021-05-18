@@ -195,6 +195,9 @@ class BufferAttribute:
     def _read(self, start_idx, end_idx, use_lock):
         raise NotImplementedError(f'_read not implemented in {self.__class__.__name__}')
 
+    def carry(self):
+        self.write(self._read(*self._get_range(last=1), use_lock=True))
+
     def read(self, last=1, use_lock=True, from_idx=None):
         if from_idx is not None:
             last = self._index - from_idx
