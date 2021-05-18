@@ -35,54 +35,83 @@ class ProcessMonitor(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self,  'Process monitor', *args)
 
+        self.exposed.append(ProcessMonitor.update_process_interval)
+
         self._setup_ui()
 
     def _setup_ui(self):
 
-        self.setFixedWidth(150)
+        self.setFixedWidth(250)
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+
+        self.process_intervals = dict()
 
         # Setup widget
         self.setLayout(QtWidgets.QGridLayout())
         self.setMinimumSize(QtCore.QSize(0,0))
         self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.layout().setColumnMinimumWidth(2, 150)
 
         # Controller process status
-        self._le_controllerState = QtWidgets.QLineEdit('')
-        self._le_controllerState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Controller),0,0)
-        self.layout().addWidget(self._le_controllerState, 0, 1)
+        self.controller_state = QtWidgets.QLineEdit('')
+        self.controller_state.setDisabled(True)
+        self.layout().addWidget(self.controller_state, 0, 1)
+        self.controller_interval = QtWidgets.QLineEdit('')
+        self.controller_interval.setDisabled(True)
+        self.layout().addWidget(self.controller_interval, 0, 2)
+        self.process_intervals[Def.Process.Controller] = self.controller_interval
 
         # Camera process status
-        self._le_cameraState = QtWidgets.QLineEdit('')
-        self._le_cameraState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Camera),1,0)
-        self.layout().addWidget(self._le_cameraState, 1, 1)
+        self.camera_state = QtWidgets.QLineEdit('')
+        self.camera_state.setDisabled(True)
+        self.layout().addWidget(self.camera_state, 1, 1)
+        self.camera_interval = QtWidgets.QLineEdit('')
+        self.camera_interval.setDisabled(True)
+        self.layout().addWidget(self.camera_interval, 1, 2)
+        self.process_intervals[Def.Process.Camera] = self.camera_interval
 
         # Display process status
-        self._le_displayState = QtWidgets.QLineEdit('')
-        self._le_displayState.setDisabled(True)
+        self.display_state = QtWidgets.QLineEdit('')
+        self.display_state.setDisabled(True)
+        self.display_interval = QtWidgets.QLineEdit('')
+        self.display_interval.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Display),2,0)
-        self.layout().addWidget(self._le_displayState, 2, 1)
+        self.layout().addWidget(self.display_state, 2, 1)
+        self.layout().addWidget(self.display_interval, 2, 2)
+        self.process_intervals[Def.Process.Display] = self.display_interval
 
         # Gui process status
-        self._le_guiState = QtWidgets.QLineEdit('')
-        self._le_guiState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Gui),3,0)
-        self.layout().addWidget(self._le_guiState, 3, 1)
+        self.gui_state = QtWidgets.QLineEdit('')
+        self.gui_state.setDisabled(True)
+        self.layout().addWidget(self.gui_state, 3, 1)
+        self.gui_interval = QtWidgets.QLineEdit('')
+        self.gui_interval.setDisabled(True)
+        self.layout().addWidget(self.gui_interval, 3, 2)
+        self.process_intervals[Def.Process.Gui] = self.gui_interval
 
         # IO process status
-        self._le_ioState = QtWidgets.QLineEdit('')
-        self._le_ioState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Io),4,0)
-        self.layout().addWidget(self._le_ioState, 4, 1)
+        self.io_state = QtWidgets.QLineEdit('')
+        self.layout().addWidget(self.io_state, 4, 1)
+        self.io_state.setDisabled(True)
+        self.io_interval = QtWidgets.QLineEdit('')
+        self.io_interval.setDisabled(True)
+        self.layout().addWidget(self.io_interval, 4, 2)
+        self.process_intervals[Def.Process.Io] = self.io_interval
 
         # Worker process status
-        self._le_workerState = QtWidgets.QLineEdit('')
-        self._le_workerState.setDisabled(True)
         self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker),5,0)
-        self.layout().addWidget(self._le_workerState, 5, 1)
+        self.worker_state = QtWidgets.QLineEdit('')
+        self.worker_state.setDisabled(True)
+        self.layout().addWidget(self.worker_state, 5, 1)
+        self.worker_interval = QtWidgets.QLineEdit('')
+        self.worker_interval.setDisabled(True)
+        self.layout().addWidget(self.worker_interval, 5, 2)
+        self.process_intervals[Def.Process.Worker] = self.worker_interval
 
         self.layout().addItem(vSpacer, 6, 0)
 
@@ -92,6 +121,15 @@ class ProcessMonitor(IntegratedWidget):
         self._tmr_updateGUI.timeout.connect(self._update_states)
         self._tmr_updateGUI.start()
 
+
+    def update_process_interval(self, process_name, target_inval, mean_inval, std_inval):
+        if process_name in self.process_intervals:
+            self.process_intervals[process_name].setText('{:.1f}/{:.1f} ({:.1f}) ms'
+                                                         .format(mean_inval * 1000,
+                                                                 target_inval * 1000,
+                                                                 std_inval * 1000))
+        else:
+            print(process_name, '{:.2f} +/- {:.2f}ms'.format(mean_inval * 1000, std_inval * 1000))
 
     def _set_process_state(self,le: QtWidgets.QLineEdit,code):
         # Set text
@@ -112,12 +150,12 @@ class ProcessMonitor(IntegratedWidget):
             le.setStyleSheet('color: #000000')
 
     def _update_states(self):
-        self._set_process_state(self._le_controllerState,IPC.get_state(Def.Process.Controller))
-        self._set_process_state(self._le_cameraState,IPC.get_state(Def.Process.Camera))
-        self._set_process_state(self._le_displayState,IPC.get_state(Def.Process.Display))
-        self._set_process_state(self._le_guiState,IPC.get_state(Def.Process.Gui))
-        self._set_process_state(self._le_ioState,IPC.get_state(Def.Process.Io))
-        self._set_process_state(self._le_workerState,IPC.get_state(Def.Process.Worker))
+        self._set_process_state(self.controller_state, IPC.get_state(Def.Process.Controller))
+        self._set_process_state(self.camera_state, IPC.get_state(Def.Process.Camera))
+        self._set_process_state(self.display_state, IPC.get_state(Def.Process.Display))
+        self._set_process_state(self.gui_state, IPC.get_state(Def.Process.Gui))
+        self._set_process_state(self.io_state, IPC.get_state(Def.Process.Io))
+        self._set_process_state(self.worker_state, IPC.get_state(Def.Process.Worker))
 
 
 class Recording(IntegratedWidget):

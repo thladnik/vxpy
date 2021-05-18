@@ -25,11 +25,13 @@ import signal
 import sys
 import time
 
+from mappapp import api
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp.core.routine import ArrayAttribute
+from mappapp.gui.core import ProcessMonitor
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -147,8 +149,7 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self.handle_SIGINT)
 
     def run(self, interval):
-        Logging.write(Logging.INFO,
-                      'Process {} started at time {}'.format(self.name, time.time()))
+        Logging.write(Logging.INFO, f'Process {self.name} started at time {time.time()}')
 
         # Set state to running
         self._running = True
@@ -159,18 +160,29 @@ class AbstractProcess:
 
         min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
         self.t = time.perf_counter()
+        self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
             self.handle_inbox()
 
+            self.tt.append(time.perf_counter())
+            if (self.tt[-1] - self.tt[0]) > 1.:
+                dt = np.diff(self.tt)
+                mdt = np.mean(dt)
+                sdt = np.std(dt)
+                # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
+                self.tt = [self.tt[-1]]
+                api.gui_rpc(ProcessMonitor.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
+
             # Wait until interval time is up
-            dt = self.t + interval - time.perf_counter()
-            if self.enable_idle_timeout and dt > 1.2 * min_sleep_time:
+            dt = (self.t + interval) - time.perf_counter()
+            if self.enable_idle_timeout and dt > (1.2 * min_sleep_time):
                 # Sleep to reduce CPU usage
-                time.sleep(0.6 * dt)
+                time.sleep(dt / 1.2)
 
             # Busy loop until next main execution for precise timing
-            while self.t + interval - time.perf_counter() >= 0:
+            # while self.t + interval - time.perf_counter() >= 0:
+            while time.perf_counter() < (self.t + interval):
                 pass
 
             # Set new time
@@ -235,7 +247,7 @@ class AbstractProcess:
                 return False
 
             # Fallback, timeout during IDLE operation
-            self.idle()
+            # self.idle()
             return False
 
         ########
@@ -296,7 +308,8 @@ class AbstractProcess:
         ########
         # Fallback: timeout
         else:
-            self.idle()
+            pass
+            # self.idle()
 
     def idle(self):
         if self.enable_idle_timeout:
@@ -646,9 +659,6 @@ class ProcessProxy:
     def read(self, routine_cls, attr_name, *args, **kwargs):
         return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
 
-    # def routine(self, routine) -> AbstractRoutine:
-    #     pass
-
     def rpc(self, function: Callable, *args, **kwargs) -> None:
         """Send a remote procedure call of given function to another process.
 
@@ -657,4 +667,4 @@ class ProcessProxy:
         @param args:
         @param kwargs:
         """
-        IPC.rpc(self.name, Def.Signal.rpc, function, *args, **kwargs)
+        IPC.rpc(self.name, function, *args, **kwargs)
