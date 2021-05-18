@@ -47,7 +47,7 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         self.setup_ui()
 
         # Run event loop
-        self.run(interval=0.005)
+        self.run(interval=1/100)
 
     def main(self):
         self.app.processEvents()
@@ -100,11 +100,13 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         # Process monitor
         self.process_monitor = ProcessMonitor(self)
         self.process_monitor.setMaximumHeight(400)
+        self.process_monitor.create_hooks()
         self.lower_widget.layout().addWidget(self.process_monitor)
 
         # Recordings
         self.recordings = Recording(self)
         self.recordings.setMaximumHeight(400)
+        self.recordings.create_hooks()
         self.lower_widget.layout().addWidget(self.recordings)
 
         # Logger
