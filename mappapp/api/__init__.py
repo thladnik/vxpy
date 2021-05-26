@@ -38,8 +38,12 @@ def io_rpc(function, *args, **kwargs):
     IPC.rpc(Def.Process.Io, function, *args, **kwargs)
 
 
-def set_digital_out(id, routine_cls, attr_name):
-    io_rpc(process.Io.set_digital_out, id, routine_cls, attr_name)
+def set_digital_output(out_pid, routine_cls, attr_name):
+    io_rpc(process.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
+
+
+def set_analog_output(out_pid, routine_cls, attr_name):
+    io_rpc(process.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
 
 
 def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):

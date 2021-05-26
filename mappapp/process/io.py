@@ -15,53 +15,59 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import importlib
+import time
 
-from mappapp.core.process import AbstractProcess
+import numpy as np
+
+from mappapp import api
 from mappapp import protocols,Logging,IPC,Def,Config
-
+from mappapp.core.process import AbstractProcess
 
 class Io(AbstractProcess):
     name = Def.Process.Io
 
-    _id_map = dict()
+    _pid_pin_map = dict()
+    _pid_attr_map = dict()
+    _devices = dict()
 
     def __init__(self, **kwargs):
         AbstractProcess.__init__(self, **kwargs)
 
-        ################################
-        ### Set up device
-        self.device = None
-        if Config.Io[Def.IoCfg.device_type] == 'Arduino':
-            import mappapp.devices.arduino
-            self.device = mappapp.devices.arduino.Device()
+        for did, dev_config in Config.Io[Def.IoCfg.device].items():
+            if not(all(k in dev_config for k in ("type", "model"))):
+                Logging.write(Logging.WARNING, f'Insufficient information to configure device {did}')
+                continue
 
-        run = False
-        try:
-            if self.device is None:
-                raise Exception('No applicable device found.')
+            try:
+                Logging.write(Logging.INFO, f'Set up device {did}')
+                device_type_module = importlib.import_module(f'mappapp.devices.{dev_config["type"]}')
+                device_cls = getattr(device_type_module, dev_config["model"])
+
+                self._devices[did] = device_cls(dev_config)
+
+            except Exception as exc:
+                Logging.write(Logging.WARNING, f'Failed to set up device {did} // Exc: {exc}')
+                continue
+
+            if did in Config.Io[Def.IoCfg.pins]:
+                Logging.write(Logging.INFO, f'Set up pin configuration for device {did}')
+
+                pin_config = Config.Io[Def.IoCfg.pins][did]
+                self._devices[did].configure_pins(**pin_config)
+
+                # Map pins to flat dictionary
+                for pid, pin in self._devices[did].pins.items():
+                    self._pid_pin_map[pid] = pin
             else:
-                run = self.device.connect() and self.device.setup()
+                Logging.write(Logging.WARNING, f'No pin configuration found for device {did}')
 
-        except Exception as exc:
-            Logging.write(Logging.WARNING,f'Could not connect to device. // Exception: {exc}')
-            self.set_state(Def.State.STOPPED)
+        # Set timeout during idle
+        self.enable_idle_timeout = True
 
-
-        # Disable timeout during idle
-        self.enable_idle_timeout = False
-
+        self.timetrack = []
         # Run event loop
-        if run:
-            self.run(interval=1. / Config.Io[Def.IoCfg.sample_rate])
-
-    def set_digital_out(self, id, routine_cls, attr_name):
-        if id not in self._id_map:
-            Logging.write(Logging.INFO, f'Set digital out "{id}" to attribute "{attr_name}" of {routine_cls.__name__}.')
-            self._id_map[id] = (routine_cls, attr_name)
-            if id not in self.device.out_pins:
-                Logging.write(Logging.WARNING, f'Digital out "{id}" has not been configured.')
-        else:
-            Logging.write(Logging.WARNING, f'Digital out "{id}" is already set.')
+        self.run(interval=1./Config.Io[Def.IoCfg.max_sr])
 
     def _prepare_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
@@ -72,11 +78,57 @@ class Io(AbstractProcess):
     def _cleanup_protocol(self):
         pass
 
+    def set_outpin_to_attr(self, pid, routine_cls, attr_name):
+        """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
+
+        if pid not in self._pid_pin_map:
+            Logging.write(Logging.WARNING, f'Output "{pid}" has not been configured.')
+            return
+
+        pin = self._pid_pin_map[pid]
+
+        if pin.config['type'] not in ('do', 'ao'):
+            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} has not been configured.')
+            return
+
+        if pid not in self._pid_attr_map:
+
+            Logging.write(Logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}" of {routine_cls.__name__}.')
+            self._pid_attr_map[pid] = (routine_cls, attr_name)
+        else:
+            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} is already set.')
+
     def main(self):
 
-        # Update routines
-        self.update_routines(self.device.read_all(), self.device)
+        tt = []
+
+        # Read data
+        t = time.perf_counter()
+        for pin in self._pid_pin_map.values():
+            pin._read_data()
+        tt.append(time.perf_counter()-t)
+
+        # Write outputs from shared attributes
+        t = time.perf_counter()
+        for pid, (routine_cls, attr_name) in self._pid_attr_map.items():
+            _, _, vals = api.read_attribute(routine_cls, attr_name)
+            self._pid_pin_map[pid].write(vals[0][0])
+        tt.append(time.perf_counter()-t)
+
+        t = time.perf_counter()
+        self.update_routines(**self._pid_pin_map)
+        tt.append(time.perf_counter()-t)
+
+        self.timetrack.append(tt)
+        if len(self.timetrack) >= 5000:
+            dts = np.array(self.timetrack)
+            means = dts.mean(axis=0) * 1000
+            stds = dts.std(axis=0) * 1000
+            print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
+            print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
+            print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
+            print('----')
+            self.timetrack = []
 
         if self._run_protocol():
             pass
-

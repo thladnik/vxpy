@@ -24,6 +24,35 @@ from mappapp.core.routine import ArrayAttribute, ArrayDType, IoRoutine
 from mappapp.routines.camera.core import EyePositionDetection
 
 
+
+class All(IoRoutine):
+
+    def __init__(self, *args, **kwargs):
+        IoRoutine.__init__(self, *args, **kwargs)
+
+        # Read all pins
+        self.pins = dict()
+        for did, pins in Config.Io[Def.IoCfg.pins].items():
+            for pid, pconf in pins.items():
+                pconf.update(dev=did)
+                self.pins[pid] = pconf
+
+        # Set up buffer attributes
+        for pid, pconf in self.pins.items():
+            if pconf['type'] in ('di', 'do'):
+                setattr(self.buffer, pid, ArrayAttribute((1,), ArrayDType.int8))
+            else:
+                setattr(self.buffer, pid, ArrayAttribute((1,), ArrayDType.float64))
+
+            # Add pin to be written to file
+            self.file_attrs.append(pid)
+
+    def execute(self, **pins):
+        for pid, pin in pins.items():
+            getattr(self.buffer, pid).write(pin.read())
+
+
+
 class ReadAnalog(IoRoutine):
 
     def __init__(self, *args, **kwargs):

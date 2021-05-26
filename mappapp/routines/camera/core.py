@@ -141,7 +141,7 @@ class EyePositionDetection(CameraRoutine):
         self.buffer.saccade_trigger = ArrayAttribute((1, ), ArrayDType.binary, length=5*target_fps)
 
     def initialize(self):
-        api.set_digital_out('saccade_trigger', EyePositionDetection, 'saccade_trigger')
+        api.set_digital_output('saccade_trigger_out', EyePositionDetection, 'saccade_trigger')
 
     def set_threshold(self, thresh):
         self.thresh = thresh

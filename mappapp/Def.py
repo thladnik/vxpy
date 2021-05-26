@@ -200,12 +200,9 @@ class GuiCfg(Cfg):
 class IoCfg(Cfg):
     name = Process.Io.lower()
 
-    device_type = 'str_device_type'
-    device_model = 'str_device_model'
-    device_port = 'str_device_comport'
-    sample_rate = 'int_sample_rate'
+    device = 'json_device'
+    max_sr = 'int_max_sr'
     pins = 'json_pins'
-    analog_pins = 'json_analog_pins'
 
     routines = 'json_routines'
 
