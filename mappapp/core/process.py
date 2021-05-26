@@ -600,10 +600,8 @@ class AbstractProcess:
                 return None
 
             # If output folder is set: open file
-            filepath = os.path.join(Def.package,
-                                    Config.Recording[Def.RecCfg.output_folder],
-                                    IPC.Control.Recording[Def.RecCtrl.folder],
-                                    f'{self.name}.hdf5')
+            rec_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+            filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
             # Open new file
             Logging.write(Logging.DEBUG, f'Open new file {filepath}')

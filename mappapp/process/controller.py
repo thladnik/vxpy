@@ -313,14 +313,15 @@ class Controller(AbstractProcess):
 
         # Set current folder if none is given
         if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
-            IPC.Control.Recording[Def.RecCtrl.folder] = f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+            output_folder = Config.Recording[Def.RecCfg.output_folder]
+            IPC.Control.Recording[Def.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
 
         # Create output folder
-        out_path = os.path.join(Def.package, Config.Recording[Def.RecCfg.output_folder],IPC.Control.Recording[Def.RecCtrl.folder])
-        Logging.write(Logging.DEBUG,'Set output folder {}'.format(out_path))
-        if not(os.path.exists(out_path)):
-            Logging.write(Logging.DEBUG,'Create output folder {}'.format(out_path))
-            os.mkdir(out_path)
+        rec_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+        Logging.write(Logging.DEBUG,'Set output folder {}'.format(rec_folder))
+        if not(os.path.exists(rec_folder)):
+            Logging.write(Logging.DEBUG,'Create output folder {}'.format(rec_folder))
+            os.mkdir(rec_folder)
 
         IPC.Control.Recording[Def.RecCtrl.use_compression] = compression_method is not None
         IPC.Control.Recording[Def.RecCtrl.compression_method] = compression_method

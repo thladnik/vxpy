@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import h5py
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
 import time
@@ -177,54 +177,80 @@ class Recording(IntegratedWidget):
         self.setMaximumWidth(400)
 
         # Current folder
-        self.le_folder = QtWidgets.QLineEdit()
-        self.le_folder.setEnabled(False)
-        self.wdgt.layout().addWidget(QLabel('Folder'), 0, 0)
-        self.wdgt.layout().addWidget(self.le_folder, 0, 1)
+        self.folder_wdgt = QtWidgets.QWidget()
+        self.folder_wdgt.setLayout(QtWidgets.QGridLayout())
+        self.folder_wdgt.layout().setContentsMargins(0, 0, 0, 0)
+
+        self.folder_wdgt.layout().addWidget(QLabel('Base dir.'), 0, 0)
+        self.base_dir = QtWidgets.QLineEdit('')
+        self.base_dir.setDisabled(True)
+        self.folder_wdgt.layout().addWidget(self.base_dir, 0, 1, 1, 2)
+
+        self.select_folder = QtWidgets.QPushButton('Select...')
+        self.select_folder.setDisabled(True)
+        self.folder_wdgt.layout().addWidget(self.select_folder, 1, 1)
+        self.open_folder = QtWidgets.QPushButton('Open')
+        self.open_folder.clicked.connect(self.open_base_folder)
+        self.folder_wdgt.layout().addWidget(self.open_folder, 1, 2)
+
+        self.folder_wdgt.layout().addWidget(QLabel('Folder'), 2, 0)
+        self.rec_folder = QtWidgets.QLineEdit()
+        self.rec_folder.setEnabled(False)
+        self.folder_wdgt.layout().addWidget(self.rec_folder, 2, 1, 1, 2)
+
+        self.wdgt.layout().addWidget(self.folder_wdgt, 1, 0, 1, 2)
+        self.hsep = QtWidgets.QFrame()
+        self.hsep.setFrameShape(QtWidgets.QFrame.HLine)
+        self.wdgt.layout().addWidget(self.hsep, 2, 0, 1, 2)
 
         # GroupBox
         self.clicked.connect(self.toggle_enable)
 
+        # Left widget
+        self.left_wdgt = QtWidgets.QWidget()
+        self.left_wdgt.setLayout(QtWidgets.QVBoxLayout())
+        self.left_wdgt.layout().setContentsMargins(0,0,0,0)
+        self.wdgt.layout().addWidget(self.left_wdgt, 5, 0)
+
         # Data compression
-        self.cb_compression = QtWidgets.QComboBox()
-        self.cb_compression.currentTextChanged.connect(self.update_compression_opts)
-        #self.cb_compression.currentTextChanged.connect(self.set_compression)
-        self.wdgt.layout().addWidget(QLabel('Compression'), 1, 0)
-        self.cb_compr_opts = QtWidgets.QComboBox()
-        self.cb_compression.addItems(['None', 'GZIP', 'LZF'])
-        #self.cb_compr_opts.currentTextChanged.connect(self.set_compression_opts)
-        self.wdgt.layout().addWidget(self.cb_compression, 1, 1)
-        self.wdgt.layout().addWidget(QLabel('Compr. options'), 2, 0)
-        self.wdgt.layout().addWidget(self.cb_compr_opts, 2, 1)
+        self.left_wdgt.layout().addWidget(QLabel('Compression'))
+        self.compr = QtWidgets.QComboBox()
+        self.compr_opts = QtWidgets.QComboBox()
+        self.compr.currentTextChanged.connect(self.update_compression_opts)
+        self.compr.addItems(['None', 'GZIP', 'LZF'])
+        self.left_wdgt.layout().addWidget(self.compr)
+        self.left_wdgt.layout().addWidget(self.compr_opts)
 
         # Buttons
         # Start
         self.btn_start = QtWidgets.QPushButton('Start')
         self.btn_start.clicked.connect(self.start_recording)
-        self.wdgt.layout().addWidget(self.btn_start, 3, 0, 1, 2)
+        self.left_wdgt.layout().addWidget(self.btn_start)
         # Pause
         self.btn_pause = QtWidgets.QPushButton('Pause')
         self.btn_pause.clicked.connect(self.pause_recording)
-        self.wdgt.layout().addWidget(self.btn_pause, 4, 0, 1, 2)
+        self.left_wdgt.layout().addWidget(self.btn_pause)
         # Stop
         self.btn_stop = QtWidgets.QPushButton('Stop')
         self.btn_stop.clicked.connect(self.finalize_recording)
-        self.wdgt.layout().addWidget(self.btn_stop, 5, 0, 1, 2)
+        self.left_wdgt.layout().addWidget(self.btn_stop)
 
         # Show recorded routines
-        self.gb_routines = QtWidgets.QGroupBox('Recording routines')
-        self.gb_routines.setLayout(QtWidgets.QVBoxLayout())
+        self.rec_routines = QtWidgets.QGroupBox('Recording routines')
+        self.rec_routines.setLayout(QtWidgets.QVBoxLayout())
         for routine_id in Config.Recording[Def.RecCfg.routines]:
-            self.gb_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
-        self.gb_routines.layout().addItem(vSpacer)
-        self.wdgt.layout().addWidget(self.gb_routines, 0, 2, 7, 1)
-        self.wdgt.layout().addItem(vSpacer, 6, 0)
+            self.rec_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
+        self.rec_routines.layout().addItem(vSpacer)
+        self.wdgt.layout().addWidget(self.rec_routines, 5, 1)
 
         # Set timer for GUI update
         self.tmr_update_gui = QtCore.QTimer()
         self.tmr_update_gui.setInterval(200)
         self.tmr_update_gui.timeout.connect(self.update_ui)
         self.tmr_update_gui.start()
+
+    def open_base_folder(self):
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl('D:/Nextcloud/Projects/Visual_Stimulation_Setup/'))
 
     def start_recording(self):
 
@@ -265,7 +291,7 @@ class Recording(IntegratedWidget):
         IPC.rpc(Def.Process.Controller,process.Controller.set_enable_recording,newstate)
 
     def get_compression_method(self):
-        method = self.cb_compression.currentText()
+        method = self.compr.currentText()
         if method == 'None':
             method = None
         else:
@@ -274,8 +300,8 @@ class Recording(IntegratedWidget):
         return method
 
     def get_compression_opts(self):
-        method = self.cb_compression.currentText()
-        opts = self.cb_compr_opts.currentText()
+        method = self.compr.currentText()
+        opts = self.compr_opts.currentText()
 
         shuffle = opts.lower().find('shuffle') >= 0
         if len(opts) > 0 and method == 'GZIP':
@@ -289,17 +315,17 @@ class Recording(IntegratedWidget):
         return opts
 
     def update_compression_opts(self):
-        self.cb_compr_opts.clear()
+        self.compr_opts.clear()
 
-        compr = self.cb_compression.currentText()
+        compr = self.compr.currentText()
         if compr == 'None':
-            self.cb_compr_opts.addItem('None')
+            self.compr_opts.addItem('None')
         elif compr == 'GZIP':
             levels = range(10)
-            self.cb_compr_opts.addItems([f'{i} (shuffle)' for i in levels])
-            self.cb_compr_opts.addItems([str(i) for i in levels])
+            self.compr_opts.addItems([f'{i} (shuffle)' for i in levels])
+            self.compr_opts.addItems([str(i) for i in levels])
         elif compr == 'LZF':
-            self.cb_compr_opts.addItems(['None', 'Shuffle'])
+            self.compr_opts.addItems(['None', 'Shuffle'])
 
     def update_ui(self):
         """(Periodically) update UI based on shared configuration"""
@@ -318,7 +344,7 @@ class Recording(IntegratedWidget):
         self.setChecked(enabled)
 
         # Set current folder
-        self.le_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
+        self.rec_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
 
         # Set buttons dis-/enabled
         # Start
@@ -332,6 +358,8 @@ class Recording(IntegratedWidget):
         # Overwrite stop button during protocol
         if bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
             self.btn_stop.setEnabled(False)
+
+        self.base_dir.setText(Config.Recording[Def.RecCfg.output_folder])
 
 
 class Logger(IntegratedWidget):
