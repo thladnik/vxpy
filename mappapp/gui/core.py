@@ -17,6 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import h5py
 import numpy as np
+from os.path import abspath
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
@@ -250,7 +251,8 @@ class Recording(IntegratedWidget):
         self.tmr_update_gui.start()
 
     def open_base_folder(self):
-        QtGui.QDesktopServices.openUrl(QtCore.QUrl('D:/Nextcloud/Projects/Visual_Stimulation_Setup/'))
+        output_path = abspath(Config.Recording[Def.RecCfg.output_folder])
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def start_recording(self):
 
