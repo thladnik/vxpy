@@ -522,7 +522,25 @@ class Controller(AbstractProcess):
             time.sleep(0.05)
 
     def _start_shutdown(self):
-        Logging.write(Logging.DEBUG,'Shut down processes')
+        Logging.write(Logging.DEBUG, 'Shutdown requested. Checking.')
+
+        # Check if any processes are still busy
+        shutdown_state = True
+        for p, _ in self._registered_processes:
+            shutdown_state &= self.in_state(Def.State.IDLE, p.name) or self.in_state(Def.State.NA, p.name)
+
+        # Check if recording is running
+        shutdown_state &= not(IPC.Control.Recording[Def.RecCtrl.active])
+
+        if not(shutdown_state):
+            Logging.write(Logging.DEBUG, 'Not ready for shutdown. Confirming.')
+            IPC.rpc(process.Gui.name, process.Gui.prompt_shutdown_confirmation)
+            return
+
+        self._force_shutdown()
+
+    def _force_shutdown(self):
+        Logging.write(Logging.DEBUG, 'Shut down processes')
         self._shutdown = True
         for process_name in self._processes:
             IPC.send(process_name,Def.Signal.shutdown)

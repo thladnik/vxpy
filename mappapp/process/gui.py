@@ -149,6 +149,19 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
             #self.resize(800, 800)
             self.showMaximized()
 
+    def _start_shutdown(self):
+        self.closeEvent(None)
+
+        IPC.Process.set_state(Def.State.STOPPED)
+
+    def prompt_shutdown_confirmation(self):
+        reply = QtWidgets.QMessageBox.question(self, 'Confirm shutdown',
+                                               'Program is still busy. Shut down anyways?',
+                                               QtWidgets.QMessageBox.Close | QtWidgets.QMessageBox.Cancel,
+                                               QtWidgets.QMessageBox.Cancel)
+
+        if reply == QtWidgets.QMessageBox.Close:
+            IPC.rpc(process.Controller.name, process.Controller._force_shutdown)
 
     def restart_camera(self):
         IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Camera)
@@ -167,8 +180,9 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
             self.menu_process.restart_camera.setAutoRepeat(False)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        # Inform controller of close event
-        IPC.send(Def.Process.Controller,Def.Signal.shutdown)
+        if a0 is not None:
+            # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
 
-        # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
-        IPC.Process.set_state(Def.State.STOPPED)
+            # Inform controller of close event
+            IPC.send(Def.Process.Controller,Def.Signal.shutdown)
+            a0.setAccepted(False)
