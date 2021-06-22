@@ -73,7 +73,7 @@ class Io(AbstractProcess):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def _prepare_phase(self):
-        pass
+        self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
     def _cleanup_protocol(self):
         pass
@@ -121,13 +121,13 @@ class Io(AbstractProcess):
 
         self.timetrack.append(tt)
         if len(self.timetrack) >= 5000:
-            dts = np.array(self.timetrack)
-            means = dts.mean(axis=0) * 1000
-            stds = dts.std(axis=0) * 1000
-            print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
-            print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
-            print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
-            print('----')
+            # dts = np.array(self.timetrack)
+            # means = dts.mean(axis=0) * 1000
+            # stds = dts.std(axis=0) * 1000
+            # print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
+            # print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
+            # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
+            # print('----')
             self.timetrack = []
 
         if self._run_protocol():
