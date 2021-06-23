@@ -31,6 +31,7 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp.core.routine import ArrayAttribute
+from mappapp.core.container import NpBufferedH5File, H5File
 from mappapp.gui.core import ProcessMonitor
 
 # Type hinting
@@ -63,8 +64,8 @@ class AbstractProcess:
     _registered_callbacks: dict = dict()
 
     _routines: Dict[str, Dict[str, AbstractRoutine]] = dict()
-    h5_file: Union[None, h5py.File] = None
-    record_group: Union[None, h5py.Group] = None
+    file_container: Union[None, h5py.File, NpBufferedH5File, H5File] = None
+    record_group: str = None
     compression_args: Dict[str, Any] = dict()
 
     def __init__(self,
@@ -428,37 +429,33 @@ class AbstractProcess:
         elif signal == Def.Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
-    def _create_dataset(self, routine_name: str, attr_name: str, attr_shape: tuple, attr_dtype: Any):
-
-        # Get group for this particular routine
-        routine_grp = self.record_group.require_group(routine_name)
+    def _create_dataset(self, path: str, attr_shape: tuple, attr_dtype: Any):
 
         # Skip if dataset exists already
-        if attr_name in routine_grp:
-            Logging.write(Logging.WARNING, f'Tried to create existing attribute {routine_grp[attr_name]}')
+        if path in self.file_container:
+            Logging.write(Logging.WARNING, f'Tried to create existing attribute {path}')
             return
 
         try:
-            routine_grp.create_dataset(attr_name,
-                                       shape=(0, *attr_shape,),
-                                       dtype=attr_dtype,
-                                       maxshape=(None, *attr_shape,),
-                                       chunks=(1, *attr_shape,),
-                                       **self.compression_args)
-            Logging.write(Logging.DEBUG,
-                          f'Create record dataset "{routine_grp[attr_name]}"')
+            self.file_container.require_dataset(path,
+                                               shape=(0, *attr_shape,),
+                                               dtype=attr_dtype,
+                                               maxshape=(None, *attr_shape,),
+                                               chunks=(1, *attr_shape,),
+                                               **self.compression_args)
+            Logging.write(Logging.DEBUG, f'Create record dataset "{path}"')
 
         except Exception as exc:
             import traceback
             Logging.write(Logging.WARNING,
-                          f'Failed to create record dataset "{routine_grp[attr_name]}"'
+                          f'Failed to create record dataset "{path}"'
                           f' // Exception: {exc}')
             traceback.print_exc()
 
-    def _append_to_dataset(self, grp: h5py.Group, key: str, value: Any):
+    def _append_to_dataset(self, path: str, value: Any):
 
         # Create dataset (if necessary)
-        if key not in grp:
+        if path not in self.file_container:
             # Some datasets may not be created on record group creation
             # (this is e.g. the the case for parameters of visuals,
             # because unless the data types are specifically declared,
@@ -467,50 +464,57 @@ class AbstractProcess:
             # Iterate over dictionary contents
             if isinstance(value, dict):
                 for k, v in value.items():
-                    self._append_to_dataset(grp, f'{key}_{k}', v)
+                    self._append_to_dataset(f'{path}_{k}', v)
                 return
 
             # Try to cast to numpy arrays
             if isinstance(value, list):
                 value = np.array(value)
+            elif isinstance(value, np.ndarray):
+                pass
             else:
                 value = np.array([value])
 
             dshape = value.shape
             dtype = value.dtype
             assert np.issubdtype(dtype, np.number) or dtype == bool, \
-                f'Unable save non-numerical value "{value}" to dataset "{key}" in group {grp.name}'
+                f'Unable save non-numerical value "{value}" to dataset "{path}"'
 
-            self._create_dataset(grp.name.split('/')[-1], key, dshape, dtype)
+            self._create_dataset(path, dshape, dtype)
 
-        # Get dataset
-        dset = grp[key]
-        # Increment time dimension by 1
-        dset.resize((dset.shape[0] + 1, *dset.shape[1:]))
-        # Write new value
-        dset[dset.shape[0] - 1] = value
+        self.file_container.append(path, value)
 
     def _routine_on_record(self, routine_name):
         return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
 
-    def set_record_group(self, group_name: str, group_attributes: dict = None):
-        if self.h5_file is None:
+    def set_record_group(self, group_name: str, group_attributes: Dict = dict()):
+        if self.file_container is None:
             return
 
+        # Save last results (this should also delete large temp. files)
+        self.file_container.save()
+
+        self.record_group = group_name
+
+        if not(bool(self.record_group)):
+            return
+
+        path = f'{group_name}/'
+
         # Set group
-        Logging.write(Logging.INFO, f'Set record group "{group_name}"')
-        self.record_group = self.h5_file.require_group(group_name)
+        Logging.write(Logging.INFO, f'Set record group "{path}"')
+        grp = self.file_container.require_group(path)
         if group_attributes is not None:
-            self.record_group.attrs.update(group_attributes)
+            grp.attrs.update(group_attributes)
 
         # Create routine groups
         for routine_name, routine in self._routines[self.name].items():
 
-            if not (self._routine_on_record(routine_name)):
+            if not(self._routine_on_record(routine_name)):
                 continue
 
             Logging.write(Logging.INFO, f'Set routine group {routine_name}')
-            self.record_group.require_group(routine_name)
+            self.file_container.require_group(f'{self.record_group}/{routine_name}')
 
             # Create datasets in routine group
             for attr_name in routine.file_attrs:
@@ -518,18 +522,45 @@ class AbstractProcess:
                 # Atm only ArrayAttributes have declared data types
                 # Other attributes (if compatible) will be created at recording time
                 if isinstance(attr, ArrayAttribute):
-                    self._create_dataset(routine_name, attr_name, attr._shape, attr._dtype[1])
-                    self._create_dataset(routine_name, f'{attr_name}_time', (1,), np.float64)
+                    path = f'{self.record_group}/{routine_name}/{attr_name}'
+                    self._create_dataset(path, attr._shape, attr._dtype[1])
+                    self._create_dataset(f'{path}_time', (1,), np.float64)
 
     def update_routines(self, *args, **kwargs):
 
-        # Fetch current group
-        # (this also closes open files so it should be executed in any case)
-        record_grp = self.get_container()
+        # Handle file container
+        if IPC.Control.Recording[Def.RecCtrl.active]:
+            if self.file_container is None:
+                if not (bool(IPC.Control.Recording[Def.RecCtrl.folder])):
+                    Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
+                    return None
 
-        if not (bool(args)) and not (bool(kwargs)):
-            return
+                # If output folder is set: open file
+                rec_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+                filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
+                # Open new file
+                Logging.write(Logging.DEBUG, f'Open new file {filepath}')
+                # self.h5_file = h5py.File(filepath, 'w')
+                self.file_container = NpBufferedH5File(filepath, 'w')
+                # self.file_container = H5File(filepath, 'a')
+
+                # Set compression
+                compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
+                compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
+                self.compression_args = dict()
+                if compr_method is not None:
+                    self.compression_args = {'compression': compr_method, **compr_opts}
+
+                # Set current group to root
+                self.set_record_group('')
+
+        else:
+            if self.file_container is not None:
+                self.file_container.close()
+                self.file_container = None
+
+        # Update routines
         current_time = time.time()
         for routine_name, routine in self._routines[self.name].items():
             # Update time
@@ -541,18 +572,23 @@ class AbstractProcess:
             # Advance buffer
             routine.buffer.next()
 
-            # If no file object was provided or this particular buffer is not supposed to stream to file: return
-            if record_grp is None or not (self._routine_on_record(routine_name)):
+            # If this particular buffer is not supposed to stream to file
+            # or recording is currently not active/enabled: skip (and close file)
+            if not(self._routine_on_record(routine_name)) \
+                    or not(IPC.Control.Recording[Def.RecCtrl.active]) \
+                    or self.file_container is None:
                 continue
 
             # Iterate over data in group (buffer)
             for attr_name, attr_time, attr_data in routine.to_file():
 
-                if attr_time is None:
+                if attr_time is None or attr_data is None:
                     continue
 
-                self._append_to_dataset(record_grp[routine_name], attr_name, attr_data)
-                self._append_to_dataset(record_grp[routine_name], f'{attr_name}_time', attr_time)
+                path = f'{self.record_group}/{routine_name}/{attr_name}'
+
+                self._append_to_dataset(path, attr_data)
+                self._append_to_dataset(f'{path}_time', attr_time)
 
     def get_buffer(self, routine_cls: Type[AbstractRoutine]):
         """Return buffer of a routine class"""
@@ -579,63 +615,6 @@ class AbstractProcess:
     @property
     def routines(self):
         return self._routines
-
-    def get_container(self) -> Union[h5py.File, h5py.Group, None]:
-        """Method checks if application is currently recording.
-        Opens and closes output file if necessary and returns either a file/group object or a None.
-        """
-
-        # If recording is running and file is open: return record group
-        if IPC.Control.Recording[Def.RecCtrl.active] and self.record_group is not None:
-            return self.record_group
-
-        elif IPC.Control.Recording[Def.RecCtrl.active] and not (IPC.Control.Recording[Def.RecCtrl.enabled]):
-            return None
-
-        # If recording is running and file not open: open file and return record group
-        elif IPC.Control.Recording[Def.RecCtrl.active] and self.h5_file is None:
-            # If output folder is not set: log warning and return None
-            if not (bool(IPC.Control.Recording[Def.RecCtrl.folder])):
-                Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
-                return None
-
-            # If output folder is set: open file
-            rec_folder = IPC.Control.Recording[Def.RecCtrl.folder]
-            filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
-
-            # Open new file
-            Logging.write(Logging.DEBUG, f'Open new file {filepath}')
-            self.h5_file = h5py.File(filepath, 'w')
-
-            # Set compression
-            compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
-            compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
-            self.compression_args = dict()
-            if compr_method is not None:
-                self.compression_args = {'compression': compr_method, **compr_opts}
-
-            # Set current group to root
-            self.set_record_group('/')
-
-            return self.record_group
-
-        # Recording is not running at the moment
-        else:
-
-            # If current recording folder is still set: recording is paused
-            if bool(IPC.Control.Recording[Def.RecCtrl.folder]):
-                # Do nothing; return nothing
-                return None
-
-            # If folder is not set anymore
-            else:
-                # Close open file (if open)
-                if not (self.h5_file is None):
-                    self.h5_file.close()
-                    self.h5_file = None
-                    self.record_group = None
-                # Return nothing
-                return None
 
     def handle_SIGINT(self, sig, frame):
         print(f'> SIGINT handled in  {self.__class__}')
