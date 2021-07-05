@@ -404,43 +404,27 @@ class Camera(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Camera', *args)
 
-        self.exposed.append(Camera.update_fps_estimate)
-
         self.stream_fps = 20
 
         self.setMinimumSize(400, 400)
         self.setMaximumSize(800, 700)
 
-        self.setLayout(QtWidgets.QGridLayout())
-
-        # Top-left spacer
-        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.layout().addItem(spacer, 0, 0)
-
-        # FPS counter
-        self.fps_counter = QtWidgets.QLineEdit('FPS N/A')
-        self.fps_counter.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-        self.fps_counter.setEnabled(False)
-        self.layout().addWidget(self.fps_counter, 0, 1)
+        self.setLayout(QtWidgets.QHBoxLayout())
 
         # Tab widget
         self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget, 1, 0, 1, 2)
+        self.layout().addWidget(self.tab_widget)
 
         self.add_widgets(Def.Process.Camera)
 
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
         if bool(Config.Camera[Def.CameraCfg.routines]):
-
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
             self.timer_frame_update.setInterval(1000 // self.stream_fps)
             self.timer_frame_update.timeout.connect(self.update_frames)
             self.timer_frame_update.start()
-
-    def update_fps_estimate(self, fps):
-        self.fps_counter.setText('FPS {:.1f}/{:.1f}'.format(fps,Config.Camera[Def.CameraCfg.fps]))
 
     def update_frames(self):
 
@@ -453,37 +437,13 @@ class Display(IntegratedWidget):
 
     def __init__(self,*args):
         IntegratedWidget.__init__(self,'Display',*args)
-        self.setLayout(QtWidgets.QGridLayout())
-
-        self.exposed.append(Display.update_fps_estimate)
-
-        # Top-left spacer
-        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.layout().addItem(spacer, 0, 0)
-
-        # FPS counter
-        self.fps_counter = QtWidgets.QLineEdit('FPS N/A')
-        self.fps_counter.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-        self.fps_counter.setEnabled(False)
-        self.layout().addWidget(self.fps_counter, 0, 1)
+        self.setLayout(QtWidgets.QHBoxLayout())
 
         # Tab widget
         self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget, 1, 0, 1, 2)
+        self.layout().addWidget(self.tab_widget)
 
         self.add_widgets(Def.Process.Display)
-
-        # self.setLayout(QtWidgets.QVBoxLayout())
-        #
-        # # Tab widget
-        # self.tab_widget = QtWidgets.QTabWidget()
-        # self.layout().addWidget(self.tab_widget)
-        #
-        # self.add_widgets(Def.Process.Display)
-
-    def update_fps_estimate(self, fps):
-        self.fps_counter.setText('FPS {:.1f}/{:.1f}'.format(fps,Config.Display[Def.DisplayCfg.fps]))
-
 
 
 class Io(IntegratedWidget):

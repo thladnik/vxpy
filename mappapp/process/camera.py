@@ -70,9 +70,6 @@ class Camera(AbstractProcess):
                           'This will cause increased CPU usage.'
                           .format(target_fps))
 
-
-        self.times = []
-
         # Run event loop
         self.enable_idle_timeout = False
         self.run(interval=1/target_fps)
@@ -96,12 +93,3 @@ class Camera(AbstractProcess):
 
         # Update routines
         self.update_routines(**{device_id: cam.get_image() for device_id, cam in self.cameras.items()})
-
-        self.times.append(self.t)
-
-        if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
-            diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
-            avg_frametime = sum(diff) / len(diff)
-            # print('Camera', 1./avg_frametime)
-            api.gui_rpc(core.Camera.update_fps_estimate,1. / avg_frametime, _send_verbosely=False)
-            self.times = []

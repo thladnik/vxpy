@@ -68,7 +68,7 @@ class Canvas(app.Canvas):
         if self.debug:
             print("FPS {:.2f}".format(fps))
 
-        api.gui_rpc(core.Display.update_fps_estimate, fps, _send_verbosely=False)
+        # api.gui_rpc(core.Display.update_fps_estimate, fps, _send_verbosely=False)
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
