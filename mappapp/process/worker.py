@@ -61,13 +61,13 @@ class Worker(AbstractProcess):
         self._load_task(task_name).run(*args, **kwargs)
         self.set_state(Def.State.IDLE)
 
-    def _prepare_protocol(self):
+    def start_protocol(self):
         pass
 
-    def _prepare_phase(self):
+    def start_phase(self):
         pass
 
-    def _cleanup_protocol(self):
+    def end_protocol(self):
         pass
 
     def main(self):

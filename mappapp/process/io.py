@@ -69,13 +69,13 @@ class Io(AbstractProcess):
         # Run event loop
         self.run(interval=1./Config.Io[Def.IoCfg.max_sr])
 
-    def _prepare_protocol(self):
+    def start_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
-    def _prepare_phase(self):
+    def start_phase(self):
         self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
-    def _cleanup_protocol(self):
+    def end_protocol(self):
         pass
 
     def set_outpin_to_attr(self, pid, routine_cls, attr_name):

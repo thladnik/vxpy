@@ -121,7 +121,7 @@ class Display(AbstractProcess):
         else:
             Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
 
-    def _prepare_protocol(self):
+    def start_protocol(self):
         self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
         try:
             self.protocol.initialize()
@@ -129,12 +129,12 @@ class Display(AbstractProcess):
             import traceback
             print(traceback.print_exc())
 
-    def _prepare_phase(self):
+    def start_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
         self.visual = self.protocol.fetch_phase_visual(phase_id)
         IPC.Process.set_record_group(f'phase_{phase_id}',group_attributes=self.visual.parameters)
 
-    def _cleanup_protocol(self):
+    def end_protocol(self):
         self.visual = None
         self.canvas.visual = self.visual
 

@@ -77,13 +77,13 @@ class Camera(AbstractProcess):
         self.enable_idle_timeout = False
         self.run(interval=1/target_fps)
 
-    def _prepare_protocol(self):
+    def start_protocol(self):
         pass
 
-    def _prepare_phase(self):
+    def start_phase(self):
         self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
-    def _cleanup_protocol(self):
+    def end_protocol(self):
         pass
 
     def main(self):

@@ -200,17 +200,17 @@ class AbstractProcess:
     ################################
     # PROTOCOL RESPONSE
 
-    def _prepare_protocol(self):
+    def start_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
         raise NotImplementedError('Method "_prepare_protocol not implemented in {}.'
                                   .format(self.name))
 
-    def _prepare_phase(self):
+    def start_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         raise NotImplementedError('Method "_prepare_phase" not implemented in {}.'
                                   .format(self.name))
 
-    def _cleanup_protocol(self):
+    def end_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
         raise NotImplementedError('Method "_cleanup_protocol" not implemented in {}.'
                                   .format(self.name))
@@ -241,7 +241,7 @@ class AbstractProcess:
 
             ## Ctrl PREPARE_PROTOCOL
             if self.in_state(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
-                self._prepare_protocol()
+                self.start_protocol()
 
                 # Set next state
                 self.set_state(Def.State.WAIT_FOR_PHASE)
@@ -258,7 +258,7 @@ class AbstractProcess:
             if not (self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller)):
                 return False
 
-            self._prepare_phase()
+            self.start_phase()
 
             # Set next state
             self.set_state(Def.State.READY)
@@ -297,7 +297,7 @@ class AbstractProcess:
 
             elif self.in_state(Def.State.PROTOCOL_END, Def.Process.Controller):
 
-                self._cleanup_protocol()
+                self.end_protocol()
 
                 self.set_state(Def.State.IDLE)
             else:
