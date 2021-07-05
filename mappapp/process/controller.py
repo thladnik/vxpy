@@ -308,8 +308,12 @@ class Controller(AbstractProcess):
 
     def start_recording(self, compression_method=None, compression_opts=None):
         if IPC.Control.Recording[Def.RecCtrl.active]:
-            Logging.write(Logging.WARNING,'Tried to start new recording while active')
+            Logging.write(Logging.WARNING, 'Tried to start new recording while active')
             return False
+
+        if not(IPC.Control.Recording[Def.RecCtrl.enabled]):
+            Logging.write(Logging.WARNING, 'Recording not enabled. Session will not be saved to disk.')
+            return True
 
         # Set current folder if none is given
         if not(bool(IPC.Control.Recording[Def.RecCtrl.folder])):
