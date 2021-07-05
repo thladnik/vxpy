@@ -57,7 +57,7 @@ class Canvas(app.Canvas):
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
-                IPC.Process.visual.draw(time.perf_counter())
+                IPC.Process.visual.draw(time.perf_counter()-self.t)
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
@@ -140,6 +140,7 @@ class Display(AbstractProcess):
 
     def start_visual(self, visual_cls, **parameters):
         self.visual = visual_cls(self.canvas, **parameters)
+        self.canvas.t = time.perf_counter()
         self._display_visual = True
 
     def stop_visual(self):
@@ -163,30 +164,22 @@ class Display(AbstractProcess):
 
     def main(self):
 
-        # self.times.append(self.t)
-        #
-        # if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
-        #     diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
-        #     avg_frametime = sum(diff) / len(diff)
-        #     print('Display', 1./avg_frametime)
-        #     #api.gui_rpc(core.Display.update_fps_estimate,1. / avg_frametime, _send_verbosely=False)
-        #     self.times = []
-
         self.canvas.on_draw(None)
         self.app.process_events()
 
         try:
             if self._display():
 
-                # Update uniforms from routine attributes
-                for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
-                    idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
-                    self.visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
+                if self.visual is not None:
+                    # Update uniforms from routine attributes
+                    for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
+                        idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
+                        self.visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
 
                 # Update routines
                 self.update_routines(self.visual)
             else:
-                self.update_routines()
+                self.update_routines(None)
         except Exception as exc:
             import traceback
             traceback.print_exc()
