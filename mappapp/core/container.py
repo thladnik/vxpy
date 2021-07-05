@@ -163,26 +163,9 @@ class NpBuffer:
         self.shape = shape
         self.attrs = dict()
 
-        # self.temp_filepath = os.path.join(IPC.Control.Recording[Def.RecCtrl.folder], f'{self.path.replace("/", "_")}.dat')
-        self.temp_filepath = os.path.join('C:\\Users\\Tim\\Desktop',
-                                          f'{self.path.replace("/", "_")}.dat')
+        self.temp_filepath = os.path.join(IPC.Control.Recording[Def.RecCtrl.folder], f'{self.path.replace("/", "_")}.dat')
         self._memmap = None
 
-        # _size = np.prod(self.shape[1:]) * np.dtype(self.dtype).itemsize
-        # if _size < 500:
-        #     _length = 10 ** 8
-        # else:
-        #     _length = int(5 * 10 ** 10 / _size)
-        #
-        # try:
-        #     self._memmap = np.memmap(self.temp_filepath, dtype=self.dtype, mode='w+', shape=(_length, *self.shape[1:]))
-        # except Exception:
-        #     Logging.write(Logging.ERROR, f'Unable to open temporary file {self.temp_filepath} for numpy buffered recording. '
-        #                                  f'This is most likely because there is insufficient storage space to create temporary files. '
-        #                                  f'Either make room on partition, use different partition or switch to standard H5.')
-        #     IPC.Controller.rpc(process.Controller.stop_recording)
-        #
-        # self.idx = 0
 
     def __repr__(self):
         return f'Dataset "{self.path}"'
