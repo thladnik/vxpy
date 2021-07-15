@@ -47,7 +47,7 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         self.setup_ui()
 
         # Run event loop
-        self.run(interval=1/20)
+        self.run(interval=1/40)
 
     def main(self):
         self.app.processEvents()

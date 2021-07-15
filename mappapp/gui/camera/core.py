@@ -25,7 +25,7 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp.core.gui import AddonWidget
-from mappapp.routines.camera.core import EyePositionDetection, FishPosDirDetection, Frames
+from mappapp.routines.camera.camcore import EyePositionDetection, FishPosDirDetection, Frames
 from mappapp.utils import geometry
 
 

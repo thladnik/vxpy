@@ -561,6 +561,7 @@ class AbstractProcess:
                 self.file_container = None
 
         # Update routines
+        # TODO: make Controller set a global time? This could be read out from anywhere
         current_time = time.time()
         for routine_name, routine in self._routines[self.name].items():
             # Update time
@@ -570,7 +571,7 @@ class AbstractProcess:
             routine.execute(*args, **kwargs)
 
             # Advance buffer
-            routine.buffer.next()
+            # routine.buffer.next()
 
             # If this particular buffer is not supposed to stream to file
             # or recording is currently not active/enabled: skip (and close file)
@@ -635,6 +636,9 @@ class ProcessProxy:
 
     def read(self, routine_cls, attr_name, *args, **kwargs):
         return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
+
+    def get_buffer(self, routine_cls, name):
+        return getattr(IPC.Process._routines[self.name][routine_cls.__name__].buffer, name)
 
     def rpc(self, function: Callable, *args, **kwargs) -> None:
         """Send a remote procedure call of given function to another process.

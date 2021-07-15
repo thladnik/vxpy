@@ -21,7 +21,7 @@ import numpy as np
 from mappapp import Config
 from mappapp import Def
 from mappapp.core.routine import ArrayAttribute, ArrayDType, IoRoutine
-from mappapp.routines.camera.core import EyePositionDetection
+from mappapp.routines.camera.camcore import EyePositionDetection
 
 
 
@@ -153,7 +153,7 @@ class TriggerLedArenaFlash(IoRoutine):
     def execute(self, pin_data, device):
         # Check saccade
         from mappapp import IPC
-        from mappapp.routines.camera.core import EyePositionDetection
+        from mappapp.routines.camera.camcore import EyePositionDetection
         _, _, le_sacc_val = IPC.Camera.read(EyePositionDetection, 'le_saccade_0')
         _, sacc_time, re_sacc_val = IPC.Camera.read(EyePositionDetection, 're_saccade_0')
 

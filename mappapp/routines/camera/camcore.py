@@ -160,25 +160,25 @@ class EyePositionDetection(CameraRoutine):
 
     def set_roi(self, id, params):
         if id not in self.rois:
-            start_idx = self.buffer.get_index() + 1
+            # start_idx = self.buffer.get_index() + 1
             # Send buffer attributes to plotter
             # Position
             self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_le_pos_prefix}{id}',
-                                          start_idx, name=f'eye_pos(LE {id})', axis='eye_pos')
+                                          None, name=f'eye_pos(LE {id})', axis='eye_pos')
             self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_re_pos_prefix}{id}',
-                                          start_idx, name=f'eye_pos(RE {id})', axis='eye_pos')
+                                          None, name=f'eye_pos(RE {id})', axis='eye_pos')
 
             # Velocity
             self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_le_vel_prefix}{id}',
-                                          start_idx, name=f'eye_vel(LE {id})', axis='eye_vel')
+                                          None, name=f'eye_vel(LE {id})', axis='eye_vel')
             self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_re_vel_prefix}{id}',
-                                          start_idx, name=f'eye_vel(RE {id})', axis='eye_vel')
+                                          None, name=f'eye_vel(RE {id})', axis='eye_vel')
 
             # Saccade trigger
             self.register_with_ui_plotter(EyePositionDetection, f'{self.le_sacc_prefix}{id}',
-                                          start_idx, name=f'sacc(LE {id})', axis='sacc')
+                                          None, name=f'sacc(LE {id})', axis='sacc')
             self.register_with_ui_plotter(EyePositionDetection, f'{self.re_sacc_prefix}{id}',
-                                          start_idx, name=f'sacc(RE {id})', axis='sacc')
+                                          None, name=f'sacc(RE {id})', axis='sacc')
 
             # Add attributes to save-to-file list:
             self.file_attrs.append(f'{self.ang_le_pos_prefix}{id}')
@@ -318,11 +318,12 @@ class EyePositionDetection(CameraRoutine):
 
         # Read frame
         frame = frames.get(self.camera_device_id)
-        frame = frame[:,:,0]
 
         # Check if frame was returned
         if frame is None:
             return
+
+        frame = frame[:,:,0]
 
         # Write frame to buffer
         self.buffer.frame.write(frame)
@@ -374,13 +375,14 @@ class EyePositionDetection(CameraRoutine):
                 # Apply detection function on cropped rect which contains eyes
                 (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
 
-                # Get corresponding position attributes
+                # Get shared attributes
                 le_pos_attr = getattr(self.buffer, f'{self.ang_le_pos_prefix}{id}')
                 re_pos_attr = getattr(self.buffer, f'{self.ang_re_pos_prefix}{id}')
-
-                # Write to buffer
-                le_pos_attr.write(le_pos)
-                re_pos_attr.write(re_pos)
+                le_vel_attr = getattr(self.buffer, f'{self.ang_le_vel_prefix}{id}')
+                re_vel_attr = getattr(self.buffer, f'{self.ang_re_vel_prefix}{id}')
+                le_sacc_attr = getattr(self.buffer, f'{self.le_sacc_prefix}{id}')
+                re_sacc_attr = getattr(self.buffer, f'{self.re_sacc_prefix}{id}')
+                rect_roi_attr = getattr(self.buffer, f'{self.extracted_rect_prefix}{id}')
 
                 ####
                 # Calculate eye angular VELOCITIES
@@ -401,13 +403,6 @@ class EyePositionDetection(CameraRoutine):
                 le_vel = np.abs((le_pos - last_le_pos) / dt)
                 re_vel = np.abs((re_pos - last_re_pos) / dt)
 
-                # Get velocity attributes
-                le_vel_attr = getattr(self.buffer, f'{self.ang_le_vel_prefix}{id}')
-                re_vel_attr = getattr(self.buffer, f'{self.ang_re_vel_prefix}{id}')
-
-                # Write velocity to buffer
-                le_vel_attr.write(le_vel)
-                re_vel_attr.write(re_vel)
 
                 ####
                 # Calculate saccade trigger
@@ -423,13 +418,19 @@ class EyePositionDetection(CameraRoutine):
                 is_saccade = bool(le_sacc) or bool(re_sacc)
                 if is_saccade:
                     self._triggers['saccade_trigger'].emit()
+
+                # Write to buffer
+                le_pos_attr.write(le_pos)
+                re_pos_attr.write(re_pos)
+                le_vel_attr.write(le_vel)
+                re_vel_attr.write(re_vel)
                 self.buffer.saccade_trigger.write(is_saccade)
 
-                getattr(self.buffer, f'{self.le_sacc_prefix}{id}').write(le_sacc)
-                getattr(self.buffer, f'{self.re_sacc_prefix}{id}').write(re_sacc)
+                le_sacc_attr.write(le_sacc)
+                re_sacc_attr.write(re_sacc)
 
                 # Set current rect ROI data
-                getattr(self.buffer, f'{self.extracted_rect_prefix}{id}').write(new_rect)
+                rect_roi_attr.write(new_rect)
 
 
 from mappapp import utils

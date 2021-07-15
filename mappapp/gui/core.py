@@ -634,7 +634,7 @@ class Plotter(IntegratedWidget):
 
             # Set plot data
             self.plot_data[id] = {'axis': axis,
-                                  'last_idx': start_idx,
+                                  'last_idx': None,
                                   'pen': pen,
                                   'name': name,
                                   'h5grp': grp}
@@ -658,6 +658,13 @@ class Plotter(IntegratedWidget):
             # Read new values from buffer
             process_name = routine_cls.process_name
             try:
+
+                last_idx = data['last_idx']
+                if last_idx is None:
+                    attr = getattr(IPC, process_name).get_buffer(routine_cls, attr_name)
+                    data['last_idx'] = attr.index + 1
+                    continue
+
                 n_idcs, n_times, n_data = getattr(IPC,process_name).read(routine_cls,attr_name,from_idx=data['last_idx'])
             except Exception as exc:
                 Logging.write(Logging.WARNING,
