@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 Manager: SyncManager
 
+# Local process reference
 Process: AbstractProcess
 
 

@@ -381,7 +381,7 @@ class ArrayAttribute(BufferAttribute):
         internal_idx = self.index % self._length
 
         # Set time for this entry
-        self._time[internal_idx] = self._buffer.get_time()
+        self._time[internal_idx] = IPC.Process.global_t
 
         # Set data
         if self._chunked:
@@ -418,7 +418,7 @@ class ObjectAttribute(BufferAttribute):
         internal_idx = self.index % self._length
 
         # Set time for this entry
-        self._time[internal_idx] = self._buffer.get_time()
+        self._time[internal_idx] = IPC.Process.global_t#self._buffer.get_time()
 
         # Set data
         self._data[internal_idx] = value

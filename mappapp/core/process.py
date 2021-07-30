@@ -30,7 +30,7 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp.core.routine import ArrayAttribute
+from mappapp.core.routine import ArrayAttribute, BufferAttribute
 from mappapp.core.container import NpBufferedH5File, H5File
 from mappapp.gui.core import ProcessMonitor
 
@@ -118,7 +118,12 @@ class AbstractProcess:
                         routine.initialize()
 
                     # Initialize buffers
-                    routine.buffer.build()
+                    for attr in routine.buffer.__dict__.values():
+                        if attr is None or not(issubclass(attr.__class__, BufferAttribute)):
+                            continue
+
+                        attr.build()
+                    # routine.buffer.build()
 
         # Set configurations
         if _configurations is not None:
@@ -148,6 +153,8 @@ class AbstractProcess:
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
+
+        self.t: float = 0.
 
     def run(self, interval):
         Logging.write(Logging.INFO, f'Process {self.name} started at time {time.time()}')
@@ -186,8 +193,11 @@ class AbstractProcess:
             while time.perf_counter() < (self.t + interval):
                 pass
 
-            # Set new time
+            # Set new process time for this iteration
             self.t = time.perf_counter()
+
+            # Set new global time
+            self.global_t = time.time()
 
             # Execute main method
             self.main()
