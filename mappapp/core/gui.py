@@ -38,8 +38,8 @@ class AddonWidget(QtWidgets.QWidget):
 
 class IntegratedWidget(QtWidgets.QGroupBox):
 
-    def __init__(self,group_name,main):
-        QtWidgets.QGroupBox.__init__(self,group_name)
+    def __init__(self, group_name, main):
+        QtWidgets.QGroupBox.__init__(self, group_name)
         self.main: Gui = main
 
         # List of exposed methods to register for rpc callbacks

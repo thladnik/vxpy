@@ -21,6 +21,7 @@ def run():
     import argparse
     import sys
     from PyQt5 import QtWidgets
+    from vispy import app, gloo
 
     from mappapp.process import Controller
     from mappapp.startup import settings
@@ -31,6 +32,9 @@ def run():
 
     from mappapp.startup.main import StartupConfiguration
 
+    app.use_app('glfw')
+    # app.use_app('PyQt5')
+    gloo.gl.use_gl('gl2')
 
     if sys.platform == 'win32':
         import wres
@@ -58,5 +62,25 @@ def run():
                 exit()
 
             ctrl = Controller(configfile)
+    elif sys.platform == 'linux':
+
+        configfile = None
+
+        if args.ini_file is not None:
+            configfile = args.ini_file
+
+        else:
+
+            settings.winapp = QtWidgets.QApplication([])
+            settings.startupwin = StartupConfiguration()
+            settings.winapp.exec_()
+
+            configfile = settings.configfile
+
+        if configfile is None:
+            print('No configuration selected. Exit.')
+            exit()
+
+        ctrl = Controller(configfile)
     else:
         print('Sorry, probably not gonna work on \"{}\"'.format(sys.platform))

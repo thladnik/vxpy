@@ -30,14 +30,14 @@ class BlackWhiteCheckerboard(SphericalVisual):
     parameters = {u_elevation_sf: None,
                   u_azimuth_sf: None}
 
-    def __init__(self, *args, **params):
+    def __init__(self, *args, **kwargs):
         """Black-and-white checkerboard for calibration.
 
         :param protocol: protocol of which stimulus is currently part of
         :param rows: number of rows on checkerboard
         :param cols: number of columns on checkerboard
         """
-        SphericalVisual.__init__(self, *args)
+        SphericalVisual.__init__(self, *args, **kwargs)
 
         self.sphere = sphere.UVSphere(azim_lvls=100,elev_lvls=50,azimuth_range=2 * np.pi,upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
@@ -50,8 +50,6 @@ class BlackWhiteCheckerboard(SphericalVisual):
         self.checker['a_position'] = self.position_buffer
         self.checker['a_azimuth'] = self.azimuth_buffer
         self.checker['a_elevation'] = self.elevation_buffer
-
-        self.update(**params)
 
     def render(self, frame_time):
         self.apply_transform(self.checker)

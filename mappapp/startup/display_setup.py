@@ -65,10 +65,11 @@ class DisplayWidget(ModuleWidget):
     def __init__(self, parent):
         ModuleWidget.__init__(self,Def.DisplayCfg.name,parent=parent)
 
-        app.use_app('pyqt5')
+        # app.use_app('glfw')
+        # app.use_app('glfw')
 
         # Create canvas
-        self.canvas = Canvas(1/60)
+        self.canvas = Canvas(1/5)
 
         # Set timer for window updates
         self.tmr_glwindow = QtCore.QTimer()
@@ -256,24 +257,6 @@ class DisplayCalibration(QtWidgets.QGroupBox):
         self.grp_sph_checker = DisplaySphericalMeshCalibration(self.main)
         self.layout().addWidget(self.grp_sph_checker)
 
-        # self.grp_sph_mesh = QtWidgets.QGroupBox('Spherical Mesh')
-        # self.grp_sph_mesh.setLayout(QtWidgets.QGridLayout())
-        # self.layout().addWidget(self.grp_sph_mesh)
-        # # Rows
-        # self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. rows'), 0, 0)
-        # self.grp_sph_mesh.dspn_rows = QtWidgets.QSpinBox()
-        # self.grp_sph_mesh.dspn_rows.setValue(32)
-        # self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_rows, 0, 1)
-        # # Cols
-        # self.grp_sph_mesh.layout().addWidget(QtWidgets.QLabel('Num. cols'), 1, 0)
-        # self.grp_sph_mesh.dspn_cols = QtWidgets.QSpinBox()
-        # self.grp_sph_mesh.dspn_cols.setValue(32)
-        # self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.dspn_cols, 1, 1)
-        # # Show button
-        # self.grp_sph_mesh.btn_show = QtWidgets.QPushButton('Show')
-        # self.grp_sph_mesh.btn_show.clicked.connect(self.show_spherical_mesh)
-        # self.grp_sph_mesh.layout().addWidget(self.grp_sph_mesh.btn_show, 2, 0, 1, 2)
-
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(vSpacer)
 
@@ -345,10 +328,9 @@ class DisplaySphericalMeshCalibration(QtWidgets.QGroupBox):
                                                  RegularMesh.u_azimuth_sf: azimuth_sf})
 
 
-
 class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
     def __init__(self, main):
-        QtWidgets.QGroupBox.__init__(self, 'Spherical mesh')
+        QtWidgets.QGroupBox.__init__(self, 'Spherical checkerboard')
         self.main = main
 
         self.setLayout(QtWidgets.QVBoxLayout())
@@ -394,39 +376,6 @@ class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
                                                          **{BlackWhiteCheckerboard.u_elevation_sf: elevation_sf,
                                                             BlackWhiteCheckerboard.u_azimuth_sf: azimuth_sf})
 
-# class DisplaySphericalCheckerCalibration(QtWidgets.QGroupBox):
-#     def __init__(self, main):
-#         QtWidgets.QGroupBox.__init__(self, 'Spherical Checkerboard')
-#         self.main = main
-#
-#         self.setLayout(QtWidgets.QVBoxLayout())
-#         # Vertical SF
-#         self.vertical_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
-#                                                               step_size=.001, decimals=3, label_width=100)
-#         self.vertical_sf.connect_to_result(self.update_sph_checker_elevation_sp)
-#         self.layout().addWidget(self.vertical_sf)
-#         # Vertical SP
-#         self.vertical_sp = QtWidgets.QLineEdit('')
-#         self.layout().addWidget(self.vertical_sp)
-#         # Horizontal SF
-#         self.horizontal_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
-#                                                                 step_size=.001, decimals=3, label_width=100)
-#         self.layout().addWidget(self.horizontal_sf)
-#         # Show button
-#         self.btn_show = QtWidgets.QPushButton('Show')
-#         self.btn_show.clicked.connect(self.show_spherical_checkerboard)
-#         self.layout().addWidget(self.btn_show)
-#
-#     def update_sph_checker_elevation_sp(self, sf):
-#         self.vertical_sp.setText('Elevation SP {:.1f} [deg]'.format(1./sf))
-#
-#     def show_spherical_checkerboard(self):
-#         from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard
-#         vertical_sf = self.vertical_sf.get_value(),
-#         horizontal_sf = self.horizontal_sf.get_value()
-#         self.main.canvas.visual = BlackWhiteCheckerboard(self.main.canvas,
-#                                                          **{BlackWhiteCheckerboard.u_elevation_sf: vertical_sf,
-#                                                             BlackWhiteCheckerboard.u_azimuth_sf: horizontal_sf})
 
 class GlobalDisplaySettings(QtWidgets.QGroupBox):
 
@@ -436,25 +385,25 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Window x pos
-        self.win_x_pos = IntSliderWidget('Window X-Position',-5000,5000,0,
+        self.win_x_pos = IntSliderWidget('Window X-Pos [px]',-5000,5000,0,
                                          step_size=1,label_width=100)
         self.win_x_pos.connect_to_result(self.update_window_x_pos)
         self.layout().addWidget(self.win_x_pos)
 
         # Window y pos
-        self.win_y_pos = IntSliderWidget('Window Y-Position',-5000,5000,0,
+        self.win_y_pos = IntSliderWidget('Window Y-Pos [px]',-5000,5000,0,
                                          step_size=1,label_width=100)
         self.win_y_pos.connect_to_result(self.update_window_y_pos)
         self.layout().addWidget(self.win_y_pos)
 
         # Window width
-        self.win_width = IntSliderWidget('Window width',1,5000,0,
+        self.win_width = IntSliderWidget('Window width [px]',1,5000,0,
                                          step_size=1,label_width=100)
         self.win_width.connect_to_result(self.update_window_width)
         self.layout().addWidget(self.win_width)
 
         # Window height
-        self.win_height = IntSliderWidget('Window Y-Position',1,5000,0,
+        self.win_height = IntSliderWidget('Window height [px]',1,5000,0,
                                           step_size=1,label_width=100)
         self.win_height.connect_to_result(self.update_window_height)
         self.layout().addWidget(self.win_height)
@@ -475,7 +424,6 @@ class GlobalDisplaySettings(QtWidgets.QGroupBox):
                                         step_size=.001,decimals=3,label_width=100)
         self.y_pos.connect_to_result(self.update_y_pos)
         self.layout().addWidget(self.y_pos)
-
 
         spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(spacer)

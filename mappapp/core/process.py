@@ -180,6 +180,7 @@ class AbstractProcess:
                 sdt = np.std(dt)
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
+                # print(f'{self.name} says {self.t}')
                 api.gui_rpc(ProcessMonitor.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
 
             # Wait until interval time is up

@@ -422,7 +422,7 @@ class PlanarVisual(AbstractVisual):
     uniform float u_glob_x_position;
     uniform float u_glob_y_position;
     
-    vec4 gl_position(vec3 position) {
+    vec4 transform_position(vec3 position) {
         vec4 pos = vec4(position.x * u_mapcalib_xscale * u_mapcalib_xextent + u_glob_x_position,
                         position.y * u_mapcalib_yscale * u_mapcalib_yextent + u_glob_y_position,
                         position.z, 

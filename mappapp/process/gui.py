@@ -32,16 +32,21 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
 
     app: QtWidgets.QApplication
 
-    def __init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs):
+    def __init__(self, **kwargs):
         # Create application
-        self.app = _app
+        self.app = QtWidgets.QApplication.instance()
+        if self.app is None:
+            self.app =QtWidgets.QApplication(sys.argv)
 
         # Set up parents
         AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon
-        self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
+        if sys.platform == 'win32':
+            self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
+        elif sys.platform == 'linux':
+            self.setWindowIcon(QtGui.QIcon('mappapp/testicon.png'))
 
         # Setup basic UI
         self.setup_ui()
@@ -137,10 +142,12 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         self._bind_shortcuts()
 
         # Set geometry
-        self.move(0, 0)
+        # self.move(0, 0)
         self.screenGeo = self.app.primaryScreen().geometry()
         w, h = self.screenGeo.width(), self.screenGeo.height()
+        x,y = self.screenGeo.x(), self.screenGeo.y()
 
+        self.move(x, y)
         if w > 1920 and h > 1080:
             #self.resize(1920, 1080)
             self.resize(70 * w // 100, 70 * h // 100)
@@ -148,6 +155,7 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         else:
             #self.resize(800, 800)
             self.showMaximized()
+
 
     def _start_shutdown(self):
         self.closeEvent(None)

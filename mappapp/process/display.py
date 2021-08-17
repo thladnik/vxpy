@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
+import vispy
 from vispy import app
 from vispy import gloo
 import time
@@ -48,7 +48,7 @@ class Canvas(app.Canvas):
         self.times = []
         self.t = time.perf_counter()
 
-        #self.show()
+        self.show()
 
     def on_draw(self, event):
         gloo.clear()
@@ -85,8 +85,13 @@ class Display(AbstractProcess):
     def __init__(self, **kwargs):
         AbstractProcess.__init__(self, **kwargs)
 
-        self.app = app.use_app('PyQt5')
-        gloo.gl.use_gl('gl2')
+        # self.app = app.use_app('glfw')
+        self.app = app.use_app()
+
+        # self.app = app.use_app('PyQt5')
+        # self.app = app.use_app('glfw')
+        # print(vispy.sys_info())
+        # gloo.gl.use_gl('gl2')
 
         # Create canvas
         _interval = 1. / Config.Display[Def.DisplayCfg.fps]
@@ -104,7 +109,7 @@ class Display(AbstractProcess):
                              always_on_top=True,
                              app=self.app,
                              vsync=False)
-        self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
+        # self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
         self._display_visual = False
 

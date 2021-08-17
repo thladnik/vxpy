@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import os
+
 import h5py
 import numpy as np
 from os.path import abspath
@@ -38,82 +40,50 @@ class ProcessMonitor(IntegratedWidget):
 
         self.exposed.append(ProcessMonitor.update_process_interval)
 
+        self.state_labels = dict()
+        self.state_widgets = dict()
+        self.intval_widgets = dict()
+
         self._setup_ui()
+
+    def _add_process(self, process_name):
+        i = len(self.state_labels)
+        self.state_labels[process_name] = QtWidgets.QLabel(process_name)
+        self.state_labels[process_name].setStyleSheet('font-weight:bold;')
+        self.layout().addWidget(self.state_labels[process_name], i * 2, 0)
+        self.state_widgets[process_name] = QtWidgets.QLineEdit('')
+        self.state_widgets[process_name].setDisabled(True)
+        self.state_widgets[process_name].setAlignment(QtCore.Qt.AlignRight)
+        self.layout().addWidget(self.state_widgets[process_name], i * 2, 1)
+        self.intval_widgets[process_name] = QtWidgets.QLineEdit('')
+        self.intval_widgets[process_name].setAlignment(QtCore.Qt.AlignRight)
+        self.intval_widgets[process_name].setDisabled(True)
+        self.layout().addWidget(self.intval_widgets[process_name], i * 2 + 1, 0, 1, 2)
 
     def _setup_ui(self):
 
-        self.setFixedWidth(250)
-
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-
-        self.process_intervals = dict()
+        self.setFixedWidth(240)
 
         # Setup widget
         self.setLayout(QtWidgets.QGridLayout())
-        self.setMinimumSize(QtCore.QSize(0,0))
+        # self.setMinimumSize(QtCore.QSize(0,0))
         self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-        self.layout().setColumnMinimumWidth(2, 150)
+        # self.layout().setColumnMinimumWidth(2, 150)
 
         # Controller process status
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Controller),0,0)
-        self.controller_state = QtWidgets.QLineEdit('')
-        self.controller_state.setDisabled(True)
-        self.layout().addWidget(self.controller_state, 0, 1)
-        self.controller_interval = QtWidgets.QLineEdit('')
-        self.controller_interval.setDisabled(True)
-        self.layout().addWidget(self.controller_interval, 0, 2)
-        self.process_intervals[Def.Process.Controller] = self.controller_interval
-
+        self._add_process(Def.Process.Controller)
         # Camera process status
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Camera),1,0)
-        self.camera_state = QtWidgets.QLineEdit('')
-        self.camera_state.setDisabled(True)
-        self.layout().addWidget(self.camera_state, 1, 1)
-        self.camera_interval = QtWidgets.QLineEdit('')
-        self.camera_interval.setDisabled(True)
-        self.layout().addWidget(self.camera_interval, 1, 2)
-        self.process_intervals[Def.Process.Camera] = self.camera_interval
-
+        self._add_process(Def.Process.Camera)
         # Display process status
-        self.display_state = QtWidgets.QLineEdit('')
-        self.display_state.setDisabled(True)
-        self.display_interval = QtWidgets.QLineEdit('')
-        self.display_interval.setDisabled(True)
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Display),2,0)
-        self.layout().addWidget(self.display_state, 2, 1)
-        self.layout().addWidget(self.display_interval, 2, 2)
-        self.process_intervals[Def.Process.Display] = self.display_interval
-
+        self._add_process(Def.Process.Display)
         # Gui process status
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Gui),3,0)
-        self.gui_state = QtWidgets.QLineEdit('')
-        self.gui_state.setDisabled(True)
-        self.layout().addWidget(self.gui_state, 3, 1)
-        self.gui_interval = QtWidgets.QLineEdit('')
-        self.gui_interval.setDisabled(True)
-        self.layout().addWidget(self.gui_interval, 3, 2)
-        self.process_intervals[Def.Process.Gui] = self.gui_interval
-
+        self._add_process(Def.Process.Gui)
         # IO process status
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Io),4,0)
-        self.io_state = QtWidgets.QLineEdit('')
-        self.layout().addWidget(self.io_state, 4, 1)
-        self.io_state.setDisabled(True)
-        self.io_interval = QtWidgets.QLineEdit('')
-        self.io_interval.setDisabled(True)
-        self.layout().addWidget(self.io_interval, 4, 2)
-        self.process_intervals[Def.Process.Io] = self.io_interval
-
+        self._add_process(Def.Process.Io)
         # Worker process status
-        self.layout().addWidget(QtWidgets.QLabel(Def.Process.Worker),5,0)
-        self.worker_state = QtWidgets.QLineEdit('')
-        self.worker_state.setDisabled(True)
-        self.layout().addWidget(self.worker_state, 5, 1)
-        self.worker_interval = QtWidgets.QLineEdit('')
-        self.worker_interval.setDisabled(True)
-        self.layout().addWidget(self.worker_interval, 5, 2)
-        self.process_intervals[Def.Process.Worker] = self.worker_interval
-
+        self._add_process(Def.Process.Worker)
+        # Add spacer
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.layout().addItem(vSpacer, 6, 0)
 
         # Set timer for GUI update
@@ -124,8 +94,8 @@ class ProcessMonitor(IntegratedWidget):
 
 
     def update_process_interval(self, process_name, target_inval, mean_inval, std_inval):
-        if process_name in self.process_intervals:
-            self.process_intervals[process_name].setText('{:.1f}/{:.1f} ({:.1f}) ms'
+        if process_name in self.intval_widgets:
+            self.intval_widgets[process_name].setText('{:.1f}/{:.1f} ({:.1f}) ms'
                                                          .format(mean_inval * 1000,
                                                                  target_inval * 1000,
                                                                  std_inval * 1000))
@@ -151,12 +121,8 @@ class ProcessMonitor(IntegratedWidget):
             le.setStyleSheet('color: #000000')
 
     def _update_states(self):
-        self._set_process_state(self.controller_state, IPC.get_state(Def.Process.Controller))
-        self._set_process_state(self.camera_state, IPC.get_state(Def.Process.Camera))
-        self._set_process_state(self.display_state, IPC.get_state(Def.Process.Display))
-        self._set_process_state(self.gui_state, IPC.get_state(Def.Process.Gui))
-        self._set_process_state(self.io_state, IPC.get_state(Def.Process.Io))
-        self._set_process_state(self.worker_state, IPC.get_state(Def.Process.Worker))
+        for process_name, state_widget in self.state_widgets.items():
+            self._set_process_state(state_widget, IPC.get_state(process_name))
 
 
 class Recording(IntegratedWidget):
@@ -438,7 +404,6 @@ class Display(IntegratedWidget):
     def __init__(self,*args):
         IntegratedWidget.__init__(self,'Display',*args)
         self.setLayout(QtWidgets.QHBoxLayout())
-
         # Tab widget
         self.tab_widget = QtWidgets.QTabWidget()
         self.layout().addWidget(self.tab_widget)
@@ -543,6 +508,9 @@ class Plotter(IntegratedWidget):
         # Connect viewbox range update signal
         self.plot_item.sigXRangeChanged.connect(self.update_ui_xrange)
 
+        # Set up cache file
+        if os.path.exists('_plotter_temp.h5'):
+            os.remove('_plotter_temp.h5')
         self.cache = h5py.File('_plotter_temp.h5', 'w')
 
     def ui_xrange_changed(self):
