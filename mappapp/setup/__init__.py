@@ -1,5 +1,5 @@
 """
-MappApp ./startup/__init__.py
+MappApp ./setup/__main__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,13 +24,13 @@ def run():
     from vispy import app, gloo
 
     from mappapp.process import Controller
-    from mappapp.startup import settings
+    from mappapp.setup import acc
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--ini', action='store', dest='ini_file', type=str)
     args = parser.parse_args(sys.argv[1:])
 
-    from mappapp.startup.main import StartupConfiguration
+    from mappapp.setup.main import StartupConfiguration
 
     app.use_app('glfw')
     # app.use_app('PyQt5')
@@ -50,11 +50,12 @@ def run():
 
             else:
 
-                settings.winapp = QtWidgets.QApplication([])
-                settings.startupwin = StartupConfiguration()
-                settings.winapp.exec_()
+                acc.app = QtWidgets.QApplication([])
+                acc.main = StartupConfiguration()
+                acc.main.setup_ui()
+                acc.app.exec_()
 
-                configfile = settings.configfile
+                configfile = acc.configfile
 
 
             if configfile is None:
@@ -71,11 +72,12 @@ def run():
 
         else:
 
-            settings.winapp = QtWidgets.QApplication([])
-            settings.startupwin = StartupConfiguration()
-            settings.winapp.exec_()
+            acc.app = QtWidgets.QApplication([])
+            acc.main = StartupConfiguration()
+            acc.main.setup_ui()
+            acc.app.exec_()
 
-            configfile = settings.configfile
+            configfile = acc.configfile
 
         if configfile is None:
             print('No configuration selected. Exit.')

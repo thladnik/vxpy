@@ -1,5 +1,5 @@
 """
-MappApp ./startup/main.py
+MappApp ./setup/main.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -17,18 +17,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from configparser import ConfigParser
 import os
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
-from mappapp.startup import settings
-from mappapp.startup.utils import ModuleWidget
-from mappapp.startup.camera_setup import CameraWidget
-from mappapp.startup.display_setup import DisplayWidget
+from mappapp.setup import acc
+from mappapp.setup.utils import ModuleWidget
+from mappapp.setup.camera.__init__ import CameraWidget
+from mappapp.setup.display import Main as Display
 from mappapp.utils import misc
-
-settings.current_config = misc.ConfigParser()
 
 Logging.write = lambda *args,**kwargs: None
 
@@ -43,31 +41,30 @@ class ModuleCheckbox(QtWidgets.QCheckBox):
 
     def react_to_toggle(self, bool):
         print('Set module \"{}\" usage to {}'.format(self.text(), bool))
-        settings.current_config.setParsed(self.module_name,Def.Cfg.use,bool)
+        acc.cur_conf.setParsed(self.module_name, Def.Cfg.use, bool)
 
 
 class StartupConfiguration(QtWidgets.QMainWindow):
 
     _availModules = {Def.CameraCfg.name: CameraWidget,
-                     Def.DisplayCfg.name: DisplayWidget,
+                     Def.DisplayCfg.name: Display,
                      Def.GuiCfg.name: ModuleWidget,
                      Def.IoCfg.name: ModuleWidget,
                      Def.RecCfg.name: ModuleWidget}
+
+    sig_reload_config = QtCore.pyqtSignal()
 
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
 
         self.setWindowTitle('MappApp - Startup configuration')
 
+    def setup_ui(self):
+
         self._configfile = None
         self._currentConfigChanged = False
 
-        self.setup_ui()
-
-
-    def setup_ui(self):
         vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        hSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
 
         # Setup window
         self.resize(1200, 1000)
@@ -84,7 +81,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         # Selection
         self.gb_select.layout().addWidget(QtWidgets.QLabel('Select configuration file: '))
         self.gb_select.cb_select = QtWidgets.QComboBox()
-        self.gb_select.cb_select.currentTextChanged.connect(self.open_configfile)
+        self.gb_select.cb_select.currentTextChanged.connect(self.open_config)
         self.gb_select.layout().addWidget(self.gb_select.cb_select)
         # New
         self.gb_select.btn_new = QtWidgets.QPushButton('Add new...')
@@ -101,7 +98,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self.centralWidget().layout().addWidget(self.gb_edit)
 
         #
-        ### Module selection
+        # Module selection
         self.gb_edit.gb_select_mod = QtWidgets.QGroupBox('Select modules')
         self.gb_edit.gb_select_mod.setMaximumWidth(200)
         self.gb_edit.gb_select_mod.setLayout(QtWidgets.QVBoxLayout())
@@ -135,7 +132,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self.gb_edit.gb_select_mod.layout().addItem(vSpacer)
 
         self.btn_save_config = QtWidgets.QPushButton('Save changes')
-        self.btn_save_config.clicked.connect(settings.current_config.saveToFile)
+        self.btn_save_config.clicked.connect(self.save_config)
         self.gb_edit.layout().addWidget(self.btn_save_config, 1, 1)
 
         self.btn_start_app = QtWidgets.QPushButton('Save and start')
@@ -149,7 +146,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
     def update_configfile_list(self):
         self.gb_select.cb_select.clear()
         for fname in os.listdir(os.path.join(Def.package, Def.Path.Config)):
-            self.gb_select.cb_select.addItem(fname[:-4])
+            self.gb_select.cb_select.addItem(fname)
 
     def _add_configfile(self):
         name, confirmed = QtWidgets.QInputDialog.getText(self, 'Create new configs file', 'Config name', QtWidgets.QLineEdit.Normal, '')
@@ -168,8 +165,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             self.update_configfile_list()
             self.gb_select.cb_select.setCurrentText(name)
 
-
-    def open_configfile(self):
+    def open_config(self):
 
         name = self.gb_select.cb_select.currentText()
 
@@ -178,26 +174,26 @@ class StartupConfiguration(QtWidgets.QMainWindow):
 
         print('Open config {}'.format(name))
 
-        self._configfile = '{}.ini'.format(name)
-        settings.current_config.read(self._configfile)
+        self._configfile = name
+        acc.cur_conf = misc.ConfigParser()
+        acc.cur_conf.read(self._configfile)
 
-        ### Set display config for visual compat.
-        Config.Display = settings.current_config.getParsedSection(Def.DisplayCfg.name)
+        # Set display config for visual compat.
+        Config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
 
-        ### Update module selection
+        # Update module selection
         for module_name, checkbox in self.module_checkboxes.items():
-            use = settings.current_config.getParsed(module_name,Def.Cfg.use)
+            use = acc.cur_conf.getParsed(module_name, Def.Cfg.use)
             checkbox.setChecked(use)
             self.module_widgets[module_name].setEnabled(use)
 
-        ### Update module settings
+        # Update module settings
         for module_name, wdgt in self.module_widgets.items():
             if hasattr(wdgt, 'load_settings_from_config'):
                 print('Load settings for module \"{}\" from config file'.format(module_name))
-                wdgt.load_settings_from_config()
+                self.sig_reload_config.emit()
             else:
                 print('Could not load settings for module \"{}\" from config file'.format(module_name))
-
 
     def closeEvent(self, event):
         answer = None
@@ -206,7 +202,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                                            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No | QtWidgets.QMessageBox.Cancel ,
                                            QtWidgets.QMessageBox.No)
             if answer == QtWidgets.QMessageBox.Yes and not(self.configuration is None):
-                settings.current_config.saveToFile()
+                acc.cur_conf.saveToFile()
 
         # Close widgets
         for wdgt_name, wdgt in self.module_widgets.items():
@@ -215,11 +211,14 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         # Close MainWindow
         event.accept()
 
+    def save_config(self):
+        acc.cur_conf.saveToFile()
+
     def save_and_start_application(self):
-        settings.current_config.saveToFile()
+        acc.cur_conf.saveToFile()
         self.start_application()
 
     def start_application(self):
         print('Start application')
-        settings.configfile = self._configfile
+        acc.configfile = self._configfile
         self.close()

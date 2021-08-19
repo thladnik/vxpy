@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/spherical_calibration.py - Protocols for calibration of spherical visual stimulation setup.
+MappApp ./protocols/spherical.py - Protocols for calibration of spherical visual stimulation setup.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
