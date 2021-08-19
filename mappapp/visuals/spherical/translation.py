@@ -18,11 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 from vispy import gloo, util
 
-from mappapp.core.visual import BaseVisual, SphericalVisual
+from mappapp.core import visual
 from mappapp.utils import sphere
 
 
-class TunnelTranslation(SphericalVisual):
+class TunnelTranslation(visual.SphericalVisual):
 
     @staticmethod
     def parse_u_waveform(waveform):
@@ -50,7 +50,7 @@ class TunnelTranslation(SphericalVisual):
                   p_fish_position: default_fish_pos/np.linalg.norm(default_fish_pos)}
 
     def __init__(self, *args, **kwargs):
-        SphericalVisual.__init__(self, *args, **kwargs)
+        visual.SphericalVisual.__init__(self, *args, **kwargs)
 
         # Set up sphere
         self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)

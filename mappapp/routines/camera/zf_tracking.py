@@ -1,5 +1,5 @@
 """
-MappApp ./routines/camera/core.py
+MappApp ./routines/camera/__init__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -22,49 +22,11 @@ from scipy.spatial import distance
 
 from mappapp import Config
 from mappapp import Def
-from mappapp.core.routine import ArrayAttribute, ArrayDType, CameraRoutine, ObjectAttribute
-
-# Type hinting
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    pass
-
-
-class Frames(CameraRoutine):
-
-    def __init__(self, *args, **kwargs):
-        CameraRoutine.__init__(self, *args, **kwargs)
-
-        self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
-                                    Config.Camera[Def.CameraCfg.res_x],
-                                    Config.Camera[Def.CameraCfg.res_y]))
-
-        target_fps = Config.Camera[Def.CameraCfg.fps]
-
-        # Set up buffer frame attribute for each camera device
-        for device_id, res_x, res_y in self.device_list:
-            # Set one array attribute per camera device
-            array_attr = ArrayAttribute((res_y, res_x), ArrayDType.uint8, length=2*target_fps)
-            attr_name = f'{device_id}_frame'
-            setattr(self.buffer, attr_name, array_attr)
-            # Add to be written to file
-            self.file_attrs.append(attr_name)
-
-    def execute(self, **frames):
-        for device_id, frame in frames.items():
-
-            if frame is None:
-                continue
-
-            # Update shared attributes
-            if frame.ndim > 2:
-                getattr(self.buffer, f'{device_id}_frame').write(frame[:, :, 0])
-            else:
-                getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
-
-
+from mappapp.core import routine
 from mappapp import api
-class EyePositionDetection(CameraRoutine):
+
+
+class EyePositionDetection(routine.CameraRoutine):
 
     camera_device_id = 'fish_embedded'
 
@@ -79,7 +41,7 @@ class EyePositionDetection(CameraRoutine):
 
 
     def __init__(self, *args, **kwargs):
-        CameraRoutine.__init__(self, *args, **kwargs)
+        routine.CameraRoutine.__init__(self, *args, **kwargs)
 
         self.add_trigger('saccade_trigger')
 
@@ -113,32 +75,32 @@ class EyePositionDetection(CameraRoutine):
         for id in range(self.roi_maxnum):
             # Rectangle
             setattr(self.buffer, f'{self.extracted_rect_prefix}{id}',
-                    ObjectAttribute(length=2*target_fps))
+                    routine.ObjectAttribute(length=2*target_fps))
 
             # Position
             setattr(self.buffer, f'{self.ang_le_pos_prefix}{id}',
-                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.ang_re_pos_prefix}{id}',
-                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
 
             # Velocity
             setattr(self.buffer, f'{self.ang_le_vel_prefix}{id}',
-                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.ang_re_vel_prefix}{id}',
-                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
 
             # Saccade detection
             setattr(self.buffer, f'{self.le_sacc_prefix}{id}',
-                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
             setattr(self.buffer, f'{self.re_sacc_prefix}{id}',
-                    ArrayAttribute(shape=(1,), dtype=ArrayDType.float64, length=5 * target_fps))
+                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
 
         # Set frame buffer
-        self.buffer.frame = ArrayAttribute((self.res_y, self.res_x),
-                                           ArrayDType.uint8,
+        self.buffer.frame = routine.ArrayAttribute((self.res_y, self.res_x),
+                                           routine.ArrayDType.uint8,
                                            length=2*target_fps)
         # Set saccade trigger buffer
-        self.buffer.saccade_trigger = ArrayAttribute((1, ), ArrayDType.binary, length=5*target_fps)
+        self.buffer.saccade_trigger = routine.ArrayAttribute((1, ), routine.ArrayDType.binary, length=5*target_fps)
 
     def initialize(self):
         api.set_digital_output('saccade_trigger_out', EyePositionDetection, 'saccade_trigger')
@@ -434,14 +396,14 @@ class EyePositionDetection(CameraRoutine):
 
 
 from mappapp import utils
-class FishPosDirDetection(CameraRoutine):
+class FishPosDirDetection(routine.CameraRoutine):
 
     buffer_size = 500
 
     camera_device_id = 'fish_freeswim'
 
     def __init__(self, *args, **kwargs):
-        CameraRoutine.__init__(self, *args, **kwargs)
+        routine.CameraRoutine.__init__(self, *args, **kwargs)
 
         self.add_trigger('saccade_trigger')
 
@@ -462,9 +424,9 @@ class FishPosDirDetection(CameraRoutine):
         target_fps = Config.Camera[Def.CameraCfg.fps]
 
         # Add attributes
-        self.buffer.frame = ArrayAttribute((self.res_y, self.res_x, 3), ArrayDType.uint8, length=self.buffer_size)
-        self.buffer.tframe = ArrayAttribute((self.res_y, self.res_x, 3), ArrayDType.uint8, length=self.buffer_size)
-        self.buffer.fish_position = ArrayAttribute((2, ), ArrayDType.float32, length=self.buffer_size)
+        self.buffer.frame = routine.ArrayAttribute((self.res_y, self.res_x, 3), routine.ArrayDType.uint8, length=self.buffer_size)
+        self.buffer.tframe = routine.ArrayAttribute((self.res_y, self.res_x, 3), routine.ArrayDType.uint8, length=self.buffer_size)
+        self.buffer.fish_position = routine.ArrayAttribute((2, ), routine.ArrayDType.float32, length=self.buffer_size)
 
         self.background = None
         self.thresh = None

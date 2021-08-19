@@ -2,7 +2,7 @@ import importlib
 import os
 
 from mappapp import Def
-from mappapp.core.protocol import AbstractProtocol, StaticProtocol
+from mappapp.core import protocol
 
 _protocols = dict()
 
@@ -18,18 +18,18 @@ def open_(file_name):
 
 
 def read(file_obj):
-    return [protocol for key, protocol in file_obj.__dict__.items()
-            if isinstance(protocol, type)
-            and issubclass(protocol, AbstractProtocol)
-            and not(protocol == AbstractProtocol)
-            and not(protocol == StaticProtocol)]
+    return [_protocol for key, _protocol in file_obj.__dict__.items()
+            if isinstance(_protocol, type)
+            and issubclass(_protocol, protocol.AbstractProtocol)
+            and not(_protocol == protocol.AbstractProtocol)
+            and not(_protocol == protocol.StaticProtocol)]
 
 
 def all():
     return sorted(list(_protocols.keys()))
 
 
-for i, path in enumerate(os.listdir(os.path.join(Def.package, Def.Path.Protocol))):
+for i, path in enumerate(os.listdir(os.path.join('.', Def.package, Def.Path.Protocol))):
 
     if path.startswith('.') or path.startswith('_'):
         continue

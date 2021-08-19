@@ -1,5 +1,5 @@
 """
-MappApp ./core/process.py
+MappApp ./core/modules.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ import time
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp.gui.core import Plotter
+from mappapp import gui
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -58,13 +58,13 @@ class AbstractRoutine:
         self.buffer: RingBuffer = RingBuffer()
 
     def initialize(self):
-        """Called in forked process"""
+        """Called in forked modules"""
         pass
 
     def execute(self, *args, **kwargs):
         """Method is called on every iteration of the producer.
 
-        Compute method is called on data updates (in the producer process).
+        Compute method is called on data updates (in the producer modules).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
         raise NotImplementedError(f'_compute not implemented in {self.__class__.__name__}')
 
@@ -76,7 +76,7 @@ class AbstractRoutine:
         self.file_attrs.append(attr_name)
 
     def register_with_ui_plotter(self, routine_cls: Type[AbstractRoutine], attr_name: str, start_idx: int, *args, **kwargs):
-        IPC.rpc(Def.Process.Gui, Plotter.add_buffer_attribute, routine_cls, attr_name, start_idx, *args, **kwargs)
+        IPC.rpc(Def.Process.Gui, gui.Plotter.add_buffer_attribute, routine_cls, attr_name, start_idx, *args, **kwargs)
 
     def to_file(self) -> (str, float, Any):
         """Method may be reimplemented. Can be used to alter the output to file.

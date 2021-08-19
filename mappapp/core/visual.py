@@ -22,9 +22,11 @@ from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
 
-from mappapp.utils import geometry,sphere
-from mappapp import Logging,Def,Config
-
+from mappapp import Config
+from mappapp import Def
+from mappapp import Logging
+from mappapp.utils import geometry
+from mappapp.utils import sphere
 
 ################################
 # Abstract visual class

@@ -21,26 +21,26 @@ from vispy import gloo
 from vispy.gloo import gl
 
 from mappapp.utils import geometry
-from mappapp.core.visual import BaseVisual, SphericalVisual
-from mappapp.utils.sphere import CMNIcoSphere
+from mappapp.core import visual
+from mappapp.utils import sphere
 
 
-class IcoCMNTest(BaseVisual):
+class IcoCMNTest(visual.BaseVisual):
 
     def __init__(self, *args, **kwargs):
-        BaseVisual.__init__(self, *args, **kwargs)
+        visual.BaseVisual.__init__(self, *args, **kwargs)
 
     def render(self, frame_time):
         print('meh', frame_time)
 
 
-class IcoCMN(SphericalVisual):
+class IcoCMN(visual.SphericalVisual):
 
     def __init__(self, *args):
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         # Set up model
-        self.sphere = CMNIcoSphere(subdivisionTimes=2)
+        self.sphere = sphere.CMNIcoSphere(subdivisionTimes=2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         # Set up program and bind buffer

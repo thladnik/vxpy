@@ -1,5 +1,5 @@
 """
-MappApp ./process/gui.py
+MappApp ./modules/uiutils.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -22,12 +22,11 @@ import sys
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
-from mappapp import process
-from mappapp.core.process import AbstractProcess
-from mappapp.gui.core import Camera, Display, Io, Logger, Plotter, ProcessMonitor, Recording
+from mappapp import modules
+from mappapp.core import process
+from mappapp import gui
 
-
-class Gui(QtWidgets.QMainWindow, AbstractProcess):
+class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     name = Def.Process.Gui
 
     app: QtWidgets.QApplication
@@ -39,7 +38,7 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
             self.app =QtWidgets.QApplication(sys.argv)
 
         # Set up parents
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon
@@ -73,25 +72,25 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
 
         # Display
         if Config.Display[Def.DisplayCfg.use]:
-            self.display = Display(self)
+            self.display = gui.Display(self)
             self.display.create_hooks()
             self.upper_widget.layout().addWidget(self.display)
 
         # Display
         if Config.Io[Def.IoCfg.use]:
-            self.io = Io(self)
+            self.io = gui.Io(self)
             self.io.create_hooks()
             self.upper_widget.layout().addWidget(self.io)
 
         # Camera
         if Config.Camera[Def.CameraCfg.use]:
-            self.camera = Camera(self)
+            self.camera = gui.Camera(self)
             self.camera.create_hooks()
             self.upper_widget.layout().addWidget(self.camera)
 
         # Middle
         # Add Plotter
-        self.plotter = Plotter(self)
+        self.plotter = gui.Plotter(self)
         self.plotter.setMinimumHeight(300)
         self.plotter.setMaximumHeight(400)
         self.plotter.create_hooks()
@@ -103,19 +102,19 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         self.centralWidget().layout().addWidget(self.lower_widget)
 
         # Process monitor
-        self.process_monitor = ProcessMonitor(self)
+        self.process_monitor = gui.ProcessMonitor(self)
         self.process_monitor.setMaximumHeight(400)
         self.process_monitor.create_hooks()
         self.lower_widget.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = Recording(self)
+        self.recordings = gui.Recording(self)
         self.recordings.setMaximumHeight(400)
         self.recordings.create_hooks()
         self.lower_widget.layout().addWidget(self.recordings)
 
         # Logger
-        self.log_display = Logger(self)
+        self.log_display = gui.Logger(self)
         self.log_display.setMinimumHeight(200)
         self.log_display.setMaximumHeight(400)
         self.lower_widget.layout().addWidget(self.log_display)
@@ -169,20 +168,20 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
                                                QtWidgets.QMessageBox.Cancel)
 
         if reply == QtWidgets.QMessageBox.Close:
-            IPC.rpc(process.Controller.name, process.Controller._force_shutdown)
+            IPC.rpc(modules.Controller.name, modules.Controller._force_shutdown)
 
     def restart_camera(self):
-        IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Camera)
+        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
 
     def restart_display(self):
-        IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Display)
+        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
 
     def _bind_shortcuts(self):
 
-        # Restart display process
+        # Restart display modules
         self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
         self.menu_process.restart_display.setAutoRepeat(False)
-        # Restart camera process
+        # Restart camera modules
         if Config.Camera[Def.CameraCfg.use]:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)

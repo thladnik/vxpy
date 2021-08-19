@@ -25,7 +25,7 @@ from mappapp import Def
 from mappapp.setup import acc
 from mappapp.setup.display import planar, spherical
 from mappapp.setup.utils import ModuleWidget
-from mappapp.utils.gui import DoubleSliderWidget, IntSliderWidget
+from mappapp.utils.uiutils import DoubleSliderWidget, IntSliderWidget
 
 
 class Canvas(app.Canvas):

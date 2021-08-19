@@ -1,5 +1,5 @@
 """
-MappApp ./core/process.py
+MappApp ./core/modules.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
@@ -30,16 +30,15 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp.core.routine import ArrayAttribute, BufferAttribute
-from mappapp.core.container import NpBufferedH5File, H5File
-from mappapp.gui.core import ProcessMonitor
+from mappapp.core import routine
+from mappapp.core import container
+from mappapp import gui
 
 # Type hinting
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Dict, Type, Union
-    from mappapp.core.routine import AbstractRoutine
 
 
 ##################################
@@ -63,8 +62,8 @@ class AbstractProcess:
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
 
-    _routines: Dict[str, Dict[str, AbstractRoutine]] = dict()
-    file_container: Union[None, h5py.File, NpBufferedH5File, H5File] = None
+    _routines: Dict[str, Dict[str, routine.AbstractRoutine]] = dict()
+    file_container: Union[None, h5py.File, container.NpBufferedH5File, container.H5File] = None
     record_group: str = None
     compression_args: Dict[str, Any] = dict()
 
@@ -78,7 +77,7 @@ class AbstractProcess:
                  _states=None,
                  **kwargs):
 
-        # Set process instance
+        # Set modules instance
         IPC.Process = self
 
         # Set pipes
@@ -92,38 +91,37 @@ class AbstractProcess:
             # Setup logging
             Logging.setup_logger(self.name)
 
-        # Set routines and let routine wrapper create hooks in process instance and initialize buffers
+        # Set routines and let routine wrapper create hooks in modules instance and initialize buffers
         if isinstance(_routines, dict):
             self._routines = _routines
 
             for process_routines in self._routines.values():
-                for routine in process_routines.values():
-                    for fun in routine.exposed:
+                for _routine in process_routines.values():
+                    for fun in _routine.exposed:
                         try:
-                            self.register_rpc_callback(routine, fun.__qualname__, fun)
+                            self.register_rpc_callback(_routine, fun.__qualname__, fun)
                         except:
                             # This is a workaround. Please do not remove or you'll break the GUI.
                             # In order for some IPC features to work the, AbstractProcess init has to be
-                            # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI process.
+                            # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI modules.
                             # Doing this, however, causes an exception about failing to call
                             # the QMainWindow super-class init, since "createHooks" directly sets attributes
                             # on the new, uninitialized QMainWindow sub-class.
                             # Catching this (unimportant) exception prevents a crash.
                             pass
 
-                    routine._connect_triggers(_routines)
+                    _routine._connect_triggers(_routines)
 
-                    # Run local initialization for producer process
-                    if self.name == routine.process_name:
-                        routine.initialize()
+                    # Run local initialization for producer modules
+                    if self.name == _routine.process_name:
+                        _routine.initialize()
 
                     # Initialize buffers
-                    for attr in routine.buffer.__dict__.values():
-                        if attr is None or not(issubclass(attr.__class__, BufferAttribute)):
+                    for attr in _routine.buffer.__dict__.values():
+                        if attr is None or not(issubclass(attr.__class__, routine.BufferAttribute)):
                             continue
 
                         attr.build()
-                    # routine.buffer.build()
 
         # Set configurations
         if _configurations is not None:
@@ -147,7 +145,7 @@ class AbstractProcess:
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        # Set process state
+        # Set modules state
         if not (getattr(IPC.State, self.name) is None):
             IPC.set_state(Def.State.STARTING)
 
@@ -163,7 +161,7 @@ class AbstractProcess:
         self._running = True
         self._shutdown = False
 
-        # Set process state
+        # Set modules state
         IPC.set_state(Def.State.IDLE)
 
         min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
@@ -181,7 +179,7 @@ class AbstractProcess:
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
                 # print(f'{self.name} says {self.t}')
-                api.gui_rpc(ProcessMonitor.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
+                api.gui_rpc(gui.ProcessMonitor.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
 
             # Wait until interval time is up
             dt = (self.t + interval) - time.perf_counter()
@@ -194,7 +192,7 @@ class AbstractProcess:
             while time.perf_counter() < (self.t + interval):
                 pass
 
-            # Set new process time for this iteration
+            # Set new modules time for this iteration
             self.t = time.perf_counter()
 
             # Set new global time
@@ -205,7 +203,7 @@ class AbstractProcess:
 
     def main(self):
         """Event loop to be re-implemented in subclass"""
-        raise NotImplementedError('Event loop of process base class is not implemented in {}.'
+        raise NotImplementedError('Event loop of modules base class is not implemented in {}.'
                                   .format(self.name))
 
     ################################
@@ -328,15 +326,15 @@ class AbstractProcess:
             time.sleep(IPC.Control.General[Def.GenCtrl.min_sleep_time])
 
     def get_state(self, process=None):
-        """Convenience function for access in process class"""
+        """Convenience function for access in modules class"""
         return IPC.get_state()
 
     def set_state(self, code):
-        """Convenience function for access in process class"""
+        """Convenience function for access in modules class"""
         IPC.set_state(code)
 
     def in_state(self, code, process_name=None):
-        """Convenience function for access in process class"""
+        """Convenience function for access in modules class"""
         if process_name is None:
             process_name = self.name
         return IPC.in_state(code, process_name)
@@ -346,7 +344,7 @@ class AbstractProcess:
         while IPC.Pipes[self.name][1].poll():
             self.handle_inbox()
 
-        # Set process state
+        # Set modules state
         self.set_state(Def.State.STOPPED)
 
         self._shutdown = True
@@ -375,7 +373,7 @@ class AbstractProcess:
 
         _send_verbosely = kwargs.pop('_send_verbosely')
 
-        # RPC on process class
+        # RPC on modules class
         if fun_path[0] == self.__class__.__name__:
             fun_str = fun_path[1]
 
@@ -383,14 +381,16 @@ class AbstractProcess:
 
                 if _send_verbosely:
                     Logging.write(Logging.DEBUG,
-                                  f'RPC call to process <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                                  f'RPC call to modules <{fun_str}> with Args {args} and Kwargs {kwargs}')
 
                 getattr(self, fun_str)(*args, **kwargs)
 
             except Exception as exc:
+                import traceback
+                print(traceback.print_exc())
 
                 Logging.write(Logging.WARNING,
-                              f'RPC call to process <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
+                              f'RPC call to modules <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                               f' // Exception: {exc}')
 
         # RPC on registered callback
@@ -405,13 +405,13 @@ class AbstractProcess:
                 fun(instance, *args, **kwargs)
 
             except Exception as exc:
+                import traceback
+                traceback.print_exc()
 
                 Logging.write(Logging.WARNING,
                               f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                               f' // Exception: {exc}')
 
-                import traceback
-                traceback.print_exc()
 
         else:
             Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
@@ -519,7 +519,7 @@ class AbstractProcess:
             grp.attrs.update(group_attributes)
 
         # Create routine groups
-        for routine_name, routine in self._routines[self.name].items():
+        for routine_name, _routine in self._routines[self.name].items():
 
             if not(self._routine_on_record(routine_name)):
                 continue
@@ -528,11 +528,11 @@ class AbstractProcess:
             self.file_container.require_group(f'{self.record_group}/{routine_name}')
 
             # Create datasets in routine group
-            for attr_name in routine.file_attrs:
-                attr = getattr(routine.buffer, attr_name)
-                # Atm only ArrayAttributes have declared data types
+            for attr_name in _routine.file_attrs:
+                attr = getattr(_routine.buffer, attr_name)
+                # Atm only routine.ArrayAttribute has declared data type
                 # Other attributes (if compatible) will be created at recording time
-                if isinstance(attr, ArrayAttribute):
+                if isinstance(attr, routine.ArrayAttribute):
                     path = f'{self.record_group}/{routine_name}/{attr_name}'
                     self._create_dataset(path, attr._shape, attr._dtype[1])
                     self._create_dataset(f'{path}_time', (1,), np.float64)
@@ -553,8 +553,8 @@ class AbstractProcess:
                 # Open new file
                 Logging.write(Logging.DEBUG, f'Open new file {filepath}')
                 # self.h5_file = h5py.File(filepath, 'w')
-                self.file_container = NpBufferedH5File(filepath, 'w')
-                # self.file_container = H5File(filepath, 'a')
+                self.file_container = container.NpBufferedH5File(filepath, 'w')
+                # self.file_container = container.H5File(filepath, 'a')
 
                 # Set compression
                 compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
@@ -652,7 +652,7 @@ class ProcessProxy:
         return getattr(IPC.Process._routines[self.name][routine_cls.__name__].buffer, name)
 
     def rpc(self, function: Callable, *args, **kwargs) -> None:
-        """Send a remote procedure call of given function to another process.
+        """Send a remote procedure call of given function to another modules.
 
         @param process_name:
         @param function:

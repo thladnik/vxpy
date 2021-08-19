@@ -18,11 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from mappapp.core.visual import SphericalVisual
+from mappapp.core import visual
 from mappapp.utils import sphere
 
 
-class BlackWhiteCheckerboard(SphericalVisual):
+class BlackWhiteCheckerboard(visual.SphericalVisual):
 
     u_elevation_sf = 'u_elevation_sf'
     u_azimuth_sf = 'u_azimuth_sf'
@@ -37,7 +37,7 @@ class BlackWhiteCheckerboard(SphericalVisual):
         :param rows: number of rows on checkerboard
         :param cols: number of columns on checkerboard
         """
-        SphericalVisual.__init__(self, *args, **kwargs)
+        visual.SphericalVisual.__init__(self, *args, **kwargs)
 
         self.sphere = sphere.UVSphere(azim_lvls=100,elev_lvls=50,azimuth_range=2 * np.pi,upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
@@ -56,7 +56,7 @@ class BlackWhiteCheckerboard(SphericalVisual):
         self.checker.draw('triangles', self.index_buffer)
 
 
-class RegularMesh(SphericalVisual):
+class RegularMesh(visual.SphericalVisual):
 
     u_elevation_sf = 'u_elevation_sf'
     u_azimuth_sf = 'u_azimuth_sf'
@@ -64,7 +64,7 @@ class RegularMesh(SphericalVisual):
     parameters = {u_elevation_sf: 0.01, u_azimuth_sf: 0.01}
 
     def __init__(self, *args, **params):
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         self.sphere = sphere.UVSphere(azim_lvls=100,elev_lvls=50,azimuth_range=2 * np.pi,upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)

@@ -18,11 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from mappapp.core.visual import PlanarVisual
+from mappapp.core import visual
 from mappapp.utils import plane
 
 
-class BlackAndWhiteGrating(PlanarVisual):
+class BlackAndWhiteGrating(visual.PlanarVisual):
     description = 'Black und white contrast grating stimulus'
 
     def triggerme01(self):
@@ -57,7 +57,7 @@ class BlackAndWhiteGrating(PlanarVisual):
         :param lin_velocity: <float> linear velocity of grating in [mm/s]
         :param spat_period: <float> spatial period of the grating in [mm]
         """
-        PlanarVisual.__init__(self, *args, **kwargs)
+        visual.PlanarVisual.__init__(self, *args, **kwargs)
 
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(

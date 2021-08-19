@@ -20,7 +20,7 @@ from PyQt5 import QtWidgets
 
 from mappapp.setup import acc
 from mappapp import Def
-from mappapp.utils.gui import DoubleSliderWidget, IntSliderWidget
+from mappapp.utils.uiutils import DoubleSliderWidget, IntSliderWidget
 
 
 class Main(QtWidgets.QWidget):

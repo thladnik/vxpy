@@ -1,5 +1,5 @@
 """
-MappApp ./gui/io/core.py
+MappApp ./gui/io/__init__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp.core.gui import AddonWidget
 from mappapp.routines.io.iocore import TriggerLedArenaFlash
-from mappapp.utils.gui import IntSliderWidget
+from mappapp.utils.uiutils import IntSliderWidget
 
 
 class IoTuner(AddonWidget):

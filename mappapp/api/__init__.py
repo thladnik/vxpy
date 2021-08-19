@@ -1,5 +1,5 @@
 """
-MappApp ./api/__init__.py
+MappApp ./api/__main__.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
-from mappapp import process
+from mappapp import modules
 
 
 def camera_rpc(function, *args, **kwargs):
@@ -39,15 +39,15 @@ def io_rpc(function, *args, **kwargs):
 
 
 def set_digital_output(out_pid, routine_cls, attr_name):
-    io_rpc(process.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
+    io_rpc(modules.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
 
 
 def set_analog_output(out_pid, routine_cls, attr_name):
-    io_rpc(process.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
+    io_rpc(modules.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
 
 
 def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):
-    display_rpc(process.Display.set_display_uniform_attribute, uniform_name, routine_cls, attr_name)
+    display_rpc(modules.Display.set_display_uniform_attribute, uniform_name, routine_cls, attr_name)
 
 
 def read_attribute(routine_cls, attr_name, *args, **kwargs):

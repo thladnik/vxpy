@@ -1,5 +1,5 @@
 """
-MappApp ./gui/display/core.py
+MappApp ./gui/display/__init__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -27,16 +27,16 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
-from mappapp import process
-from mappapp.core.gui import AddonWidget
-from mappapp.core.visual import BaseVisual, PlanarVisual, SphericalVisual
-from mappapp.utils.gui import ComboBoxWidget, DoubleSliderWidget, IntSliderWidget
+from mappapp import modules
+from mappapp.core import gui
+from mappapp.core import visual
+from mappapp.utils import uiutils
 
 
-class Protocols(AddonWidget):
+class Protocols(gui.AddonWidget):
 
     def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
+        gui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         # Left
@@ -132,18 +132,18 @@ class Protocols(AddonWidget):
         self.main.recordings.start_recording()
 
         # Start protocol
-        IPC.rpc(Def.Process.Controller, process.Controller.start_protocol, '.'.join([file_name, protocol_name]))
+        IPC.rpc(Def.Process.Controller, modules.Controller.start_protocol, '.'.join([file_name, protocol_name]))
 
     def abort_protocol(self):
         self.progress.setValue(0)
         self.progress.setEnabled(False)
-        IPC.rpc(Def.Process.Controller, process.Controller.abortProtocol)
+        IPC.rpc(Def.Process.Controller, modules.Controller.abortProtocol)
 
 
-class VisualInteractor(AddonWidget):
+class VisualInteractor(gui.AddonWidget):
 
     def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
+        gui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         self.left_widget = QtWidgets.QWidget(self)
@@ -196,7 +196,7 @@ class VisualInteractor(AddonWidget):
                 module = importlib.import_module('.'.join([Def.package,Def.Path.Visual,folder, file.split('.')[0]]))
 
                 for clsname, cls in inspect.getmembers(module, inspect.isclass):
-                    if not(issubclass(cls, (BaseVisual, PlanarVisual, SphericalVisual))) or cls in (PlanarVisual, SphericalVisual):
+                    if not(issubclass(cls, (visual.BaseVisual, visual.PlanarVisual, visual.SphericalVisual))) or cls in (visual.PlanarVisual, visual.SphericalVisual):
                         continue
 
                     self.visuals[folder][file][clsname] = (cls, QtWidgets.QTreeWidgetItem(self.files[folder][file]))
@@ -250,7 +250,15 @@ class VisualInteractor(AddonWidget):
         # Add UI components for visual
         for name, *args in visual_cls.interface:
             if isinstance(args[0], str):
-                wdgt = ComboBoxWidget(name, args)
+                wdgt = uiutils.ComboBoxWidget(name, args)
+                wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
+            elif isinstance(args[0], bool):
+                kwargs = dict()
+                if len(args) > 3:
+                    kwargs = args.pop(-1)
+                vdef = args[0]
+                wdgt = uiutils.Checkbox(name, vdef)
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], int):
@@ -258,7 +266,7 @@ class VisualInteractor(AddonWidget):
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef, vmin, vmax = args
-                wdgt = IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt = uiutils.IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], float):
@@ -266,12 +274,12 @@ class VisualInteractor(AddonWidget):
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef, vmin, vmax = args
-                wdgt = DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt = uiutils.DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif callable(args[0]):
                 wdgt = QtWidgets.QPushButton(name)
-                wdgt.clicked.connect(lambda: api.display_rpc(process.Display.trigger_visual, args[0]))
+                wdgt.clicked.connect(lambda: api.display_rpc(modules.Display.trigger_visual, args[0]))
                 wdgt.setParent(self.tuner)
             else:
                 wdgt = QLabel(f'<{name}> has unclear type {type(args[0])}', self.tuner)
@@ -285,15 +293,15 @@ class VisualInteractor(AddonWidget):
         # if None in visual_cls.parameters.values():
         #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
 
-        IPC.rpc(Def.Process.Display, process.Display.start_visual, visual_cls, **visual_cls.parameters)
+        IPC.rpc(Def.Process.Display, modules.Display.start_visual, visual_cls, **visual_cls.parameters)
 
     def update_parameter(self, name):
         def _update(value):
-            IPC.rpc(Def.Process.Display,process.Display.update_visual, **{name: value})
+            IPC.rpc(Def.Process.Display, modules.Display.update_visual, **{name: value})
         return _update
 
     def stop_visual(self):
-        IPC.rpc(Def.Process.Display, process.Display.stop_visual)
+        IPC.rpc(Def.Process.Display, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         while layout.count():

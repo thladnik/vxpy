@@ -1,5 +1,5 @@
 """
-MappApp ./process/worker.py
+MappApp ./modules/worker.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,14 +21,14 @@ import importlib
 
 from mappapp import Def
 from mappapp import Logging
-from mappapp.core.process import AbstractProcess
+from mappapp.core import process
 
 
-class Worker(AbstractProcess):
+class Worker(process.AbstractProcess):
     name = Def.Process.Worker
 
     def __init__(self, **kwargs):
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         self._task_intervals = list()
         self._scheduled_times = list()

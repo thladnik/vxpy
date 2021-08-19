@@ -1,5 +1,5 @@
 """
-MappApp ./gui/camera/core.py
+MappApp ./gui/camera/zf_tracking_widgets.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,123 +15,17 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
 import numpy as np
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
 
-from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp.core.gui import AddonWidget
-from mappapp.routines.camera.camcore import EyePositionDetection, FishPosDirDetection, Frames
+from mappapp.routines.camera import zf_tracking
 from mappapp.utils import geometry
-
-
-class FrameStream(AddonWidget):
-
-    def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
-        # TODO: check if requirements are met (e.g. camera device configured?) and set self.module_active
-
-        self.setLayout(QtWidgets.QGridLayout())
-
-        hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.layout().addItem(hspacer, 0, 1)
-
-        self.tab_camera_views = QtWidgets.QTabWidget()
-        self.tab_camera_views.setTabPosition(QtWidgets.QTabWidget.West)
-        self.layout().addWidget(self.tab_camera_views, 1, 0, 1, 2)
-
-        # Add one view per camera device
-        self.view_wdgts = dict()
-        for device_id in Config.Camera[Def.CameraCfg.device_id]:
-            self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
-            self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
-
-    def update_frame(self):
-        for _, widget in self.view_wdgts.items():
-            widget.update_frame()
-
-    class CameraWidget(QtWidgets.QWidget):
-        def __init__(self, main, device_id, **kwargs):
-            QtWidgets.QWidget.__init__(self, **kwargs)
-            self.main = main
-            self.device_id = device_id
-
-            # Set layout
-            self.setLayout(QtWidgets.QHBoxLayout())
-
-            self.lpanel = QtWidgets.QWidget()
-            self.lpanel.setLayout(QtWidgets.QVBoxLayout())
-            self.layout().addWidget(self.lpanel)
-
-            # Add Rotate/flip controls
-            self._rotation = 0
-            self.cb_rotation = QtWidgets.QComboBox()
-            self.lpanel.layout().addWidget(QtWidgets.QLabel('Rotation'))
-            self.cb_rotation.addItems(['None', '90CCW', '180', '270CCW'])
-            self.cb_rotation.currentIndexChanged.connect(lambda i: self.set_rotation(i))
-            self.cb_rotation.currentIndexChanged.connect(self.update_frame)
-            self.lpanel.layout().addWidget(self.cb_rotation)
-            self._flip_ud = False
-            self.check_flip_ud = QtWidgets.QCheckBox('Flip vertical')
-            self.check_flip_ud.stateChanged.connect(lambda s: self.set_flip_ud(s))
-            self.check_flip_ud.stateChanged.connect(self.update_frame)
-            self.lpanel.layout().addWidget(self.check_flip_ud)
-            self._flip_lr = False
-            self.check_flip_lr = QtWidgets.QCheckBox('Flip horizontal')
-            self.check_flip_lr.stateChanged.connect(lambda s: self.set_flip_lr(s))
-            self.check_flip_lr.stateChanged.connect(self.update_frame)
-            self.lpanel.layout().addWidget(self.check_flip_lr)
-            spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Expanding)
-            self.lpanel.layout().addItem(spacer)
-
-            # Add graphics widget
-            self.graphics_widget = FrameStream.GraphicsWidget(self.main, parent=self)
-            self.layout().addWidget(self.graphics_widget)
-
-        def update_frame(self):
-            idx, time, frame = IPC.Camera.read(Frames,f'{self.device_id}_frame')
-
-            if frame is None:
-                return
-
-            frame = np.rot90(frame.squeeze(), self._rotation)
-            if self._flip_lr:
-                frame = np.fliplr(frame)
-            if self._flip_ud:
-                frame = np.flipud(frame)
-
-            #self.image_plot.vb.autoRange()
-
-            self.graphics_widget.image_item.setImage(frame)
-
-        def set_rotation(self, dir):
-            self._rotation = dir
-
-        def set_flip_ud(self, flip):
-            self._flip_ud = flip
-
-        def set_flip_lr(self, flip):
-            self._flip_lr = flip
-
-    class GraphicsWidget(pg.GraphicsLayoutWidget):
-
-        def __init__(self, main, **kwargs):
-            pg.GraphicsLayoutWidget.__init__(self, **kwargs)
-
-            # Add plot
-            self.image_plot = self.addPlot(0, 0, 1, 10)
-
-            # Set up plot image item
-            self.image_item = pg.ImageItem()
-            self.image_plot.hideAxis('left')
-            self.image_plot.hideAxis('bottom')
-            self.image_plot.setAspectLocked(True)
-            #self.image_plot.vb.setMouseEnabled(x=False, y=False)
-            self.image_plot.addItem(self.image_item)
+from mappapp.utils.uiutils import IntSliderWidget
 
 
 class EyePositionDetector(AddonWidget):
@@ -141,8 +35,6 @@ class EyePositionDetector(AddonWidget):
 
         AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
-
-        from mappapp.utils.gui import IntSliderWidget
 
         self.lpanel = QtWidgets.QWidget(self)
         self.lpanel.setLayout(QtWidgets.QVBoxLayout())
@@ -180,28 +72,20 @@ class EyePositionDetector(AddonWidget):
                                            QtWidgets.QSizePolicy.Expanding)
         self.layout().addWidget(self.graphics_widget)
 
-    def update_detection_mode(self,mode):
-        IPC.rpc(Def.Process.Camera,
-                EyePositionDetection.set_detection_mode,
-                mode)
+    @staticmethod
+    def update_image_threshold(im_thresh):
+        IPC.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_threshold, im_thresh)
 
-    def update_image_threshold(self,threshold):
-        IPC.rpc(Def.Process.Camera,
-                EyePositionDetection.set_threshold,
-                threshold)
+    @staticmethod
+    def update_particle_minsize(minsize):
+        IPC.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_min_particle_size, minsize)
 
-    def update_particle_minsize(self,minsize):
-        IPC.rpc(Def.Process.Camera,
-                EyePositionDetection.set_min_particle_size,
-                minsize)
-
-    def update_sacc_threshold(self,sacc_threshold):
-        IPC.rpc(Def.Process.Camera,
-                EyePositionDetection.set_saccade_threshold,
-                sacc_threshold)
+    @staticmethod
+    def update_sacc_threshold(sacc_thresh):
+        IPC.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_saccade_threshold, sacc_thresh)
 
     def update_frame(self):
-        routine_cls = EyePositionDetection
+        routine_cls = zf_tracking.EyePositionDetection
         idx, time, frame = IPC.Camera.read(routine_cls,'frame')
         frame = frame[0]
 
@@ -209,7 +93,6 @@ class EyePositionDetector(AddonWidget):
             return
 
         self.graphics_widget.image_item.setImage(np.rot90(frame, -1))
-
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
@@ -305,7 +188,7 @@ class EyePositionDetector(AddonWidget):
         def update_subplots(self):
 
             # Draw rectangular ROIs
-            routine_cls = EyePositionDetection
+            routine_cls = zf_tracking.EyePositionDetection
             #attr_path = f'{routine_cls.__name__}/{routine_cls.extracted_rect_prefix}'
             for id in self.roi_rects:
                 idx, time, rect = IPC.Camera.read(routine_cls,f'{routine_cls.extracted_rect_prefix}{id}')
@@ -362,7 +245,7 @@ class EyePositionDetector(AddonWidget):
             # Set updates ROI parameters
             self.parent.roi_params[self.id] = self.rect
             # Send update to detector routine
-            IPC.rpc(Def.Process.Camera,EyePositionDetection.set_roi,self.id,self.rect)
+            IPC.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_roi, self.id, self.rect)
             #routines.camera.Core.EyePositionDetection.set_roi(self.id, self.rect)
 
 
@@ -373,7 +256,7 @@ class FishPosDirDetector(AddonWidget):
         AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
-        from mappapp.utils.gui import IntSliderWidget
+        from mappapp.utils.uiutils import IntSliderWidget
 
         self.lpanel = QtWidgets.QWidget(self)
         self.lpanel.setLayout(QtWidgets.QVBoxLayout())
@@ -396,7 +279,7 @@ class FishPosDirDetector(AddonWidget):
         self.lpanel.layout().addWidget(self.particle_minsize)
 
         # BG calculation range
-        self.bg_calc_range = IntSliderWidget('Background range',1, FishPosDirDetection.buffer_size-1, 200, label_width=label_width, step_size=1)
+        self.bg_calc_range = IntSliderWidget('Background range',1, zf_tracking.FishPosDirDetection.buffer_size-1, 200, label_width=label_width, step_size=1)
         self.bg_calc_range.connect_to_result(self.update_bg_calc_range)
         self.bg_calc_range.emit_current_value()
         self.lpanel.layout().addWidget(self.bg_calc_range)
@@ -414,20 +297,25 @@ class FishPosDirDetector(AddonWidget):
                                            QtWidgets.QSizePolicy.Expanding)
         self.layout().addWidget(self.graphics_widget)
 
-    def update_bg_calc_range(self, value):
-        IPC.rpc(Def.Process.Camera, FishPosDirDetection.set_bg_calc_range, value)
 
-    def calculate_background(self, value):
-        IPC.rpc(Def.Process.Camera, FishPosDirDetection.calculate_background)
+    @staticmethod
+    def update_bg_calc_range(value):
+        IPC.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.set_bg_calc_range, value)
 
-    def update_image_threshold(self, value):
-        IPC.rpc(Def.Process.Camera, FishPosDirDetection.set_threshold, value)
+    @staticmethod
+    def calculate_background(value):
+        IPC.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.calculate_background)
 
-    def update_particle_minsize(self, value):
-        IPC.rpc(Def.Process.Camera, FishPosDirDetection.set_min_particle_size, value)
+    @staticmethod
+    def update_image_threshold(value):
+        IPC.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.set_threshold, value)
+
+    @staticmethod
+    def update_particle_minsize(value):
+        IPC.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.set_min_particle_size, value)
 
     def update_frame(self):
-        idx, time, frame = IPC.Camera.read(FishPosDirDetection, 'tframe')
+        idx, time, frame = IPC.Camera.read(zf_tracking.FishPosDirDetection, 'tframe')
         frame = frame[0]
 
         if frame is None:

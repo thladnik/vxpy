@@ -19,11 +19,11 @@ import numpy as np
 from vispy import gloo
 from vispy import scene
 
-from mappapp.core.visual import SphericalVisual
-from mappapp.utils import geometry, sphere
+from mappapp.core import visual
+from mappapp.utils import sphere
 
 
-class BlackWhiteGrating(SphericalVisual):
+class BlackWhiteGrating(visual.SphericalVisual):
 
     u_waveform = 'u_waveform'
     u_direction = 'u_direction'
@@ -36,7 +36,7 @@ class BlackWhiteGrating(SphericalVisual):
                   u_spat_period: 40.}
 
     def __init__(self, *args, **params):
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         # Set up sphere
         self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)

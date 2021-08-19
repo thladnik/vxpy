@@ -1,5 +1,5 @@
 """
-MappApp ./process/core.py - General purpose digital/analog input/output process.
+MappApp ./modules/__init__.py - General purpose digital/analog input/output modules.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,10 +21,14 @@ import time
 import numpy as np
 
 from mappapp import api
-from mappapp import protocols,Logging,IPC,Def,Config
-from mappapp.core.process import AbstractProcess
+from mappapp import Config
+from mappapp import Def
+from mappapp import IPC
+from mappapp import Logging
+from mappapp import protocols
+from mappapp.core import process
 
-class Io(AbstractProcess):
+class Io(process.AbstractProcess):
     name = Def.Process.Io
 
     _pid_pin_map = dict()
@@ -32,7 +36,7 @@ class Io(AbstractProcess):
     _devices = dict()
 
     def __init__(self, **kwargs):
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         for did, dev_config in Config.Io[Def.IoCfg.device].items():
             if not(all(k in dev_config for k in ("type", "model"))):

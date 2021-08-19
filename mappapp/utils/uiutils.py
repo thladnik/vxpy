@@ -1,5 +1,5 @@
 """
-MappApp ./utils/gui.py
+MappApp ./utils/uiutils.py
 Copyright (C) 2020 Tim Hladnik
 
 * The "qn" class was originally created by Yue Zhang and is also available
@@ -174,6 +174,36 @@ class IntSliderWidget(QtWidgets.QWidget):
     def _exc_callback(self):
         for callback in self._callbacks:
             callback(self.spinner.value())
+
+
+class Checkbox(QtWidgets.QCheckBox):
+
+    def __init__(self,slider_name, default_val, label_width=None):
+        QtWidgets.QCheckBox.__init__(self)
+
+        self._callbacks = []
+
+        self.setChecked(default_val)
+
+        # Force slider update
+        # self.valueChanged.emit(self.value())
+
+    def get_value(self):
+        return self.isChecked()
+
+    def set_value(self, value):
+        self.setChecked(value)
+
+    def connect_to_result(self, callback):
+        self._callbacks.append(callback)
+
+    # def emit_current_value(self):
+    #     self.checkStateSet.emit(self.spinner.value())
+
+    def _exc_callback(self):
+        for callback in self._callbacks:
+            callback(self.spinner.value())
+
 
 class ComboBoxWidget(QtWidgets.QWidget):
     def __init__(self, name, options, *args, **kwargs):

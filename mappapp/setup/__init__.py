@@ -23,7 +23,7 @@ def run():
     from PyQt5 import QtWidgets
     from vispy import app, gloo
 
-    from mappapp.process import Controller
+    from mappapp.modules import Controller
     from mappapp.setup import acc
 
     parser = argparse.ArgumentParser()

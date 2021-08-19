@@ -1,5 +1,5 @@
 """
-MappApp ./process/controller.py
+MappApp ./modules/controller.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
@@ -22,30 +22,26 @@ import logging
 import multiprocessing as mp
 import os
 import time
+from typing import List, Dict, Tuple
 
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp import process
+from mappapp import modules
 from mappapp import protocols
-from mappapp.core.process import AbstractProcess, ProcessProxy
+from mappapp.core import process
+from mappapp.core import routine
 from mappapp.utils import misc
 
-# Type hinting
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from typing import List, Dict, Tuple
-    from mappapp.core.routine import AbstractRoutine
 
-
-class Controller(AbstractProcess):
+class Controller(process.AbstractProcess):
     name = Def.Process.Controller
 
     configfile: str = None
 
     _processes: Dict[str, mp.Process] = dict()
-    _registered_processes: List[Tuple[AbstractProcess, Dict]] = list()
+    _registered_processes: List[Tuple[process.AbstractProcess, Dict]] = list()
 
     _protocolized: List[str] = [Def.Process.Camera,Def.Process.Display,Def.Process.Io,Def.Process.Worker]
     _active_protocols: List[str] = list()
@@ -94,13 +90,13 @@ class Controller(AbstractProcess):
         # Manually set up pipe for controller
         IPC.Pipes[self.name] = mp.Pipe()
 
-        # Set up process proxies (TODO: get rid of IPC.State)
+        # Set up modules proxies (TODO: get rid of IPC.State)
         _proxies = {
-            Def.Process.Controller: ProcessProxy(Def.Process.Controller),#, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Camera: ProcessProxy(Def.Process.Camera),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Display: ProcessProxy(Def.Process.Display),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Gui:  ProcessProxy(Def.Process.Gui),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
-            Def.Process.Io: ProcessProxy(Def.Process.Io),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA))
+            Def.Process.Controller: process.ProcessProxy(Def.Process.Controller),#, IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Camera: process.ProcessProxy(Def.Process.Camera),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Display: process.ProcessProxy(Def.Process.Display),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Gui:  process.ProcessProxy(Def.Process.Gui),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA)),
+            Def.Process.Io: process.ProcessProxy(Def.Process.Io),# IPC.Manager.Value(ctypes.c_int8, Def.State.NA))
         }
 
         # Set up STATES
@@ -180,26 +176,26 @@ class Controller(AbstractProcess):
                     routine_cls = getattr(module,routine_name)
 
                     # Instantiate routine class
-                    _routines[process_name][routine_cls.__name__]: AbstractRoutine = routine_cls()
+                    _routines[process_name][routine_cls.__name__]: routine.AbstractRoutine = routine_cls()
 
         # Initialize AbstractProcess
-        AbstractProcess.__init__(self, _routines=_routines, proxies=_proxies)
+        process.AbstractProcess.__init__(self, _routines=_routines, proxies=_proxies)
 
         # Set up processes
         # Worker
-        self._register_process(process.Worker)
+        self._register_process(modules.Worker)
         # GUI
         if Config.Gui[Def.GuiCfg.use]:
-            self._register_process(process.Gui)
+            self._register_process(modules.Gui)
         # Camera
         if Config.Camera[Def.CameraCfg.use]:
-            self._register_process(process.Camera)
+            self._register_process(modules.Camera)
         # Display
         if Config.Display[Def.DisplayCfg.use]:
-            self._register_process(process.Display)
+            self._register_process(modules.Display)
         # IO
         if Config.Io[Def.IoCfg.use]:
-            self._register_process(process.Io)
+            self._register_process(modules.Io)
 
         # Select subset of registered processes which should implement
         # the _run_protocol method
@@ -238,10 +234,10 @@ class Controller(AbstractProcess):
         self.start()
 
     def _register_process(self, target, **kwargs):
-        """Register new process to be spawned.
+        """Register new modules to be spawned.
 
-        :param target: process class
-        :param kwargs: optional keyword arguments for initalization of process class
+        :param target: modules class
+        :param kwargs: optional keyword arguments for initalization of modules class
         """
         self._registered_processes.append((target, kwargs))
 
@@ -250,12 +246,12 @@ class Controller(AbstractProcess):
         process_name = target.name
 
         if process_name in self._processes:
-            # Terminate process
-            Logging.write(Logging.INFO,'Restart process {}'.format(process_name))
+            # Terminate modules
+            Logging.write(Logging.INFO,'Restart modules {}'.format(process_name))
             self._processes[process_name].terminate()
 
-            # Set process state
-            # (this is the ONLY instance where a process state may be set externally)
+            # Set modules state
+            # (this is the ONLY instance where a modules state may be set externally)
             getattr(IPC.State,process_name).value = Def.State.STOPPED
 
             # Delete references
@@ -538,7 +534,7 @@ class Controller(AbstractProcess):
 
         if not(shutdown_state):
             Logging.write(Logging.DEBUG, 'Not ready for shutdown. Confirming.')
-            IPC.rpc(process.Gui.name, process.Gui.prompt_shutdown_confirmation)
+            IPC.rpc(modules.Gui.name, modules.Gui.prompt_shutdown_confirmation)
             return
 
         self._force_shutdown()

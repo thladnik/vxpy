@@ -1,5 +1,5 @@
 """
-MappApp ./process/display.py
+MappApp ./modules/display.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -26,10 +26,10 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
-from mappapp.gui import core
-from mappapp.core.process import AbstractProcess
-from mappapp.core.protocol import AbstractProtocol
-from mappapp.core.visual import AbstractVisual
+from mappapp import gui
+from mappapp.core import process
+from mappapp.core import protocol
+from mappapp.core import visual
 
 
 class Canvas(app.Canvas):
@@ -38,7 +38,7 @@ class Canvas(app.Canvas):
         app.Canvas.__init__(self, *args, **kwargs)
         self.tick = 0
         self.measure_fps(.5, self.show_fps)
-        self.visual = None
+        self.stimulus_visual = None
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
@@ -53,11 +53,11 @@ class Canvas(app.Canvas):
     def on_draw(self, event):
         gloo.clear()
 
-        if IPC.Process.visual is not None:
+        if IPC.Process.stimulus_visual is not None:
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
-                IPC.Process.visual.draw(time.perf_counter()-self.t)
+                IPC.Process.stimulus_visual.draw(time.perf_counter()-self.t)
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
@@ -74,24 +74,18 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *event.physical_size)
 
 
-class Display(AbstractProcess):
+class Display(process.AbstractProcess):
     name = Def.Process.Display
 
-    protocol: AbstractProtocol = None
-    visual: AbstractVisual = None
+    stimulus_protocol: protocol.AbstractProtocol = None
+    stimulus_visual: visual.AbstractVisual = None
 
     _uniform_maps = dict()
 
     def __init__(self, **kwargs):
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
-        # self.app = app.use_app('glfw')
         self.app = app.use_app()
-
-        # self.app = app.use_app('PyQt5')
-        # self.app = app.use_app('glfw')
-        # print(vispy.sys_info())
-        # gloo.gl.use_gl('gl2')
 
         # Create canvas
         _interval = 1. / Config.Display[Def.DisplayCfg.fps]
@@ -127,42 +121,42 @@ class Display(AbstractProcess):
             Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
 
     def start_protocol(self):
-        self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
+        self.stimulus_protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
         try:
-            self.protocol.initialize()
+            self.stimulus_protocol.initialize()
         except Exception as exc:
             import traceback
             print(traceback.print_exc())
 
     def start_phase(self):
         phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-        self.visual = self.protocol.fetch_phase_visual(phase_id)
-        IPC.Process.set_record_group(f'phase_{phase_id}',group_attributes=self.visual.parameters)
+        self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
+        IPC.Process.set_record_group(f'phase_{phase_id}',group_attributes=self.stimulus_visual.parameters)
 
     def end_protocol(self):
-        self.visual = None
-        self.canvas.visual = self.visual
+        self.stimulus_visual = None
+        self.canvas.stimulus_visual = self.stimulus_visual
 
     def start_visual(self, visual_cls, **parameters):
-        self.visual = visual_cls(self.canvas, **parameters)
+        self.stimulus_visual = visual_cls(self.canvas, **parameters)
         self.canvas.t = time.perf_counter()
         self._display_visual = True
 
     def stop_visual(self):
-        self.visual = None
+        self.stimulus_visual = None
         self._display_visual = False
 
     def _start_shutdown(self):
-        AbstractProcess._start_shutdown(self)
+        process.AbstractProcess._start_shutdown(self)
 
     def trigger_visual(self, trigger_fun):
-        self.visual.trigger(trigger_fun)
+        self.stimulus_visual.trigger(trigger_fun)
 
     def update_visual(self, **parameters):
-        if self.visual is None:
+        if self.stimulus_visual is None:
             return
 
-        self.visual.update(**parameters)
+        self.stimulus_visual.update(**parameters)
 
     def _display(self):
         return self._run_protocol() or self._display_visual
@@ -175,17 +169,17 @@ class Display(AbstractProcess):
         try:
             if self._display():
 
-                if self.visual is not None:
+                if self.stimulus_visual is not None:
                     # Update uniforms from routine attributes
                     for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
                         idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
-                        self.visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
+                        self.stimulus_visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
 
                 # Update routines
-                self.update_routines(self.visual)
+                self.update_routines(self.stimulus_visual)
             else:
                 self.update_routines(None)
         except Exception as exc:
             import traceback
             traceback.print_exc()
-            # TODO: quit process here and restart!
+            # TODO: quit modules here and restart!

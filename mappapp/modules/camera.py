@@ -1,5 +1,5 @@
 """
-MappApp ./process/camera.py
+MappApp ./modules/camera.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,20 +15,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from mappapp import api
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp.gui import core
-from mappapp.core.process import AbstractProcess
+from mappapp.core import process
 
 
-class Camera(AbstractProcess):
+class Camera(process.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         self.cameras = dict()
         for device_id, manufacturer, model, format, gain, exposure \
