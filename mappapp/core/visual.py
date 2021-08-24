@@ -344,34 +344,14 @@ class SphericalVisual(AbstractVisual):
 
         self.frame_time = frame_time
 
-        # Set 2D scaling for aspect 1
         win_width = Config.Display[Def.DisplayCfg.window_width]
         win_height = Config.Display[Def.DisplayCfg.window_height]
+        # Set 2D scaling for aspect 1
         if win_height > win_width:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width/win_height])
+            u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
         else:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([win_height/win_width, 1])
+            u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
-
-        # Set 3D transform
-        distance = Config.Display[Def.DisplayCfg.sph_view_distance]
-        #fov = 240.0/distance #
-        fov = Config.Display[Def.DisplayCfg.sph_view_fov]
-
-        # Set relative size
-        self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array([1,1])
-
-        translate3d = transforms.translate((0, 0, -distance))
-        self.transform_uniforms['u_mapcalib_translation'] = translate3d
-
-        project3d = transforms.perspective(fov, 1., 0.1, 400.0)
-        #project3d = transforms.ortho(-2.0, 2.0, -2.0, 2.0, 0.1, 400.0)
-        self.transform_uniforms['u_mapcalib_projection'] = project3d
-
-        # Calculate elevation rotation for projection
-        rotate_elev_3d = transforms.rotate(-Config.Display[Def.DisplayCfg.sph_view_elev_angle],(1,0,0))
-
-        xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos] * win_width/win_height, Config.Display[Def.DisplayCfg.glob_y_pos]])
 
         # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
@@ -391,34 +371,52 @@ class SphericalVisual(AbstractVisual):
         with self._display_fb:
             gloo.clear()
 
-        azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
         for i in range(4):
 
-            # Set spheroid transformation uniforms
-            # self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45, (0, 0, 1))
+            azim_orientation = Config.Display[Def.DisplayCfg.sph_view_azim_orient]
+            azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle][i]
+
+            # Set 3D transform
+            distance = Config.Display[Def.DisplayCfg.sph_view_distance][i]
+            fov = Config.Display[Def.DisplayCfg.sph_view_fov][i]
+            view_scale = Config.Display[Def.DisplayCfg.sph_view_scale][i]
+            elev_angle = Config.Display[Def.DisplayCfg.sph_view_elev_angle][i]
+            radial_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset][i]
+
+            # Set relative size
+            self.transform_uniforms['u_mapcalib_scale'] = view_scale * np.array([1, 1])
+
+            # 3D translation
+            self.transform_uniforms['u_mapcalib_translation'] = transforms.translate((0, 0, -distance))
+
+            # 3D projection
+            self.transform_uniforms['u_mapcalib_projection'] = transforms.perspective(fov, 1., 0.1, 400.0)
+
+            xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos] * win_width / win_height,
+                                  Config.Display[Def.DisplayCfg.glob_y_pos]])
+
             self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
-            self.transform_uniforms['u_mapcalib_rotate_elev'] = rotate_elev_3d
+            # 3D elevation rotation
+            self.transform_uniforms['u_mapcalib_rotate_elev'] = transforms.rotate(-elev_angle, (1, 0, 0))
 
             # 2D rotation around center of screen
             self.transform_uniforms['u_mapcalib_rotate2d'] = geometry.rotation2D(np.pi / 4 - np.pi / 2 * i)
 
             # 2D translation radially
-            radial_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset]
             radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * radial_offset_scalar
             self.transform_uniforms['u_mapcalib_translate2d'] = radial_offset + xy_offset
 
             # Render 90 degree mask to mask buffer
             # (BEFORE further 90deg rotation)
-            az_plus = 20.0
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45 + az_plus, (0,0,1))
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45 + azim_angle, (0,0,1))
             self.apply_transform(self._mask_program)
             self._mask_program['u_part'] = i
             with self._mask_fb:
                 self._mask_program.draw('triangles', self._mask_index_buffer)
 
             # Apply 90*i degree rotation to actual spherical stimulus
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_angle + 90 * i + az_plus, (0, 0, 1))
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_orientation + 90 * i + azim_angle, (0, 0, 1))
 
             # And render actual stimulus sphere
             with self._raw_fb:

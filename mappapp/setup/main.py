@@ -128,6 +128,9 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             self.module_widgets[name] = wdgt
             self.gb_edit.tab_modules.addTab(self.module_widgets[name], name.upper())
 
+        # (Debug option) Select module tab
+        self.gb_edit.tab_modules.setCurrentWidget(self.module_widgets['display'])
+
         # Spacer
         self.gb_edit.gb_select_mod.layout().addItem(vSpacer)
 

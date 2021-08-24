@@ -314,3 +314,6 @@ class VisualSettings(QtWidgets.QTabWidget):
 
         self.addTab(self.planar, 'Planar')
         self.addTab(self.spherical, 'Spherical')
+
+        # (Debug option) Select visual config tab
+        self.setCurrentWidget(self.spherical)

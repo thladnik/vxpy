@@ -176,33 +176,39 @@ class IntSliderWidget(QtWidgets.QWidget):
             callback(self.spinner.value())
 
 
-class Checkbox(QtWidgets.QCheckBox):
+class Checkbox(QtWidgets.QWidget):
 
-    def __init__(self,slider_name, default_val, label_width=None):
-        QtWidgets.QCheckBox.__init__(self)
+    def __init__(self, name, default_val, label_width=None):
+        QtWidgets.QWidget.__init__(self)
 
         self._callbacks = []
 
-        self.setChecked(default_val)
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0, 0, 0, 0)
 
-        # Force slider update
-        # self.valueChanged.emit(self.value())
+        # Label
+        self.label = QtWidgets.QLabel(name)
+        if label_width is not None:
+            self.label.setFixedWidth(label_width)
+        self.layout().addWidget(self.label)
+
+        # Checkbox
+        self.checkbox = QtWidgets.QCheckBox()
+        self.layout().addWidget(self.checkbox)
+        self.checkbox.setChecked(default_val)
 
     def get_value(self):
-        return self.isChecked()
+        return self.checkbox.isChecked()
 
     def set_value(self, value):
-        self.setChecked(value)
+        self.checkbox.setChecked(value)
 
     def connect_to_result(self, callback):
         self._callbacks.append(callback)
 
-    # def emit_current_value(self):
-    #     self.checkStateSet.emit(self.spinner.value())
-
     def _exc_callback(self):
         for callback in self._callbacks:
-            callback(self.spinner.value())
+            callback(self.checkbox.isChecked())
 
 
 class ComboBoxWidget(QtWidgets.QWidget):

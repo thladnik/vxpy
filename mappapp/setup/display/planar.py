@@ -106,13 +106,13 @@ class Checker(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Vertical SF
-        self.vertical_sf = DoubleSliderWidget('Vertical SF [1/mm]', .001, 1., .1,
-                                                              step_size=.001, decimals=3, label_width=label_width)
-        self.layout().addWidget(self.vertical_sf)
+        self.vertical_sp = IntSliderWidget('Vertical SP [mm]', 1, 100, 10,
+                                           step_size=1., label_width=label_width)
+        self.layout().addWidget(self.vertical_sp)
         # Horizontal SF
-        self.horizontal_sf = DoubleSliderWidget('Horizontal SF [1/mm]', .001, 1., .1,
-                                                                step_size=.001, decimals=3, label_width=label_width)
-        self.layout().addWidget(self.horizontal_sf)
+        self.horizontal_sp = IntSliderWidget('Horizontal SP [mm]', 1, 100, 10,
+                                             step_size=1, label_width=label_width)
+        self.layout().addWidget(self.horizontal_sp)
         # Show button
         self.btn_show = QtWidgets.QPushButton('Show')
         self.btn_show.clicked.connect(self.show_planar_checkerboard)
@@ -120,9 +120,9 @@ class Checker(QtWidgets.QGroupBox):
 
     def show_planar_checkerboard(self):
         from mappapp.visuals.planar.calibration import Sinusoid2d
-        vertical_sf = self.vertical_sf.get_value(),
-        horizontal_sf = self.horizontal_sf.get_value()
+        vertical_sf = self.vertical_sp.get_value(),
+        horizontal_sf = self.horizontal_sp.get_value()
         acc.display.canvas.visual = Sinusoid2d(acc.display.canvas,
-                                               **{Sinusoid2d.u_sf_vertical: vertical_sf,
-                                                Sinusoid2d.u_sf_horizontal: horizontal_sf,
+                                               **{Sinusoid2d.u_sp_vertical: vertical_sf,
+                                                Sinusoid2d.u_sp_horizontal: horizontal_sf,
                                                 Sinusoid2d.u_checker_pattern: True})
