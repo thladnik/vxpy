@@ -247,10 +247,14 @@ class SphericalVisual(AbstractVisual):
 
     # Mask fragment shader
     _mask_frag = """
+        uniform int u_part;
+        
         varying vec3 v_position;
         varying vec4 v_map_position;
         void main() {
+        
             gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+
             //gl_FragColor = vec4(1.0-abs(v_position.z), abs(v_position.z)/2.0, 0.0, 1.0); 
             //gl_FragColor = vec4((-v_position.z+1.0)/2.0, (v_position.z+1.0)/2.0, 0.0, 1.0);
             //gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
@@ -268,13 +272,26 @@ class SphericalVisual(AbstractVisual):
         }
     """
     _out_frag = """
+        uniform int u_part;
+        
         varying vec2 v_texcoord;
 
         uniform sampler2D u_raw_texture;
         uniform sampler2D u_mask_texture;
+        uniform sampler2D u_out_texture;
 
         void main() {
-            gl_FragColor = vec4(texture2D(u_raw_texture, v_texcoord).xyz * texture2D(u_mask_texture, v_texcoord).x, 1.0);
+                    
+            vec3 out_tex = texture2D(u_out_texture, v_texcoord).xyz;
+            vec3 raw = texture2D(u_raw_texture, v_texcoord).xyz;
+            float mask = texture2D(u_mask_texture, v_texcoord).x;
+            
+            if(mask > 0.0) {
+                gl_FragColor = vec4(raw * mask, 1.0);
+            } else {
+                gl_FragColor = vec4(out_tex, 1.0);
+            }
+            
         }
     """
 
@@ -292,7 +309,7 @@ class SphericalVisual(AbstractVisual):
         self._mask_index_buffer = gloo.IndexBuffer(self._mask_model.indices)
 
         # Set textures and FBs
-        self._mask_texture = gloo.Texture2D(self._buffer_shape, format='luminance')
+        self._mask_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._mask_depth_buffer = gloo.RenderBuffer(self._buffer_shape)
         self._mask_fb = gloo.FrameBuffer(self._mask_texture, self._mask_depth_buffer)
 
@@ -316,6 +333,7 @@ class SphericalVisual(AbstractVisual):
         self._out_prog['a_position'] = self.square
         self._out_prog['u_raw_texture'] = self._raw_texture
         self._out_prog['u_mask_texture'] = self._mask_texture
+        self._out_prog['u_out_texture'] = self._out_texture
 
         # Set clear color
         #gloo.set_clear_color('black')
@@ -367,10 +385,17 @@ class SphericalVisual(AbstractVisual):
         with self._mask_fb:
             gloo.clear()
 
+        with self._out_fb:
+            gloo.clear()
+
+        with self._display_fb:
+            gloo.clear()
+
+        azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
         for i in range(4):
 
             # Set spheroid transformation uniforms
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45, (0, 0, 1))
+            # self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45, (0, 0, 1))
             self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
             self.transform_uniforms['u_mapcalib_rotate_elev'] = rotate_elev_3d
@@ -379,33 +404,37 @@ class SphericalVisual(AbstractVisual):
             self.transform_uniforms['u_mapcalib_rotate2d'] = geometry.rotation2D(np.pi / 4 - np.pi / 2 * i)
 
             # 2D translation radially
-            radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * Config.Display[
-                Def.DisplayCfg.sph_pos_glob_radial_offset]
-            self.transform_uniforms['u_mapcalib_translate2d'] =  radial_offset + xy_offset
+            radial_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset]
+            radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * radial_offset_scalar
+            self.transform_uniforms['u_mapcalib_translate2d'] = radial_offset + xy_offset
 
             # Render 90 degree mask to mask buffer
             # (BEFORE further 90deg rotation)
+            az_plus = 20.0
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45 + az_plus, (0,0,1))
             self.apply_transform(self._mask_program)
+            self._mask_program['u_part'] = i
             with self._mask_fb:
                 self._mask_program.draw('triangles', self._mask_index_buffer)
-            # Clear (important!)
-            gloo.clear()
 
-            # Apply 90*i degree rotation
-            azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_angle + 90 * i, (0,0,1))
+            # Apply 90*i degree rotation to actual spherical stimulus
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_angle + 90 * i + az_plus, (0, 0, 1))
 
             # And render actual stimulus sphere
             with self._raw_fb:
                 self.render(frame_time)
 
-            # Clear (important!)
-            gloo.clear()
-
             # Combine mask and raw texture into out_texture
             # (To optionally be saved to disk and rendered to screen)
+            self._out_prog['u_part'] = i
             with self._out_fb:
                 self._out_prog.draw('triangle_strip')
+
+            with self._mask_fb:
+                gloo.clear()
+
+            with self._raw_fb:
+                gloo.clear()
 
         self._display_prog.draw('triangle_strip')
 
