@@ -1,4 +1,4 @@
-// checkerboard.vert
+// static_checker.vert
 
 attribute vec3 a_position;
 attribute float a_azimuth;

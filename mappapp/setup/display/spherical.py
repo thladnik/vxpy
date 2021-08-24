@@ -201,46 +201,29 @@ class Mesh(QtWidgets.QGroupBox):
 
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        # Vertical SF
-        self.elevation_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
-                                               step_size=.001, decimals=3, label_width=label_width)
-        self.elevation_sf.connect_to_result(self.update_elevation_sp)
-        self.layout().addWidget(self.elevation_sf)
         # Vertical SP
-        self.elevation_sp = QtWidgets.QLineEdit('')
-        self.elevation_sp.setDisabled(True)
+        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1, 180, 22.5,
+                                               step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.elevation_sp)
-        self.elevation_sf.emit_current_value()
 
-        # Horizontal SF
-        self.azimuth_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
-                                             step_size=.001, decimals=3, label_width=label_width)
-        self.azimuth_sf.connect_to_result(self.update_azimuth_sp)
-        self.layout().addWidget(self.azimuth_sf)
         # Horizontal SP
-        self.azimuth_sp = QtWidgets.QLineEdit('')
-        self.azimuth_sp.setDisabled(True)
+        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1, 360, 22.5,
+                                             step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
-        self.azimuth_sf.emit_current_value()
 
         # Show button
         self.btn_show = QtWidgets.QPushButton('Show')
         self.btn_show.clicked.connect(self.show_visual)
         self.layout().addWidget(self.btn_show)
 
-    def update_elevation_sp(self, sf):
-        self.elevation_sp.setText('Elevation SP {:.1f} [deg]'.format(1. / sf))
-
-    def update_azimuth_sp(self, sf):
-        self.azimuth_sp.setText('Azimuth SP {:.1f} [deg]'.format(1. / sf))
-
     def show_visual(self):
         from mappapp.visuals.spherical.calibration import RegularMesh
-        elevation_sf = self.elevation_sf.get_value(),
-        azimuth_sf = self.azimuth_sf.get_value()
-        acc.display.canvas.visual = RegularMesh(acc.display.canvas,
-                                                **{RegularMesh.u_elevation_sf: elevation_sf,
-                                                   RegularMesh.u_azimuth_sf: azimuth_sf})
+        elevation_sp = self.elevation_sp.get_value()
+        azimuth_sp = self.azimuth_sp.get_value()
+        acc.display.canvas.visual = RegularMesh(
+            acc.display.canvas,
+            **{RegularMesh.u_elevation_sp: elevation_sp,
+               RegularMesh.u_azimuth_sp: azimuth_sp})
 
 
 class Checker(QtWidgets.QGroupBox):
@@ -252,44 +235,26 @@ class Checker(QtWidgets.QGroupBox):
 
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        # Vertical SF
-        self.elevation_sf = DoubleSliderWidget('Elevation SF [1/deg]', .001, 1., .1,
-                                               step_size=.001, decimals=3, label_width=label_width)
-        self.elevation_sf.connect_to_result(self.update_elevation_sp)
-        self.layout().addWidget(self.elevation_sf)
         # Vertical SP
-        self.elevation_sp = QtWidgets.QLineEdit('')
-        self.elevation_sp.setDisabled(True)
+        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1, 180, 22.5,
+                                               step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.elevation_sp)
-        self.elevation_sf.emit_current_value()
 
-        # Horizontal SF
-        self.azimuth_sf = DoubleSliderWidget('Azimuth SF [1/deg]', .001, 1., .1,
-                                             step_size=.001, decimals=3, label_width=label_width)
-        self.azimuth_sf.connect_to_result(self.update_azimuth_sp)
-        self.layout().addWidget(self.azimuth_sf)
         # Horizontal SP
-        self.azimuth_sp = QtWidgets.QLineEdit('')
-        self.azimuth_sp.setDisabled(True)
+        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1, 360, 22.5,
+                                             step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
-        self.azimuth_sf.emit_current_value()
 
         # Show button
         self.btn_show = QtWidgets.QPushButton('Show')
         self.btn_show.clicked.connect(self.show_visual)
         self.layout().addWidget(self.btn_show)
 
-    def update_elevation_sp(self, sf):
-        self.elevation_sp.setText('Elevation SP {:.1f} [deg]'.format(1. / sf))
-
-    def update_azimuth_sp(self, sf):
-        self.azimuth_sp.setText('Azimuth SP {:.1f} [deg]'.format(1. / sf))
-
     def show_visual(self):
         from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard
-        elevation_sf = self.elevation_sf.get_value(),
-        azimuth_sf = self.azimuth_sf.get_value()
+        elevation_sp = self.elevation_sp.get_value()
+        azimuth_sp = self.azimuth_sp.get_value()
         acc.display.canvas.visual = BlackWhiteCheckerboard(
             acc.display.canvas,
-            **{BlackWhiteCheckerboard.u_elevation_sf: elevation_sf,
-               BlackWhiteCheckerboard.u_azimuth_sf: azimuth_sf})
+            **{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
+               BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})

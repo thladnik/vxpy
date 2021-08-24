@@ -1,4 +1,4 @@
-// planar/checkerboard.frag
+// planar/static_checker.frag
 
 const float c_pi = 3.14159265359;
 
