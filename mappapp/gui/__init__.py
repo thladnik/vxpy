@@ -509,9 +509,9 @@ class Plotter(IntegratedWidget):
         self.plot_item.sigXRangeChanged.connect(self.update_ui_xrange)
 
         # Set up cache file
-        if os.path.exists('_plotter_temp.h5'):
-            os.remove('_plotter_temp.h5')
-        self.cache = h5py.File('_plotter_temp.h5', 'w')
+        if os.path.exists('._plotter_temp.h5'):
+            os.remove('._plotter_temp.h5')
+        self.cache = h5py.File('._plotter_temp.h5', 'w')
 
     def ui_xrange_changed(self):
         self.plot_item.setXRange(self.dsp_xmin.value(), self.dsp_xmax.value(), padding=0.)
