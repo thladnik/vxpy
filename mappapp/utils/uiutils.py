@@ -1,5 +1,5 @@
 """
-MappApp ./utils/gui.py
+MappApp ./utils/uiutils.py
 Copyright (C) 2020 Tim Hladnik
 
 * The "qn" class was originally created by Yue Zhang and is also available
@@ -174,6 +174,42 @@ class IntSliderWidget(QtWidgets.QWidget):
     def _exc_callback(self):
         for callback in self._callbacks:
             callback(self.spinner.value())
+
+
+class Checkbox(QtWidgets.QWidget):
+
+    def __init__(self, name, default_val, label_width=None):
+        QtWidgets.QWidget.__init__(self)
+
+        self._callbacks = []
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
+        # Label
+        self.label = QtWidgets.QLabel(name)
+        if label_width is not None:
+            self.label.setFixedWidth(label_width)
+        self.layout().addWidget(self.label)
+
+        # Checkbox
+        self.checkbox = QtWidgets.QCheckBox()
+        self.layout().addWidget(self.checkbox)
+        self.checkbox.setChecked(default_val)
+
+    def get_value(self):
+        return self.checkbox.isChecked()
+
+    def set_value(self, value):
+        self.checkbox.setChecked(value)
+
+    def connect_to_result(self, callback):
+        self._callbacks.append(callback)
+
+    def _exc_callback(self):
+        for callback in self._callbacks:
+            callback(self.checkbox.isChecked())
+
 
 class ComboBoxWidget(QtWidgets.QWidget):
     def __init__(self, name, options, *args, **kwargs):

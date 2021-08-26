@@ -17,13 +17,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 import os
+from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
 
-from mappapp.utils import geometry,sphere
-from mappapp import Logging,Def,Config
-
+from mappapp import Config
+from mappapp import Def
+from mappapp import Logging
+from mappapp.utils import geometry
+from mappapp.utils import sphere
 
 ################################
 # Abstract visual class
@@ -31,6 +34,8 @@ from mappapp import Logging,Def,Config
 class AbstractVisual:
     description = ''
     interface = []
+
+    parameters = {}
 
 
     # Display shaders
@@ -59,11 +64,10 @@ class AbstractVisual:
 
     _parse_fun_prefix = 'parse_'
 
-    def __init__(self, canvas):
+    def __init__(self, canvas, **params):
         self.frame_time = None
-        self.canvas = canvas
+        self.canvas: app.Canvas = canvas
         self._programs = dict()
-        self.parameters = dict()
         self.transform_uniforms = dict()
 
         self._buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
@@ -76,6 +80,10 @@ class AbstractVisual:
         self._display_prog = gloo.Program(self._vertex_display, self._frag_display, count=4)
         self._display_prog['a_position'] = self.square
         self._display_prog['u_texture'] = self._out_texture
+
+        gloo.set_state(depth_test=True)
+
+        self.update(**params)
 
     def __setattr__(self, key, value):
         # Catch programs being set and add them to dictionary
@@ -110,7 +118,10 @@ class AbstractVisual:
     def parse_vertex_shader(self, vert):
         return f'{self._vertex_map}\n{vert}'
 
-    def update(self, **params):
+    def trigger(self, trigger_fun):
+        getattr(self, trigger_fun.__name__)()
+
+    def update(self, _update_verbosely=True, **params):
         """
         Method to update stimulus parameters.
 
@@ -126,15 +137,55 @@ class AbstractVisual:
                 value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
             self.parameters[key] = value
 
-        Logging.write(Logging.INFO,
-                      f'Update visual {self.__class__.__name__}. '
-                      'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
+        if _update_verbosely:
+            Logging.write(Logging.INFO,
+                          f'Update visual {self.__class__.__name__}. '
+                          'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
 
         for program_name, program in self._programs.items():
             for key, value in self.parameters.items():
                 if key in program:
                     program[key] = value
 
+
+class BaseVisual(AbstractVisual):
+
+    _vertex_map = """
+    uniform mat4  u_model;
+    uniform mat4  u_view;
+    uniform mat4  u_projection;
+    
+    vec4 gl_position(vec3 position) {
+    
+        vec4 pos = vec4(position, 1.0);
+        pos = u_projection * u_view * u_model * pos;
+        
+        return pos;
+    }
+    """
+
+    def __init__(self, *args, **kargs):
+        AbstractVisual.__init__(self, *args, **kargs)
+
+    def draw(self, frame_time):
+
+        #self.theta, self.phi = 90, 90
+        #self.model = np.dot(transforms.rotate(self.theta, (0, 0, 1)), transforms.rotate(self.phi, (0, 1, 0)))
+        self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(90, (0, 1, 0)))
+        self.translate = 5
+        self.view = transforms.translate((0, 0, -self.translate))
+
+        self.transform_uniforms['u_view'] = self.view
+        self.transform_uniforms['u_model'] = self.model
+
+        self.apply_zoom()
+
+        self.render(frame_time)
+
+    def apply_zoom(self):
+        gloo.set_viewport(0, 0, self.canvas.physical_size[0], self.canvas.physical_size[1])
+        self.projection = transforms.perspective(45.0, self.canvas.size[0] / float(self.canvas.size[1]), 1.0, 1000.0)
+        self.transform_uniforms['u_projection'] = self.projection
 
 ################################
 # Spherical stimulus class
@@ -155,8 +206,7 @@ class SphericalVisual(AbstractVisual):
         uniform mat2 u_mapcalib_rotate2d;
 
 
-        vec4 gl_position(vec3 position)
-        {
+        vec4 gl_position(vec3 position) {
             // Final position
             vec4 pos = vec4(position, 1.0);
             
@@ -197,10 +247,14 @@ class SphericalVisual(AbstractVisual):
 
     # Mask fragment shader
     _mask_frag = """
+        uniform int u_part;
+        
         varying vec3 v_position;
         varying vec4 v_map_position;
         void main() {
+        
             gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+
             //gl_FragColor = vec4(1.0-abs(v_position.z), abs(v_position.z)/2.0, 0.0, 1.0); 
             //gl_FragColor = vec4((-v_position.z+1.0)/2.0, (v_position.z+1.0)/2.0, 0.0, 1.0);
             //gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
@@ -218,18 +272,31 @@ class SphericalVisual(AbstractVisual):
         }
     """
     _out_frag = """
+        uniform int u_part;
+        
         varying vec2 v_texcoord;
 
         uniform sampler2D u_raw_texture;
         uniform sampler2D u_mask_texture;
+        uniform sampler2D u_out_texture;
 
         void main() {
-            gl_FragColor = vec4(texture2D(u_raw_texture, v_texcoord).xyz * texture2D(u_mask_texture, v_texcoord).x, 1.0);
+                    
+            vec3 out_tex = texture2D(u_out_texture, v_texcoord).xyz;
+            vec3 raw = texture2D(u_raw_texture, v_texcoord).xyz;
+            float mask = texture2D(u_mask_texture, v_texcoord).x;
+            
+            if(mask > 0.0) {
+                gl_FragColor = vec4(raw * mask, 1.0);
+            } else {
+                gl_FragColor = vec4(out_tex, 1.0);
+            }
+            
         }
     """
 
-    def __init__(self, *args):
-        AbstractVisual.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        AbstractVisual.__init__(self, *args, **kwargs)
 
 
         # Create mask model
@@ -242,7 +309,7 @@ class SphericalVisual(AbstractVisual):
         self._mask_index_buffer = gloo.IndexBuffer(self._mask_model.indices)
 
         # Set textures and FBs
-        self._mask_texture = gloo.Texture2D(self._buffer_shape, format='luminance')
+        self._mask_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._mask_depth_buffer = gloo.RenderBuffer(self._buffer_shape)
         self._mask_fb = gloo.FrameBuffer(self._mask_texture, self._mask_depth_buffer)
 
@@ -266,6 +333,7 @@ class SphericalVisual(AbstractVisual):
         self._out_prog['a_position'] = self.square
         self._out_prog['u_raw_texture'] = self._raw_texture
         self._out_prog['u_mask_texture'] = self._mask_texture
+        self._out_prog['u_out_texture'] = self._out_texture
 
         # Set clear color
         #gloo.set_clear_color('black')
@@ -276,34 +344,14 @@ class SphericalVisual(AbstractVisual):
 
         self.frame_time = frame_time
 
-        # Set 2D scaling for aspect 1
         win_width = Config.Display[Def.DisplayCfg.window_width]
         win_height = Config.Display[Def.DisplayCfg.window_height]
+        # Set 2D scaling for aspect 1
         if win_height > win_width:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width/win_height])
+            u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
         else:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([win_height/win_width, 1])
+            u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
-
-        # Set 3D transform
-        distance = Config.Display[Def.DisplayCfg.sph_view_distance]
-        #fov = 240.0/distance #
-        fov = Config.Display[Def.DisplayCfg.sph_view_fov]
-
-        # Set relative size
-        self.transform_uniforms['u_mapcalib_scale'] = Config.Display[Def.DisplayCfg.sph_view_scale] * np.array([1,1])
-
-        translate3d = transforms.translate((0, 0, -distance))
-        self.transform_uniforms['u_mapcalib_translation'] = translate3d
-
-        project3d = transforms.perspective(fov, 1., 0.1, 400.0)
-        #project3d = transforms.ortho(-2.0, 2.0, -2.0, 2.0, 0.1, 400.0)
-        self.transform_uniforms['u_mapcalib_projection'] = project3d
-
-        # Calculate elevation rotation for projection
-        rotate_elev_3d = transforms.rotate(-Config.Display[Def.DisplayCfg.sph_view_elev_angle],(1,0,0))
-
-        xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos] * win_width/win_height, Config.Display[Def.DisplayCfg.glob_y_pos]])
 
         # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
@@ -317,45 +365,74 @@ class SphericalVisual(AbstractVisual):
         with self._mask_fb:
             gloo.clear()
 
+        with self._out_fb:
+            gloo.clear()
+
+        with self._display_fb:
+            gloo.clear()
+
         for i in range(4):
 
-            # Set spheroid transformation uniforms
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45, (0, 0, 1))
+            azim_orientation = Config.Display[Def.DisplayCfg.sph_view_azim_orient]
+            azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle][i]
+
+            # Set 3D transform
+            distance = Config.Display[Def.DisplayCfg.sph_view_distance][i]
+            fov = Config.Display[Def.DisplayCfg.sph_view_fov][i]
+            view_scale = Config.Display[Def.DisplayCfg.sph_view_scale][i]
+            elev_angle = Config.Display[Def.DisplayCfg.sph_view_elev_angle][i]
+            radial_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset][i]
+
+            # Set relative size
+            self.transform_uniforms['u_mapcalib_scale'] = view_scale * np.array([1, 1])
+
+            # 3D translation
+            self.transform_uniforms['u_mapcalib_translation'] = transforms.translate((0, 0, -distance))
+
+            # 3D projection
+            self.transform_uniforms['u_mapcalib_projection'] = transforms.perspective(fov, 1., 0.1, 400.0)
+
+            xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos] * win_width / win_height,
+                                  Config.Display[Def.DisplayCfg.glob_y_pos]])
+
             self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
-            self.transform_uniforms['u_mapcalib_rotate_elev'] = rotate_elev_3d
+            # 3D elevation rotation
+            self.transform_uniforms['u_mapcalib_rotate_elev'] = transforms.rotate(-elev_angle, (1, 0, 0))
 
             # 2D rotation around center of screen
             self.transform_uniforms['u_mapcalib_rotate2d'] = geometry.rotation2D(np.pi / 4 - np.pi / 2 * i)
 
             # 2D translation radially
-            radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * Config.Display[
-                Def.DisplayCfg.sph_pos_glob_radial_offset]
-            self.transform_uniforms['u_mapcalib_translate2d'] =  radial_offset + xy_offset
+            radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * radial_offset_scalar
+            self.transform_uniforms['u_mapcalib_translate2d'] = radial_offset + xy_offset
 
             # Render 90 degree mask to mask buffer
             # (BEFORE further 90deg rotation)
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(45 + azim_angle, (0,0,1))
             self.apply_transform(self._mask_program)
+            self._mask_program['u_part'] = i
             with self._mask_fb:
                 self._mask_program.draw('triangles', self._mask_index_buffer)
-            # Clear (important!)
-            gloo.clear()
 
-            # Apply 90*i degree rotation
-            azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle]
-            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_angle + 90 * i, (0,0,1))
+            # Apply 90*i degree rotation to actual spherical stimulus
+            self.transform_uniforms['u_mapcalib_rotate_z'] = transforms.rotate(azim_orientation + 90 * i + azim_angle, (0, 0, 1))
 
             # And render actual stimulus sphere
             with self._raw_fb:
                 self.render(frame_time)
 
-            # Clear (important!)
-            gloo.clear()
-
             # Combine mask and raw texture into out_texture
             # (To optionally be saved to disk and rendered to screen)
+            self._out_prog['u_part'] = i
             with self._out_fb:
                 self._out_prog.draw('triangle_strip')
+
+            with self._mask_fb:
+                gloo.clear()
+
+            with self._raw_fb:
+                gloo.clear()
 
         self._display_prog.draw('triangle_strip')
 
@@ -374,7 +451,7 @@ class PlanarVisual(AbstractVisual):
     uniform float u_glob_x_position;
     uniform float u_glob_y_position;
     
-    vec4 gl_position(vec3 position) {
+    vec4 transform_position(vec3 position) {
         vec4 pos = vec4(position.x * u_mapcalib_xscale * u_mapcalib_xextent + u_glob_x_position,
                         position.y * u_mapcalib_yscale * u_mapcalib_yextent + u_glob_y_position,
                         position.z, 
@@ -397,9 +474,8 @@ class PlanarVisual(AbstractVisual):
     
     """
 
-    def __init__(self, *args):
-        AbstractVisual.__init__(self, *args)
-        #gloo.set_clear_color('black')
+    def __init__(self, *args, **kwargs):
+        AbstractVisual.__init__(self, *args, **kwargs)
 
     def draw(self, frame_time):
         gloo.clear()

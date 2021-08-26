@@ -1,5 +1,5 @@
 """
-MappApp ./core/process.py
+MappApp ./core/modules.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,7 +24,7 @@ import time
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp.gui.core import Plotter
+from mappapp import gui
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -58,13 +58,13 @@ class AbstractRoutine:
         self.buffer: RingBuffer = RingBuffer()
 
     def initialize(self):
-        """Called in forked process"""
+        """Called in forked modules"""
         pass
 
     def execute(self, *args, **kwargs):
         """Method is called on every iteration of the producer.
 
-        Compute method is called on data updates (in the producer process).
+        Compute method is called on data updates (in the producer modules).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
         raise NotImplementedError(f'_compute not implemented in {self.__class__.__name__}')
 
@@ -76,7 +76,7 @@ class AbstractRoutine:
         self.file_attrs.append(attr_name)
 
     def register_with_ui_plotter(self, routine_cls: Type[AbstractRoutine], attr_name: str, start_idx: int, *args, **kwargs):
-        IPC.rpc(Def.Process.Gui, Plotter.add_buffer_attribute, routine_cls, attr_name, start_idx, *args, **kwargs)
+        IPC.rpc(Def.Process.Gui, gui.Plotter.add_buffer_attribute, routine_cls, attr_name, start_idx, *args, **kwargs)
 
     def to_file(self) -> (str, float, Any):
         """Method may be reimplemented. Can be used to alter the output to file.
@@ -168,9 +168,16 @@ class BufferAttribute:
     def __init__(self, length=100):
         self._length = length
         self._data = None
-        self._index = None
+        self._index = mp.Value(ctypes.c_uint64)
         self._time = IPC.Manager.list([None] * self._length)
         self._buffer: RingBuffer
+
+    def _next(self):
+        self._index.value += 1
+
+    @property
+    def index(self):
+        return self._index.value
 
     def build(self):
         pass
@@ -188,16 +195,19 @@ class BufferAttribute:
     def get_times(self, last):
         return self._get_times(*self._get_range(last))
 
-    def get(self, current_idx):
-        self._index = current_idx
-        return self
+    # def get(self, current_idx):
+    #     self._index = current_idx
+    #     return self
 
     def _read(self, start_idx, end_idx, use_lock):
         raise NotImplementedError(f'_read not implemented in {self.__class__.__name__}')
 
+    def carry(self):
+        self.write(self._read(*self._get_range(last=1), use_lock=True))
+
     def read(self, last=1, use_lock=True, from_idx=None):
         if from_idx is not None:
-            last = self._index - from_idx
+            last = self.index - from_idx
             # If this turns up 0, return nothing, as by default read(last=0)
             # would be used in producer to read current value (which consumers should never do)
             if last <= 0:
@@ -216,21 +226,23 @@ class BufferAttribute:
 
         # Regular read: fetch some number of entries from buffer
         if last > 0:
-            internal_idx = self._index % self._length
+            internal_idx = self.index % self._length
             start_idx = internal_idx - last
         # Read current entry from buffer
         # (Should only be done in producer! In consumer the result is unpredictable)
         else:
-            internal_idx = (self._index + 1) % self._length
+            internal_idx = (self.index + 1) % self._length
             start_idx = internal_idx - 1
 
         return start_idx, internal_idx
 
     def _get_index_list(self, last) -> List:
-        return list(range(self._index - last, self._index))
+        return list(range(self.index - last, self.index))
 
 
 class ArrayDType:
+    binary = (ctypes.c_bool, np.bool)
+
     int8 = (ctypes.c_int8, np.int8)
     int16 = (ctypes.c_int16, np.int16)
     int32 = (ctypes.c_int32, np.int32)
@@ -366,10 +378,10 @@ class ArrayAttribute(BufferAttribute):
 
     def write(self, value):
         # Index in buffer
-        internal_idx = self._index % self._length
+        internal_idx = self.index % self._length
 
         # Set time for this entry
-        self._time[internal_idx] = self._buffer.get_time()
+        self._time[internal_idx] = IPC.Process.global_t
 
         # Set data
         if self._chunked:
@@ -381,6 +393,9 @@ class ArrayAttribute(BufferAttribute):
         else:
             with self._get_lock(None, True):
                 self._data[internal_idx] = value
+
+        # Advance buffer
+        self._next()
 
     def __setitem__(self, key, value):
         self._data[key % self._length] = value
@@ -400,13 +415,16 @@ class ObjectAttribute(BufferAttribute):
             return self._data[start_idx:] + self._data[:end_idx]
 
     def write(self, value):
-        internal_idx = self._index % self._length
+        internal_idx = self.index % self._length
 
         # Set time for this entry
-        self._time[internal_idx] = self._buffer.get_time()
+        self._time[internal_idx] = IPC.Process.global_t#self._buffer.get_time()
 
         # Set data
         self._data[internal_idx] = value
+
+        # Advance buffer
+        self._next()
 
     def __setitem__(self, key, value):
         self._data[key % self._length] = value
@@ -417,7 +435,8 @@ class RingBuffer:
     attr_prefix = '_attr_'
 
     def __init__(self):
-        self.__dict__['current_idx'] = mp.Value(ctypes.c_uint64)
+        pass
+        # self.__dict__['current_idx'] = mp.Value(ctypes.c_uint64)
 
     def build(self):
         for attr_name, obj in self.__dict__.items():
@@ -439,11 +458,11 @@ class RingBuffer:
     def get_time(self):
         return self.__dict__['current_time']
 
-    def set_index(self, new_idx):
-        self.__dict__['current_idx'].value = new_idx
+    # def set_index(self, new_idx):
+    #     self.__dict__['current_idx'].value = new_idx
 
-    def get_index(self):
-        return self.__dict__['current_idx'].value
+    # def get_index(self):
+    #     return self.__dict__['current_idx'].value
 
     def read(self, attr_name, *args, **kwargs):
         return getattr(self, attr_name).read(*args, **kwargs)
@@ -456,11 +475,11 @@ class RingBuffer:
     def __getattr__(self, item) -> BufferAttribute:
         # Return
         try:
-            return self.__dict__[f'_attr_{item}'].get(self.get_index())
+            return self.__dict__[f'_attr_{item}']#.get(self.get_index())
         except:
             # Fallback for serialization
             self.__getattribute__(item)
 
-    def next(self):
-        #self.set_time(time.time())
-        self.set_index(self.get_index() + 1)
+    # def next(self):
+    #     #self.set_time(time.time())
+    #     self.set_index(self.get_index() + 1)

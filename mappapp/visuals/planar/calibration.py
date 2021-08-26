@@ -18,22 +18,29 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from mappapp.core.visual import PlanarVisual
+from mappapp.core import visual
 from mappapp.utils import plane
 
 
-class Sinusoid2d(PlanarVisual):
+class Sinusoid2d(visual.PlanarVisual):
 
-    u_sf_vertical = 'u_sf_vertical'
-    u_sf_horizontal = 'u_sf_horizontal'
+    u_sp_vertical = 'u_sp_vertical'
+    u_sp_horizontal = 'u_sp_horizontal'
     u_checker_pattern = 'u_checker_pattern'
 
-    parameters = {u_sf_vertical: None,
-                  u_sf_horizontal: None,
-                  u_checker_pattern: None}
+    parameters = {u_sp_vertical: 10,
+                  u_sp_horizontal: 10,
+                  u_checker_pattern: True}
+
+
+    interface = [
+        (u_sp_vertical, 0.5, 1., 100., dict(step_size=1.)),
+        (u_sp_horizontal, 0.5, 1., 100., dict(step_size=1.)),
+        (u_checker_pattern, True),
+    ]
 
     def __init__(self, *args, vert_shader=None, **params):
-        PlanarVisual.__init__(self, *args)
+        visual.PlanarVisual.__init__(self, *args)
 
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))

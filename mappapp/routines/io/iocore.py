@@ -1,5 +1,5 @@
 """
-MappApp ./routines/io/core.py
+MappApp ./routines/io/__init__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -20,50 +20,80 @@ import numpy as np
 
 from mappapp import Config
 from mappapp import Def
-from mappapp.core.routine import ArrayAttribute, ArrayDType, IoRoutine
-from mappapp.routines.camera.core import EyePositionDetection
+from mappapp import IPC
+from mappapp.core import routine
+from mappapp.routines.camera import zf_tracking
 
 
-class ReadAnalog(IoRoutine):
+
+class All(routine.IoRoutine):
 
     def __init__(self, *args, **kwargs):
-        IoRoutine.__init__(self, *args, **kwargs)
+        routine.IoRoutine.__init__(self, *args, **kwargs)
+
+        # Read all pins
+        self.pins = dict()
+        for did, pins in Config.Io[Def.IoCfg.pins].items():
+            for pid, pconf in pins.items():
+                pconf.update(dev=did)
+                self.pins[pid] = pconf
+
+        # Set up buffer attributes
+        for pid, pconf in self.pins.items():
+            if pconf['type'] in ('di', 'do'):
+                setattr(self.buffer, pid, routine.ArrayAttribute((1,), routine.ArrayDType.int8))
+            else:
+                setattr(self.buffer, pid, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
+
+            # Add pin to be written to file
+            self.file_attrs.append(pid)
+
+    def execute(self, **pins):
+        for pid, pin in pins.items():
+            getattr(self.buffer, pid).write(pin.read())
+
+
+
+class ReadAnalog(routine.IoRoutine):
+
+    def __init__(self, *args, **kwargs):
+        routine.IoRoutine.__init__(self, *args, **kwargs)
 
         self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
         self.pins = [pin for pin in self.pins if pin[-1] == 'a'] # Select just inputs to read
 
         for pin_name, pin_num, pin_type in self.pins:
-            setattr(self.buffer, pin_name, ArrayAttribute((1,), ArrayDType.float64))
+            setattr(self.buffer, pin_name, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
 
     def execute(self, pin_data, device):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
 
-class ReadDigital(IoRoutine):
+class ReadDigital(routine.IoRoutine):
 
     def __init__(self, *args, **kwargs):
-        IoRoutine.__init__(self, *args, **kwargs)
+        routine.IoRoutine.__init__(self, *args, **kwargs)
 
         self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
         self.pins = [pin for pin in self.pins if pin[-1] == 'i'] # Select just inputs to read
 
         for pin_name, pin_num, pin_type in self.pins:
-            setattr(self.buffer, pin_name, ArrayAttribute((1,), ArrayDType.float64))
+            setattr(self.buffer, pin_name, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
 
     def execute(self, pin_data, device):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
 
-class TestTrigger(IoRoutine):
+class TestTrigger(routine.IoRoutine):
 
     def __init__(self, *args, **kwargs):
-        IoRoutine.__init__(self, *args, **kwargs)
+        routine.IoRoutine.__init__(self, *args, **kwargs)
 
         self.exposed.append(TestTrigger.do_trigger)
 
-        self.connect_to_trigger('saccade_trigger', EyePositionDetection, TestTrigger.do_trigger01)
+        self.connect_to_trigger('saccade_trigger', zf_tracking.EyePositionDetection, TestTrigger.do_trigger01)
 
     def execute(self, *args, **kwargs):
         pass
@@ -75,10 +105,10 @@ class TestTrigger(IoRoutine):
         here = time.time()
         print('Time sent {:.5f} // Time received {:.5f} // Time diff {:.5f}'.format(there,here,here-there))
 
-class TriggerLedArenaFlash(IoRoutine):
+class TriggerLedArenaFlash(routine.IoRoutine):
 
     def __init__(self, *args, **kwargs):
-        IoRoutine.__init__(self, *args, **kwargs)
+        routine.IoRoutine.__init__(self, *args, **kwargs)
 
         # Make trigger function accessible
         self.exposed.append(TriggerLedArenaFlash.trigger_flash)
@@ -99,8 +129,8 @@ class TriggerLedArenaFlash(IoRoutine):
         self.trigger_state = False
 
         # Set buffer attribute
-        self.buffer.trigger_set = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
-        self.buffer.flash_state = ArrayAttribute(shape=(1,), dtype=ArrayDType.uint8, length=20000)
+        self.buffer.trigger_set = routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.uint8, length=20000)
+        self.buffer.flash_state = routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.uint8, length=20000)
 
         self.delay = None
         self.duration = None
@@ -123,10 +153,8 @@ class TriggerLedArenaFlash(IoRoutine):
 
     def execute(self, pin_data, device):
         # Check saccade
-        from mappapp import IPC
-        from mappapp.routines.camera.core import EyePositionDetection
-        _, _, le_sacc_val = IPC.Camera.read(EyePositionDetection, 'le_saccade_0')
-        _, sacc_time, re_sacc_val = IPC.Camera.read(EyePositionDetection, 're_saccade_0')
+        _, _, le_sacc_val = IPC.Camera.read(zf_tracking.EyePositionDetection, 'le_saccade_0')
+        _, sacc_time, re_sacc_val = IPC.Camera.read(zf_tracking.EyePositionDetection, 're_saccade_0')
 
         if re_sacc_val[0] > 0 or le_sacc_val[0] > 0:
             self.trigger_flash()

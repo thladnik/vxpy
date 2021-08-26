@@ -1,5 +1,5 @@
 """
-MappApp ./process/gui.py
+MappApp ./modules/uiutils.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -22,32 +22,36 @@ import sys
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
-from mappapp import process
-from mappapp.core.process import AbstractProcess
-from mappapp.gui.core import Camera, Display, Io, Logger, Plotter, ProcessMonitor, Recording
+from mappapp import modules
+from mappapp.core import process
+from mappapp import gui
 
-
-class Gui(QtWidgets.QMainWindow, AbstractProcess):
+class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     name = Def.Process.Gui
 
     app: QtWidgets.QApplication
 
-    def __init__(self, _app=QtWidgets.QApplication(sys.argv), **kwargs):
+    def __init__(self, **kwargs):
         # Create application
-        self.app = _app
+        self.app = QtWidgets.QApplication.instance()
+        if self.app is None:
+            self.app =QtWidgets.QApplication(sys.argv)
 
         # Set up parents
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon
-        self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
+        if sys.platform == 'win32':
+            self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
+        elif sys.platform == 'linux':
+            self.setWindowIcon(QtGui.QIcon('mappapp/testicon.png'))
 
         # Setup basic UI
         self.setup_ui()
 
         # Run event loop
-        self.run(interval=0.005)
+        self.run(interval=1/40)
 
     def main(self):
         self.app.processEvents()
@@ -68,25 +72,25 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
 
         # Display
         if Config.Display[Def.DisplayCfg.use]:
-            self.display = Display(self)
+            self.display = gui.Display(self)
             self.display.create_hooks()
             self.upper_widget.layout().addWidget(self.display)
 
         # Display
         if Config.Io[Def.IoCfg.use]:
-            self.io = Io(self)
+            self.io = gui.Io(self)
             self.io.create_hooks()
             self.upper_widget.layout().addWidget(self.io)
 
         # Camera
         if Config.Camera[Def.CameraCfg.use]:
-            self.camera = Camera(self)
+            self.camera = gui.Camera(self)
             self.camera.create_hooks()
             self.upper_widget.layout().addWidget(self.camera)
 
         # Middle
         # Add Plotter
-        self.plotter = Plotter(self)
+        self.plotter = gui.Plotter(self)
         self.plotter.setMinimumHeight(300)
         self.plotter.setMaximumHeight(400)
         self.plotter.create_hooks()
@@ -98,17 +102,19 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         self.centralWidget().layout().addWidget(self.lower_widget)
 
         # Process monitor
-        self.process_monitor = ProcessMonitor(self)
+        self.process_monitor = gui.ProcessMonitor(self)
         self.process_monitor.setMaximumHeight(400)
+        self.process_monitor.create_hooks()
         self.lower_widget.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = Recording(self)
+        self.recordings = gui.Recording(self)
         self.recordings.setMaximumHeight(400)
+        self.recordings.create_hooks()
         self.lower_widget.layout().addWidget(self.recordings)
 
         # Logger
-        self.log_display = Logger(self)
+        self.log_display = gui.Logger(self)
         self.log_display.setMinimumHeight(200)
         self.log_display.setMaximumHeight(400)
         self.lower_widget.layout().addWidget(self.log_display)
@@ -135,10 +141,12 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
         self._bind_shortcuts()
 
         # Set geometry
-        self.move(0, 0)
+        # self.move(0, 0)
         self.screenGeo = self.app.primaryScreen().geometry()
         w, h = self.screenGeo.width(), self.screenGeo.height()
+        x,y = self.screenGeo.x(), self.screenGeo.y()
 
+        self.move(x, y)
         if w > 1920 and h > 1080:
             #self.resize(1920, 1080)
             self.resize(70 * w // 100, 70 * h // 100)
@@ -148,25 +156,40 @@ class Gui(QtWidgets.QMainWindow, AbstractProcess):
             self.showMaximized()
 
 
+    def _start_shutdown(self):
+        self.closeEvent(None)
+
+        IPC.Process.set_state(Def.State.STOPPED)
+
+    def prompt_shutdown_confirmation(self):
+        reply = QtWidgets.QMessageBox.question(self, 'Confirm shutdown',
+                                               'Program is still busy. Shut down anyways?',
+                                               QtWidgets.QMessageBox.Close | QtWidgets.QMessageBox.Cancel,
+                                               QtWidgets.QMessageBox.Cancel)
+
+        if reply == QtWidgets.QMessageBox.Close:
+            IPC.rpc(modules.Controller.name, modules.Controller._force_shutdown)
+
     def restart_camera(self):
-        IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Camera)
+        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
 
     def restart_display(self):
-        IPC.rpc(Def.Process.Controller, process.Controller.initialize_process, process.Display)
+        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
 
     def _bind_shortcuts(self):
 
-        # Restart display process
+        # Restart display modules
         self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
         self.menu_process.restart_display.setAutoRepeat(False)
-        # Restart camera process
+        # Restart camera modules
         if Config.Camera[Def.CameraCfg.use]:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
-        # Inform controller of close event
-        IPC.send(Def.Process.Controller,Def.Signal.shutdown)
+        if a0 is not None:
+            # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
 
-        # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
-        IPC.Process.set_state(Def.State.STOPPED)
+            # Inform controller of close event
+            IPC.send(Def.Process.Controller,Def.Signal.shutdown)
+            a0.setAccepted(False)

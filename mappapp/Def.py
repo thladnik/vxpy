@@ -147,7 +147,7 @@ class CameraCfg(Cfg):
 class DisplayCfg(Cfg):
     name = Process.Display.lower()
 
-    ## General
+    # General
     type = 'str_type'
     fps = 'int_fps'
     window_backend = 'str_window_backend'
@@ -155,7 +155,7 @@ class DisplayCfg(Cfg):
     gl_version_minor = 'int_gl_version_minor'
     gl_profile = 'str_gl_profile'
 
-    ## Window settings
+    # Window settings
     window_screen_id = 'int_window_screen_id'
     window_fullscreen = 'bool_window_fullscreen'
     window_width = 'int_window_width'
@@ -163,18 +163,19 @@ class DisplayCfg(Cfg):
     window_pos_x = 'int_window_pos_x'
     window_pos_y = 'int_window_pos_y'
 
-    ## Calibration settings
+    # Calibration settings
     # General
     glob_x_pos = 'float_glob_x_pos'
     glob_y_pos = 'float_glob_y_pos'
 
     # Spherical
-    sph_pos_glob_radial_offset = 'float_sph_pos_glob_radial_offset'
-    sph_view_elev_angle = 'float_sph_view_elev_angle'
-    sph_view_azim_angle = 'float_sph_view_azim_angle'
-    sph_view_distance = 'float_sph_view_origin_distance'
-    sph_view_fov = 'float_sph_view_fov'
-    sph_view_scale = 'float_sph_view_scale'
+    sph_view_azim_orient = 'float_sph_view_azim_orient'
+    sph_pos_glob_radial_offset = 'json_sph_pos_glob_radial_offset'
+    sph_view_elev_angle = 'json_sph_view_elev_angle'
+    sph_view_azim_angle = 'json_sph_view_azim_angle'
+    sph_view_distance = 'json_sph_view_origin_distance'
+    sph_view_fov = 'json_sph_view_fov'
+    sph_view_scale = 'json_sph_view_scale'
 
     # Planar
     pla_xextent = 'float_pla_xextent'
@@ -200,12 +201,9 @@ class GuiCfg(Cfg):
 class IoCfg(Cfg):
     name = Process.Io.lower()
 
-    device_type = 'str_device_type'
-    device_model = 'str_device_model'
-    device_port = 'str_device_comport'
-    sample_rate = 'int_sample_rate'
+    device = 'json_device'
+    max_sr = 'int_max_sr'
     pins = 'json_pins'
-    analog_pins = 'json_analog_pins'
 
     routines = 'json_routines'
 

@@ -1,5 +1,5 @@
 """
-MappApp ./IPC.py - Inter-process-communication placeholders and functions.
+MappApp ./IPC.py - Inter-modules-communication placeholders and functions.
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik
 
@@ -23,13 +23,16 @@ from mappapp import Logging
 
 # Type hinting
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from typing import Callable, Dict, Tuple
     from mappapp.core.process import AbstractProcess, ProcessProxy
 
 Manager: SyncManager
 
+# Local modules reference
 Process: AbstractProcess
+
 
 ########
 # States
@@ -54,14 +57,14 @@ Worker: ProcessProxy
 
 
 def set_state(new_state: int):
-    """Set state of local process to new_state"""
+    """Set state of local modules to new_state"""
     getattr(State, Process.name).value = new_state
 
 
 def get_state(process_name: str = None):
-    """Get state of process.
+    """Get state of modules.
 
-    By default, if process_name is None, the local process's name is used
+    By default, if process_name is None, the local modules's name is used
     """
     if process_name is None:
         process_name = Process.name
@@ -70,9 +73,9 @@ def get_state(process_name: str = None):
 
 
 def in_state(state: int, process_name: str = None):
-    """Check if process is in the given state.
+    """Check if modules is in the given state.
 
-    By default, if process_name is None, the local process's name is used
+    By default, if process_name is None, the local modules's name is used
     """
     if process_name is None:
         process_name = Process.name
@@ -80,11 +83,10 @@ def in_state(state: int, process_name: str = None):
     return get_state(process_name) == state
 
 
-
 # Pipes
 # TODO: pipes have *limited buffer size*. This means if processes send
 #  messages more quickly than the consumer can sort them out, this will crash
-#  the producer process (can happen e.g. for very frequent event triggered signals)
+#  the producer modules (can happen e.g. for very frequent event triggered signals)
 #  ----
 #  -> One solution may be an arbitrary limit on how often a pipe can be used to send
 #  messages in a given time window. Although this would disregard the size of messages:
@@ -95,10 +97,10 @@ def in_state(state: int, process_name: str = None):
 Pipes: Dict[str, Tuple[mp.connection.Connection]] = dict()
 
 
-def send(process_name: str, signal: int, *args, **kwargs) -> None:
-    """Send a message to another process via pipe.
+def send(process_name: str, signal: int, *args, _send_verbosely=True, **kwargs) -> None:
+    """Send a message to another modules via pipe.
 
-    Convenience function for sending messages to process with process_name.
+    Convenience function for sending messages to modules with process_name.
     All messages have the format [Signal code, Argument list, Keyword argument dictionary]
 
     @param process_name:
@@ -107,32 +109,33 @@ def send(process_name: str, signal: int, *args, **kwargs) -> None:
     @param kwargs:
 
     """
-    try:
-        # Logging.write(Logging.DEBUG,
-        #               f'Send to process {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
-        Pipes[process_name][0].send([signal, args, kwargs])
+    if _send_verbosely:
+        Logging.write(Logging.DEBUG,
+                      f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
 
+    kwargs.update(_send_verbosely=_send_verbosely)
 
-    except:
-        print('Meh', Logging.write)
+    Pipes[process_name][0].send([signal, args, kwargs])
+
 
 def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
-    """Send a remote procedure call of given function to another process.
+    """Send a remote procedure call of given function to another modules.
 
     @param process_name:
     @param function:
     @param args:
     @param kwargs:
     """
-    if not(isinstance(function, str)):
+    if not (isinstance(function, str)):
         function = function.__qualname__
-    send(process_name,Def.Signal.rpc,function,*args,**kwargs)
+    send(process_name, Def.Signal.rpc, function, *args, **kwargs)
 
 
 class Log:
     File = None
     Queue = None
     History = None
+
 
 ########
 # Controls

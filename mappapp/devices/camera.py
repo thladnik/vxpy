@@ -77,7 +77,8 @@ class VirtualCamera(AbstractCamera):
                'Single_Fish_Spontaneous_4@115fps',
                'Single_Fish_Spontaneous_1@30fps',
                'Single_Fish_Free_Swim_Dot_Chased@50fps',
-               'Single_Fish_Free_Swim_On_random_motion@100fps']
+               'Single_Fish_Free_Swim_On_random_motion@100fps',
+               'Single_Fish_OKR_embedded@30fps']
 
     _formats = {'Multi_Fish_Eyes_Cam@20fps': ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)', 'RGB8 (480x480)', 'Y800 (480x480)'],
                 'Single_Fish_Eyes_Cam@20fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
@@ -87,7 +88,8 @@ class VirtualCamera(AbstractCamera):
                 'Single_Fish_Spontaneous_4@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
                 'Single_Fish_Spontaneous_1@30fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
                 'Single_Fish_Free_Swim_Dot_Chased@50fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
-                'Single_Fish_Free_Swim_On_random_motion@100fps': ['RGB8 (640x480)', 'Y800 (600x380)', ]}
+                'Single_Fish_Free_Swim_On_random_motion@100fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
+                'Single_Fish_OKR_embedded@30fps': ['RGB8 (640x480)', 'Y800 (600x380)', ]}
 
     _sampleFile = {'Multi_Fish_Eyes_Cam@20fps': 'Fish_eyes_multiple_fish_30s.avi',
                    'Single_Fish_Eyes_Cam@20fps': 'Fish_eyes_spontaneous_saccades_40s.avi',
@@ -97,7 +99,8 @@ class VirtualCamera(AbstractCamera):
                    'Single_Fish_Spontaneous_4@115fps': 'single_zebrafish_eyes0003.avi',
                    'Single_Fish_Spontaneous_1@30fps': 'OKR_2020-12-08_multi_phases.avi',
                    'Single_Fish_Free_Swim_Dot_Chased@50fps': 'fish_free_swimming_chased_by_dot.avi',
-                   'Single_Fish_Free_Swim_On_random_motion@100fps': 'Freely_swimming_on_CMN01.avi'}
+                   'Single_Fish_Free_Swim_On_random_motion@100fps': 'Freely_swimming_on_CMN01.avi',
+                    'Single_Fish_OKR_embedded@30fps': 'OKR_2020-12-08_multi_phases.avi'}
 
     def __init__(self, *args):
         AbstractCamera.__init__(self, *args)

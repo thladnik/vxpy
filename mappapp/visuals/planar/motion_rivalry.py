@@ -1,5 +1,5 @@
 """
-MappApp ./visuals/planar/grating.py
+MappApp ./visuals/planar/motion_rivalry.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -18,41 +18,18 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from mappapp.core.visual import PlanarVisual
-from mappapp.utils import plane
-
-"""
-MappApp ./visuals/planar/calibration.py
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
-"""
-from vispy import gloo
-import numpy as np
-
-from mappapp.core.visual import PlanarVisual
+from mappapp.core import visual
 from mappapp.utils import plane
 
 
-class motion_rivalry_1(PlanarVisual):
+class motion_rivalry_1(visual.PlanarVisual):
 
     u_sf_vertical = 'u_sf_vertical'
     u_sf_horizontal = 'u_sf_horizontal'
     u_checker_pattern = 'u_checker_pattern'
     pat_scale = 'pat_scale'
     mov_speed = 'mov_speed'
-    mov_dir   = 'mov_dir'
+    mov_dir = 'mov_dir'
 
     parameters = {u_sf_vertical: 0.1,
                   u_sf_horizontal: 0.1,
@@ -66,7 +43,7 @@ class motion_rivalry_1(PlanarVisual):
         (mov_dir, 0, -np.pi, np.pi, dict(step_size=np.pi/180)),
     ]
     def __init__(self, *args, vert_shader=None, **params):
-        PlanarVisual.__init__(self, *args)
+        visual.PlanarVisual.__init__(self, *args)
         # self._utime = 0.
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
@@ -87,7 +64,8 @@ class motion_rivalry_1(PlanarVisual):
         self.apply_transform(self.mrender)
         self.mrender.draw('triangles', self.index_buffer)
 
-class closeloop_grating(PlanarVisual):
+
+class closeloop_grating(visual.PlanarVisual):
 
     u_sf_vertical = 'u_sf_vertical'
     u_sf_horizontal = 'u_sf_horizontal'
@@ -108,7 +86,7 @@ class closeloop_grating(PlanarVisual):
         (u_dir, 0, -np.pi, np.pi, dict(step_size=np.pi/180)),
     ]
     def __init__(self, *args, vert_shader=None, **params):
-        PlanarVisual.__init__(self, *args)
+        visual.PlanarVisual.__init__(self, *args)
         # self._utime = 0.
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
@@ -128,7 +106,7 @@ class closeloop_grating(PlanarVisual):
         self.mrender.draw('triangles', self.index_buffer)
 
 
-class closeloop_dotchasing(PlanarVisual):
+class closeloop_dotchasing(visual.PlanarVisual):
 
     u_sf_vertical = 'u_sf_vertical'
     u_sf_horizontal = 'u_sf_horizontal'
@@ -140,7 +118,7 @@ class closeloop_dotchasing(PlanarVisual):
                   u_pos: (0.,0.)}
     interface = []
     def __init__(self, *args, vert_shader=None, **params):
-        PlanarVisual.__init__(self, *args)
+        visual.PlanarVisual.__init__(self, *args)
         # self._utime = 0.
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))

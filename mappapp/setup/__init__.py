@@ -1,5 +1,5 @@
 """
-MappApp ./startup/__init__.py
+MappApp ./setup/__main__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -21,16 +21,20 @@ def run():
     import argparse
     import sys
     from PyQt5 import QtWidgets
+    from vispy import app, gloo
 
-    from mappapp.process import Controller
-    from mappapp.startup import settings
+    from mappapp.modules import Controller
+    from mappapp.setup import acc
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--ini', action='store', dest='ini_file', type=str)
     args = parser.parse_args(sys.argv[1:])
 
-    from mappapp.startup.main import StartupConfiguration
+    from mappapp.setup.main import StartupConfiguration
 
+    app.use_app('glfw')
+    # app.use_app('PyQt5')
+    gloo.gl.use_gl('gl2')
 
     if sys.platform == 'win32':
         import wres
@@ -46,11 +50,12 @@ def run():
 
             else:
 
-                settings.winapp = QtWidgets.QApplication([])
-                settings.startupwin = StartupConfiguration()
-                settings.winapp.exec_()
+                acc.app = QtWidgets.QApplication([])
+                acc.main = StartupConfiguration()
+                acc.main.setup_ui()
+                acc.app.exec_()
 
-                configfile = settings.configfile
+                configfile = acc.configfile
 
 
             if configfile is None:
@@ -58,5 +63,26 @@ def run():
                 exit()
 
             ctrl = Controller(configfile)
+    elif sys.platform == 'linux':
+
+        configfile = None
+
+        if args.ini_file is not None:
+            configfile = args.ini_file
+
+        else:
+
+            acc.app = QtWidgets.QApplication([])
+            acc.main = StartupConfiguration()
+            acc.main.setup_ui()
+            acc.app.exec_()
+
+            configfile = acc.configfile
+
+        if configfile is None:
+            print('No configuration selected. Exit.')
+            exit()
+
+        ctrl = Controller(configfile)
     else:
         print('Sorry, probably not gonna work on \"{}\"'.format(sys.platform))

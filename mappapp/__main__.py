@@ -1,5 +1,5 @@
 """
-MappApp ./startup/settings.py
+MappApp ./__main__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-winapp = None
-startupwin = None
-configfile = None
-current_config = None
+
+if __name__ == '__main__':
+    from mappapp.setup import run
+
+    run()

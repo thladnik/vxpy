@@ -1,5 +1,5 @@
 """
-MappApp ./startup/camera_setup.py
+MappApp ./setup/__init__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@ from typing import Union
 from mappapp import Def
 from mappapp import Default
 from mappapp.devices import camera
-from mappapp.startup import settings
-from mappapp.startup.utils import ModuleWidget
+from mappapp.setup import acc
+from mappapp.setup.utils import ModuleWidget
 from mappapp.core.routine import AbstractRoutine
 
 
@@ -104,7 +104,7 @@ class CameraWidget(ModuleWidget):
 
         # Get routines listed in configuration
         used_routines = list()
-        for fname, routines in settings.current_config.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines).items():
+        for fname, routines in acc.cur_conf.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines).items():
             for cname in routines:
                 used_routines.append('{}.{}'.format(fname, cname))
 
@@ -156,7 +156,7 @@ class CameraWidget(ModuleWidget):
 
     def remove_routine(self):
 
-        routines = settings.current_config.getParsed(Def.CameraCfg.name,Def.CameraCfg.routines)
+        routines = acc.cur_conf.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines)
 
         rname = self.used_routine_list.currentItem().text()
         file_, class_ = rname.split('.')
@@ -181,9 +181,9 @@ class CameraWidget(ModuleWidget):
         if not(bool(routines[file_])):
             del routines[file_]
 
-        settings.current_config.setParsed(Def.CameraCfg.name,
-                                          Def.CameraCfg.routines,
-                                          routines)
+        acc.cur_conf.setParsed(Def.CameraCfg.name,
+                               Def.CameraCfg.routines,
+                               routines)
 
         self.load_settings_from_config()
 
@@ -196,8 +196,8 @@ class CameraWidget(ModuleWidget):
         file_, class_ = rname.split('.')
 
         # Get routines
-        routines = settings.current_config.getParsed(Def.CameraCfg.name,
-                                                     Def.CameraCfg.routines)
+        routines = acc.cur_conf.getParsed(Def.CameraCfg.name,
+                                          Def.CameraCfg.routines)
 
         # Add new routine
         if file_ not in routines:
@@ -206,9 +206,9 @@ class CameraWidget(ModuleWidget):
             routines[file_].append(class_)
 
         # Set routines
-        settings.current_config.setParsed(Def.CameraCfg.name,
-                                          Def.CameraCfg.routines,
-                                          routines)
+        acc.cur_conf.setParsed(Def.CameraCfg.name,
+                               Def.CameraCfg.routines,
+                               routines)
 
         # Update GUI
         self.load_settings_from_config()
@@ -216,8 +216,8 @@ class CameraWidget(ModuleWidget):
     def update_camera_list(self):
 
         self.camera_list.clear()
-        self.camera_list.addItems(settings.current_config.getParsed(Def.CameraCfg.name,
-                                                                    Def.CameraCfg.device_id))
+        self.camera_list.addItems(acc.cur_conf.getParsed(Def.CameraCfg.name,
+                                                         Def.CameraCfg.device_id))
 
     def toggle_cam_remove_btn(self, p_str):
         self.btn_remove_cam.setEnabled(bool(p_str))
@@ -225,7 +225,7 @@ class CameraWidget(ModuleWidget):
     def remove_camera(self):
 
         device_id = self.camera_list.currentItem().text()
-        section = settings.current_config.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
         device_list = section[Def.CameraCfg.device_id]
 
         if not(device_id in device_list):
@@ -264,14 +264,14 @@ class CameraWidget(ModuleWidget):
 
         # Update config
         name = Def.CameraCfg.name
-        settings.current_config.setParsed(name,Def.CameraCfg.device_id,device_list)
-        settings.current_config.setParsed(name,Def.CameraCfg.manufacturer,manufacturer)
-        settings.current_config.setParsed(name,Def.CameraCfg.model,model)
-        settings.current_config.setParsed(name,Def.CameraCfg.format,format_)
-        settings.current_config.setParsed(name,Def.CameraCfg.res_x,res_x)
-        settings.current_config.setParsed(name,Def.CameraCfg.res_y,res_y)
-        settings.current_config.setParsed(name,Def.CameraCfg.gain,gain)
-        settings.current_config.setParsed(name,Def.CameraCfg.exposure,exposure)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.device_id, device_list)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.manufacturer, manufacturer)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.model, model)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.format, format_)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.res_x, res_x)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.res_y, res_y)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.gain, gain)
+        acc.cur_conf.setParsed(name, Def.CameraCfg.exposure, exposure)
 
         self.update_camera_list()
 
@@ -293,7 +293,7 @@ class CameraWidget(ModuleWidget):
             return
 
         ### Update configuration
-        section = settings.current_config.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
         ## Add new camera
         if row_idx >= len(section[Def.CameraCfg.device_id]):
             action = 'Add'
@@ -314,7 +314,7 @@ class CameraWidget(ModuleWidget):
                                         dialog.data))
 
         for key, value in section.items():
-            settings.current_config.setParsed(Def.CameraCfg.name,key,value)
+            acc.cur_conf.setParsed(Def.CameraCfg.name, key, value)
 
         self.update_camera_list()
 
@@ -325,7 +325,7 @@ class CameraWidget(ModuleWidget):
         else:
             row_idx = idx
 
-        section = settings.current_config.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
 
         if self.camera is not None:
             self.camera.stop()
@@ -425,7 +425,7 @@ class EditCameraWidget(QtWidgets.QDialog):
     def update_models(self):
         self.model.clear()
 
-        section = settings.current_config.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
         select_models = section[Def.CameraCfg.model]
 
         avail_models = getattr(camera,self.manufacturer.currentText()).get_models()
@@ -444,7 +444,7 @@ class EditCameraWidget(QtWidgets.QDialog):
     def update_formats(self):
         self.vidformat.clear()
 
-        section = settings.current_config.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
         select_formats = section[Def.CameraCfg.format]
 
         avail_formats = getattr(camera,self.manufacturer.currentText()).get_formats(self.model.currentText())
@@ -461,7 +461,7 @@ class EditCameraWidget(QtWidgets.QDialog):
 
     def update_fields(self):
 
-        section = settings.current_config.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
 
         # If this is a new camera (index not in range)
         if self.camera_idx >= len(section[Def.CameraCfg.device_id]):

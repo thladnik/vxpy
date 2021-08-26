@@ -18,12 +18,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from mappapp.core.visual import PlanarVisual
+from mappapp.core import visual
 from mappapp.utils import plane
 
 
-class BlackAndWhiteGrating(PlanarVisual):
+class BlackAndWhiteGrating(visual.PlanarVisual):
     description = 'Black und white contrast grating stimulus'
+
+    def triggerme01(self):
+        print('TRIGGERED')
 
     u_shape = 'u_shape'
     u_direction = 'u_direction'
@@ -41,10 +44,11 @@ class BlackAndWhiteGrating(PlanarVisual):
         (u_shape, 'rectangular', 'sinusoidal'),
         (u_direction, 'horizontal', 'vertical'),
         (u_lin_velocity, 5., 0., 100., dict(step_size=1.)),
-        (u_spat_period, 10., 1.0, 200., dict(step_size=1.))
+        (u_spat_period, 10., 1.0, 200., dict(step_size=1.)),
+        ('trigger_something', triggerme01)
     ]
 
-    def __init__(self, *args, **params):
+    def __init__(self, *args, **kwargs):
         """
 
         :param args: positional arguments to parent class
@@ -53,7 +57,7 @@ class BlackAndWhiteGrating(PlanarVisual):
         :param lin_velocity: <float> linear velocity of grating in [mm/s]
         :param spat_period: <float> spatial period of the grating in [mm]
         """
-        PlanarVisual.__init__(self, *args)
+        visual.PlanarVisual.__init__(self, *args, **kwargs)
 
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(
@@ -65,14 +69,11 @@ class BlackAndWhiteGrating(PlanarVisual):
                                     self.load_shader('planar/grating.frag'))
         self.grating['a_position'] = self.position_buffer
 
-        self.update(**params)
-
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time#time.time() - self.start_time
 
         self.apply_transform(self.grating)
         self.grating.draw('triangles', self.index_buffer)
-
 
     def parse_u_shape(self, shape):
         return 1 if shape == 'rectangular' else 2  # 'sinusoidal'

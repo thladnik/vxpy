@@ -1,5 +1,5 @@
 """
-MappApp ./protocols/spherical_calibration.py - Protocols for calibration of spherical visual stimulation setup.
+MappApp ./protocols/spherical.py - Protocols for calibration of spherical visual stimulation setup.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -26,9 +26,9 @@ class Calibration16x16(StaticProtocol):
     def __init__(self, *args):
         StaticProtocol.__init__(self, *args)
 
-        self.add_phase(BlackWhiteCheckerboard,10 ** 6,
-                       {BlackWhiteCheckerboard.u_elevation_sf: 16,
-                        BlackWhiteCheckerboard.u_azimuth_sf: 16})
+        self.add_phase(BlackWhiteCheckerboard, 10 ** 6,
+                       {BlackWhiteCheckerboard.u_elevation_sp: 16,
+                        BlackWhiteCheckerboard.u_azimuth_sp: 16})
 
 
 class CalibrationMultiple(StaticProtocol):
@@ -39,9 +39,9 @@ class CalibrationMultiple(StaticProtocol):
 
         for num in range(5):
 
-            self.add_phase(BlackWhiteCheckerboard,10,
-                           {BlackWhiteCheckerboard.u_elevation_sf: 4 * (1 + num),
-                            BlackWhiteCheckerboard.u_azimuth_sf: 4 * (1 + num)})
+            self.add_phase(BlackWhiteCheckerboard, 10,
+                           {BlackWhiteCheckerboard.u_elevation_sp: 4 * (1 + num),
+                            BlackWhiteCheckerboard.u_azimuth_sp: 4 * (1 + num)})
 
 class RegularMesh16x16(StaticProtocol):
 

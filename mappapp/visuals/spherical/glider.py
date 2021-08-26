@@ -19,11 +19,11 @@ from vispy import gloo
 import numpy as np
 import time
 
-from mappapp.core.visual import SphericalVisual
+from mappapp.core import visual
 from mappapp.utils import sphere
 
 
-class Glider2Point(SphericalVisual):
+class Glider2Point(visual.SphericalVisual):
 
     p_parity = 'p_parity'
 
@@ -34,7 +34,7 @@ class Glider2Point(SphericalVisual):
         :param protocol: protocol of which stimulus is currently part of
 
         """
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         # Set up model
         self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
@@ -43,8 +43,7 @@ class Glider2Point(SphericalVisual):
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         # Set up program
-        self.glider = gloo.Program(self.load_vertex_shader('spherical/v_glider.glsl'),
-                                    self.load_shader('spherical/f_glider.glsl'))
+        self.glider = gloo.Program(self.load_vertex_shader('spherical/v_glider.glsl'), self.load_shader('spherical/f_glider.glsl'))
         self.glider['a_position'] = self.vertex_buffer
         self.glider['a_azimuth'] = self.azimuth_buffer
 
@@ -92,7 +91,7 @@ class Glider2Point(SphericalVisual):
 
 
 
-class Glider3Point(SphericalVisual):
+class Glider3Point(visual.SphericalVisual):
 
     p_parity = 'p_parity'
     p_mode = 'p_mode'
@@ -104,7 +103,7 @@ class Glider3Point(SphericalVisual):
         :param protocol: protocol of which stimulus is currently part of
 
         """
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         # Set up model
         self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
@@ -113,9 +112,7 @@ class Glider3Point(SphericalVisual):
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         # Set up program
-        self.glider = gloo.Program(
-            BasicFileShader().addShaderFile('spherical/v_glider.glsl').read(),
-            BasicFileShader().addShaderFile('spherical/f_glider.glsl').read())
+        self.glider = gloo.Program(self.load_vertex_shader('spherical/v_glider.glsl'), self.load_shader('spherical/f_glider.glsl'))
         self.glider['a_position'] = self.vertex_buffer
         self.glider['a_azimuth'] = self.azimuth_buffer
 

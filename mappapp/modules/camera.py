@@ -1,5 +1,5 @@
 """
-MappApp ./process/camera.py
+MappApp ./modules/camera.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -19,15 +19,14 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
-from mappapp.gui import core
-from mappapp.core.process import AbstractProcess
+from mappapp.core import process
 
 
-class Camera(AbstractProcess):
+class Camera(process.AbstractProcess):
     name = Def.Process.Camera
 
     def __init__(self, **kwargs):
-        AbstractProcess.__init__(self, **kwargs)
+        process.AbstractProcess.__init__(self, **kwargs)
 
         self.cameras = dict()
         for device_id, manufacturer, model, format, gain, exposure \
@@ -69,20 +68,17 @@ class Camera(AbstractProcess):
                           'This will cause increased CPU usage.'
                           .format(target_fps))
 
-
-        self.times = []
-
         # Run event loop
         self.enable_idle_timeout = False
         self.run(interval=1/target_fps)
 
-    def _prepare_protocol(self):
+    def start_protocol(self):
         pass
 
-    def _prepare_phase(self):
+    def start_phase(self):
         self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
-    def _cleanup_protocol(self):
+    def end_protocol(self):
         pass
 
     def main(self):
@@ -95,12 +91,3 @@ class Camera(AbstractProcess):
 
         # Update routines
         self.update_routines(**{device_id: cam.get_image() for device_id, cam in self.cameras.items()})
-
-        self.times.append(self.t)
-
-        if len(self.times) > 1 and (self.times[-1]-self.times[0]) >= 1.:
-            diff = [b-a for a,b in zip(self.times[:-1], self.times[1:])]
-            avg_frametime = sum(diff) / len(diff)
-            IPC.rpc(Def.Process.Gui,core.Camera.update_fps_estimate,1. / avg_frametime)
-            #print('Avg. fps {:.2f}'.format(1./avg_frametime))
-            self.times = []

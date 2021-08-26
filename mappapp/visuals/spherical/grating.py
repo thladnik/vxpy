@@ -15,26 +15,28 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import numpy as np
 from vispy import gloo
+from vispy import scene
 
-from mappapp.core.visual import SphericalVisual
+from mappapp.core import visual
 from mappapp.utils import sphere
 
 
-class BlackWhiteGrating(SphericalVisual):
+class BlackWhiteGrating(visual.SphericalVisual):
 
     u_waveform = 'u_waveform'
     u_direction = 'u_direction'
     u_ang_velocity = 'u_ang_velocity'
     u_spat_period = 'u_spat_period'
 
-    parameters = {u_waveform: None,
-                  u_direction: None,
-                  u_ang_velocity: None,
-                  u_spat_period: None}
+    parameters = {u_waveform: 'rectangular',
+                  u_direction: 'horizontal',
+                  u_ang_velocity: 20.,
+                  u_spat_period: 40.}
 
     def __init__(self, *args, **params):
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         # Set up sphere
         self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
@@ -50,6 +52,8 @@ class BlackWhiteGrating(SphericalVisual):
         self.grating['a_position'] = self.position_buffer
         self.grating['a_azimuth'] = self.azimuth_buffer
         self.grating['a_elevation'] = self.elevation_buffer
+
+        self.update(**params)
 
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time

@@ -21,17 +21,26 @@ from vispy import gloo
 from vispy.gloo import gl
 
 from mappapp.utils import geometry
-from mappapp.core.visual import SphericalVisual
-from mappapp.utils.sphere import CMNIcoSphere
+from mappapp.core import visual
+from mappapp.utils import sphere
 
 
-class IcoCMN(SphericalVisual):
+class IcoCMNTest(visual.BaseVisual):
+
+    def __init__(self, *args, **kwargs):
+        visual.BaseVisual.__init__(self, *args, **kwargs)
+
+    def render(self, frame_time):
+        print('meh', frame_time)
+
+
+class IcoCMN(visual.SphericalVisual):
 
     def __init__(self, *args):
-        SphericalVisual.__init__(self, *args)
+        visual.SphericalVisual.__init__(self, *args)
 
         # Set up model
-        self.sphere = CMNIcoSphere(subdivisionTimes=2)
+        self.sphere = sphere.CMNIcoSphere(subdivisionTimes=2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
 
         # Set up program and bind buffer
@@ -66,7 +75,7 @@ class IcoCMN(SphericalVisual):
                                                                                            projected_motmat)
         startpoint = geometry.cen2tri(np.random.rand(np.int(Isize / 3)),np.random.rand(np.int(Isize / 3)),.1)
 
-        self.cmn['a_texcoord'] = startpoint.reshape([-1, 2]) / 2
+        self.cmn['a_texcoord'] = np.ascontiguousarray(startpoint.reshape([-1, 2]) / 2, dtype=np.float32)
         self.cmn['u_texture'] = np.uint8(np.random.randint(0, 2, [100, 100, 1]) * np.array([[[1, 1, 1]]]) * 255)
         self.cmn['u_texture'].wrapping = gl.GL_REPEAT
 
@@ -76,7 +85,7 @@ class IcoCMN(SphericalVisual):
         # Update texture coordinates
         tidx = np.mod(self.i, 499)
         motmat = np.repeat(self.motmatFull[:, tidx], 3, axis=0)
-        self.sphere.vertexBuffer['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 1000
+        self.cmn['a_texcoord'] += np.array([np.real(motmat), np.imag(motmat)]).T / 1000
 
         # Call draw of main program
         self.apply_transform(self.cmn)

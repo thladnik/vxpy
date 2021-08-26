@@ -1,5 +1,5 @@
 """
-MappApp ./gui/display/core.py
+MappApp ./gui/display/__init__.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -22,20 +22,21 @@ from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import time
 
+from mappapp import api
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
-from mappapp import process
-from mappapp.core.gui import AddonWidget
-from mappapp.core.visual import PlanarVisual, SphericalVisual
-from mappapp.utils.gui import ComboBoxWidget, DoubleSliderWidget, IntSliderWidget
+from mappapp import modules
+from mappapp.core import gui
+from mappapp.core import visual
+from mappapp.utils import uiutils
 
 
-class Protocols(AddonWidget):
+class Protocols(gui.AddonWidget):
 
     def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
+        gui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         # Left
@@ -131,18 +132,18 @@ class Protocols(AddonWidget):
         self.main.recordings.start_recording()
 
         # Start protocol
-        IPC.rpc(Def.Process.Controller, process.Controller.start_protocol, '.'.join([file_name, protocol_name]))
+        IPC.rpc(Def.Process.Controller, modules.Controller.start_protocol, '.'.join([file_name, protocol_name]))
 
     def abort_protocol(self):
         self.progress.setValue(0)
         self.progress.setEnabled(False)
-        IPC.rpc(Def.Process.Controller, process.Controller.abortProtocol)
+        IPC.rpc(Def.Process.Controller, modules.Controller.abortProtocol)
 
 
-class VisualInteractor(AddonWidget):
+class VisualInteractor(gui.AddonWidget):
 
     def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
+        gui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         self.left_widget = QtWidgets.QWidget(self)
@@ -195,7 +196,7 @@ class VisualInteractor(AddonWidget):
                 module = importlib.import_module('.'.join([Def.package,Def.Path.Visual,folder, file.split('.')[0]]))
 
                 for clsname, cls in inspect.getmembers(module, inspect.isclass):
-                    if not(issubclass(cls, (PlanarVisual, SphericalVisual))) or cls in (PlanarVisual, SphericalVisual):
+                    if not(issubclass(cls, (visual.BaseVisual, visual.PlanarVisual, visual.SphericalVisual))) or cls in (visual.PlanarVisual, visual.SphericalVisual):
                         continue
 
                     self.visuals[folder][file][clsname] = (cls, QtWidgets.QTreeWidgetItem(self.files[folder][file]))
@@ -204,7 +205,8 @@ class VisualInteractor(AddonWidget):
                     self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ToolTipRole, cls.description)
                     self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ToolTipRole, cls.description)
                     # Set visual class to UserRole
-                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, cls)
+                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, (cls.__module__, cls.__name__))
+                    #cls.__module__, cls.__name__
 
         # Add items
         self.tree.addTopLevelItems([folder_item for folder_item in self.folders.values()])
@@ -232,9 +234,15 @@ class VisualInteractor(AddonWidget):
         if not(item):
             item = self.tree.currentItem()
 
-        visual_cls = item.data(0, QtCore.Qt.UserRole)
-        if visual_cls is None:
+        visual = item.data(0, QtCore.Qt.UserRole)
+
+        if visual is None:
             return
+
+        # TODO: Reload does not seem to work yet
+        visual_module, visual_name = visual
+        module = importlib.reload(importlib.import_module(visual_module))
+        visual_cls = getattr(module, visual_name)
 
         # Clear layout
         self.clear_layout(self.tuner.layout())
@@ -242,43 +250,58 @@ class VisualInteractor(AddonWidget):
         # Add UI components for visual
         for name, *args in visual_cls.interface:
             if isinstance(args[0], str):
-                wdgt = ComboBoxWidget(name, args)
+                wdgt = uiutils.ComboBoxWidget(name, args)
                 wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
+            elif isinstance(args[0], bool):
+                kwargs = dict()
+                if len(args) > 3:
+                    kwargs = args.pop(-1)
+                vdef = args[0]
+                wdgt = uiutils.Checkbox(name, vdef)
+                wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], int):
                 kwargs = dict()
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef, vmin, vmax = args
-                wdgt = IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt = uiutils.IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], float):
                 kwargs = dict()
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef, vmin, vmax = args
-                wdgt = DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt = uiutils.DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt.setParent(self.tuner)
+                wdgt.connect_to_result(self.update_parameter(name))
+            elif callable(args[0]):
+                wdgt = QtWidgets.QPushButton(name)
+                wdgt.clicked.connect(lambda: api.display_rpc(modules.Display.trigger_visual, args[0]))
                 wdgt.setParent(self.tuner)
             else:
                 wdgt = QLabel(f'<{name}> has unclear type {type(args[0])}', self.tuner)
 
-            wdgt.connect_to_result(self.update_parameter(name))
             self.tuner.layout().addWidget(wdgt)
 
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.tuner.layout().addItem(spacer)
 
-        if None in visual_cls.parameters.values():
-            Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
+        # TODO: this causes ValueError if visual_cls.paramters.values() contains a numpy.ndarray
+        # if None in visual_cls.parameters.values():
+        #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
 
-        IPC.rpc(Def.Process.Display, process.Display.start_visual, visual_cls, **visual_cls.parameters)
+        IPC.rpc(Def.Process.Display, modules.Display.start_visual, visual_cls, **visual_cls.parameters)
 
     def update_parameter(self, name):
         def _update(value):
-            IPC.rpc(Def.Process.Display,process.Display.update_visual, **{name: value})
+            IPC.rpc(Def.Process.Display, modules.Display.update_visual, **{name: value})
         return _update
 
     def stop_visual(self):
-        IPC.rpc(Def.Process.Display, process.Display.stop_visual)
+        IPC.rpc(Def.Process.Display, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         while layout.count():
