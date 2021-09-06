@@ -69,6 +69,8 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
                                     self.load_shader('planar/grating.frag'))
         self.grating['a_position'] = self.position_buffer
 
+        self.update(**kwargs)
+
     def render(self, frame_time):
         self.grating['u_stime'] = frame_time#time.time() - self.start_time
 
