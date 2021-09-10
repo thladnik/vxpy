@@ -35,7 +35,7 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
         # Create application
         self.app = QtWidgets.QApplication.instance()
         if self.app is None:
-            self.app =QtWidgets.QApplication(sys.argv)
+            self.app = QtWidgets.QApplication(sys.argv)
 
         # Set up parents
         process.AbstractProcess.__init__(self, **kwargs)

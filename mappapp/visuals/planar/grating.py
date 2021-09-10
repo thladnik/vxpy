@@ -32,12 +32,14 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
     u_direction = 'u_direction'
     u_lin_velocity = 'u_lin_velocity'
     u_spat_period = 'u_spat_period'
+    u_time = 'u_time'
 
     parameters = {
         u_shape: 'rectangular',
         u_direction: 'horizontal',
         u_lin_velocity: 5.,
-        u_spat_period: 10.
+        u_spat_period: 10.,
+        u_time: 0.
     }
 
     interface = [
@@ -71,8 +73,11 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
 
         self.update(**kwargs)
 
-    def render(self, frame_time):
-        self.grating['u_stime'] = frame_time#time.time() - self.start_time
+    def reset(self):
+        self.grating['u_time'] = 0.
+
+    def render(self, dt):
+        self.grating['u_time'] += dt  #time.time() - self.start_time
 
         self.apply_transform(self.grating)
         self.grating.draw('triangles', self.index_buffer)

@@ -22,6 +22,7 @@ import pyqtgraph as pg
 
 from mappapp import Def
 from mappapp import IPC
+from mappapp.api.attribute import read_attribute
 from mappapp.core.gui import AddonWidget
 from mappapp.routines.camera import zf_tracking
 from mappapp.utils import geometry
@@ -85,8 +86,7 @@ class EyePositionDetector(AddonWidget):
         IPC.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_saccade_threshold, sacc_thresh)
 
     def update_frame(self):
-        routine_cls = zf_tracking.EyePositionDetection
-        idx, time, frame = IPC.Camera.read(routine_cls,'frame')
+        idx, time, frame = read_attribute('eyeposdetect_frame')
         frame = frame[0]
 
         if frame is None:
@@ -191,7 +191,7 @@ class EyePositionDetector(AddonWidget):
             routine_cls = zf_tracking.EyePositionDetection
             #attr_path = f'{routine_cls.__name__}/{routine_cls.extracted_rect_prefix}'
             for id in self.roi_rects:
-                idx, time, rect = IPC.Camera.read(routine_cls,f'{routine_cls.extracted_rect_prefix}{id}')
+                idx, time, rect = read_attribute(f'{routine_cls.extracted_rect_prefix}{id}')
                 rect = rect[0]
 
                 if rect is None:

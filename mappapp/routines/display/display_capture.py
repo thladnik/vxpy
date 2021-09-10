@@ -17,26 +17,27 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from mappapp import Config
 from mappapp import Def
-from mappapp.core.routine import ArrayAttribute, ArrayDType, DisplayRoutine, ObjectAttribute
+from mappapp.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file
+from mappapp.api.routine import DisplayRoutine
 
 
 class StaticParameters(DisplayRoutine):
     """This routine buffers the visual parameters,
-    but only doesn't register them to be written to file"""
+    but doesn't register them to be written to file continuously"""
 
     def __init__(self, *args, **kwargs):
         DisplayRoutine.__init__(self, *args, **kwargs)
 
         # Set up shared variables
-        self.buffer.param = ObjectAttribute()
+        self.parameters = ObjectAttribute('static_display_parameters')
 
-    def execute(self, visual):
+    def main(self, visual):
         if visual is None:
             params = None
         else:
             params = visual.parameters
 
-        self.buffer.param.write(params)
+        self.parameters.write(params)
 
 
 class DynamicParameters(DisplayRoutine):
@@ -47,16 +48,16 @@ class DynamicParameters(DisplayRoutine):
         DisplayRoutine.__init__(self, *args, **kwargs)
 
         # Set up shared variables
-        self.buffer.param = ObjectAttribute()
-        self.file_attrs.append('param')
+        self.parameters = ObjectAttribute('dynamic_display_parameters')
+        write_to_file(self, 'dynamic_display_parameters')
 
-    def execute(self, visual):
+    def main(self, visual):
         if visual is None:
             params = None
         else:
             params = visual.parameters
 
-        self.buffer.param.write(params)
+        self.parameters.write(params)
 
 
 class Frames(DisplayRoutine):
@@ -67,13 +68,13 @@ class Frames(DisplayRoutine):
         # Set up shared variables
         self.width = Config.Display[Def.DisplayCfg.window_width]
         self.height = Config.Display[Def.DisplayCfg.window_height]
-        self.buffer.frame = ArrayAttribute((self.height, self.width, 3), ArrayDType.uint8)
-        self.add_to_file('frame')
+        self.frame = ArrayAttribute('display_frame', (self.height, self.width, 3), ArrayType.uint8)
+        write_to_file(self, 'display_frame')
 
-    def execute(self, visual):
+    def main(self, visual):
         if visual is None:
             return
 
         frame = visual.frame.read('color', alpha=False)
 
-        self.buffer.frame.write(frame)
+        self.frame.write(frame)

@@ -97,6 +97,18 @@ def in_state(state: int, process_name: str = None):
 Pipes: Dict[str, Tuple[mp.connection.Connection]] = dict()
 
 
+def set_process(instance):
+    global Process
+    Process = instance
+
+def build_pipes(pipes):
+    if pipes is None:
+        return
+
+    global Pipes
+    Pipes.update(pipes)
+
+
 def send(process_name: str, signal: int, *args, _send_verbosely=True, **kwargs) -> None:
     """Send a message to another modules via pipe.
 

@@ -22,6 +22,10 @@ from mappapp import IPC
 from mappapp import modules
 
 
+def get_time():
+    return IPC.Process.global_t
+
+
 def camera_rpc(function, *args, **kwargs):
     IPC.rpc(Def.Process.Camera, function, *args, **kwargs)
 
@@ -38,8 +42,8 @@ def io_rpc(function, *args, **kwargs):
     IPC.rpc(Def.Process.Io, function, *args, **kwargs)
 
 
-def set_digital_output(out_pid, routine_cls, attr_name):
-    io_rpc(modules.Io.set_outpin_to_attr, out_pid, routine_cls, attr_name)
+def set_digital_output(out_pid, attr_name):
+    io_rpc(modules.Io.set_outpin_to_attr, out_pid, attr_name)
 
 
 def set_analog_output(out_pid, routine_cls, attr_name):
@@ -48,7 +52,3 @@ def set_analog_output(out_pid, routine_cls, attr_name):
 
 def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):
     display_rpc(modules.Display.set_display_uniform_attribute, uniform_name, routine_cls, attr_name)
-
-
-def read_attribute(routine_cls, attr_name, *args, **kwargs):
-    return IPC.Process._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name, *args, **kwargs)

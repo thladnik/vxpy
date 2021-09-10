@@ -18,15 +18,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import importlib
 import time
 
-import numpy as np
-
-from mappapp import api
+from mappapp.api.attribute import read_attribute
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
 from mappapp.core import process
+
 
 class Io(process.AbstractProcess):
     name = Def.Process.Io
@@ -82,7 +81,7 @@ class Io(process.AbstractProcess):
     def end_protocol(self):
         pass
 
-    def set_outpin_to_attr(self, pid, routine_cls, attr_name):
+    def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
 
         if pid not in self._pid_pin_map:
@@ -97,8 +96,8 @@ class Io(process.AbstractProcess):
 
         if pid not in self._pid_attr_map:
 
-            Logging.write(Logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}" of {routine_cls.__name__}.')
-            self._pid_attr_map[pid] = (routine_cls, attr_name)
+            Logging.write(Logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
+            self._pid_attr_map[pid] = attr_name
         else:
             Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} is already set.')
 
@@ -106,22 +105,23 @@ class Io(process.AbstractProcess):
 
         tt = []
 
-        # Read data
+        # Read data on pins once
         t = time.perf_counter()
         for pin in self._pid_pin_map.values():
             pin._read_data()
         tt.append(time.perf_counter()-t)
 
-        # Write outputs from shared attributes
+        # Write outputs from connected shared attributes
         t = time.perf_counter()
-        for pid, (routine_cls, attr_name) in self._pid_attr_map.items():
-            _, _, vals = api.read_attribute(routine_cls, attr_name)
+        for pid, attr_name in self._pid_attr_map.items():
+            _, _, vals = read_attribute(attr_name)
             self._pid_pin_map[pid].write(vals[0][0])
         tt.append(time.perf_counter()-t)
 
-        t = time.perf_counter()
+        # Update routines with data
+        # t = time.perf_counter()
         self.update_routines(**self._pid_pin_map)
-        tt.append(time.perf_counter()-t)
+        # tt.append(time.perf_counter()-t)
 
         self.timetrack.append(tt)
         if len(self.timetrack) >= 5000:

@@ -23,10 +23,11 @@ from typing import Union
 
 from mappapp import Def
 from mappapp import Default
-from mappapp.devices import camera
+from mappapp.devices import camera as camdev
 from mappapp.setup import acc
 from mappapp.setup.utils import ModuleWidget
 from mappapp.core.routine import AbstractRoutine
+import mappapp.core.camera
 
 
 class CameraWidget(ModuleWidget):
@@ -35,28 +36,19 @@ class CameraWidget(ModuleWidget):
         ModuleWidget.__init__(self,Def.CameraCfg.name,parent=parent)
         self.setLayout(QtWidgets.QGridLayout())
         self.camera = None
+        # import json
+        # camdata = json.loads('{"api": "mappapp.devices.camera.tis.gst_linux", "serial": "25610433", "id": "zf_behavior", "format": "GRAY16_LE(640x480)@100", "exposure": 5.0, "gain": 1.5}')
+        # dev = mappapp.core.camera.open_device(camdata)
 
         # Routine selection ComboBox
-        self.avail_routine_list = QtWidgets.QComboBox()
-        self.layout().addWidget(self.avail_routine_list, 0, 0)
 
         # Add new routine
-        self.btn_add_routine = QtWidgets.QPushButton('Add routine')
-        self.btn_add_routine.clicked.connect(self.add_routine)
-        self.layout().addWidget(self.btn_add_routine, 0, 1)
+
 
         # Remove routine
-        self.btn_remove_routine = QtWidgets.QPushButton('Remove')
-        self.btn_remove_routine.clicked.connect(self.remove_routine)
-        self.btn_remove_routine.setEnabled(False)
-        self.layout().addWidget(self.btn_remove_routine, 0, 2)
+
 
         # Routine list
-        self.used_routine_list = QtWidgets.QListWidget()
-        self.used_routine_list.setMaximumWidth(400)
-        self.used_routine_list.currentTextChanged.connect(self.toggle_routine_remove_btn)
-        self.layout().addWidget(QtWidgets.QLabel('Routines'), 1, 0, 1, 3)
-        self.layout().addWidget(self.used_routine_list, 2, 0, 1, 3)
 
         # Add new camera
         self.btn_add_cam = QtWidgets.QPushButton('Add camera')
@@ -382,7 +374,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         # Manufacturer
         self.layout().addWidget(QtWidgets.QLabel('Manufacturer'), 5, 0)
         self.manufacturer = QtWidgets.QComboBox()
-        self.manufacturer.addItems([camera.TISCamera.__name__,camera.VirtualCamera.__name__])
+        self.manufacturer.addItems([camdev.TISCamera.__name__,camdev.VirtualCamera.__name__])
         self.manufacturer.currentTextChanged.connect(self.update_models)
         self.layout().addWidget(self.manufacturer, 5, 1)
         # Models
@@ -428,7 +420,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
         select_models = section[Def.CameraCfg.model]
 
-        avail_models = getattr(camera,self.manufacturer.currentText()).get_models()
+        avail_models = getattr(camdev,self.manufacturer.currentText()).get_models()
 
         if self.camera_idx < len(select_models) and not(select_models[self.camera_idx] in avail_models):
             avail_models.append(select_models[self.camera_idx])
@@ -436,7 +428,7 @@ class EditCameraWidget(QtWidgets.QDialog):
         self.model.addItems(avail_models)
 
     def check_model(self, m):
-        if m in getattr(camera,self.manufacturer.currentText()).get_models():
+        if m in getattr(camdev,self.manufacturer.currentText()).get_models():
             self.model.setStyleSheet('')
         else:
             self.model.setStyleSheet('QComboBox {color: red;}')
@@ -447,14 +439,14 @@ class EditCameraWidget(QtWidgets.QDialog):
         section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
         select_formats = section[Def.CameraCfg.format]
 
-        avail_formats = getattr(camera,self.manufacturer.currentText()).get_formats(self.model.currentText())
+        avail_formats = getattr(camdev,self.manufacturer.currentText()).get_formats(self.model.currentText())
         if self.camera_idx < len(select_formats) and not(select_formats[self.camera_idx] in avail_formats):
             avail_formats.append(select_formats[self.camera_idx])
 
         self.vidformat.addItems(avail_formats)
 
     def check_format(self, f):
-        if f in getattr(camera,self.manufacturer.currentText()).get_formats(self.model.currentText()):
+        if f in getattr(camdev,self.manufacturer.currentText()).get_formats(self.model.currentText()):
             self.vidformat.setStyleSheet('')
         else:
             self.vidformat.setStyleSheet('QComboBox {color: red;}')

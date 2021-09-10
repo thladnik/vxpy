@@ -42,7 +42,7 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
-        self._timer = app.Timer(interval=_interval/2., connect=self.on_draw, start=True)
+        # self._timer = app.Timer(interval=_interval/2., connect=self.on_draw, start=True)
 
         self.debug = False
         self.times = []
@@ -52,15 +52,22 @@ class Canvas(app.Canvas):
 
     def on_draw(self, event):
         gloo.clear()
+        if event is None:
+            return
+        # print(event.__dict__['_sources'][0].__dict__)
+
+        self.newt = time.perf_counter()
 
         if IPC.Process.stimulus_visual is not None:
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
-                IPC.Process.stimulus_visual.draw(time.perf_counter()-self.t)
+                IPC.Process.stimulus_visual.draw(self.newt-self.t)
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
+
+        self.t = self.newt
 
         self.update()
 
@@ -139,7 +146,8 @@ class Display(process.AbstractProcess):
 
     def start_visual(self, visual_cls, **parameters):
         self.stimulus_visual = visual_cls(self.canvas, **parameters)
-        self.canvas.t = time.perf_counter()
+        # self.canvas.t = time.perf_counter()
+        self.stimulus_visual.reset()
         self._display_visual = True
 
     def stop_visual(self):

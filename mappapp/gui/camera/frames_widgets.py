@@ -24,7 +24,7 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp.core.gui import AddonWidget
 from mappapp.routines.camera import frames
-
+from mappapp.core.attribute import read_attribute
 
 class FrameStream(AddonWidget):
 
@@ -90,7 +90,9 @@ class FrameStream(AddonWidget):
             self.layout().addWidget(self.graphics_widget)
 
         def update_frame(self):
-            idx, time, frame = IPC.Camera.read(frames.Frames, f'{self.device_id}_frame')
+            # idx, time, frame = IPC.Camera.read(frames.Frames, f'{self.device_id}_frame')
+            # idx, time, frame = Attribute.all[f'{self.device_id}_frame'].read()
+            idx, time, frame = read_attribute(f'{self.device_id}_frame')
 
             if frame is None:
                 return

@@ -121,6 +121,9 @@ class AbstractVisual:
     def trigger(self, trigger_fun):
         getattr(self, trigger_fun.__name__)()
 
+    def reset(self):
+        pass
+
     def update(self, _update_verbosely=True, **params):
         """
         Method to update stimulus parameters.
@@ -133,8 +136,10 @@ class AbstractVisual:
             return
 
         for key, value in params.items():
+            # (Optional) parsing through custom function
             if hasattr(self, f'{self._parse_fun_prefix}{key}'):
                 value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
+            # Save to parameters
             self.parameters[key] = value
 
         if _update_verbosely:
@@ -142,6 +147,7 @@ class AbstractVisual:
                           f'Update visual {self.__class__.__name__}. '
                           'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
 
+        # Update program uniforms from parameters
         for program_name, program in self._programs.items():
             for key, value in self.parameters.items():
                 if key in program:
@@ -460,8 +466,10 @@ class PlanarVisual(AbstractVisual):
     }
     
     vec2 real_position(vec3 position) {
-        vec2 pos = vec2((1.0 + position.x) / 2.0 * u_mapcalib_xextent * u_small_side_size,
-                        (1.0 + position.y) / 2.0 * u_mapcalib_yextent * u_small_side_size);
+        //vec2 pos = vec2((1.0 + position.x) / 2.0 * u_mapcalib_xextent * u_small_side_size,
+        //                (1.0 + position.y) / 2.0 * u_mapcalib_yextent * u_small_side_size);
+        vec2 pos = vec2(position.x / 2.0 * u_mapcalib_xextent * u_small_side_size,
+                        position.y / 2.0 * u_mapcalib_yextent * u_small_side_size);
         return pos;
     }
     

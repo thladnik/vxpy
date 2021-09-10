@@ -26,13 +26,18 @@ import sys
 import time
 
 from mappapp import api
+from mappapp.api import event
 from mappapp import Config
 from mappapp import Def
 from mappapp import IPC
+from mappapp.IPC import build_pipes, set_process
 from mappapp import Logging
+from mappapp.Logging import setup_log_queue
 from mappapp.core import routine
 from mappapp.core import container
 from mappapp import gui
+from mappapp.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
+from mappapp.core.routine import AbstractRoutine
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -42,7 +47,7 @@ if TYPE_CHECKING:
 
 
 ##################################
-## Process BASE class
+# Process BASE class
 
 class AbstractProcess:
     """AbstractProcess class, which is inherited by all processes.
@@ -58,6 +63,7 @@ class AbstractProcess:
     # Protocol related
     phase_start_time: float = None
     phase_time: float = None
+    program_start_time: float = None
 
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
@@ -68,6 +74,7 @@ class AbstractProcess:
     compression_args: Dict[str, Any] = dict()
 
     def __init__(self,
+                 _program_start_time=None,
                  _configurations=None,
                  _controls=None,
                  _log=None,
@@ -75,21 +82,23 @@ class AbstractProcess:
                  _pipes=None,
                  _routines=None,
                  _states=None,
+                 _attrs=None,
                  **kwargs):
 
+        if _program_start_time is not None:
+            self.program_start_time = _program_start_time
+
         # Set modules instance
-        IPC.Process = self
+        set_process(self)
 
-        # Set pipes
-        if not (_pipes is None):
-            IPC.Pipes.update(_pipes)
+        # Build pipes
+        build_pipes(_pipes)
 
-        # Set log
-        if not (_log is None):
-            for lkey, log in _log.items():
-                setattr(IPC.Log, lkey, log)
-            # Setup logging
-            Logging.setup_logger(self.name)
+        # Build attributes
+        build_attributes(_attrs)
+
+        # Set logger
+        setup_log_queue(_log)
 
         # Set routines and let routine wrapper create hooks in modules instance and initialize buffers
         if isinstance(_routines, dict):
@@ -113,15 +122,9 @@ class AbstractProcess:
                     _routine._connect_triggers(_routines)
 
                     # Run local initialization for producer modules
-                    if self.name == _routine.process_name:
+                    if self.name == _routine.name:
                         _routine.initialize()
 
-                    # Initialize buffers
-                    for attr in _routine.buffer.__dict__.values():
-                        if attr is None or not(issubclass(attr.__class__, routine.BufferAttribute)):
-                            continue
-
-                        attr.build()
 
         # Set configurations
         if _configurations is not None:
@@ -152,7 +155,10 @@ class AbstractProcess:
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
 
-        self.t: float = 0.
+        self.local_t: float = time.perf_counter()
+        self.global_t: float = self.program_start_time
+
+        event.post_event('register_rpc')
 
     def run(self, interval):
         Logging.write(Logging.INFO, f'Process {self.name} started at time {time.time()}')
@@ -165,7 +171,6 @@ class AbstractProcess:
         IPC.set_state(Def.State.IDLE)
 
         min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
-        self.t = time.perf_counter()
         self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
@@ -182,21 +187,21 @@ class AbstractProcess:
                 api.gui_rpc(gui.ProcessMonitor.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
 
             # Wait until interval time is up
-            dt = (self.t + interval) - time.perf_counter()
+            dt = (self.local_t + interval) - time.perf_counter()
             if self.enable_idle_timeout and dt > (1.2 * min_sleep_time):
                 # Sleep to reduce CPU usage
                 time.sleep(dt / 1.2)
 
             # Busy loop until next main execution for precise timing
             # while self.t + interval - time.perf_counter() >= 0:
-            while time.perf_counter() < (self.t + interval):
+            while time.perf_counter() < (self.local_t + interval):
                 pass
 
             # Set new modules time for this iteration
-            self.t = time.perf_counter()
+            self.local_t = time.perf_counter()
 
             # Set new global time
-            self.global_t = time.time()
+            self.global_t = time.time() - self.program_start_time
 
             # Execute main method
             self.main()
@@ -510,11 +515,9 @@ class AbstractProcess:
         if not(bool(self.record_group)):
             return
 
-        path = f'{group_name}/'
-
         # Set group
-        Logging.write(Logging.INFO, f'Set record group "{path}"')
-        grp = self.file_container.require_group(path)
+        Logging.write(Logging.INFO, f'Set record group "{self.record_group}"')
+        grp = self.file_container.require_group(self.record_group)
         if group_attributes is not None:
             grp.attrs.update(group_attributes)
 
@@ -524,18 +527,13 @@ class AbstractProcess:
             if not(self._routine_on_record(routine_name)):
                 continue
 
-            Logging.write(Logging.INFO, f'Set routine group {routine_name}')
-            self.file_container.require_group(f'{self.record_group}/{routine_name}')
+            for attr in get_permanent_attributes():
+                if not isinstance(attr, ArrayAttribute):
+                    continue
 
-            # Create datasets in routine group
-            for attr_name in _routine.file_attrs:
-                attr = getattr(_routine.buffer, attr_name)
-                # Atm only routine.ArrayAttribute has declared data type
-                # Other attributes (if compatible) will be created at recording time
-                if isinstance(attr, routine.ArrayAttribute):
-                    path = f'{self.record_group}/{routine_name}/{attr_name}'
-                    self._create_dataset(path, attr._shape, attr._dtype[1])
-                    self._create_dataset(f'{path}_time', (1,), np.float64)
+                path = f'{self.record_group}/{attr.name}'
+                self._create_dataset(path, attr.shape, attr.dtype[1])
+                self._create_dataset(f'{path}_time', (1,), np.float64)
 
     def update_routines(self, *args, **kwargs):
 
@@ -571,41 +569,31 @@ class AbstractProcess:
                 self.file_container.close()
                 self.file_container = None
 
-        # Update routines
-        # TODO: make Controller set a global time? This could be read out from anywhere
-        current_time = time.time()
+        # Call routine main function
         for routine_name, routine in self._routines[self.name].items():
-            # Update time
-            routine.buffer.set_time(current_time)
+            routine.main(*args, **kwargs)
 
-            # Execute routine function
-            routine.execute(*args, **kwargs)
+        if not(IPC.Control.Recording[Def.RecCtrl.active]) or self.file_container is None:
+            return
 
-            # Advance buffer
-            # routine.buffer.next()
+        # Write attributes to file
+        _iter = get_permanent_data()
+        if _iter is None:
+            return
 
-            # If this particular buffer is not supposed to stream to file
-            # or recording is currently not active/enabled: skip (and close file)
-            if not(self._routine_on_record(routine_name)) \
-                    or not(IPC.Control.Recording[Def.RecCtrl.active]) \
-                    or self.file_container is None:
+        for attr_name, attr_idx, attr_time, attr_data in _iter.__iter__():
+
+            if attr_time is None or attr_data is None:
                 continue
 
-            # Iterate over data in group (buffer)
-            for attr_name, attr_time, attr_data in routine.to_file():
+            path = f'{self.record_group}/{attr_name}'
+            self._append_to_dataset(path, attr_data)
+            self._append_to_dataset(f'{path}_time', attr_time)
 
-                if attr_time is None or attr_data is None:
-                    continue
-
-                path = f'{self.record_group}/{routine_name}/{attr_name}'
-
-                self._append_to_dataset(path, attr_data)
-                self._append_to_dataset(f'{path}_time', attr_time)
-
-    def get_buffer(self, routine_cls: Type[AbstractRoutine]):
+    def get_buffer(self, routine_cls: AbstractRoutine):
         """Return buffer of a routine class"""
 
-        process_name = routine_cls.process_name
+        process_name = routine_cls.name
         routine_name = routine_cls.__name__
 
         assert process_name in self._routines and routine_name in self._routines[process_name], \
@@ -622,7 +610,7 @@ class AbstractProcess:
         :return: value of the buffer
         """
 
-        return self._routines[routine_cls.process_name][routine_cls.__name__].read(attr_name, *args, **kwargs)
+        return self._routines[routine_cls.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
 
     @property
     def routines(self):

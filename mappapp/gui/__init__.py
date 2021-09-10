@@ -30,6 +30,7 @@ from mappapp import Def
 from mappapp import IPC
 from mappapp import Logging
 from mappapp import modules
+from mappapp.api.attribute import get_attribute, read_attribute
 from mappapp.core.gui import IntegratedWidget
 
 
@@ -201,12 +202,17 @@ class Recording(IntegratedWidget):
         self.btn_stop = QtWidgets.QPushButton('Stop')
         self.btn_stop.clicked.connect(self.finalize_recording)
         self.left_wdgt.layout().addWidget(self.btn_stop)
+        self.left_wdgt.layout().addItem(vSpacer)
 
         # Show recorded routines
-        self.rec_routines = QtWidgets.QGroupBox('Recording routines')
+        self.rec_routines = QtWidgets.QGroupBox('Recorded attributes')
         self.rec_routines.setLayout(QtWidgets.QVBoxLayout())
-        for routine_id in Config.Recording[Def.RecCfg.routines]:
-            self.rec_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
+        self.rec_attribute_list = QtWidgets.QListWidget()
+
+        self.rec_routines.layout().addWidget(self.rec_attribute_list)
+        # Update recorded attributes
+        for match_string in Config.Recording[Def.RecCfg.attributes]:
+            self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
         self.rec_routines.layout().addItem(vSpacer)
         self.wdgt.layout().addWidget(self.rec_routines, 5, 1)
 
@@ -560,9 +566,9 @@ class Plotter(IntegratedWidget):
             ax['vb'].setGeometry(self.plot_item.vb.sceneBoundingRect())
             ax['vb'].linkedViewChanged(self.plot_item.vb, ax['vb'].XAxis)
 
-    def add_buffer_attribute(self, routine_cls, attr_name, start_idx=0, name=None, axis=None):
+    def add_buffer_attribute(self, attr_name, start_idx=0, name=None, axis=None):
 
-        id = (routine_cls, attr_name)
+        id = attr_name
 
         # Set axis
         if axis is None:
@@ -570,7 +576,7 @@ class Plotter(IntegratedWidget):
 
         # Set name
         if name is None:
-            name = f'{routine_cls}:{attr_name}'
+            name = attr_name
 
         if axis not in self.axes:
             self.axes[axis] = dict(axis=pg.AxisItem('left'), vb=pg.ViewBox())
@@ -621,22 +627,21 @@ class Plotter(IntegratedWidget):
 
     def read_buffer_data(self):
 
-        for (routine_cls, attr_name), data in self.plot_data.items():
+        for attr_name, data in self.plot_data.items():
 
             # Read new values from buffer
-            process_name = routine_cls.process_name
             try:
 
                 last_idx = data['last_idx']
                 if last_idx is None:
-                    attr = getattr(IPC, process_name).get_buffer(routine_cls, attr_name)
+                    attr = get_attribute(attr_name)
                     data['last_idx'] = attr.index + 1
                     continue
 
-                n_idcs, n_times, n_data = getattr(IPC,process_name).read(routine_cls,attr_name,from_idx=data['last_idx'])
+                n_idcs, n_times, n_data = read_attribute(attr_name, from_idx=data['last_idx'])
             except Exception as exc:
                 Logging.write(Logging.WARNING,
-                              f'Problem trying to read {process_name}:{attr_name} from_idx={data["last_idx"]}'
+                              f'Problem trying to read attribute "{attr_name}" from_idx={data["last_idx"]}'
                               f'// Exception: {exc}')
                 continue
 
@@ -690,7 +695,6 @@ class Plotter(IntegratedWidget):
                 last_t = grp['x'][-1]
             else:
                 last_t = self.plot_item.getAxis('bottom').range[1]
-
 
             first_t = last_t - self._xrange
 
