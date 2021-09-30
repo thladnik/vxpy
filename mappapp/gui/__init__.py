@@ -473,7 +473,6 @@ class Plotter(IntegratedWidget):
         self.tmr_update_data.timeout.connect(self.read_buffer_data)
         self.tmr_update_data.start()
 
-        self.start_time = time.time()
 
         self.plot_data_items = dict()
         self.plot_num = 0
@@ -639,6 +638,7 @@ class Plotter(IntegratedWidget):
                     continue
 
                 n_idcs, n_times, n_data = read_attribute(attr_name, from_idx=data['last_idx'])
+
             except Exception as exc:
                 Logging.write(Logging.WARNING,
                               f'Problem trying to read attribute "{attr_name}" from_idx={data["last_idx"]}'
@@ -649,10 +649,10 @@ class Plotter(IntegratedWidget):
                 continue
 
             try:
-                n_times = np.array(n_times) - self.start_time
+                n_times = np.array(n_times)
                 n_data = np.array(n_data)
             except Exception as exc:
-                print(attr_name, self.start_time, n_times)
+                print(attr_name, n_times)
                 continue
 
             # Set new last index

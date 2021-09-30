@@ -30,3 +30,10 @@ def register_camera_device(dev_name: str):
 
 def register_io_device(dev_name: str):
     register_device(DeviceType.Camera, dev_name)
+
+
+def assert_device_requirements():
+    global registered, required
+
+    for device in required:
+        assert device in registered, f'Required device {device} not configured'

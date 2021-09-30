@@ -28,8 +28,7 @@ from mappapp.routines.camera import zf_tracking
 
 class ReadAll(routine.IoRoutine):
 
-    def __init__(self, *args, **kwargs):
-        routine.IoRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         # Read all pins
         self.pins = {}
@@ -60,8 +59,7 @@ class ReadAll(routine.IoRoutine):
 
 class ReadAnalog(routine.IoRoutine):
 
-    def __init__(self, *args, **kwargs):
-        routine.IoRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
         self.pins = [pin for pin in self.pins if pin[-1] == 'a'] # Select just inputs to read

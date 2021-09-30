@@ -26,6 +26,7 @@ from mappapp import modules
 from mappapp.core import process
 from mappapp import gui
 
+
 class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     name = Def.Process.Gui
 

@@ -145,9 +145,8 @@ class Display(process.AbstractProcess):
         self.canvas.stimulus_visual = self.stimulus_visual
 
     def start_visual(self, visual_cls, **parameters):
-        self.stimulus_visual = visual_cls(self.canvas, **parameters)
-        # self.canvas.t = time.perf_counter()
-        self.stimulus_visual.reset()
+        self.stimulus_visual = visual_cls(self.canvas)
+        self.stimulus_visual.initialize(**parameters)
         self._display_visual = True
 
     def stop_visual(self):

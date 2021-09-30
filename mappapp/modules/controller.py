@@ -30,7 +30,7 @@ from mappapp import IPC
 from mappapp import Logging
 from mappapp import modules
 from mappapp import protocols
-from mappapp.api.dependency import register_camera_device, register_io_device
+from mappapp.api.dependency import register_camera_device, register_io_device, assert_device_requirements
 from mappapp.core import process
 from mappapp.core import routine
 from mappapp.utils import misc
@@ -151,7 +151,6 @@ class Controller(process.AbstractProcess):
                                                  Def.ProtocolCtrl.phase_stop: None})
 
         # Set up routines
-        # Camera
         _routines = dict()
         _routines_to_load = dict()
         if Config.Camera[Def.CameraCfg.use]:
@@ -176,7 +175,22 @@ class Controller(process.AbstractProcess):
                     routine_cls = getattr(module, routine_name)
 
                     # Instantiate routine class
-                    _routines[process_name][routine_cls.__name__]: routine.AbstractRoutine = routine_cls()
+                    _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
+
+        # Set configured cameras
+        for dev_name in Config.Camera[Def.CameraCfg.device_id]:
+            register_camera_device(dev_name)
+
+        # Set configured io devices
+        for dev_name in Config.Io[Def.IoCfg.device]:
+            register_io_device(dev_name)
+
+        assert_device_requirements()
+
+        # Set up routines
+        for rs in _routines.values():
+            for r in rs.values():
+                r.setup()
 
         # Initialize AbstractProcess
         process.AbstractProcess.__init__(self, _program_start_time=time.time(), _routines=_routines, proxies=_proxies)
@@ -224,13 +238,6 @@ class Controller(process.AbstractProcess):
             _attrs=Attribute.all
         )
 
-        # Set configured cameras
-        for dev_name in Config.Camera[Def.CameraCfg.device_id]:
-            register_camera_device(dev_name)
-
-        # Set configured io devices
-        for dev_name in Config.Io[Def.IoCfg.device]:
-            register_camera_device(dev_name)
 
         # Initialize all pipes
         for target, kwargs in self._registered_processes:

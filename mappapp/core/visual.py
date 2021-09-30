@@ -121,7 +121,7 @@ class AbstractVisual:
     def trigger(self, trigger_fun):
         getattr(self, trigger_fun.__name__)()
 
-    def reset(self):
+    def initialize(self, **params):
         pass
 
     def update(self, _update_verbosely=True, **params):
@@ -161,7 +161,7 @@ class BaseVisual(AbstractVisual):
     uniform mat4  u_view;
     uniform mat4  u_projection;
     
-    vec4 gl_position(vec3 position) {
+    vec4 transform_position(vec3 position) {
     
         vec4 pos = vec4(position, 1.0);
         pos = u_projection * u_view * u_model * pos;
@@ -212,7 +212,7 @@ class SphericalVisual(AbstractVisual):
         uniform mat2 u_mapcalib_rotate2d;
 
 
-        vec4 gl_position(vec3 position) {
+        vec4 transform_position(vec3 position) {
             // Final position
             vec4 pos = vec4(position, 1.0);
             
@@ -245,7 +245,7 @@ class SphericalVisual(AbstractVisual):
         varying vec4 v_map_position;
         
         void main() {
-            vec4 v_map_position = gl_position(a_position);
+            v_map_position = transform_position(a_position);
             gl_Position = v_map_position;
             v_position = a_position;
         }

@@ -23,13 +23,13 @@ from mappapp import IPC
 from mappapp.api.attribute import read_attribute
 
 
-class AbstractRoutine(ABC):
+class Routine(ABC):
     """AbstractRoutine to be subclassed by all implementations of routines.
     """
 
     name: str = None
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
 
         self._triggers = dict()
 
@@ -38,13 +38,15 @@ class AbstractRoutine(ABC):
         # List of methods open to rpc calls
         self.exposed = []
 
-        # List of required device names
-        self.required = list()
+    @abstractmethod
+    def setup(self):
+        pass
 
     def initialize(self):
         """Called in forked modules"""
         pass
 
+    @abstractmethod
     def main(self, *args, **kwargs):
         """Method is called on every iteration of the producer.
 
@@ -91,25 +93,25 @@ class Trigger:
             IPC.rpc(process_name, callback)
 
 
-class CameraRoutine(AbstractRoutine):
+class CameraRoutine(Routine):
 
     name = Def.Process.Camera
 
     def __init__(self, *args, **kwargs):
-        AbstractRoutine.__init__(self, *args, **kwargs)
+        Routine.__init__(self, *args, **kwargs)
 
 
-class DisplayRoutine(AbstractRoutine):
+class DisplayRoutine(Routine):
 
     name = Def.Process.Display
 
     def __init__(self, *args, **kwargs):
-        AbstractRoutine.__init__(self, *args, **kwargs)
+        Routine.__init__(self, *args, **kwargs)
 
 
-class IoRoutine(AbstractRoutine):
+class IoRoutine(Routine):
 
     name = Def.Process.Io
 
     def __init__(self, *args, **kwargs):
-        AbstractRoutine.__init__(self, *args, **kwargs)
+        Routine.__init__(self, *args, **kwargs)

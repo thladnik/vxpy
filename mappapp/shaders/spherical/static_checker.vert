@@ -10,7 +10,7 @@ varying vec3 v_position;
 
 void main() {
 
-    gl_Position = gl_position(a_position);
+    gl_Position = transform_position(a_position);
 
     v_azimuth = a_azimuth;
     v_elevation = a_elevation;

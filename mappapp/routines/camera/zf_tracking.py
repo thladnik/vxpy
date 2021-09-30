@@ -31,7 +31,9 @@ from mappapp.api.dependency import require_camera_device
 
 class EyePositionDetection(CameraRoutine):
 
+    # Set required device
     camera_device_id = 'fish_embedded'
+    require_camera_device(camera_device_id)
 
     routine_prefix = 'eyepos_'
 
@@ -44,11 +46,7 @@ class EyePositionDetection(CameraRoutine):
     re_sacc_prefix = f'{routine_prefix}re_saccade_'
     roi_maxnum = 10
 
-    def __init__(self, *args, **kwargs):
-        CameraRoutine.__init__(self, *args, **kwargs)
-
-        # Set required devices
-        require_camera_device(self.camera_device_id)
+    def setup(self):
 
         self.add_trigger('saccade_trigger')
 
@@ -62,8 +60,6 @@ class EyePositionDetection(CameraRoutine):
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
         # Get camera specs
-        assert self.camera_device_id in Config.Camera[Def.CameraCfg.device_id], \
-            f'Camera device "{self.camera_device_id}" not configured for {self.__class__.__name__}'
         idx = Config.Camera[Def.CameraCfg.device_id].index(self.camera_device_id)
         self.res_x = Config.Camera[Def.CameraCfg.res_x][idx]
         self.res_y = Config.Camera[Def.CameraCfg.res_y][idx]

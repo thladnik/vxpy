@@ -26,7 +26,7 @@ from mappapp import Default
 from mappapp.devices import camera as camdev
 from mappapp.setup import acc
 from mappapp.setup.utils import ModuleWidget
-from mappapp.core.routine import AbstractRoutine
+from mappapp.core.routine import Routine
 import mappapp.core.camera
 
 
@@ -125,8 +125,8 @@ class CameraWidget(ModuleWidget):
             for cname in dir(file):
                 attr = getattr(file, cname)
                 if not(isclass(attr))\
-                        or not(issubclass(attr, AbstractRoutine)) \
-                        or attr == AbstractRoutine:
+                        or not(issubclass(attr, Routine)) \
+                        or attr == Routine:
                     if cname == 'Frames':
                         import IPython
                         IPython.embed()

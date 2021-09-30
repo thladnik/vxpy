@@ -25,8 +25,7 @@ class StaticParameters(DisplayRoutine):
     """This routine buffers the visual parameters,
     but doesn't register them to be written to file continuously"""
 
-    def __init__(self, *args, **kwargs):
-        DisplayRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         # Set up shared variables
         self.parameters = ObjectAttribute('static_display_parameters')
@@ -44,8 +43,7 @@ class DynamicParameters(DisplayRoutine):
     """This routine buffers the visual parameters
     and registers them to be written to file"""
 
-    def __init__(self, *args, **kwargs):
-        DisplayRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         # Set up shared variables
         self.parameters = ObjectAttribute('dynamic_display_parameters')
@@ -62,8 +60,7 @@ class DynamicParameters(DisplayRoutine):
 
 class Frames(DisplayRoutine):
 
-    def __init__(self, *args, **kwargs):
-        DisplayRoutine.__init__(self, *args, **kwargs)
+    def setup(self, *args, **kwargs):
 
         # Set up shared variables
         self.width = Config.Display[Def.DisplayCfg.window_width]

@@ -27,24 +27,32 @@ class SingleMovingDot(visual.PlanarVisual):
 
     u_dot_lateral_offset = 'u_dot_lateral_offset'  # mm
     u_dot_ang_dia = 'u_dot_ang_dia'  # deg
-    u_dot_ang_velocity = 'u_dot_ang_velocity'  # deg
+    u_dot_ang_velocity = 'u_dot_ang_velocity'  # deg / s
+    u_vertical_offset = 'u_vertical_offset'  # mm
     u_time = 'u_time'  # s
-    u_vertical_offset = 'u_vertical_offset'
-    # u_start_delay = 'u_start_delay'
+
+    def initialize(self, **parameters):
+        self.program['u_time'] = 0.
+        self.update(**parameters)
 
     parameters = {
         u_dot_lateral_offset: 10.0,
         u_dot_ang_dia: 20.,
         u_dot_ang_velocity: 80.,
+        u_vertical_offset: 20.,
         u_time: 0.,
-        u_vertical_offset: 20.
     }
 
     interface = [
+        (u_dot_lateral_offset, 10.0, 0.0, 100.0, dict(step_size=1.0)),
+        (u_dot_ang_dia, 20.0, 1.0, 50.0, dict(step_size=1.0)),
+        (u_dot_ang_velocity, 80.0, 1.0, 200.0, dict(step_size=1.0)),
+        (u_vertical_offset, 20., 1.0, 50., dict(step_size=1.0)),
+        ('Start trigger', initialize)
     ]
 
-    def __init__(self, *args, **kwargs):
-        visual.PlanarVisual.__init__(self, *args, **kwargs)
+    def __init__(self, *args):
+        visual.PlanarVisual.__init__(self, *args)
 
         self.plane = plane.VerticalXYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
@@ -54,10 +62,6 @@ class SingleMovingDot(visual.PlanarVisual):
                                     self.load_shader('planar/single_moving_dot.frag'))
         self.program['a_position'] = self.position_buffer
 
-        self.update(**kwargs)
-
-    def reset(self):
-        self.program['u_time'] = 0.
 
     def render(self, dt):
         self.program['u_time'] += dt

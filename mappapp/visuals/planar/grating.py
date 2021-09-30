@@ -73,7 +73,7 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
 
         self.update(**kwargs)
 
-    def reset(self):
+    def initialize(self):
         self.grating['u_time'] = 0.
 
     def render(self, dt):

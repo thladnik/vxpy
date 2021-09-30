@@ -143,8 +143,20 @@ class Attribute(ABC):
         return self._get_index_list(last), self.get_times(last), self._read(*self._get_range(last), use_lock)
 
     @abstractmethod
-    def write(self, value):
+    def _write(self, internal_idx, value):
         pass
+
+    def write(self, value):
+        internal_idx = self.index % self._length
+
+        # Set time for this entry
+        self._time[internal_idx] = IPC.Process.global_t
+
+        # Write data
+        self._write(internal_idx, value)
+
+        # Advance buffer
+        self._next()
 
     def _get_range(self, last):
         assert last < self._length, 'Trying to read more values than stored in buffer'
@@ -302,12 +314,7 @@ class ArrayAttribute(Attribute):
                     ar2 = self._data[:end_idx]
                     return np.concatenate((ar1, ar2))
 
-    def write(self, value):
-        # Index in buffer
-        internal_idx = self.index % self._length
-
-        # Set time for this entry
-        self._time[internal_idx] = IPC.Process.global_t
+    def _write(self, internal_idx, value):
 
         # Set data
         if self._chunked:
@@ -319,9 +326,6 @@ class ArrayAttribute(Attribute):
         else:
             with self._get_lock(None, True):
                 self._data[internal_idx] = value
-
-        # Advance buffer
-        self._next()
 
     def __setitem__(self, key, value):
         self._data[key % self._length] = value
@@ -340,17 +344,9 @@ class ObjectAttribute(Attribute):
         else:
             return self._data[start_idx:] + self._data[:end_idx]
 
-    def write(self, value):
-        internal_idx = self.index % self._length
-
-        # Set time for this entry
-        self._time[internal_idx] = IPC.Process.global_t
-
+    def _write(self, internal_idx, value):
         # Set data
         self._data[internal_idx] = value
-
-        # Advance buffer
-        self._next()
 
     def __setitem__(self, key, value):
         self._data[key % self._length] = value

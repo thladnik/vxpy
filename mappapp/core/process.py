@@ -37,7 +37,7 @@ from mappapp.core import routine
 from mappapp.core import container
 from mappapp import gui
 from mappapp.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
-from mappapp.core.routine import AbstractRoutine
+from mappapp.core.routine import Routine
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -68,7 +68,7 @@ class AbstractProcess:
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
 
-    _routines: Dict[str, Dict[str, routine.AbstractRoutine]] = dict()
+    _routines: Dict[str, Dict[str, routine.Routine]] = dict()
     file_container: Union[None, h5py.File, container.NpBufferedH5File, container.H5File] = None
     record_group: str = None
     compression_args: Dict[str, Any] = dict()
@@ -156,12 +156,12 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self.handle_SIGINT)
 
         self.local_t: float = time.perf_counter()
-        self.global_t: float = self.program_start_time
+        self.global_t: float = 0.
 
         event.post_event('register_rpc')
 
     def run(self, interval):
-        Logging.write(Logging.INFO, f'Process {self.name} started at time {time.time()}')
+        Logging.write(Logging.INFO, f'Process started')
 
         # Set state to running
         self._running = True
@@ -590,7 +590,7 @@ class AbstractProcess:
             self._append_to_dataset(path, attr_data)
             self._append_to_dataset(f'{path}_time', attr_time)
 
-    def get_buffer(self, routine_cls: AbstractRoutine):
+    def get_buffer(self, routine_cls: Routine):
         """Return buffer of a routine class"""
 
         process_name = routine_cls.name
@@ -601,7 +601,7 @@ class AbstractProcess:
 
         return self._routines[process_name][routine_name].buffer
 
-    def read(self, attr_name: str, routine_cls: AbstractRoutine = None, *args, **kwargs):
+    def read(self, attr_name: str, routine_cls: Routine = None, *args, **kwargs):
         """Read shared attribute from buffer.
 
         :param attr_name: string name of attribute or string format <attrName>/<bufferName>

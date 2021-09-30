@@ -32,10 +32,10 @@ class BlackWhiteGrating(visual.SphericalVisual):
 
     parameters = {u_waveform: 'rectangular',
                   u_direction: 'horizontal',
-                  u_ang_velocity: 20.,
+                  u_ang_velocity: 5.,
                   u_spat_period: 40.}
 
-    def __init__(self, *args, **params):
+    def __init__(self, *args):
         visual.SphericalVisual.__init__(self, *args)
 
         # Set up sphere
@@ -53,10 +53,13 @@ class BlackWhiteGrating(visual.SphericalVisual):
         self.grating['a_azimuth'] = self.azimuth_buffer
         self.grating['a_elevation'] = self.elevation_buffer
 
+    def initialize(self, **params):
+        self.grating['u_stime'] = 0.0
+
         self.update(**params)
 
-    def render(self, frame_time):
-        self.grating['u_stime'] = frame_time
+    def render(self, dt):
+        self.grating['u_stime'] += dt
 
         self.apply_transform(self.grating)
         self.grating.draw('triangles', self.index_buffer)

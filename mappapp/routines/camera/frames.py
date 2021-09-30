@@ -26,8 +26,7 @@ from mappapp.api.attribute import ArrayAttribute, ArrayType, write_to_file
 
 class Frames(CameraRoutine):
 
-    def __init__(self, *args, **kwargs):
-        CameraRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
                                     Config.Camera[Def.CameraCfg.res_x],
