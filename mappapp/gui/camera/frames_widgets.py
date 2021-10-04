@@ -21,9 +21,7 @@ import pyqtgraph as pg
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp.core.gui import AddonWidget
-from mappapp.routines.camera import frames
 from mappapp.core.attribute import read_attribute
 
 class FrameStream(AddonWidget):

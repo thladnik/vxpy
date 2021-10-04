@@ -34,14 +34,6 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
     u_spat_period = 'u_spat_period'
     u_time = 'u_time'
 
-    parameters = {
-        u_shape: 'rectangular',
-        u_direction: 'horizontal',
-        u_lin_velocity: 5.,
-        u_spat_period: 10.,
-        u_time: 0.
-    }
-
     interface = [
         (u_shape, 'rectangular', 'sinusoidal'),
         (u_direction, 'horizontal', 'vertical'),
@@ -50,7 +42,7 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
         ('trigger_something', triggerme01)
     ]
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args):
         """
 
         :param args: positional arguments to parent class
@@ -59,25 +51,23 @@ class BlackAndWhiteGrating(visual.PlanarVisual):
         :param lin_velocity: <float> linear velocity of grating in [mm/s]
         :param spat_period: <float> spatial period of the grating in [mm]
         """
-        visual.PlanarVisual.__init__(self, *args, **kwargs)
+        visual.PlanarVisual.__init__(self, *args)
 
+        # Set up model
         self.plane = plane.VerticalXYPlane()
-        self.index_buffer = gloo.IndexBuffer(
-            np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
-        self.position_buffer = gloo.VertexBuffer(
-            np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
+        # Set up program
         self.grating = gloo.Program(self.load_vertex_shader('planar/grating.vert'),
                                     self.load_shader('planar/grating.frag'))
         self.grating['a_position'] = self.position_buffer
 
-        self.update(**kwargs)
-
-    def initialize(self):
+    def initialize(self, *args, **kwargs):
         self.grating['u_time'] = 0.
 
     def render(self, dt):
-        self.grating['u_time'] += dt  #time.time() - self.start_time
+        self.grating['u_time'] += dt
 
         self.apply_transform(self.grating)
         self.grating.draw('triangles', self.index_buffer)

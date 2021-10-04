@@ -1,6 +1,5 @@
 // planar/grating.frag
 
-uniform float u_stime;
 uniform float u_spat_period;
 uniform float u_lin_velocity;
 uniform int u_shape;

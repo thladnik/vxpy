@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import vispy
+from inspect import isclass
 from vispy import app
 from vispy import gloo
 import time
@@ -23,11 +23,9 @@ import time
 from mappapp import api
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
-from mappapp import gui
-from mappapp.core import process
+from mappapp.core import process, ipc
 from mappapp.core import protocol
 from mappapp.core import visual
 
@@ -54,15 +52,14 @@ class Canvas(app.Canvas):
         gloo.clear()
         if event is None:
             return
-        # print(event.__dict__['_sources'][0].__dict__)
 
         self.newt = time.perf_counter()
 
-        if IPC.Process.stimulus_visual is not None:
+        if ipc.Process.stimulus_visual is not None:
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
-                IPC.Process.stimulus_visual.draw(self.newt-self.t)
+                ipc.Process.stimulus_visual.draw(self.newt - self.t)
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
@@ -74,8 +71,6 @@ class Canvas(app.Canvas):
     def show_fps(self, fps):
         if self.debug:
             print("FPS {:.2f}".format(fps))
-
-        # api.gui_rpc(core.Display.update_fps_estimate, fps, _send_verbosely=False)
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
@@ -128,7 +123,7 @@ class Display(process.AbstractProcess):
             Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
 
     def start_protocol(self):
-        self.stimulus_protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
+        self.stimulus_protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
         try:
             self.stimulus_protocol.initialize()
         except Exception as exc:
@@ -136,17 +131,25 @@ class Display(process.AbstractProcess):
             print(traceback.print_exc())
 
     def start_phase(self):
-        phase_id = IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]
-        self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
-        IPC.Process.set_record_group(f'phase_{phase_id}',group_attributes=self.stimulus_visual.parameters)
+        phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+        # self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
+        visual, parameters = self.stimulus_protocol.fetch_phase_visual(phase_id)
+        self.start_visual(visual, **parameters)
+        ipc.Process.set_record_group(f'phase_{phase_id}', group_attributes=self.stimulus_visual.parameters)
 
     def end_protocol(self):
         self.stimulus_visual = None
         self.canvas.stimulus_visual = self.stimulus_visual
 
-    def start_visual(self, visual_cls, **parameters):
-        self.stimulus_visual = visual_cls(self.canvas)
-        self.stimulus_visual.initialize(**parameters)
+    def start_visual(self, stimulus_visual, **parameters):
+        # If visual hasn't been instantiated yet, do it now
+        if isclass(stimulus_visual):
+            self.stimulus_visual = stimulus_visual(self.canvas)
+        else:
+            self.stimulus_visual = stimulus_visual
+
+        self.stimulus_visual.initialize()
+        self.stimulus_visual.update(**parameters)
         self._display_visual = True
 
     def stop_visual(self):

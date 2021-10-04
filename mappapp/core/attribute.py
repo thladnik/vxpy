@@ -7,7 +7,7 @@ import typing
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp import Logging
 
 
@@ -73,14 +73,14 @@ def get_attribute(attr_name):
 
 def get_permanent_attributes(process_name=None):
     if process_name is None:
-        process_name = IPC.Process.name
+        process_name = ipc.Process.name
 
     return Attribute.to_file[process_name]
 
 
 def get_permanent_data(process_name=None):
     if process_name is None:
-        process_name = IPC.Process.name
+        process_name = ipc.Process.name
 
     if process_name not in Attribute.to_file:
         return None
@@ -102,7 +102,7 @@ class Attribute(ABC):
         self._length = 100
         self._data = None
         self._index = mp.Value(ctypes.c_uint64)
-        self._time = IPC.Manager.list([None] * self._length)
+        self._time = ipc.Manager.list([None] * self._length)
 
     def _next(self):
         self._index.value += 1
@@ -150,7 +150,7 @@ class Attribute(ABC):
         internal_idx = self.index % self._length
 
         # Set time for this entry
-        self._time[internal_idx] = IPC.Process.global_t
+        self._time[internal_idx] = ipc.Process.global_t
 
         # Write data
         self._write(internal_idx, value)
@@ -335,7 +335,7 @@ class ObjectAttribute(Attribute):
     def __init__(self, name, **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
-        self._data = IPC.Manager.list([None] * self._length)
+        self._data = ipc.Manager.list([None] * self._length)
 
     def _read(self, start_idx, end_idx, use_lock):
         """use_lock not used, because manager handles locking"""

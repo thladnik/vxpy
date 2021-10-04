@@ -21,14 +21,13 @@ import os
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import time
+from typing import Any, Dict
 
 from mappapp import api
 from mappapp import Def
-from mappapp import IPC
-from mappapp import Logging
 from mappapp import protocols
 from mappapp import modules
-from mappapp.core import gui
+from mappapp.core import gui, ipc
 from mappapp.core import visual
 from mappapp.utils import uiutils
 
@@ -105,23 +104,23 @@ class Protocols(gui.AddonWidget):
     def update_ui(self):
 
         # Enable/Disable control elements
-        ctrl_is_idle = IPC.in_state(Def.State.IDLE, Def.Process.Controller)
+        ctrl_is_idle = ipc.in_state(Def.State.IDLE, Def.Process.Controller)
         self.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
         self.lwdgt_protocols.setEnabled(ctrl_is_idle)
         self._lwdgt_files.setEnabled(ctrl_is_idle)
-        protocol_is_running = bool(IPC.Control.Protocol[Def.ProtocolCtrl.name])
+        protocol_is_running = bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])
         self.btn_abort.setEnabled(protocol_is_running)
 
         # Update progress
-        start_phase = IPC.Control.Protocol[Def.ProtocolCtrl.phase_start]
+        start_phase = ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]
         if start_phase is not None:
             self.progress.setEnabled(True)
             phase_diff = time.time() - start_phase
-            self.progress.setMaximum(int((IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] - start_phase) * 1000))
+            self.progress.setMaximum(int((ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] - start_phase) * 1000))
             if phase_diff > 0.:
                 self.progress.setValue(int(phase_diff * 1000))
 
-        if not(bool(IPC.Control.Protocol[Def.ProtocolCtrl.name])):
+        if not(bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])):
             self.progress.setEnabled(False)
 
     def start_protocol(self):
@@ -132,12 +131,12 @@ class Protocols(gui.AddonWidget):
         self.main.recordings.start_recording()
 
         # Start protocol
-        IPC.rpc(Def.Process.Controller, modules.Controller.start_protocol, '.'.join([file_name, protocol_name]))
+        ipc.rpc(Def.Process.Controller, modules.Controller.start_protocol, '.'.join([file_name, protocol_name]))
 
     def abort_protocol(self):
         self.progress.setValue(0)
         self.progress.setEnabled(False)
-        IPC.rpc(Def.Process.Controller, modules.Controller.abortProtocol)
+        ipc.rpc(Def.Process.Controller, modules.Controller.abortProtocol)
 
 
 class VisualInteractor(gui.AddonWidget):
@@ -206,7 +205,6 @@ class VisualInteractor(gui.AddonWidget):
                     self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ToolTipRole, cls.description)
                     # Set visual class to UserRole
                     self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, (cls.__module__, cls.__name__))
-                    #cls.__module__, cls.__name__
 
         # Add items
         self.tree.addTopLevelItems([folder_item for folder_item in self.folders.values()])
@@ -248,9 +246,12 @@ class VisualInteractor(gui.AddonWidget):
         self.clear_layout(self.tuner.layout())
 
         # Add UI components for visual
+        defaults: Dict[str, Any]= dict()
         for name, *args in visual_cls.interface:
+            vdef = None
             if isinstance(args[0], str):
                 wdgt = uiutils.ComboBoxWidget(name, args)
+                vdef = args[0]
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], bool):
@@ -286,6 +287,12 @@ class VisualInteractor(gui.AddonWidget):
 
             self.tuner.layout().addWidget(wdgt)
 
+            # Add default values (if applicable)
+            if vdef is not None:
+                defaults[name] = vdef
+
+        print(defaults)
+
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.tuner.layout().addItem(spacer)
 
@@ -293,15 +300,15 @@ class VisualInteractor(gui.AddonWidget):
         # if None in visual_cls.parameters.values():
         #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
 
-        IPC.rpc(Def.Process.Display, modules.Display.start_visual, visual_cls, **visual_cls.parameters)
+        ipc.rpc(Def.Process.Display, modules.Display.start_visual, visual_cls, **defaults) #**visual_cls.parameters)
 
     def update_parameter(self, name):
         def _update(value):
-            IPC.rpc(Def.Process.Display, modules.Display.update_visual, **{name: value})
+            ipc.rpc(Def.Process.Display, modules.Display.update_visual, **{name: value})
         return _update
 
     def stop_visual(self):
-        IPC.rpc(Def.Process.Display, modules.Display.stop_visual)
+        ipc.rpc(Def.Process.Display, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         while layout.count():

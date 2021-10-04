@@ -1,6 +1,5 @@
 """
-MappApp ./IPC.py - Inter-modules-communication placeholders and functions.
-all stimulus implementations in ./stimulus/.
+MappApp ./core/ipc.py - Inter-modules-communication placeholders and functions.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -28,10 +27,13 @@ if TYPE_CHECKING:
     from typing import Callable, Dict, Tuple
     from mappapp.core.process import AbstractProcess, ProcessProxy
 
+# Manager for shared objects
 Manager: SyncManager
 
 # Local modules reference
 Process: AbstractProcess
+
+# Callback routing
 
 
 ########
@@ -94,12 +96,13 @@ def in_state(state: int, process_name: str = None):
 #  https://stackoverflow.com/questions/45318798/how-to-detect-multiprocessing-pipe-is-full
 #  Question: Overhead?
 
-Pipes: Dict[str, Tuple[mp.connection.Connection]] = dict()
+Pipes: Dict[str, Tuple[mp.connection.Connection, mp.connection.Connection]] = dict()
 
 
 def set_process(instance):
     global Process
     Process = instance
+
 
 def build_pipes(pipes):
     if pipes is None:

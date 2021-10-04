@@ -16,30 +16,29 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp import modules
 
 
 def get_time():
-    return IPC.Process.global_t
+    return ipc.Process.global_t
 
 
 def camera_rpc(function, *args, **kwargs):
-    IPC.rpc(Def.Process.Camera, function, *args, **kwargs)
+    ipc.rpc(Def.Process.Camera, function, *args, **kwargs)
 
 
 def display_rpc(function, *args, **kwargs):
-    IPC.rpc(Def.Process.Display, function, *args, **kwargs)
+    ipc.rpc(Def.Process.Display, function, *args, **kwargs)
 
 
 def gui_rpc(function, *args, **kwargs):
-    IPC.rpc(Def.Process.Gui, function, *args, **kwargs)
+    ipc.rpc(Def.Process.Gui, function, *args, **kwargs)
 
 
 def io_rpc(function, *args, **kwargs):
-    IPC.rpc(Def.Process.Io, function, *args, **kwargs)
+    ipc.rpc(Def.Process.Io, function, *args, **kwargs)
 
 
 def set_digital_output(out_pid, attr_name):

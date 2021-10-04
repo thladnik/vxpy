@@ -21,9 +21,8 @@ import sys
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp import modules
-from mappapp.core import process
+from mappapp.core import process, ipc
 from mappapp import gui
 
 
@@ -160,7 +159,7 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     def _start_shutdown(self):
         self.closeEvent(None)
 
-        IPC.Process.set_state(Def.State.STOPPED)
+        ipc.Process.set_state(Def.State.STOPPED)
 
     def prompt_shutdown_confirmation(self):
         reply = QtWidgets.QMessageBox.question(self, 'Confirm shutdown',
@@ -169,13 +168,13 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
                                                QtWidgets.QMessageBox.Cancel)
 
         if reply == QtWidgets.QMessageBox.Close:
-            IPC.rpc(modules.Controller.name, modules.Controller._force_shutdown)
+            ipc.rpc(modules.Controller.name, modules.Controller._force_shutdown)
 
     def restart_camera(self):
-        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
+        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
 
     def restart_display(self):
-        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
+        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
 
     def _bind_shortcuts(self):
 
@@ -192,5 +191,5 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
             # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
 
             # Inform controller of close event
-            IPC.send(Def.Process.Controller,Def.Signal.shutdown)
+            ipc.send(Def.Process.Controller, Def.Signal.shutdown)
             a0.setAccepted(False)

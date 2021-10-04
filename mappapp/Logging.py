@@ -20,7 +20,7 @@ import logging.handlers
 import os
 
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 
 logger = None
 write = None
@@ -34,7 +34,7 @@ ERROR = logging.ERROR
 
 def setup_log():
     logger = logging.getLogger('mylog')
-    h = logging.handlers.TimedRotatingFileHandler(os.path.join(Def.package, Def.Path.Log, IPC.Log.File.value), 'd')
+    h = logging.handlers.TimedRotatingFileHandler(os.path.join(Def.package, Def.Path.Log, ipc.Log.File.value), 'd')
     h.setFormatter(logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<'))
     logger.addHandler(h)
 
@@ -47,12 +47,12 @@ def setup_log_queue(log):
     # Set shared attributes required for logging
     if log is not None:
         for lkey, log in log.items():
-            setattr(IPC.Log, lkey, log)
+            setattr(ipc.Log, lkey, log)
 
     # Set up logger
-    logger = logging.getLogger(IPC.Process.name)
+    logger = logging.getLogger(ipc.Process.name)
     if not logger.handlers:
-        h = logging.handlers.QueueHandler(IPC.Log.Queue)
+        h = logging.handlers.QueueHandler(ipc.Log.Queue)
         logger.addHandler(h)
         logger.setLevel(logging.DEBUG)
-        write = logging.getLogger(IPC.Process.name).log
+        write = logging.getLogger(ipc.Process.name).log

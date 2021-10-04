@@ -17,9 +17,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp import Logging
-from mappapp.core import process
+from mappapp.core import process, ipc
 
 
 class Camera(process.AbstractProcess):
@@ -60,7 +59,7 @@ class Camera(process.AbstractProcess):
 
         target_fps = Config.Camera[Def.CameraCfg.fps]
 
-        if IPC.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
+        if ipc.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
             # TODO: this estimate for sleep time seems to be way off
             Logging.write(Logging.WARNING,
                           'Mininum sleep period is ABOVE '
@@ -76,7 +75,7 @@ class Camera(process.AbstractProcess):
         pass
 
     def start_phase(self):
-        self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
+        self.set_record_group(f'phase_{ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
     def end_protocol(self):
         pass

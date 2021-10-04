@@ -1,5 +1,3 @@
-from mappapp import IPC
-
 subscribers = {}
 
 

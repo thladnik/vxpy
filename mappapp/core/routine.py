@@ -19,7 +19,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp.api.attribute import read_attribute
 
 
@@ -90,7 +90,7 @@ class Trigger:
 
     def emit(self):
         for process_name, callback in self._registered:
-            IPC.rpc(process_name, callback)
+            ipc.rpc(process_name, callback)
 
 
 class CameraRoutine(Routine):

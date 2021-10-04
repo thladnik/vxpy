@@ -30,16 +30,16 @@ class BlackWhiteGrating(visual.SphericalVisual):
     u_ang_velocity = 'u_ang_velocity'
     u_spat_period = 'u_spat_period'
 
-    parameters = {u_waveform: 'rectangular',
-                  u_direction: 'horizontal',
-                  u_ang_velocity: 5.,
-                  u_spat_period: 40.}
+    interface = [(u_waveform, 'rectangular', 'sinusoidal'),
+                 (u_direction, 'horizontal', 'vertical'),
+                 (u_ang_velocity, 5., 0., 100., {'step_size': 1.}),
+                 (u_spat_period, 40., 2., 360., {'step_size': 1.})]
 
     def __init__(self, *args):
         visual.SphericalVisual.__init__(self, *args)
 
         # Set up sphere
-        self.sphere = sphere.UVSphere(azim_lvls=60,elev_lvls=30)
+        self.sphere = sphere.UVSphere(azim_lvls=60, elev_lvls=30)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)

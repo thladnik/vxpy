@@ -52,7 +52,7 @@ class StaticProtocol(AbstractProtocol):
     def fetch_phase_visual(self, phase_id):
         visual_name, duration, parameters = self._phases[phase_id]
         visual = self._visuals[visual_name]
-        visual.update(**parameters)
+        # visual.update(**parameters)
 
-        return visual
+        return visual, parameters
 

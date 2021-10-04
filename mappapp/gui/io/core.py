@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PyQt5 import QtWidgets
 
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp.core.gui import AddonWidget
 from mappapp.routines.io.read_inputs import TriggerLedArenaFlash
 from mappapp.utils.uiutils import IntSliderWidget
@@ -49,7 +49,7 @@ class TuneLedArenaFlash(AddonWidget):
         self.layout().addItem(spacer)
 
     def set_flash_delay(self, delay):
-        IPC.rpc(Def.Process.Io, TriggerLedArenaFlash.set_delay_ms, delay)
+        ipc.rpc(Def.Process.Io, TriggerLedArenaFlash.set_delay_ms, delay)
 
     def set_flash_duration(self, duration):
-        IPC.rpc(Def.Process.Io, TriggerLedArenaFlash.set_duration_ms, duration)
+        ipc.rpc(Def.Process.Io, TriggerLedArenaFlash.set_duration_ms, duration)

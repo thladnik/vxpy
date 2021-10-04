@@ -29,21 +29,19 @@ from mappapp import api
 from mappapp.api import event
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
-from mappapp.IPC import build_pipes, set_process
+from mappapp.core.ipc import build_pipes, set_process
 from mappapp import Logging
 from mappapp.Logging import setup_log_queue
-from mappapp.core import routine
+from mappapp.core import routine, ipc
 from mappapp.core import container
 from mappapp import gui
 from mappapp.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
-from mappapp.core.routine import Routine
 
 # Type hinting
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Type, Union
+    from typing import Any, Callable, Dict, Union
 
 
 ##################################
@@ -133,24 +131,24 @@ class AbstractProcess:
         # Set controls
         if _controls is not None:
             for ckey, control in _controls.items():
-                setattr(IPC.Control, ckey, control)
+                setattr(ipc.Control, ckey, control)
 
         if _proxies is not None:
             for pkey, proxy in _proxies.items():
-                setattr(IPC, pkey, proxy)
+                setattr(ipc, pkey, proxy)
 
         # Set states
         if not (_states is None):
             for skey, state in _states.items():
-                setattr(IPC.State, skey, state)
+                setattr(ipc.State, skey, state)
 
         # Set additional attributes
         for key, value in kwargs.items():
             setattr(self, key, value)
 
         # Set modules state
-        if not (getattr(IPC.State, self.name) is None):
-            IPC.set_state(Def.State.STARTING)
+        if not (getattr(ipc.State, self.name) is None):
+            ipc.set_state(Def.State.STARTING)
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
@@ -168,9 +166,9 @@ class AbstractProcess:
         self._shutdown = False
 
         # Set modules state
-        IPC.set_state(Def.State.IDLE)
+        ipc.set_state(Def.State.IDLE)
 
-        min_sleep_time = IPC.Control.General[Def.GenCtrl.min_sleep_time]
+        min_sleep_time = ipc.Control.General[Def.GenCtrl.min_sleep_time]
         self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
@@ -241,7 +239,7 @@ class AbstractProcess:
         if self.in_state(Def.State.RUNNING):
 
             ## If phase stoptime is exceeded: end phase
-            if IPC.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
+            if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
                 self.set_state(Def.State.PHASE_END)
                 return False
 
@@ -291,7 +289,7 @@ class AbstractProcess:
             while self.in_state(Def.State.RUNNING, Def.Process.Controller):
                 # TODO: sync of starts could also be done with multiprocessing.Barrier
                 t = time.time()
-                if IPC.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
+                if ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
                     Logging.write(Logging.INFO, 'Start at {}'.format(t))
                     self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
@@ -328,25 +326,25 @@ class AbstractProcess:
 
     def idle(self):
         if self.enable_idle_timeout:
-            time.sleep(IPC.Control.General[Def.GenCtrl.min_sleep_time])
+            time.sleep(ipc.Control.General[Def.GenCtrl.min_sleep_time])
 
     def get_state(self, process=None):
         """Convenience function for access in modules class"""
-        return IPC.get_state()
+        return ipc.get_state()
 
     def set_state(self, code):
         """Convenience function for access in modules class"""
-        IPC.set_state(code)
+        ipc.set_state(code)
 
     def in_state(self, code, process_name=None):
         """Convenience function for access in modules class"""
         if process_name is None:
             process_name = self.name
-        return IPC.in_state(code, process_name)
+        return ipc.in_state(code, process_name)
 
     def _start_shutdown(self):
         # Handle all pipe messages before shutdown
-        while IPC.Pipes[self.name][1].poll():
+        while ipc.Pipes[self.name][1].poll():
             self.handle_inbox()
 
         # Set modules state
@@ -424,11 +422,11 @@ class AbstractProcess:
     def handle_inbox(self, *args):
 
         # Poll pipe
-        if not (IPC.Pipes[self.name][1].poll()):
+        if not (ipc.Pipes[self.name][1].poll()):
             return
 
         # Receive
-        msg = IPC.Pipes[self.name][1].recv()
+        msg = ipc.Pipes[self.name][1].recv()
 
         # Unpack
         signal, args, kwargs = msg
@@ -498,6 +496,7 @@ class AbstractProcess:
 
             self._create_dataset(path, dshape, dtype)
 
+        # Append to dataset
         self.file_container.append(path, value)
 
     def _routine_on_record(self, routine_name):
@@ -521,31 +520,26 @@ class AbstractProcess:
         if group_attributes is not None:
             grp.attrs.update(group_attributes)
 
-        # Create routine groups
-        for routine_name, _routine in self._routines[self.name].items():
-
-            if not(self._routine_on_record(routine_name)):
+        # Create attributes in group
+        for attr in get_permanent_attributes():
+            if not isinstance(attr, ArrayAttribute):
                 continue
 
-            for attr in get_permanent_attributes():
-                if not isinstance(attr, ArrayAttribute):
-                    continue
-
-                path = f'{self.record_group}/{attr.name}'
-                self._create_dataset(path, attr.shape, attr.dtype[1])
-                self._create_dataset(f'{path}_time', (1,), np.float64)
+            path = f'{self.record_group}/{attr.name}'
+            self._create_dataset(path, attr.shape, attr.dtype[1])
+            self._create_dataset(f'{path}_time', (1,), np.float64)
 
     def update_routines(self, *args, **kwargs):
 
         # Handle file container
-        if IPC.Control.Recording[Def.RecCtrl.active]:
+        if ipc.Control.Recording[Def.RecCtrl.active]:
             if self.file_container is None:
-                if not (bool(IPC.Control.Recording[Def.RecCtrl.folder])):
+                if not (bool(ipc.Control.Recording[Def.RecCtrl.folder])):
                     Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
                     return None
 
                 # If output folder is set: open file
-                rec_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+                rec_folder = ipc.Control.Recording[Def.RecCtrl.folder]
                 filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
                 # Open new file
@@ -555,8 +549,8 @@ class AbstractProcess:
                 # self.file_container = container.H5File(filepath, 'a')
 
                 # Set compression
-                compr_method = IPC.Control.Recording[Def.RecCtrl.compression_method]
-                compr_opts = IPC.Control.Recording[Def.RecCtrl.compression_opts]
+                compr_method = ipc.Control.Recording[Def.RecCtrl.compression_method]
+                compr_opts = ipc.Control.Recording[Def.RecCtrl.compression_opts]
                 self.compression_args = dict()
                 if compr_method is not None:
                     self.compression_args = {'compression': compr_method, **compr_opts}
@@ -573,7 +567,7 @@ class AbstractProcess:
         for routine_name, routine in self._routines[self.name].items():
             routine.main(*args, **kwargs)
 
-        if not(IPC.Control.Recording[Def.RecCtrl.active]) or self.file_container is None:
+        if not(ipc.Control.Recording[Def.RecCtrl.active]) or self.file_container is None:
             return
 
         # Write attributes to file
@@ -590,28 +584,6 @@ class AbstractProcess:
             self._append_to_dataset(path, attr_data)
             self._append_to_dataset(f'{path}_time', attr_time)
 
-    def get_buffer(self, routine_cls: Routine):
-        """Return buffer of a routine class"""
-
-        process_name = routine_cls.name
-        routine_name = routine_cls.__name__
-
-        assert process_name in self._routines and routine_name in self._routines[process_name], \
-            f'Routine {routine_name} is not set in {self.name}'
-
-        return self._routines[process_name][routine_name].buffer
-
-    def read(self, attr_name: str, routine_cls: Routine = None, *args, **kwargs):
-        """Read shared attribute from buffer.
-
-        :param attr_name: string name of attribute or string format <attrName>/<bufferName>
-        :param routine_name: name of buffer; if None, then attrName has to be <attrName>/<bufferName>
-
-        :return: value of the buffer
-        """
-
-        return self._routines[routine_cls.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
-
     @property
     def routines(self):
         return self._routines
@@ -624,7 +596,7 @@ class AbstractProcess:
 class ProcessProxy:
     def __init__(self, name):
         self.name = name
-        self._state: mp.Value = getattr(IPC.State, self.name)
+        self._state: mp.Value = getattr(ipc.State, self.name)
 
     @property
     def state(self):
@@ -632,12 +604,6 @@ class ProcessProxy:
 
     def in_state(self, state):
         return self.state == state
-
-    def read(self, routine_cls, attr_name, *args, **kwargs):
-        return IPC.Process._routines[self.name][routine_cls.__name__].read(attr_name, *args, **kwargs)
-
-    def get_buffer(self, routine_cls, name):
-        return getattr(IPC.Process._routines[self.name][routine_cls.__name__].buffer, name)
 
     def rpc(self, function: Callable, *args, **kwargs) -> None:
         """Send a remote procedure call of given function to another modules.
@@ -647,4 +613,4 @@ class ProcessProxy:
         @param args:
         @param kwargs:
         """
-        IPC.rpc(self.name, function, *args, **kwargs)
+        ipc.rpc(self.name, function, *args, **kwargs)

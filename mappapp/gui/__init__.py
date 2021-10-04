@@ -23,11 +23,10 @@ from os.path import abspath
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
-import time
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp import Logging
 from mappapp import modules
 from mappapp.api.attribute import get_attribute, read_attribute
@@ -123,7 +122,7 @@ class ProcessMonitor(IntegratedWidget):
 
     def _update_states(self):
         for process_name, state_widget in self.state_widgets.items():
-            self._set_process_state(state_widget, IPC.get_state(process_name))
+            self._set_process_state(state_widget, ipc.get_state(process_name))
 
 
 class Recording(IntegratedWidget):
@@ -232,16 +231,16 @@ class Recording(IntegratedWidget):
         compression_opts = self.get_compression_opts()
 
         # Call controller
-        IPC.rpc(Def.Process.Controller, modules.Controller.start_recording,
+        ipc.rpc(Def.Process.Controller, modules.Controller.start_recording,
                 compression_method=compression_method,
                 compression_opts=compression_opts)
 
     def pause_recording(self):
-        IPC.rpc(Def.Process.Controller, modules.Controller.pause_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
 
     def finalize_recording(self):
         # First: pause recording
-        IPC.rpc(Def.Process.Controller, modules.Controller.pause_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
 
         reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
                                                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
@@ -259,10 +258,10 @@ class Recording(IntegratedWidget):
 
         # Finally: stop recording
         print('Stop recording...')
-        IPC.rpc(Def.Process.Controller, modules.Controller.stop_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.stop_recording)
 
     def toggle_enable(self, newstate):
-        IPC.rpc(Def.Process.Controller, modules.Controller.set_enable_recording, newstate)
+        ipc.rpc(Def.Process.Controller, modules.Controller.set_enable_recording, newstate)
 
     def get_compression_method(self):
         method = self.compr.currentText()
@@ -304,9 +303,9 @@ class Recording(IntegratedWidget):
     def update_ui(self):
         """(Periodically) update UI based on shared configuration"""
 
-        enabled = IPC.Control.Recording[Def.RecCtrl.enabled]
-        active = IPC.Control.Recording[Def.RecCtrl.active]
-        current_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+        enabled = ipc.Control.Recording[Def.RecCtrl.enabled]
+        active = ipc.Control.Recording[Def.RecCtrl.active]
+        current_folder = ipc.Control.Recording[Def.RecCtrl.folder]
 
         if active and enabled:
             self.wdgt.setStyleSheet('QWidget#RecordingWidget {background: rgba(179, 31, 18, 0.5);}')
@@ -318,19 +317,19 @@ class Recording(IntegratedWidget):
         self.setChecked(enabled)
 
         # Set current folder
-        self.rec_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
+        self.rec_folder.setText(ipc.Control.Recording[Def.RecCtrl.folder])
 
         # Set buttons dis-/enabled
         # Start
         self.btn_start.setEnabled(not(active) and enabled)
-        self.btn_start.setText('Start' if IPC.in_state(Def.State.IDLE,Def.Process.Controller) else 'Resume')
+        self.btn_start.setText('Start' if ipc.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
         # Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self.btn_pause.setEnabled(False)
         # Stop
-        self.btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
+        self.btn_stop.setEnabled(bool(ipc.Control.Recording[Def.RecCtrl.folder]) and enabled)
         # Overwrite stop button during protocol
-        if bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
+        if bool(ipc.Control.Protocol[Def.ProtocolCtrl.name]):
             self.btn_stop.setEnabled(False)
 
         self.base_dir.setText(Config.Recording[Def.RecCfg.output_folder])
@@ -358,11 +357,11 @@ class Logger(IntegratedWidget):
 
 
     def print_log(self):
-        if IPC.Log.File is None:
+        if ipc.Log.File is None:
             return
 
-        if len(IPC.Log.History) > self.logccount:
-            for record in IPC.Log.History[self.logccount:]:
+        if len(ipc.Log.History) > self.logccount:
+            for record in ipc.Log.History[self.logccount:]:
                 if record['levelno'] > 10:
                     line = '{} : {:10} : {:10} : {}'\
                         .format(record['asctime'], record['name'], record['levelname'], record['msg'])

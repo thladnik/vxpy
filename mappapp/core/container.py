@@ -21,7 +21,7 @@ import numpy as np
 import os
 
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp import Logging
 from mappapp import modules
 
@@ -163,7 +163,7 @@ class NpBuffer:
         self.shape = shape
         self.attrs = dict()
 
-        self.temp_filepath = os.path.join(IPC.Control.Recording[Def.RecCtrl.folder], f'{self.path.replace("/", "_")}.dat')
+        self.temp_filepath = os.path.join(ipc.Control.Recording[Def.RecCtrl.folder], f'{self.path.replace("/", "_")}.dat')
         self._memmap = None
 
 
@@ -186,7 +186,7 @@ class NpBuffer:
             Logging.write(Logging.ERROR, f'Unable to open temporary file {self.temp_filepath} for numpy buffered recording. '
                                          f'This is most likely because there is insufficient storage space to create temporary files. '
                                          f'Either make room on partition, use different partition or switch to standard H5.')
-            IPC.Controller.rpc(modules.Controller.stop_recording)
+            ipc.Controller.rpc(modules.Controller.stop_recording)
 
         self.idx = 0
 

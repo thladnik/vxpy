@@ -19,6 +19,7 @@ from mappapp import Config
 from mappapp import Def
 from mappapp.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file
 from mappapp.api.routine import DisplayRoutine
+from mappapp.core.visual import AbstractVisual
 
 
 class StaticParameters(DisplayRoutine):
@@ -28,7 +29,7 @@ class StaticParameters(DisplayRoutine):
     def setup(self):
 
         # Set up shared variables
-        self.parameters = ObjectAttribute('static_display_parameters')
+        self.parameters = ObjectAttribute('sdp')
 
     def main(self, visual):
         if visual is None:
@@ -46,16 +47,31 @@ class DynamicParameters(DisplayRoutine):
     def setup(self):
 
         # Set up shared variables
-        self.parameters = ObjectAttribute('dynamic_display_parameters')
-        write_to_file(self, 'dynamic_display_parameters')
+        self.parameters = ObjectAttribute('ddp')
+        write_to_file(self, 'ddp')
 
-    def main(self, visual):
+    def main(self, visual: AbstractVisual):
         if visual is None:
-            params = None
+            values = None
         else:
-            params = visual.parameters
+            # Use parameters dictionary
+            values = visual.parameters.copy()
 
-        self.parameters.write(params)
+            # Add custom program uniforms
+            new = dict()
+            for program_name, program in visual.custom_programs.items():
+                for var_qualifier, var_type, var_name in program.variables:
+                    # Write any uniform variables that are not textures
+                    # or part of the display calibration ("u_mapcalib_*")
+                    if var_qualifier != 'uniform' \
+                            or var_type not in ('int', 'float', 'vec2', 'vec3', 'mat2', 'mat3', 'mat4') \
+                            or var_name.startswith('u_mapcalib_'):
+                        continue
+                    new[f'{program_name}_{var_name}'] = program[var_name]
+
+            values.update(new)
+
+        self.parameters.write(values)
 
 
 class Frames(DisplayRoutine):

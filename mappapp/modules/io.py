@@ -21,10 +21,9 @@ import time
 from mappapp.api.attribute import read_attribute
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
-from mappapp.core import process
+from mappapp.core import process, ipc
 
 
 class Io(process.AbstractProcess):
@@ -73,10 +72,10 @@ class Io(process.AbstractProcess):
         self.run(interval=1./Config.Io[Def.IoCfg.max_sr])
 
     def start_protocol(self):
-        self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+        self.protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def start_phase(self):
-        self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
+        self.set_record_group(f'phase_{ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
     def end_protocol(self):
         pass

@@ -32,7 +32,7 @@ class SingleMovingDot(visual.PlanarVisual):
     u_time = 'u_time'  # s
 
     def initialize(self, **parameters):
-        self.program['u_time'] = 0.
+        parameters.update(u_time=0.0)
         self.update(**parameters)
 
     parameters = {
@@ -62,9 +62,8 @@ class SingleMovingDot(visual.PlanarVisual):
                                     self.load_shader('planar/single_moving_dot.frag'))
         self.program['a_position'] = self.position_buffer
 
-
     def render(self, dt):
-        self.program['u_time'] += dt
+        self.update(u_time=self.parameters['u_time'] + dt)
 
         self.apply_transform(self.program)
         self.program.draw('triangles', self.index_buffer)

@@ -20,9 +20,8 @@ import numpy as np
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp.api.attribute import ArrayAttribute, ArrayType, write_to_file, write_attribute
-from mappapp.core import routine
+from mappapp.core import routine, ipc
 from mappapp.routines.camera import zf_tracking
 
 
@@ -156,8 +155,8 @@ class TriggerLedArenaFlash(routine.IoRoutine):
 
     def main(self, pin_data, device):
         # Check saccade
-        _, _, le_sacc_val = IPC.Camera.read(zf_tracking.EyePositionDetection, 'le_saccade_0')
-        _, sacc_time, re_sacc_val = IPC.Camera.read(zf_tracking.EyePositionDetection, 're_saccade_0')
+        _, _, le_sacc_val = ipc.Camera.read(zf_tracking.EyePositionDetection, 'le_saccade_0')
+        _, sacc_time, re_sacc_val = ipc.Camera.read(zf_tracking.EyePositionDetection, 're_saccade_0')
 
         if re_sacc_val[0] > 0 or le_sacc_val[0] > 0:
             self.trigger_flash()
