@@ -103,6 +103,7 @@ class Attribute(ABC):
         self._data = None
         self._index = mp.Value(ctypes.c_uint64)
         self._time = ipc.Manager.list([None] * self._length)
+        self._last_time = np.inf
 
     def _next(self):
         self._index.value += 1
@@ -147,6 +148,9 @@ class Attribute(ABC):
         pass
 
     def write(self, value):
+        if np.isclose(self._last_time, ipc.Process.global_t):
+            raise Exception(f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name}.')
+
         internal_idx = self.index % self._length
 
         # Set time for this entry
@@ -154,6 +158,8 @@ class Attribute(ABC):
 
         # Write data
         self._write(internal_idx, value)
+
+        self._last_time = ipc.Process.global_t
 
         # Advance buffer
         self._next()
