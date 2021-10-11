@@ -148,8 +148,9 @@ class Attribute(ABC):
         pass
 
     def write(self, value):
-        if np.isclose(self._last_time, ipc.Process.global_t):
-            raise Exception(f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name}.')
+        if np.isclose(self._last_time, ipc.Process.global_t, rtol=0., atol=ipc.Process.interval / 4.):
+            raise Exception(f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name}. '
+                            f'Last={self._last_time} / Current={ipc.Process.global_t}')
 
         internal_idx = self.index % self._length
 
