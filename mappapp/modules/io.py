@@ -24,6 +24,7 @@ from mappapp import Def
 from mappapp import Logging
 from mappapp import protocols
 from mappapp.core import process, ipc
+from mappapp.core.attribute import Attribute
 
 
 class Io(process.AbstractProcess):
@@ -36,6 +37,7 @@ class Io(process.AbstractProcess):
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
 
+        # Configure devices
         for did, dev_config in Config.Io[Def.IoCfg.device].items():
             if not(all(k in dev_config for k in ("type", "model"))):
                 Logging.write(Logging.WARNING, f'Insufficient information to configure device {did}')
@@ -52,6 +54,7 @@ class Io(process.AbstractProcess):
                 Logging.write(Logging.WARNING, f'Failed to set up device {did} // Exc: {exc}')
                 continue
 
+            # Configure pins on device
             if did in Config.Io[Def.IoCfg.pins]:
                 Logging.write(Logging.INFO, f'Set up pin configuration for device {did}')
 
@@ -83,15 +86,26 @@ class Io(process.AbstractProcess):
     def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
 
+        Logging.write(Logging.INFO, f'Set attribute "{attr_name}" to write to pin {pid}')
+
+        # Check of pid is actually configured
         if pid not in self._pid_pin_map:
-            Logging.write(Logging.WARNING, f'Output "{pid}" has not been configured.')
+            Logging.write(Logging.WARNING, f'Output "{pid}" is not configured.')
             return
 
+        # Select pin
         pin = self._pid_pin_map[pid]
 
+        # Check if pin is configured as output
         if pin.config['type'] not in ('do', 'ao'):
-            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} has not been configured.')
+            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} cannot be configured as output.' 
+                                           'It is not an output channel.')
             return
+
+        # Check if attribute exists
+        if not attr_name in Attribute.all:
+            Logging.write(Logging.WARNING, f'Pin "{pid}" cannot be set to attribute {attr_name}.'
+                                           f'Attribute does not exist.')
 
         if pid not in self._pid_attr_map:
 

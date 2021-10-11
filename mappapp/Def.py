@@ -133,6 +133,7 @@ class CameraCfg(Cfg):
     fps = 'int_fps'
     exposure = 'json_exposure'
     gain = 'json_gain'
+    devices = 'json_devices'
 
     # Buffers
     routines = 'json_routines'

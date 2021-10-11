@@ -1,5 +1,5 @@
 """
-MappApp ./modules/camera.py
+MappApp ./modules/camera_aio.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -15,10 +15,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from typing import Dict
+
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
 from mappapp.core import process, ipc
+from mappapp.core.camera import AbstractCameraDevice, open_device
 
 
 class Camera(process.AbstractProcess):
@@ -27,40 +30,24 @@ class Camera(process.AbstractProcess):
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
 
-        self.cameras = dict()
-        for device_id, manufacturer, model, format, gain, exposure \
-                in zip(Config.Camera[Def.CameraCfg.device_id],
-                       Config.Camera[Def.CameraCfg.manufacturer],
-                       Config.Camera[Def.CameraCfg.model],
-                       Config.Camera[Def.CameraCfg.format],
-                       Config.Camera[Def.CameraCfg.gain],
-                       Config.Camera[Def.CameraCfg.exposure]):
-            # Open selected camera
-            try:
+        self.cameras: Dict[str, AbstractCameraDevice] = dict()
 
-                import mappapp.devices.camera
-                cam = getattr(mappapp.devices.camera,manufacturer)
-                self.cameras[device_id] = cam(model, format)
-                self.cameras[device_id].set_gain(gain)
-                self.cameras[device_id].set_exposure(exposure)
-                # Provoke error
-                self.cameras[device_id].snap_image()
-                self.cameras[device_id].get_image()
+        # Set up cameras
+        for config in Config.Camera[Def.CameraCfg.devices]:
+            device_id = config['id']
+            device = open_device(config)
+            if device.open():
+                Logging.write(Logging.INFO, f'Using camera {config} as \"{device_id}\"')
+            else:
+                Logging.write(Logging.WARNING, f'Unable to use camera {config} as \"{device_id}\"' 
+                                               '// Exception: {exc}')
 
-                Logging.write(Logging.INFO,
-                              f'Using camera {manufacturer}>>{model} ({format}) as \"{device_id}\"')
-            except Exception as exc:
-                Logging.write(Logging.INFO,
-                              f'Unable to use camera {manufacturer}>>{model} ({format}) // Exception: {exc}')
-                if Def.Env == Def.EnvTypes.Dev:
-                    import traceback
-                    print(traceback.print_exc())
-
+            # Save to dictionary
+            self.cameras[device_id] = device
 
         target_fps = Config.Camera[Def.CameraCfg.fps]
 
         if ipc.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
-            # TODO: this estimate for sleep time seems to be way off
             Logging.write(Logging.WARNING,
                           'Mininum sleep period is ABOVE '
                           'average target frametime of 1/{}s.'

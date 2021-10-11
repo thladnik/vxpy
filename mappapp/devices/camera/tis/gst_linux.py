@@ -19,24 +19,26 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import re
-import sys
-
 import gi
+
+from mappapp.core.camera import AbstractCameraDevice
+
 gi.require_version("Gst", "1.0")
 gi.require_version("Tcam", "0.1")
-from gi.repository import GLib, GObject, Gst, Tcam
+from gi.repository import GLib, Gst
 import numpy as np
+from typing import Dict, List, Union
 
 from mappapp.core import camera
 
 Gst.init([])
 
 
-def get_connected_devices():
+def get_connected_devices() -> Dict[str, AbstractCameraDevice]:
     source = Gst.ElementFactory.make("tcamsrc")
     serials = source.get_device_serials()
 
-    devices = dict()
+    devices: Dict[str, AbstractCameraDevice] = dict()
 
     for sn in serials:
         (return_value, model, identifier, connection_type) = source.get_device_info(sn)
@@ -45,7 +47,7 @@ def get_connected_devices():
     return devices
 
 
-def get_image_props(fmt):
+def get_image_props(fmt: Union[str, camera.Format]) -> tuple:
     if isinstance(fmt, str):
         fmt = camera.Format.from_str(fmt)
 
@@ -63,12 +65,6 @@ def get_image_props(fmt):
 
 
 class CameraDevice(camera.AbstractCameraDevice):
-
-    def set_exposure(self, e):
-        pass
-
-    def set_gain(self, g):
-        pass
 
     def __init__(self, *args, **kwargs):
         camera.AbstractCameraDevice.__init__(self, *args, **kwargs)
@@ -93,6 +89,8 @@ class CameraDevice(camera.AbstractCameraDevice):
             else:
                 return False
         except Exception as exc:
+            import traceback
+            traceback.print_exc()
             return False
         # else:
         #     return True
@@ -100,47 +98,6 @@ class CameraDevice(camera.AbstractCameraDevice):
             state = source.set_state(Gst.State.NULL)
             source.set_property('serial', '')
             source = None
-
-    def get_formats(self):
-        """Return formats for given device
-        """
-
-        if bool(self._avail_formats):
-            return self._avail_formats
-
-        # Open device
-        source = Gst.ElementFactory.make("tcambin")
-        source.set_property("serial", self.serial)
-        source.set_state(Gst.State.READY)
-        caps = source.get_static_pad("src").query_caps()
-
-        # Read all available formats
-        for x in range(caps.get_size()):
-            structure = caps.get_structure(x)
-            f = structure.get_value("format")
-            # name = structure.get_name()
-
-            width = structure.get_value("width")
-            height = structure.get_value("height")
-
-            try:
-                rates = structure.get_value("framerate")
-            except TypeError:
-                # Workaround for missing GstValueList support in GI
-                substr = structure.to_string()[structure.to_string().find("framerate="):]
-                # try for frame rate lists
-                field, values, remain = re.split("{|}", substr, maxsplit=3)
-                rates = [x.strip() for x in values.split(",")]
-
-            for rate in rates:
-                self._avail_formats.append(camera.Format(f, width, height, rate.split('/')[0]))
-
-        # Close device
-        source.set_state(Gst.State.NULL)
-        source.set_property('serial', '')
-        source = None
-
-        return self._avail_formats
 
     def start_stream(self):
         # Create pipeline
@@ -187,6 +144,51 @@ class CameraDevice(camera.AbstractCameraDevice):
         except:  # GError as error:
             print("Error starting pipeline: {0}".format("unknown too"))
             raise
+        return True
+
+    def get_formats(self) -> List[camera.Format]:
+        """Return formats for given device
+        """
+
+        if bool(self._avail_formats):
+            return self._avail_formats
+
+        # Open device
+        source = Gst.ElementFactory.make("tcambin")
+        source.set_property("serial", self.serial)
+        source.set_state(Gst.State.READY)
+        caps = source.get_static_pad("src").query_caps()
+
+        # Read all available formats
+        for x in range(caps.get_size()):
+            structure = caps.get_structure(x)
+            f = structure.get_value("format")
+            # name = structure.get_name()
+
+            width = structure.get_value("width")
+            height = structure.get_value("height")
+
+            try:
+                rates = structure.get_value("framerate")
+            except TypeError:
+                # Workaround for missing GstValueList support in GI
+                substr = structure.to_string()[structure.to_string().find("framerate="):]
+                # try for frame rate lists
+                field, values, remain = re.split("{|}", substr, maxsplit=3)
+                rates = [x.strip() for x in values.split(",")]
+
+            for rate in rates:
+                self._avail_formats.append(camera.Format(f, width, height, rate.split('/')[0]))
+
+        # Close device
+        source.set_state(Gst.State.NULL)
+        source.set_property('serial', '')
+        source = None
+
+        return self._avail_formats
+
+    def snap_image(self, *args, **kwargs):
+        pass
 
     def get_image(self):
 
@@ -220,3 +222,11 @@ class CameraDevice(camera.AbstractCameraDevice):
                 raise
 
         return self.img_mat
+
+    def set_exposure(self, e):
+        # TODO: set exposure
+        pass
+
+    def set_gain(self, g):
+        # TODO: set gain
+        pass

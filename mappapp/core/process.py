@@ -55,6 +55,7 @@ class AbstractProcess:
     """
     name: str
 
+    interval: float
     _running: bool
     _shutdown: bool
 
@@ -159,6 +160,7 @@ class AbstractProcess:
         event.post_event('register_rpc')
 
     def run(self, interval):
+        self.interval = interval
         Logging.write(Logging.INFO, f'Process started')
 
         # Set state to running

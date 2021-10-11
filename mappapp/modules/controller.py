@@ -175,8 +175,8 @@ class Controller(process.AbstractProcess):
                     _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
 
         # Set configured cameras
-        for dev_name in Config.Camera[Def.CameraCfg.device_id]:
-            register_camera_device(dev_name)
+        for device in Config.Camera[Def.CameraCfg.devices]:
+            register_camera_device(device['id'])
 
         # Set configured io devices
         for dev_name in Config.Io[Def.IoCfg.device]:

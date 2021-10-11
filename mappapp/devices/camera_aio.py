@@ -1,10 +1,20 @@
-# import mappapp.devices.camera.tis
+# """
+# MappApp .devices/camera_aio.py
+# Copyright (C) 2020 Tim Hladnik
 #
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-# ## !!!!!
-# ## !!!!
-# # Temporary to make it work in transition:
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# """
 # import cv2
 # import logging
 # import numpy as np
@@ -14,6 +24,18 @@
 #
 # from mappapp import Def
 # from mappapp import Logging
+#
+# if False:
+#     ### Import camera APIs
+#     # Add application's DLL path on Windows
+#     if platform == 'win32':
+#         os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.Path.Libdll))
+#     # MAC OS
+#     elif platform == 'darwin':
+#         IC = None
+#     # Assume it's Linux
+#     else:
+#         IC = None
 #
 # class AbstractCamera:
 #
@@ -142,3 +164,61 @@
 #         else:
 #             self._device.set(cv2.CAP_PROP_POS_FRAMES, 0)
 #             return self.get_image()
+#
+#
+# class TISCamera(AbstractCamera):
+#
+#     def __init__(self, *args):
+#         AbstractCamera.__init__(self, *args)
+#         from mappapp.lib.pyapi import tisgrabber
+#
+#         self._device = tisgrabber.TIS_CAM()
+#         self._device.open(self.model)
+#         self._device.SetVideoFormat(self.format)
+#
+#         ### Disable auto setting of gain and exposure
+#         self._device.SetPropertySwitch('Gain', 'Auto', 0)
+#         self._device.enableCameraAutoProperty(4, 0)  # Disable auto exposure (for REAL)
+#
+#         ### Enable frame acquisition
+#         self._device.StartLive(0)
+#
+#     def set_exposure(self, value: float):
+#         curr_exposure = [0.]
+#         self._device.GetPropertyAbsoluteValue('Exposure', 'Value', curr_exposure)
+#
+#         if not(np.isclose(value, curr_exposure[0] * 1000, atol=0.001)):
+#             Logging.write(logging.DEBUG,'Set exposure from {} to {} ms'.format(curr_exposure[0] * 1000,value))
+#             self._device.SetPropertyAbsoluteValue('Exposure', 'Value', float(value) / 1000)
+#
+#     def set_gain(self, value: float):
+#         curr_gain = [0.]
+#         self._device.GetPropertyAbsoluteValue('Gain', 'Value', curr_gain)
+#
+#         if not(np.isclose(value, curr_gain[0], atol=0.001)):
+#             Logging.write(logging.DEBUG,'Set gain from {} to {}'.format(curr_gain[0],value))
+#             self._device.SetPropertyAbsoluteValue('Gain', 'Value', float(value))
+#
+#     @staticmethod
+#     def get_models():
+#         from mappapp.lib.pyapi import tisgrabber
+#
+#         cam = tisgrabber.TIS_CAM()
+#         return [s.decode() for s in cam.GetDevices()]
+#
+#     @staticmethod
+#     def get_formats(model):
+#         from mappapp.lib.pyapi import tisgrabber
+#
+#         device = tisgrabber.TIS_CAM()
+#         device.open(model)
+#         return [s.decode() for s in device.GetVideoFormats()]
+#
+#     def snap_image(self):
+#         self._device.SnapImage()
+#
+#     def get_image(self):
+#         return self._device.GetImage()
+#
+#     def stop(self):
+#         self._device.StopLive()

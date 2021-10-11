@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import time
+from typing import Any, Dict
 import numpy as np
 
 from mappapp import Config
@@ -23,6 +24,7 @@ from mappapp import Def
 from mappapp.api.attribute import ArrayAttribute, ArrayType, write_to_file, write_attribute
 from mappapp.core import routine, ipc
 from mappapp.routines.camera import zf_tracking
+from mappapp.api.ui import register_with_plotter
 
 
 class ReadAll(routine.IoRoutine):
@@ -30,15 +32,15 @@ class ReadAll(routine.IoRoutine):
     def setup(self):
 
         # Read all pins
-        self.pins = {}
+        self.pin_configs: Dict[str, Dict] = {}
         for did, pins in Config.Io[Def.IoCfg.pins].items():
             for pid, pconf in pins.items():
                 pconf.update(dev=did)
-                self.pins[pid] = pconf
+                self.pin_configs[pid] = pconf
 
         # Set up buffer attributes
-        self.attributes = {}
-        for pid, pconf in self.pins.items():
+        self.attributes: Dict[str, ArrayAttribute] = {}
+        for pid, pconf in self.pin_configs.items():
             if pconf['type'] in ('di', 'do'):
                 attr = ArrayAttribute(pid, (1,), ArrayType.uint8)
             else:
@@ -47,6 +49,11 @@ class ReadAll(routine.IoRoutine):
 
             # Add pin to be written to file
             write_to_file(self, pid)
+
+    def initialize(self):
+        for pid, attr in self.attributes.items():
+            axis = self.pin_configs[pid]['type']
+            register_with_plotter(attr.name, axis=axis)
 
     def main(self, **pins):
         for pid, pin in pins.items():

@@ -1,5 +1,5 @@
 """
-MappApp ./api/__init__.py
+MappApp ./api/io.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
@@ -16,29 +16,13 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from mappapp import Def
-from mappapp.core import ipc
 from mappapp import modules
+from mappapp.api import io_rpc
 
 
-def get_time():
-    return ipc.Process.global_t
+def set_digital_output(out_pid, attr_name):
+    io_rpc(modules.Io.set_outpin_to_attr, out_pid, attr_name)
 
 
-def camera_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Camera, function, *args, **kwargs)
-
-
-def display_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Display, function, *args, **kwargs)
-
-
-def gui_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Gui, function, *args, **kwargs)
-
-
-def io_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Io, function, *args, **kwargs)
-
-def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):
-    display_rpc(modules.Display.set_display_uniform_attribute, uniform_name, routine_cls, attr_name)
+def set_analog_output(out_pid, attr_name):
+    io_rpc(modules.Io.set_outpin_to_attr, out_pid, attr_name)

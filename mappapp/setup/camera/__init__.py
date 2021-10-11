@@ -324,7 +324,7 @@ class CameraWidget(ModuleWidget):
 
         import mappapp.devices.camera
         try:
-            cam = getattr(mappapp.devices.camera,section[Def.CameraCfg.manufacturer][row_idx])
+            cam = getattr(mappapp.devices.camera_aio, section[Def.CameraCfg.manufacturer][row_idx])
             self.camera = cam(section[Def.CameraCfg.model][row_idx],section[Def.CameraCfg.format][row_idx])
             self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx],section[Def.CameraCfg.res_y][row_idx]
             self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx] + 30)

@@ -1,5 +1,6 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Union
 from dataclasses import dataclass
 
 _use_apis = []
@@ -24,6 +25,7 @@ def get_devices(reload=False):
 def open_device(config):
     global _use_apis
     _use_apis_str = [a.__name__ for a in _use_apis]
+    print(_use_apis)
     if config['api'] not in _use_apis_str:
         raise f'Camera API {config["api"]} not available'
 
@@ -47,7 +49,7 @@ class AbstractCameraDevice(ABC):
 
     def __init__(self, serial, **info):
         self.serial = serial
-        self.info = info
+        self.info: Dict = info
         self._avail_formats: List[Format] = []
         self._fmt: Format = None
         self._api = None
@@ -59,21 +61,10 @@ class AbstractCameraDevice(ABC):
     def __repr__(self):
         return f'CameraDevice {self._api.__name__}.{self.id} (SN{self.serial}) ({self.display_info()})'
 
-    @abstractmethod
-    def start_stream(self):
-        pass
-
-    def snap_image(self, *args, **kwargs):
-        pass
-
-    @abstractmethod
-    def get_image(self):
-        pass
-
     def set_id(self, id):
         self.id = id
 
-    def set_format(self, fmt):
+    def set_format(self, fmt: Union[str, Format]) -> None:
         if isinstance(fmt, str):
             fmt = Format.from_str(fmt)
         if fmt in self.get_formats():
@@ -94,6 +85,22 @@ class AbstractCameraDevice(ABC):
                 'format': str(self._fmt),
                 'exposure': self.exposure,
                 'gain': self.gain}
+
+    @abstractmethod
+    def open(self):
+        pass
+
+    @abstractmethod
+    def start_stream(self):
+        pass
+
+    @abstractmethod
+    def snap_image(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def get_image(self):
+        pass
 
     @abstractmethod
     def get_formats(self):
@@ -118,7 +125,7 @@ class Format(ABC):
         self.rate = int(rate)
 
     @staticmethod
-    def from_str(fmt_str: str):
+    def from_str(fmt_str: str) -> Format:
         substr = fmt_str.split('@')
         r = substr[-1]
         substr = substr[0].split('(')

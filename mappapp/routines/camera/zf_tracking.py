@@ -25,7 +25,7 @@ from mappapp import Def
 from mappapp.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute
 from mappapp.api.routine import CameraRoutine
 from mappapp.api.ui import register_with_plotter
-from mappapp import api
+from mappapp.api.io import set_digital_output
 from mappapp.api.dependency import require_camera_device
 
 
@@ -33,7 +33,6 @@ class EyePositionDetection(CameraRoutine):
 
     # Set required device
     camera_device_id = 'fish_embedded'
-    require_camera_device(camera_device_id)
 
     routine_prefix = 'eyepos_'
 
@@ -47,6 +46,7 @@ class EyePositionDetection(CameraRoutine):
     roi_maxnum = 10
 
     def setup(self):
+        require_camera_device(self.camera_device_id)
 
         self.add_trigger('saccade_trigger')
 
@@ -112,7 +112,7 @@ class EyePositionDetection(CameraRoutine):
         self.saccade_trigger = ArrayAttribute('eyeposdetect_saccade_trigger', (1, ), ArrayType.bool)
 
     def initialize(self):
-        api.set_digital_output('saccade_trigger_out', 'eyeposdetect_saccade_trigger')
+        set_digital_output('saccade_trigger_out', 'eyeposdetect_saccade_trigger')
 
     def set_threshold(self, thresh):
         self.thresh = thresh

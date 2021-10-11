@@ -16,21 +16,29 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+from typing import List, Tuple
 
 from mappapp import Config
 from mappapp import Def
 from mappapp.api.routine import CameraRoutine
-
 from mappapp.api.attribute import ArrayAttribute, ArrayType, write_to_file
+from mappapp.core.camera import Format
 
 
 class Frames(CameraRoutine):
 
     def setup(self):
 
-        self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
-                                    Config.Camera[Def.CameraCfg.res_x],
-                                    Config.Camera[Def.CameraCfg.res_y]))
+        # self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
+        #                             Config.Camera[Def.CameraCfg.res_x],
+        #                             Config.Camera[Def.CameraCfg.res_y]))
+
+        self.device_list: List[Tuple[str, int, int]] = []
+        for dev in Config.Camera[Def.CameraCfg.devices]:
+            fmt = Format.from_str(dev['format'])
+            self.device_list.append((dev['id'], fmt.width, fmt.height))
+
+        print(self.device_list)
 
         # Set up buffer frame attribute for each camera device
         self.frames = {}
