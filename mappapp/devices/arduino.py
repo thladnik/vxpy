@@ -49,7 +49,6 @@ class Pin:
 
     def _read_data(self):
         self.data = self._pin.read()
-        print(self.pid, f'Mode {self._pin.mode} / Type {self._pin.type} / Data {self.data}')
 
     def write(self, value):
         if self.is_out:
