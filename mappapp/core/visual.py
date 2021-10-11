@@ -36,9 +36,8 @@ from mappapp.utils import sphere
 
 class AbstractVisual(ABC):
     description = ''
-    interface = []
 
-    # parameters = {}
+    interface = []
 
     # Display shaders
     _vertex_display = """
@@ -98,9 +97,16 @@ class AbstractVisual(ABC):
         for u_name, u_value in self.transform_uniforms.items():
             program[u_name] = u_value
 
-    @staticmethod
-    def load_shader(filepath):
-        with open(os.path.join(Def.package, Def.Path.Shader,filepath),'r') as f:
+    @classmethod
+    def load_shader(cls, filepath: str):
+        if filepath.startswith('./'):
+            # Use path relative to visual
+            path = os.path.join(*cls.__module__.split('.')[:-1], filepath[2:])
+        else:
+            # Use absolute path to global shader folder
+            path = os.path.join(Def.package, Def.Path.Shader, filepath)
+
+        with open(path, 'r') as f:
             code = f.read()
 
         return code
@@ -158,7 +164,7 @@ class AbstractVisual(ABC):
         """Method to be implemented in final visual."""
 
 
-class BaseVisual(AbstractVisual):
+class BaseVisual(AbstractVisual, ABC):
 
     _vertex_map = """
     uniform mat4  u_model;
@@ -199,7 +205,7 @@ class BaseVisual(AbstractVisual):
 ################################
 # Spherical stimulus class
 
-class SphericalVisual(AbstractVisual):
+class SphericalVisual(AbstractVisual, ABC):
 
     # Standard transforms of sphere for 4-way display configuration
     _vertex_map = """
@@ -450,7 +456,7 @@ class SphericalVisual(AbstractVisual):
 ################################
 # Plane stimulus class
 
-class PlanarVisual(AbstractVisual):
+class PlanarVisual(AbstractVisual, ABC):
 
     _vertex_map = """
     uniform float u_mapcalib_xscale;

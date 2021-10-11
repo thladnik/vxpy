@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 from vispy import gloo
 import numpy as np
 
@@ -31,10 +32,6 @@ class SingleMovingDot(visual.PlanarVisual):
     u_vertical_offset = 'u_vertical_offset'  # mm
     u_time = 'u_time'  # s
 
-    def initialize(self, **parameters):
-        parameters.update(u_time=0.0)
-        self.update(**parameters)
-
     parameters = {
         u_dot_lateral_offset: 10.0,
         u_dot_ang_dia: 20.,
@@ -43,6 +40,26 @@ class SingleMovingDot(visual.PlanarVisual):
         u_time: 0.,
     }
 
+    def __init__(self, *args, **kwargs):
+        visual.PlanarVisual.__init__(self, *args, **kwargs)
+
+        self.plane = plane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+
+        self.program = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
+                                    self.load_shader('./single_moving_dot.frag'))
+        self.program['a_position'] = self.position_buffer
+
+    def initialize(self, **parameters):
+        self.program['u_time'] = 0.
+
+    def render(self, dt):
+        self.program['u_time'] += dt
+
+        self.apply_transform(self.program)
+        self.program.draw('triangles', self.index_buffer)
+
     interface = [
         (u_dot_lateral_offset, 10.0, 0.0, 100.0, dict(step_size=1.0)),
         (u_dot_ang_dia, 20.0, 1.0, 50.0, dict(step_size=1.0)),
@@ -50,20 +67,3 @@ class SingleMovingDot(visual.PlanarVisual):
         (u_vertical_offset, 20., 1.0, 50., dict(step_size=1.0)),
         ('Start trigger', initialize)
     ]
-
-    def __init__(self, *args):
-        visual.PlanarVisual.__init__(self, *args)
-
-        self.plane = plane.VerticalXYPlane()
-        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
-        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
-
-        self.program = gloo.Program(self.load_vertex_shader('planar/single_moving_dot.vert'),
-                                    self.load_shader('planar/single_moving_dot.frag'))
-        self.program['a_position'] = self.position_buffer
-
-    def render(self, dt):
-        self.update(u_time=self.parameters['u_time'] + dt)
-
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)

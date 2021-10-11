@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 from mappapp.core.protocol import StaticProtocol
 
-from mappapp.visuals.planar.calibration import Sinusoid2d
+from mappapp.visuals.planar.calibration.calibration import Sinusoid2d
 
 class Checkerboard_sp10xsp10(StaticProtocol):
 

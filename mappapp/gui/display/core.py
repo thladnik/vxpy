@@ -184,7 +184,7 @@ class VisualInteractor(gui.AddonWidget):
             for file in os.listdir(base_path):
                 file = str(file)
                 full_path = os.path.join(base_path, file)
-                if os.path.isdir(full_path) or file.startswith('_'):
+                if file.startswith('_'):
                     continue
 
                 self.files[folder][file] = QtWidgets.QTreeWidgetItem(self.folders[folder])
