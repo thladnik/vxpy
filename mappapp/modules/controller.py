@@ -299,6 +299,10 @@ class Controller(process.AbstractProcess):
 
             # Check status of processes until last one is stopped
             for process_name in list(self._processes):
+                # UI is handled at end
+                # if process_name == Def.Process.Gui:
+                #     continue
+
                 if not (getattr(ipc.State, process_name).value == Def.State.STOPPED):
                     continue
 
@@ -309,6 +313,12 @@ class Controller(process.AbstractProcess):
 
         self._running = False
         self.set_state(Def.State.STOPPED)
+
+        # Finally: tell UI to shut down
+        # if Def.Process.Gui in self._processes:
+        #     self._processes[Def.Process.Gui].terminate()
+        #     del self._processes[Def.Process.Gui]
+        #     del ipc.Pipes[Def.Process.Gui]
 
     ################
     # Recording
@@ -404,8 +414,7 @@ class Controller(process.AbstractProcess):
         self.set_state(Def.State.PREPARE_PROTOCOL)
 
     def start_protocol_phase(self, _id=None):
-        # If phase ID was provided: run thcontrolsis ID
-        if not (_id is None):
+        if _id is not None:
             ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = _id
             return
 
@@ -415,7 +424,7 @@ class Controller(process.AbstractProcess):
         else:
             ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1
 
-    def abortProtocol(self):
+    def abort_protocol(self):
         # TODO: handle stuff?
         ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time()
         self.set_state(Def.State.PROTOCOL_END)
@@ -545,7 +554,7 @@ class Controller(process.AbstractProcess):
         # Check if recording is running
         shutdown_state &= not (ipc.Control.Recording[Def.RecCtrl.active])
 
-        if not (shutdown_state):
+        if not shutdown_state:
             Logging.write(Logging.DEBUG, 'Not ready for shutdown. Confirming.')
             ipc.rpc(modules.Gui.name, modules.Gui.prompt_shutdown_confirmation)
             return

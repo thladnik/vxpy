@@ -136,7 +136,7 @@ class Protocols(gui.AddonWidget):
     def abort_protocol(self):
         self.progress.setValue(0)
         self.progress.setEnabled(False)
-        ipc.rpc(Def.Process.Controller, modules.Controller.abortProtocol)
+        ipc.rpc(Def.Process.Controller, modules.Controller.abort_protocol)
 
 
 class VisualInteractor(gui.AddonWidget):
