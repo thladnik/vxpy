@@ -25,6 +25,9 @@ package = 'mappapp'
 ################################
 # Environment settings
 
+# Number of bytes reserved for array attribute buffers
+DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE = 2 * 10**8  # Default ~200MB
+
 class EnvTypes:
     Dev = 'dev'
     Production = 'production'

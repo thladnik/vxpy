@@ -4,6 +4,7 @@ import ctypes
 import multiprocessing as mp
 import numpy as np
 import typing
+from typing import Tuple
 
 from mappapp import Config
 from mappapp import Def
@@ -94,16 +95,18 @@ class Attribute(ABC):
     all: typing.Dict[str, Attribute] = {}
     to_file: typing.Dict[str, typing.List[Attribute]] = {}
 
-    def __init__(self, name: str, _length: int =100):
+    def __init__(self, name: str, _length: int = None):
         assert name not in self.all, f'Duplicate attribute {name}'
         self.name = name
         Attribute.all[name] = self
 
-        self._length = 100
+        self._length = _length
         self._data = None
         self._index = mp.Value(ctypes.c_uint64)
-        self._time = ipc.Manager.list([None] * self._length)
         self._last_time = np.inf
+
+    def _make_time(self):
+        self._time = ipc.Manager.list([None] * self._length)
 
     def _next(self):
         self._index.value += 1
@@ -216,7 +219,7 @@ class ArrayAttribute(Attribute):
     :: chunk_size (optional) int which specifies chunk size if chunked=True
     """
 
-    def __init__(self, name, shape, dtype, chunked=False, chunk_size=None, **kwargs):
+    def __init__(self, name, shape, dtype: Tuple[object, np.number], chunked=False, chunk_size=None, **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
         assert isinstance(shape, tuple), 'size must be tuple with dimension sizes'
@@ -228,6 +231,15 @@ class ArrayAttribute(Attribute):
         self.dtype = dtype
         self._chunked = chunked
         self._chunk_size = chunk_size
+
+        # By default, calculate _length based on data type, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
+        max_multiplier = 1.
+        itemsize = np.dtype(self.dtype[1]).itemsize
+        attr_el_size = np.product(self.shape)
+        # Significantly reduce max attribute buffer size in case element size is < 1KB
+        if (itemsize * attr_el_size) < 10**3:
+            max_multiplier = 0.01
+        self._length = int((max_multiplier * Def.DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
 
         if self._chunked and self._chunk_size is not None:
             assert self._length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'
@@ -265,6 +277,9 @@ class ArrayAttribute(Attribute):
             init = int(np.product((self._length,) + self.shape))
             self._raw: mp.Array = mp.Array(self.dtype[0], init)
             self._data: np.ndarray = None
+
+        # Create list with time points
+        self._make_time()
 
     def _build_array(self, raw, length):
         np_array = np.frombuffer(raw.get_obj(), self.dtype[1])
@@ -342,7 +357,14 @@ class ObjectAttribute(Attribute):
     def __init__(self, name, **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
+        # Define detault length
+        self._length = 1000
+
+        # Create shared list
         self._data = ipc.Manager.list([None] * self._length)
+
+        # Create list with time points
+        self._make_time()
 
     def _read(self, start_idx, end_idx, use_lock):
         """use_lock not used, because manager handles locking"""
