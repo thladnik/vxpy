@@ -629,21 +629,31 @@ class Plotter(IntegratedWidget):
 
             # Read new values from buffer
             try:
-
                 last_idx = data['last_idx']
-                if last_idx is None:
-                    attr = get_attribute(attr_name)
-                    data['last_idx'] = attr.index + 1
-                    continue
 
-                n_idcs, n_times, n_data = read_attribute(attr_name, from_idx=data['last_idx'])
+                # If no last_idx is set read last one and set to index if it is not None
+                if last_idx is None:
+                    n_idcs, n_times, n_data = read_attribute(attr_name)
+                    if n_times[0] is None:
+                        continue
+                    data['last_idx'] = n_idcs[0]
+                else:
+                    # Read this attribute starting from the last_idx
+                    n_idcs, n_times, n_data = read_attribute(attr_name, from_idx=last_idx)
+
 
             except Exception as exc:
                 Logging.write(Logging.WARNING,
                               f'Problem trying to read attribute "{attr_name}" from_idx={data["last_idx"]}'
+                              f'If this warning persists, DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE is possibly set too low.'
                               f'// Exception: {exc}')
+
+                # In case of execution, assume that GUI is lagging behind temporarily and reset last_idx
+                data['last_idx'] = None
+
                 continue
 
+            # No new datapoints to plot
             if len(n_times) == 0:
                 continue
 
