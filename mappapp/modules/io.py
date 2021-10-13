@@ -17,8 +17,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import time
+import numpy as np
 
-from mappapp.api.attribute import read_attribute
+from mappapp.api.attribute import ArrayAttribute, ArrayType, read_attribute
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
@@ -70,6 +71,8 @@ class Io(process.AbstractProcess):
         # Set timeout during idle
         self.enable_idle_timeout = True
 
+        self.phase_active = 0
+
         self.timetrack = []
         # Run event loop
         self.run(interval=1./Config.Io[Def.IoCfg.max_sr])
@@ -79,6 +82,11 @@ class Io(process.AbstractProcess):
 
     def start_phase(self):
         self.set_record_group(f'phase_{ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
+        self.phase_active = 1
+
+    def end_phase(self):
+        print('End phase')
+        self.phase_active = 0
 
     def end_protocol(self):
         pass
@@ -132,20 +140,21 @@ class Io(process.AbstractProcess):
         tt.append(time.perf_counter()-t)
 
         # Update routines with data
-        # t = time.perf_counter()
+        t = time.perf_counter()
         self.update_routines(**self._pid_pin_map)
-        # tt.append(time.perf_counter()-t)
+        tt.append(time.perf_counter()-t)
 
         self.timetrack.append(tt)
         if len(self.timetrack) >= 5000:
-            # dts = np.array(self.timetrack)
-            # means = dts.mean(axis=0) * 1000
-            # stds = dts.std(axis=0) * 1000
-            # print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
-            # print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
-            # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
-            # print('----')
+            dts = np.array(self.timetrack)
+            means = dts.mean(axis=0) * 1000
+            stds = dts.std(axis=0) * 1000
+            print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
+            print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
+            print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
+            print('----')
             self.timetrack = []
+
 
         if self._run_protocol():
             pass

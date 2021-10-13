@@ -216,17 +216,22 @@ class AbstractProcess:
 
     def start_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
-        raise NotImplementedError('Method "_prepare_protocol not implemented in {}.'
+        raise NotImplementedError('Method "start_protocol not implemented in {}.'
                                   .format(self.name))
 
     def start_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
-        raise NotImplementedError('Method "_prepare_phase" not implemented in {}.'
+        raise NotImplementedError('Method "start_phase" not implemented in {}.'
+                                  .format(self.name))
+
+    def end_phase(self):
+        """Method is called at end of stimulation protocolphase phase."""
+        raise NotImplementedError('Method "end_phase" not implemented in {}.'
                                   .format(self.name))
 
     def end_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
-        raise NotImplementedError('Method "_cleanup_protocol" not implemented in {}.'
+        raise NotImplementedError('Method "end_protocol" not implemented in {}.'
                                   .format(self.name))
 
     def _run_protocol(self):
@@ -242,6 +247,7 @@ class AbstractProcess:
 
             ## If phase stoptime is exceeded: end phase
             if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
+                self.end_phase()
                 self.set_state(Def.State.PHASE_END)
                 return False
 

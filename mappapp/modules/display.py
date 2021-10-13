@@ -137,6 +137,9 @@ class Display(process.AbstractProcess):
         self.start_visual(visual, **parameters)
         ipc.Process.set_record_group(f'phase_{phase_id}', group_attributes=self.stimulus_visual.parameters)
 
+    def end_phase(self):
+        pass
+
     def end_protocol(self):
         self.stimulus_visual = None
         self.canvas.stimulus_visual = self.stimulus_visual

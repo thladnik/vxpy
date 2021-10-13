@@ -64,6 +64,9 @@ class Camera(process.AbstractProcess):
     def start_phase(self):
         self.set_record_group(f'phase_{ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
 
+    def end_phase(self):
+        pass
+
     def end_protocol(self):
         pass
 
