@@ -1,0 +1,9 @@
+PyQt5~=5.15.4
+numpy~=1.21.2
+pyqtgraph~=0.12.3
+h5py~=3.4.0
+vispy~=0.9.0
+scipy~=1.7.1
+opencv-python~=4.5.3.56
+pyFirmata~=1.1.0
+wres~=1.0.3
