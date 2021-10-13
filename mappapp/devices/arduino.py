@@ -70,7 +70,7 @@ class ArduinoBoard:
         _devstr = f'device {config["type"]}>>{config["model"]}'
         try:
             # Try lower board setup time
-            pyfirmata.pyfirmata.BOARD_SETUP_WAIT_TIME = .1
+            # pyfirmata.pyfirmata.BOARD_SETUP_WAIT_TIME = .1
             self._board = getattr(pyfirmata, self.model)(config['com'])
             Logging.write(Logging.INFO, f'Using {_devstr}')
         except:
