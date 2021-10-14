@@ -355,16 +355,14 @@ class Logger(IntegratedWidget):
         self.timer_logging.timeout.connect(self.print_log)
         self.timer_logging.start(50)
 
-
     def print_log(self):
         if ipc.Log.File is None:
             return
 
         if len(ipc.Log.History) > self.logccount:
-            for record in ipc.Log.History[self.logccount:]:
-                if record['levelno'] > 10:
-                    line = '{} : {:10} : {:10} : {}'\
-                        .format(record['asctime'], record['name'], record['levelname'], record['msg'])
+            for rec in ipc.Log.History[self.logccount:]:
+                if rec['levelno'] > 10:
+                    line = '{} : {:10} : {:10} : {}'.format(rec['asctime'], rec['name'], rec['levelname'], rec['msg'])
                     self.txe_log.append(line)
 
                 self.logccount += 1

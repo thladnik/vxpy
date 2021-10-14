@@ -1,5 +1,5 @@
 """
-MappApp ./core/modules.py
+MappApp ./core/process.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 
