@@ -21,10 +21,8 @@ import pyqtgraph as pg
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp.core.gui import AddonWidget
-from mappapp.routines.camera import frames
-
+from mappapp.core.attribute import read_attribute
 
 class FrameStream(AddonWidget):
 
@@ -43,9 +41,13 @@ class FrameStream(AddonWidget):
 
         # Add one view per camera device
         self.view_wdgts = dict()
-        for device_id in Config.Camera[Def.CameraCfg.device_id]:
+        for device in Config.Camera[Def.CameraCfg.devices]:
+            device_id = device['id']
             self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
+        # for device_id in Config.Camera[Def.CameraCfg.device_id]:
+        #     self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
+        #     self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
 
     def update_frame(self):
         for _, widget in self.view_wdgts.items():
@@ -90,7 +92,9 @@ class FrameStream(AddonWidget):
             self.layout().addWidget(self.graphics_widget)
 
         def update_frame(self):
-            idx, time, frame = IPC.Camera.read(frames.Frames, f'{self.device_id}_frame')
+            # idx, time, frame = IPC.Camera.read(frames.Frames, f'{self.device_id}_frame')
+            # idx, time, frame = Attribute.all[f'{self.device_id}_frame'].read()
+            idx, time, frame = read_attribute(f'{self.device_id}_frame')
 
             if frame is None:
                 return

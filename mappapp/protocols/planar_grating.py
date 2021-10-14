@@ -20,7 +20,7 @@ import numpy as np
 
 from mappapp.core.protocol import StaticProtocol
 
-from mappapp.visuals.planar.grating import BlackAndWhiteGrating as BWG
+from mappapp.visuals.planar.grating.grating import BlackAndWhiteGrating as BWG
 
 class ShowSFRange(StaticProtocol):
 

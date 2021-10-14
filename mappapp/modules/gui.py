@@ -21,24 +21,48 @@ import sys
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp import modules
-from mappapp.core import process
+from mappapp.core import process, ipc
 from mappapp import gui
 
-class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
+
+class Gui(process.AbstractProcess):
     name = Def.Process.Gui
 
     app: QtWidgets.QApplication
 
     def __init__(self, **kwargs):
+        process.AbstractProcess.__init__(self, **kwargs)
         # Create application
         self.app = QtWidgets.QApplication.instance()
         if self.app is None:
-            self.app =QtWidgets.QApplication(sys.argv)
+            self.app = QtWidgets.QApplication(sys.argv)
 
-        # Set up parents
-        process.AbstractProcess.__init__(self, **kwargs)
+        self.window = Window()
+
+        # Run event loop
+        self.run(interval=1/40)
+
+    def main(self):
+        self.app.processEvents()
+
+    def prompt_shutdown_confirmation(self):
+        reply = QtWidgets.QMessageBox.question(self.window, 'Confirm shutdown', 'Program is still busy. Shut down anyways?',
+                                               QtWidgets.QMessageBox.Cancel | QtWidgets.QMessageBox.Yes,
+                                               QtWidgets.QMessageBox.Cancel)
+
+        if reply == QtWidgets.QMessageBox.Yes:
+            ipc.rpc(modules.Controller.name, modules.Controller._force_shutdown)
+
+    def _start_shutdown(self):
+        self.window.close()
+
+        ipc.Process.set_state(Def.State.STOPPED)
+
+
+class Window(QtWidgets.QMainWindow):
+
+    def __init__(self):
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
         # Set icon
@@ -49,12 +73,6 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
 
         # Setup basic UI
         self.setup_ui()
-
-        # Run event loop
-        self.run(interval=1/40)
-
-    def main(self):
-        self.app.processEvents()
 
     def setup_ui(self):
 
@@ -142,39 +160,24 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
 
         # Set geometry
         # self.move(0, 0)
-        self.screenGeo = self.app.primaryScreen().geometry()
+        self.screenGeo = ipc.Process.app.primaryScreen().geometry()
         w, h = self.screenGeo.width(), self.screenGeo.height()
         x,y = self.screenGeo.x(), self.screenGeo.y()
 
         self.move(x, y)
-        if w > 1920 and h > 1080:
-            #self.resize(1920, 1080)
-            self.resize(70 * w // 100, 70 * h // 100)
+        if w > 1920 or h > 1080:
+            if w > 1920:
+                w = self.screenGeo.width()
+            self.resize(w, 75 * h // 100)
             self.show()
         else:
-            #self.resize(800, 800)
             self.showMaximized()
 
-
-    def _start_shutdown(self):
-        self.closeEvent(None)
-
-        IPC.Process.set_state(Def.State.STOPPED)
-
-    def prompt_shutdown_confirmation(self):
-        reply = QtWidgets.QMessageBox.question(self, 'Confirm shutdown',
-                                               'Program is still busy. Shut down anyways?',
-                                               QtWidgets.QMessageBox.Close | QtWidgets.QMessageBox.Cancel,
-                                               QtWidgets.QMessageBox.Cancel)
-
-        if reply == QtWidgets.QMessageBox.Close:
-            IPC.rpc(modules.Controller.name, modules.Controller._force_shutdown)
-
     def restart_camera(self):
-        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
+        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
 
     def restart_display(self):
-        IPC.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
+        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
 
     def _bind_shortcuts(self):
 
@@ -189,7 +192,9 @@ class Gui(QtWidgets.QMainWindow, process.AbstractProcess):
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         if a0 is not None:
             # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
+            # while len(ipc.Log.History) > 0:
+            #     ipc.Process.main()
 
             # Inform controller of close event
-            IPC.send(Def.Process.Controller,Def.Signal.shutdown)
+            ipc.send(Def.Process.Controller, Def.Signal.shutdown)
             a0.setAccepted(False)

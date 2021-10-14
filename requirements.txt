@@ -1,0 +1,10 @@
+numpy~=1.21.2
+scipy~=1.7.1
+h5py~=3.4.0
+pyFirmata~=1.1.0
+wres~=1.0.3
+glfw~=2.3.0
+vispy~=0.9.0
+opencv-python-headless~=4.5.3.56
+PyQt5~=5.15.4
+pyqtgraph~=0.12.3

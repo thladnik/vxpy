@@ -15,8 +15,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from abc import ABC, abstractmethod
 import numpy as np
 import os
+from typing import Any, Dict
 from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
@@ -28,15 +30,14 @@ from mappapp import Logging
 from mappapp.utils import geometry
 from mappapp.utils import sphere
 
+
 ################################
 # Abstract visual class
 
-class AbstractVisual:
+class AbstractVisual(ABC):
     description = ''
+
     interface = []
-
-    parameters = {}
-
 
     # Display shaders
     _vertex_display = """
@@ -64,10 +65,10 @@ class AbstractVisual:
 
     _parse_fun_prefix = 'parse_'
 
-    def __init__(self, canvas, **params):
-        self.frame_time = None
+    def __init__(self, canvas):
         self.canvas: app.Canvas = canvas
-        self._programs = dict()
+        self.parameters: Dict[str, Any] = dict()
+        self.custom_programs: Dict[str, gloo.Program] = dict()
         self.transform_uniforms = dict()
 
         self._buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
@@ -83,14 +84,11 @@ class AbstractVisual:
 
         gloo.set_state(depth_test=True)
 
-        self.update(**params)
-
     def __setattr__(self, key, value):
-        # Catch programs being set and add them to dictionary
-        if not(hasattr(self, key)) and isinstance(value, gloo.Program):
-            # TODO: maybe this can be done smarter
+        # Catch programs being set and add them to dictionary (if they are not protected, i.e. default, programs)
+        if not(hasattr(self, key)) and isinstance(value, gloo.Program) and not(key.startswith('_')):
             self.__dict__[key] = value
-            self.__dict__['_programs'][key] = value
+            self.__dict__['custom_programs'][key] = value
         else:
             self.__dict__[key] = value
 
@@ -99,15 +97,16 @@ class AbstractVisual:
         for u_name, u_value in self.transform_uniforms.items():
             program[u_name] = u_value
 
-    def draw(self, frame_time):
-        raise NotImplementedError('Method draw() not implemented in {}'.format(self.__class__))
+    @classmethod
+    def load_shader(cls, filepath: str):
+        if filepath.startswith('./'):
+            # Use path relative to visual
+            path = os.path.join(*cls.__module__.split('.')[:-1], filepath[2:])
+        else:
+            # Use absolute path to global shader folder
+            path = os.path.join(Def.package, Def.Path.Shader, filepath)
 
-    def render(self, frame_time):
-        raise NotImplementedError('Method render() not implemented in {}'.format(self.__class__))
-
-    @staticmethod
-    def load_shader(filepath):
-        with open(os.path.join(Def.package, Def.Path.Shader,filepath),'r') as f:
+        with open(path, 'r') as f:
             code = f.read()
 
         return code
@@ -132,30 +131,47 @@ class AbstractVisual:
         if not(bool(params)):
             return
 
+        # Write new value to parameters dictionary
         for key, value in params.items():
+            # (Optional) parsing through custom function
             if hasattr(self, f'{self._parse_fun_prefix}{key}'):
                 value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
+            # Save to parameters
             self.parameters[key] = value
 
+        # (optional) Logging
         if _update_verbosely:
             Logging.write(Logging.INFO,
                           f'Update visual {self.__class__.__name__}. '
                           'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
 
-        for program_name, program in self._programs.items():
+        # Update program uniforms from parameters
+        for program_name, program in self.custom_programs.items():
             for key, value in self.parameters.items():
                 if key in program:
                     program[key] = value
 
+    @abstractmethod
+    def initialize(self, *args, **kwargs):
+        """Method to initialize and reset all parameters."""
 
-class BaseVisual(AbstractVisual):
+    @abstractmethod
+    def draw(self, dt):
+        """Method to be implemented by BaseVisual class (BaseVisual, SphericalVisual, PlanarVisual, ...)."""
+
+    @abstractmethod
+    def render(self, dt):
+        """Method to be implemented in final visual."""
+
+
+class BaseVisual(AbstractVisual, ABC):
 
     _vertex_map = """
     uniform mat4  u_model;
     uniform mat4  u_view;
     uniform mat4  u_projection;
     
-    vec4 gl_position(vec3 position) {
+    vec4 transform_position(vec3 position) {
     
         vec4 pos = vec4(position, 1.0);
         pos = u_projection * u_view * u_model * pos;
@@ -167,10 +183,8 @@ class BaseVisual(AbstractVisual):
     def __init__(self, *args, **kargs):
         AbstractVisual.__init__(self, *args, **kargs)
 
-    def draw(self, frame_time):
+    def draw(self, dt):
 
-        #self.theta, self.phi = 90, 90
-        #self.model = np.dot(transforms.rotate(self.theta, (0, 0, 1)), transforms.rotate(self.phi, (0, 1, 0)))
         self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(90, (0, 1, 0)))
         self.translate = 5
         self.view = transforms.translate((0, 0, -self.translate))
@@ -180,17 +194,18 @@ class BaseVisual(AbstractVisual):
 
         self.apply_zoom()
 
-        self.render(frame_time)
+        self.render(dt)
 
     def apply_zoom(self):
         gloo.set_viewport(0, 0, self.canvas.physical_size[0], self.canvas.physical_size[1])
         self.projection = transforms.perspective(45.0, self.canvas.size[0] / float(self.canvas.size[1]), 1.0, 1000.0)
         self.transform_uniforms['u_projection'] = self.projection
 
+
 ################################
 # Spherical stimulus class
 
-class SphericalVisual(AbstractVisual):
+class SphericalVisual(AbstractVisual, ABC):
 
     # Standard transforms of sphere for 4-way display configuration
     _vertex_map = """
@@ -206,7 +221,7 @@ class SphericalVisual(AbstractVisual):
         uniform mat2 u_mapcalib_rotate2d;
 
 
-        vec4 gl_position(vec3 position) {
+        vec4 transform_position(vec3 position) {
             // Final position
             vec4 pos = vec4(position, 1.0);
             
@@ -239,7 +254,7 @@ class SphericalVisual(AbstractVisual):
         varying vec4 v_map_position;
         
         void main() {
-            vec4 v_map_position = gl_position(a_position);
+            v_map_position = transform_position(a_position);
             gl_Position = v_map_position;
             v_position = a_position;
         }
@@ -298,7 +313,6 @@ class SphericalVisual(AbstractVisual):
     def __init__(self, *args, **kwargs):
         AbstractVisual.__init__(self, *args, **kwargs)
 
-
         # Create mask model
         self._mask_model = sphere.UVSphere(azim_lvls=50,
                                            elev_lvls=50,
@@ -339,10 +353,10 @@ class SphericalVisual(AbstractVisual):
         #gloo.set_clear_color('black')
         #gloo.set_clear_color('red')
 
-    def draw(self, frame_time):
+    def draw(self, dt):
         gloo.clear()
 
-        self.frame_time = frame_time
+        self.frame_time = dt
 
         win_width = Config.Display[Def.DisplayCfg.window_width]
         win_height = Config.Display[Def.DisplayCfg.window_height]
@@ -420,7 +434,9 @@ class SphericalVisual(AbstractVisual):
 
             # And render actual stimulus sphere
             with self._raw_fb:
-                self.render(frame_time)
+                # Important: only provide dt on first iteration.
+                # Otherwise the final cumulative time is going to be ~4*dt (too high!)
+                self.render(dt if i == 0 else 0.0)
 
             # Combine mask and raw texture into out_texture
             # (To optionally be saved to disk and rendered to screen)
@@ -440,28 +456,30 @@ class SphericalVisual(AbstractVisual):
 ################################
 # Plane stimulus class
 
-class PlanarVisual(AbstractVisual):
+class PlanarVisual(AbstractVisual, ABC):
 
     _vertex_map = """
     uniform float u_mapcalib_xscale;
     uniform float u_mapcalib_yscale;
     uniform float u_mapcalib_xextent;
     uniform float u_mapcalib_yextent;
-    uniform float u_small_side_size;
-    uniform float u_glob_x_position;
-    uniform float u_glob_y_position;
+    uniform float u_mapcalib_small_side_size;
+    uniform float u_mapcalib_glob_x_position;
+    uniform float u_mapcalib_glob_y_position;
     
     vec4 transform_position(vec3 position) {
-        vec4 pos = vec4(position.x * u_mapcalib_xscale * u_mapcalib_xextent + u_glob_x_position,
-                        position.y * u_mapcalib_yscale * u_mapcalib_yextent + u_glob_y_position,
+        vec4 pos = vec4(position.x * u_mapcalib_xscale * u_mapcalib_xextent + u_mapcalib_glob_x_position,
+                        position.y * u_mapcalib_yscale * u_mapcalib_yextent + u_mapcalib_glob_y_position,
                         position.z, 
                         1.0);
         return pos;
     }
     
     vec2 real_position(vec3 position) {
-        vec2 pos = vec2((1.0 + position.x) / 2.0 * u_mapcalib_xextent * u_small_side_size,
-                        (1.0 + position.y) / 2.0 * u_mapcalib_yextent * u_small_side_size);
+        //vec2 pos = vec2((1.0 + position.x) / 2.0 * u_mapcalib_xextent * u_mapcalib_small_side_size,
+        //                (1.0 + position.y) / 2.0 * u_mapcalib_yextent * u_mapcalib_small_side_size);
+        vec2 pos = vec2(position.x / 2.0 * u_mapcalib_xextent * u_mapcalib_small_side_size,
+                        position.y / 2.0 * u_mapcalib_yextent * u_mapcalib_small_side_size);
         return pos;
     }
     
@@ -477,7 +495,7 @@ class PlanarVisual(AbstractVisual):
     def __init__(self, *args, **kwargs):
         AbstractVisual.__init__(self, *args, **kwargs)
 
-    def draw(self, frame_time):
+    def draw(self, dt):
         gloo.clear()
 
         # Construct vertices
@@ -493,8 +511,8 @@ class PlanarVisual(AbstractVisual):
             self.u_mapcalib_yscale = width/height
 
         # Set 2d translation
-        self.u_glob_x_position = Config.Display[Def.DisplayCfg.glob_x_pos]
-        self.u_glob_y_position = Config.Display[Def.DisplayCfg.glob_y_pos]
+        self.u_mapcalib_glob_x_position = Config.Display[Def.DisplayCfg.glob_x_pos]
+        self.u_mapcalib_glob_y_position = Config.Display[Def.DisplayCfg.glob_y_pos]
 
         # Extents
         self.u_mapcalib_xextent = Config.Display[Def.DisplayCfg.pla_xextent]
@@ -502,22 +520,22 @@ class PlanarVisual(AbstractVisual):
 
         # Set real world size multiplier [mm]
         # (PlanarVisual's positions are normalized to the smaller side of the screen)
-        self.u_small_side_size = Config.Display[Def.DisplayCfg.pla_small_side]
+        self.u_mapcalib_small_side_size = Config.Display[Def.DisplayCfg.pla_small_side]
 
         # Set uniforms
         self.transform_uniforms['u_mapcalib_xscale'] = self.u_mapcalib_xscale
         self.transform_uniforms['u_mapcalib_yscale'] = self.u_mapcalib_yscale
         self.transform_uniforms['u_mapcalib_xextent'] = self.u_mapcalib_xextent
         self.transform_uniforms['u_mapcalib_yextent'] = self.u_mapcalib_yextent
-        self.transform_uniforms['u_small_side_size'] = self.u_small_side_size
-        self.transform_uniforms['u_glob_x_position'] = self.u_glob_x_position
-        self.transform_uniforms['u_glob_y_position'] = self.u_glob_y_position
+        self.transform_uniforms['u_mapcalib_small_side_size'] = self.u_mapcalib_small_side_size
+        self.transform_uniforms['u_mapcalib_glob_x_position'] = self.u_mapcalib_glob_x_position
+        self.transform_uniforms['u_mapcalib_glob_y_position'] = self.u_mapcalib_glob_y_position
 
         # Call the rendering function of the subclass
         try:
             # Render to buffer
             with self._out_fb:
-                self.render(frame_time)
+                self.render(dt)
 
             # Render to display
             self._display_prog.draw('triangle_strip')

@@ -23,13 +23,13 @@ from os.path import abspath
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QLabel
 import pyqtgraph as pg
-import time
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
+from mappapp.core import ipc
 from mappapp import Logging
 from mappapp import modules
+from mappapp.api.attribute import get_attribute, read_attribute
 from mappapp.core.gui import IntegratedWidget
 
 
@@ -122,7 +122,7 @@ class ProcessMonitor(IntegratedWidget):
 
     def _update_states(self):
         for process_name, state_widget in self.state_widgets.items():
-            self._set_process_state(state_widget, IPC.get_state(process_name))
+            self._set_process_state(state_widget, ipc.get_state(process_name))
 
 
 class Recording(IntegratedWidget):
@@ -201,12 +201,17 @@ class Recording(IntegratedWidget):
         self.btn_stop = QtWidgets.QPushButton('Stop')
         self.btn_stop.clicked.connect(self.finalize_recording)
         self.left_wdgt.layout().addWidget(self.btn_stop)
+        self.left_wdgt.layout().addItem(vSpacer)
 
         # Show recorded routines
-        self.rec_routines = QtWidgets.QGroupBox('Recording routines')
+        self.rec_routines = QtWidgets.QGroupBox('Recorded attributes')
         self.rec_routines.setLayout(QtWidgets.QVBoxLayout())
-        for routine_id in Config.Recording[Def.RecCfg.routines]:
-            self.rec_routines.layout().addWidget(QtWidgets.QLabel(routine_id))
+        self.rec_attribute_list = QtWidgets.QListWidget()
+
+        self.rec_routines.layout().addWidget(self.rec_attribute_list)
+        # Update recorded attributes
+        for match_string in Config.Recording[Def.RecCfg.attributes]:
+            self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
         self.rec_routines.layout().addItem(vSpacer)
         self.wdgt.layout().addWidget(self.rec_routines, 5, 1)
 
@@ -226,16 +231,16 @@ class Recording(IntegratedWidget):
         compression_opts = self.get_compression_opts()
 
         # Call controller
-        IPC.rpc(Def.Process.Controller, modules.Controller.start_recording,
+        ipc.rpc(Def.Process.Controller, modules.Controller.start_recording,
                 compression_method=compression_method,
                 compression_opts=compression_opts)
 
     def pause_recording(self):
-        IPC.rpc(Def.Process.Controller, modules.Controller.pause_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
 
     def finalize_recording(self):
         # First: pause recording
-        IPC.rpc(Def.Process.Controller, modules.Controller.pause_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
 
         reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
                                                QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard,
@@ -253,10 +258,10 @@ class Recording(IntegratedWidget):
 
         # Finally: stop recording
         print('Stop recording...')
-        IPC.rpc(Def.Process.Controller, modules.Controller.stop_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.stop_recording)
 
     def toggle_enable(self, newstate):
-        IPC.rpc(Def.Process.Controller, modules.Controller.set_enable_recording, newstate)
+        ipc.rpc(Def.Process.Controller, modules.Controller.set_enable_recording, newstate)
 
     def get_compression_method(self):
         method = self.compr.currentText()
@@ -298,9 +303,9 @@ class Recording(IntegratedWidget):
     def update_ui(self):
         """(Periodically) update UI based on shared configuration"""
 
-        enabled = IPC.Control.Recording[Def.RecCtrl.enabled]
-        active = IPC.Control.Recording[Def.RecCtrl.active]
-        current_folder = IPC.Control.Recording[Def.RecCtrl.folder]
+        enabled = ipc.Control.Recording[Def.RecCtrl.enabled]
+        active = ipc.Control.Recording[Def.RecCtrl.active]
+        current_folder = ipc.Control.Recording[Def.RecCtrl.folder]
 
         if active and enabled:
             self.wdgt.setStyleSheet('QWidget#RecordingWidget {background: rgba(179, 31, 18, 0.5);}')
@@ -312,19 +317,19 @@ class Recording(IntegratedWidget):
         self.setChecked(enabled)
 
         # Set current folder
-        self.rec_folder.setText(IPC.Control.Recording[Def.RecCtrl.folder])
+        self.rec_folder.setText(ipc.Control.Recording[Def.RecCtrl.folder])
 
         # Set buttons dis-/enabled
         # Start
         self.btn_start.setEnabled(not(active) and enabled)
-        self.btn_start.setText('Start' if IPC.in_state(Def.State.IDLE,Def.Process.Controller) else 'Resume')
+        self.btn_start.setText('Start' if ipc.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
         # Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self.btn_pause.setEnabled(False)
         # Stop
-        self.btn_stop.setEnabled(bool(IPC.Control.Recording[Def.RecCtrl.folder]) and enabled)
+        self.btn_stop.setEnabled(bool(ipc.Control.Recording[Def.RecCtrl.folder]) and enabled)
         # Overwrite stop button during protocol
-        if bool(IPC.Control.Protocol[Def.ProtocolCtrl.name]):
+        if bool(ipc.Control.Protocol[Def.ProtocolCtrl.name]):
             self.btn_stop.setEnabled(False)
 
         self.base_dir.setText(Config.Recording[Def.RecCfg.output_folder])
@@ -350,16 +355,14 @@ class Logger(IntegratedWidget):
         self.timer_logging.timeout.connect(self.print_log)
         self.timer_logging.start(50)
 
-
     def print_log(self):
-        if IPC.Log.File is None:
+        if ipc.Log.File is None:
             return
 
-        if len(IPC.Log.History) > self.logccount:
-            for record in IPC.Log.History[self.logccount:]:
-                if record['levelno'] > 10:
-                    line = '{} : {:10} : {:10} : {}'\
-                        .format(record['asctime'], record['name'], record['levelname'], record['msg'])
+        if len(ipc.Log.History) > self.logccount:
+            for rec in ipc.Log.History[self.logccount:]:
+                if rec['levelno'] > 10:
+                    line = '{} : {:10} : {:10} : {}'.format(rec['asctime'], rec['name'], rec['levelname'], rec['msg'])
                     self.txe_log.append(line)
 
                 self.logccount += 1
@@ -467,7 +470,6 @@ class Plotter(IntegratedWidget):
         self.tmr_update_data.timeout.connect(self.read_buffer_data)
         self.tmr_update_data.start()
 
-        self.start_time = time.time()
 
         self.plot_data_items = dict()
         self.plot_num = 0
@@ -509,9 +511,9 @@ class Plotter(IntegratedWidget):
         self.plot_item.sigXRangeChanged.connect(self.update_ui_xrange)
 
         # Set up cache file
-        if os.path.exists('_plotter_temp.h5'):
-            os.remove('_plotter_temp.h5')
-        self.cache = h5py.File('_plotter_temp.h5', 'w')
+        if os.path.exists('._plotter_temp.h5'):
+            os.remove('._plotter_temp.h5')
+        self.cache = h5py.File('._plotter_temp.h5', 'w')
 
     def ui_xrange_changed(self):
         self.plot_item.setXRange(self.dsp_xmin.value(), self.dsp_xmax.value(), padding=0.)
@@ -560,9 +562,9 @@ class Plotter(IntegratedWidget):
             ax['vb'].setGeometry(self.plot_item.vb.sceneBoundingRect())
             ax['vb'].linkedViewChanged(self.plot_item.vb, ax['vb'].XAxis)
 
-    def add_buffer_attribute(self, routine_cls, attr_name, start_idx=0, name=None, axis=None):
+    def add_buffer_attribute(self, attr_name, start_idx=0, name=None, axis=None):
 
-        id = (routine_cls, attr_name)
+        id = attr_name
 
         # Set axis
         if axis is None:
@@ -570,7 +572,7 @@ class Plotter(IntegratedWidget):
 
         # Set name
         if name is None:
-            name = f'{routine_cls}:{attr_name}'
+            name = attr_name
 
         if axis not in self.axes:
             self.axes[axis] = dict(axis=pg.AxisItem('left'), vb=pg.ViewBox())
@@ -621,33 +623,43 @@ class Plotter(IntegratedWidget):
 
     def read_buffer_data(self):
 
-        for (routine_cls, attr_name), data in self.plot_data.items():
+        for attr_name, data in self.plot_data.items():
 
             # Read new values from buffer
-            process_name = routine_cls.process_name
             try:
-
                 last_idx = data['last_idx']
-                if last_idx is None:
-                    attr = getattr(IPC, process_name).get_buffer(routine_cls, attr_name)
-                    data['last_idx'] = attr.index + 1
-                    continue
 
-                n_idcs, n_times, n_data = getattr(IPC,process_name).read(routine_cls,attr_name,from_idx=data['last_idx'])
+                # If no last_idx is set read last one and set to index if it is not None
+                if last_idx is None:
+                    n_idcs, n_times, n_data = read_attribute(attr_name)
+                    if n_times[0] is None:
+                        continue
+                    data['last_idx'] = n_idcs[0]
+                else:
+                    # Read this attribute starting from the last_idx
+                    n_idcs, n_times, n_data = read_attribute(attr_name, from_idx=last_idx)
+
+
             except Exception as exc:
                 Logging.write(Logging.WARNING,
-                              f'Problem trying to read {process_name}:{attr_name} from_idx={data["last_idx"]}'
+                              f'Problem trying to read attribute "{attr_name}" from_idx={data["last_idx"]}'
+                              f'If this warning persists, DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE is possibly set too low.'
                               f'// Exception: {exc}')
+
+                # In case of execution, assume that GUI is lagging behind temporarily and reset last_idx
+                data['last_idx'] = None
+
                 continue
 
+            # No new datapoints to plot
             if len(n_times) == 0:
                 continue
 
             try:
-                n_times = np.array(n_times) - self.start_time
+                n_times = np.array(n_times)
                 n_data = np.array(n_data)
             except Exception as exc:
-                print(attr_name, self.start_time, n_times)
+                print(attr_name, n_times)
                 continue
 
             # Set new last index
@@ -690,7 +702,6 @@ class Plotter(IntegratedWidget):
                 last_t = grp['x'][-1]
             else:
                 last_t = self.plot_item.getAxis('bottom').range[1]
-
 
             first_t = last_t - self._xrange
 

@@ -16,42 +16,52 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+from typing import List, Tuple
 
 from mappapp import Config
 from mappapp import Def
-from mappapp.core import routine
+from mappapp.api.routine import CameraRoutine
+from mappapp.api.attribute import ArrayAttribute, ArrayType, write_to_file
+from mappapp.core.camera import Format
 
 
-class Frames(routine.CameraRoutine):
+class Frames(CameraRoutine):
 
-    def __init__(self, *args, **kwargs):
-        routine.CameraRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
-        self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
-                                    Config.Camera[Def.CameraCfg.res_x],
-                                    Config.Camera[Def.CameraCfg.res_y]))
+        # self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
+        #                             Config.Camera[Def.CameraCfg.res_x],
+        #                             Config.Camera[Def.CameraCfg.res_y]))
 
-        target_fps = Config.Camera[Def.CameraCfg.fps]
+        self.device_list: List[Tuple[str, int, int]] = []
+        for dev in Config.Camera[Def.CameraCfg.devices]:
+            fmt = Format.from_str(dev['format'])
+            self.device_list.append((dev['id'], fmt.width, fmt.height))
+
+        print(self.device_list)
 
         # Set up buffer frame attribute for each camera device
+        self.frames = {}
         for device_id, res_x, res_y in self.device_list:
             # Set one array attribute per camera device
-            array_attr = routine.ArrayAttribute((res_y, res_x), routine.ArrayDType.uint8, length=2*target_fps)
             attr_name = f'{device_id}_frame'
-            setattr(self.buffer, attr_name, array_attr)
-            # Add to be written to file
-            self.file_attrs.append(attr_name)
+            self.frames[attr_name] = ArrayAttribute(attr_name, (res_y, res_x), ArrayType.uint8)
+            write_to_file(self, attr_name)
 
-    def execute(self, **frames):
+    def main(self, **frames):
         for device_id, frame in frames.items():
 
             if frame is None:
                 continue
 
+            attr_name = f'{device_id}_frame'
+
             # Update shared attributes
             if frame.ndim > 2:
-                getattr(self.buffer, f'{device_id}_frame').write(frame[:, :, 0])
+                # getattr(self.buffer, f'{device_id}_frame').write(frame[:, :, 0])
+                self.frames[attr_name].write(frame[:, :, 0])
             else:
-                getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
+                self.frames[attr_name].write(frame[:, :])
+                # getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
 
 

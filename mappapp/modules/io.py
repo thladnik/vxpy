@@ -17,16 +17,16 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import time
-
 import numpy as np
 
-from mappapp import api
+from mappapp.api.attribute import ArrayAttribute, ArrayType, read_attribute
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
 from mappapp import Logging
 from mappapp import protocols
-from mappapp.core import process
+from mappapp.core import process, ipc
+from mappapp.core.attribute import Attribute
+
 
 class Io(process.AbstractProcess):
     name = Def.Process.Io
@@ -38,6 +38,7 @@ class Io(process.AbstractProcess):
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
 
+        # Configure devices
         for did, dev_config in Config.Io[Def.IoCfg.device].items():
             if not(all(k in dev_config for k in ("type", "model"))):
                 Logging.write(Logging.WARNING, f'Insufficient information to configure device {did}')
@@ -54,6 +55,7 @@ class Io(process.AbstractProcess):
                 Logging.write(Logging.WARNING, f'Failed to set up device {did} // Exc: {exc}')
                 continue
 
+            # Configure pins on device
             if did in Config.Io[Def.IoCfg.pins]:
                 Logging.write(Logging.INFO, f'Set up pin configuration for device {did}')
 
@@ -69,36 +71,54 @@ class Io(process.AbstractProcess):
         # Set timeout during idle
         self.enable_idle_timeout = True
 
+        self.phase_active = 0
+
         self.timetrack = []
         # Run event loop
         self.run(interval=1./Config.Io[Def.IoCfg.max_sr])
 
     def start_protocol(self):
-        self.protocol = protocols.load(IPC.Control.Protocol[Def.ProtocolCtrl.name])(self)
+        self.protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def start_phase(self):
-        self.set_record_group(f'phase_{IPC.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
+        self.set_record_group(f'phase_{ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
+        self.phase_active = 1
+
+    def end_phase(self):
+        print('End phase')
+        self.phase_active = 0
 
     def end_protocol(self):
         pass
 
-    def set_outpin_to_attr(self, pid, routine_cls, attr_name):
+    def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
 
+        Logging.write(Logging.INFO, f'Set attribute "{attr_name}" to write to pin {pid}')
+
+        # Check of pid is actually configured
         if pid not in self._pid_pin_map:
-            Logging.write(Logging.WARNING, f'Output "{pid}" has not been configured.')
+            Logging.write(Logging.WARNING, f'Output "{pid}" is not configured.')
             return
 
+        # Select pin
         pin = self._pid_pin_map[pid]
 
+        # Check if pin is configured as output
         if pin.config['type'] not in ('do', 'ao'):
-            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} has not been configured.')
+            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} cannot be configured as output.' 
+                                           'It is not an output channel.')
             return
+
+        # Check if attribute exists
+        if not attr_name in Attribute.all:
+            Logging.write(Logging.WARNING, f'Pin "{pid}" cannot be set to attribute {attr_name}.'
+                                           f'Attribute does not exist.')
 
         if pid not in self._pid_attr_map:
 
-            Logging.write(Logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}" of {routine_cls.__name__}.')
-            self._pid_attr_map[pid] = (routine_cls, attr_name)
+            Logging.write(Logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
+            self._pid_attr_map[pid] = attr_name
         else:
             Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} is already set.')
 
@@ -106,33 +126,35 @@ class Io(process.AbstractProcess):
 
         tt = []
 
-        # Read data
+        # Read data on pins once
         t = time.perf_counter()
         for pin in self._pid_pin_map.values():
             pin._read_data()
         tt.append(time.perf_counter()-t)
 
-        # Write outputs from shared attributes
+        # Write outputs from connected shared attributes
         t = time.perf_counter()
-        for pid, (routine_cls, attr_name) in self._pid_attr_map.items():
-            _, _, vals = api.read_attribute(routine_cls, attr_name)
+        for pid, attr_name in self._pid_attr_map.items():
+            _, _, vals = read_attribute(attr_name)
             self._pid_pin_map[pid].write(vals[0][0])
         tt.append(time.perf_counter()-t)
 
+        # Update routines with data
         t = time.perf_counter()
         self.update_routines(**self._pid_pin_map)
         tt.append(time.perf_counter()-t)
 
         self.timetrack.append(tt)
         if len(self.timetrack) >= 5000:
-            # dts = np.array(self.timetrack)
-            # means = dts.mean(axis=0) * 1000
-            # stds = dts.std(axis=0) * 1000
-            # print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
-            # print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
-            # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
-            # print('----')
+            dts = np.array(self.timetrack)
+            means = dts.mean(axis=0) * 1000
+            stds = dts.std(axis=0) * 1000
+            print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
+            print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
+            print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
+            print('----')
             self.timetrack = []
+
 
         if self._run_protocol():
             pass

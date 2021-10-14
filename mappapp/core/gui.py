@@ -21,6 +21,7 @@ from PyQt5 import QtWidgets
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
+from mappapp.core import ipc
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -69,4 +70,4 @@ class IntegratedWidget(QtWidgets.QGroupBox):
     def create_hooks(self):
         for fun in self.exposed:
             fun_str = fun.__qualname__
-            self.main.register_rpc_callback(self,fun_str,fun)
+            ipc.Process.register_rpc_callback(self, fun_str, fun)

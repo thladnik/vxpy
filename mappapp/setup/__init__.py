@@ -32,11 +32,12 @@ def run():
 
     from mappapp.setup.main import StartupConfiguration
 
-    app.use_app('glfw')
-    # app.use_app('PyQt5')
-    gloo.gl.use_gl('gl2')
 
     if sys.platform == 'win32':
+
+        app.use_app('PyQt5')
+        gloo.gl.use_gl('gl2')
+
         import wres
 
         # Set windows timer precision as high as possible
@@ -63,7 +64,11 @@ def run():
                 exit()
 
             ctrl = Controller(configfile)
+
     elif sys.platform == 'linux':
+
+        app.use_app('glfw')
+        gloo.gl.use_gl('gl2')
 
         configfile = None
 

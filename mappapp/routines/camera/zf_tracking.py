@@ -22,26 +22,31 @@ from scipy.spatial import distance
 
 from mappapp import Config
 from mappapp import Def
-from mappapp.core import routine
-from mappapp import api
+from mappapp.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute
+from mappapp.api.routine import CameraRoutine
+from mappapp.api.ui import register_with_plotter
+from mappapp.api.io import set_digital_output
+from mappapp.api.dependency import require_camera_device
 
 
-class EyePositionDetection(routine.CameraRoutine):
+class EyePositionDetection(CameraRoutine):
 
+    # Set required device
     camera_device_id = 'fish_embedded'
 
-    extracted_rect_prefix = 'extracted_rect_'
-    ang_le_pos_prefix = 'angular_le_pos_'
-    ang_re_pos_prefix = 'angular_re_pos_'
-    ang_le_vel_prefix = 'angular_le_vel_'
-    ang_re_vel_prefix = 'angular_re_vel_'
-    le_sacc_prefix = 'le_saccade_'
-    re_sacc_prefix = 're_saccade_'
+    routine_prefix = 'eyepos_'
+
+    extracted_rect_prefix = f'{routine_prefix}extracted_rect_'
+    ang_le_pos_prefix = f'{routine_prefix}angular_le_pos_'
+    ang_re_pos_prefix = f'{routine_prefix}angular_re_pos_'
+    ang_le_vel_prefix = f'{routine_prefix}angular_le_vel_'
+    ang_re_vel_prefix = f'{routine_prefix}angular_re_vel_'
+    le_sacc_prefix = f'{routine_prefix}le_saccade_'
+    re_sacc_prefix = f'{routine_prefix}re_saccade_'
     roi_maxnum = 10
 
-
-    def __init__(self, *args, **kwargs):
-        routine.CameraRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
+        require_camera_device(self.camera_device_id)
 
         self.add_trigger('saccade_trigger')
 
@@ -54,12 +59,7 @@ class EyePositionDetection(routine.CameraRoutine):
         self.exposed.append(EyePositionDetection.set_roi)
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
-        # Set required devices
-        self.required.append(self.camera_device_id)
-
         # Get camera specs
-        assert self.camera_device_id in Config.Camera[Def.CameraCfg.device_id], \
-            f'Camera device "{self.camera_device_id}" not configured for {self.__class__.__name__}'
         idx = Config.Camera[Def.CameraCfg.device_id].index(self.camera_device_id)
         self.res_x = Config.Camera[Def.CameraCfg.res_x][idx]
         self.res_y = Config.Camera[Def.CameraCfg.res_y][idx]
@@ -71,39 +71,48 @@ class EyePositionDetection(routine.CameraRoutine):
         self.min_size = None
         self.saccade_threshold = None
 
-        # Set up buffer attributes
+        # Set up attributes
+        # self.data = []
         for id in range(self.roi_maxnum):
+            roi = {}
+
             # Rectangle
-            setattr(self.buffer, f'{self.extracted_rect_prefix}{id}',
-                    routine.ObjectAttribute(length=2*target_fps))
+            extracted_roi_name = f'{self.extracted_rect_prefix}{id}'
+            roi[extracted_roi_name] = ObjectAttribute(extracted_roi_name)
 
             # Position
-            setattr(self.buffer, f'{self.ang_le_pos_prefix}{id}',
-                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
-            setattr(self.buffer, f'{self.ang_re_pos_prefix}{id}',
-                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
+            # LE
+            le_pos_name = f'{self.ang_le_pos_prefix}{id}'
+            roi[le_pos_name] = ArrayAttribute(le_pos_name, (1,), ArrayType.float64)
+            # RE
+            re_pos_name = f'{self.ang_re_pos_prefix}{id}'
+            roi[re_pos_name] = ArrayAttribute(re_pos_name, (1,), ArrayType.float64)
 
             # Velocity
-            setattr(self.buffer, f'{self.ang_le_vel_prefix}{id}',
-                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
-            setattr(self.buffer, f'{self.ang_re_vel_prefix}{id}',
-                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
+            # LE
+            le_vel_name = f'{self.ang_le_vel_prefix}{id}'
+            roi[le_vel_name] = ArrayAttribute(le_vel_name, (1,), ArrayType.float64)
+            # RE
+            re_vel_name = f'{self.ang_re_vel_prefix}{id}'
+            roi[re_vel_name] = ArrayAttribute(re_vel_name, (1,), ArrayType.float64)
 
             # Saccade detection
-            setattr(self.buffer, f'{self.le_sacc_prefix}{id}',
-                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
-            setattr(self.buffer, f'{self.re_sacc_prefix}{id}',
-                    routine.ArrayAttribute(shape=(1,), dtype=routine.ArrayDType.float64, length=5 * target_fps))
+            # LE
+            le_sacc_name = f'{self.le_sacc_prefix}{id}'
+            roi[le_sacc_name] = ArrayAttribute(le_sacc_name, (1,), ArrayType.float64)
+            # RE
+            re_sacc_name = f'{self.re_sacc_prefix}{id}'
+            roi[re_sacc_name] = ArrayAttribute(re_sacc_name, (1,), ArrayType.float64)
+            # self.data.append(roi)
 
         # Set frame buffer
-        self.buffer.frame = routine.ArrayAttribute((self.res_y, self.res_x),
-                                           routine.ArrayDType.uint8,
-                                           length=2*target_fps)
+        self.frame = ArrayAttribute('eyeposdetect_frame', (self.res_y, self.res_x), ArrayType.uint8)
+
         # Set saccade trigger buffer
-        self.buffer.saccade_trigger = routine.ArrayAttribute((1, ), routine.ArrayDType.binary, length=5*target_fps)
+        self.saccade_trigger = ArrayAttribute('eyeposdetect_saccade_trigger', (1, ), ArrayType.bool)
 
     def initialize(self):
-        api.set_digital_output('saccade_trigger_out', EyePositionDetection, 'saccade_trigger')
+        set_digital_output('saccade_trigger_out', 'eyeposdetect_saccade_trigger')
 
     def set_threshold(self, thresh):
         self.thresh = thresh
@@ -122,33 +131,26 @@ class EyePositionDetection(routine.CameraRoutine):
 
     def set_roi(self, id, params):
         if id not in self.rois:
-            # start_idx = self.buffer.get_index() + 1
             # Send buffer attributes to plotter
             # Position
-            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_le_pos_prefix}{id}',
-                                          None, name=f'eye_pos(LE {id})', axis='eye_pos')
-            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_re_pos_prefix}{id}',
-                                          None, name=f'eye_pos(RE {id})', axis='eye_pos')
+            register_with_plotter(f'{self.ang_le_pos_prefix}{id}', name=f'eye_pos(LE {id})', axis='eye_pos')
+            register_with_plotter(f'{self.ang_re_pos_prefix}{id}', name=f'eye_pos(RE {id})', axis='eye_pos')
 
             # Velocity
-            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_le_vel_prefix}{id}',
-                                          None, name=f'eye_vel(LE {id})', axis='eye_vel')
-            self.register_with_ui_plotter(EyePositionDetection, f'{self.ang_re_vel_prefix}{id}',
-                                          None, name=f'eye_vel(RE {id})', axis='eye_vel')
+            register_with_plotter(f'{self.ang_le_vel_prefix}{id}', name=f'eye_vel(LE {id})', axis='eye_vel')
+            register_with_plotter(f'{self.ang_re_vel_prefix}{id}', name=f'eye_vel(RE {id})', axis='eye_vel')
 
             # Saccade trigger
-            self.register_with_ui_plotter(EyePositionDetection, f'{self.le_sacc_prefix}{id}',
-                                          None, name=f'sacc(LE {id})', axis='sacc')
-            self.register_with_ui_plotter(EyePositionDetection, f'{self.re_sacc_prefix}{id}',
-                                          None, name=f'sacc(RE {id})', axis='sacc')
+            register_with_plotter(f'{self.le_sacc_prefix}{id}', name=f'sacc(LE {id})', axis='sacc')
+            register_with_plotter(f'{self.re_sacc_prefix}{id}', name=f'sacc(RE {id})', axis='sacc')
 
             # Add attributes to save-to-file list:
-            self.file_attrs.append(f'{self.ang_le_pos_prefix}{id}')
-            self.file_attrs.append(f'{self.ang_re_pos_prefix}{id}')
-            self.file_attrs.append(f'{self.ang_le_vel_prefix}{id}')
-            self.file_attrs.append(f'{self.ang_re_vel_prefix}{id}')
-            self.file_attrs.append(f'{self.le_sacc_prefix}{id}')
-            self.file_attrs.append(f'{self.re_sacc_prefix}{id}')
+            write_to_file(self, f'{self.ang_le_pos_prefix}{id}')
+            write_to_file(self, f'{self.ang_re_pos_prefix}{id}')
+            write_to_file(self, f'{self.ang_le_vel_prefix}{id}')
+            write_to_file(self, f'{self.ang_re_vel_prefix}{id}')
+            write_to_file(self, f'{self.le_sacc_prefix}{id}')
+            write_to_file(self, f'{self.re_sacc_prefix}{id}')
 
         self.rois[id] = params
 
@@ -176,7 +178,7 @@ class EyePositionDetection(routine.CameraRoutine):
 
         # Make RGB
         thresh = np.stack((thresh, thresh, thresh), axis=-1)
-        #
+
         # Collect contour parameters and filter contours
         areas = list()
         barycenters = list()
@@ -276,7 +278,7 @@ class EyePositionDetection(routine.CameraRoutine):
     def coord_transform_pg2cv(self, point, asType : type = np.float32):
         return [asType(point[0]), asType(self.res_y - point[1])]
 
-    def execute(self, **frames):
+    def main(self, **frames):
 
         # Read frame
         frame = frames.get(self.camera_device_id)
@@ -288,7 +290,7 @@ class EyePositionDetection(routine.CameraRoutine):
         frame = frame[:,:,0]
 
         # Write frame to buffer
-        self.buffer.frame.write(frame)
+        self.frame.write(frame)
 
         # Do eye detection and angular position estimation
         if bool(self.rois):
@@ -338,44 +340,39 @@ class EyePositionDetection(routine.CameraRoutine):
                 (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
 
                 # Get shared attributes
-                le_pos_attr = getattr(self.buffer, f'{self.ang_le_pos_prefix}{id}')
-                re_pos_attr = getattr(self.buffer, f'{self.ang_re_pos_prefix}{id}')
-                le_vel_attr = getattr(self.buffer, f'{self.ang_le_vel_prefix}{id}')
-                re_vel_attr = getattr(self.buffer, f'{self.ang_re_vel_prefix}{id}')
-                le_sacc_attr = getattr(self.buffer, f'{self.le_sacc_prefix}{id}')
-                re_sacc_attr = getattr(self.buffer, f'{self.re_sacc_prefix}{id}')
-                rect_roi_attr = getattr(self.buffer, f'{self.extracted_rect_prefix}{id}')
+                le_pos_attr = get_attribute(f'{self.ang_le_pos_prefix}{id}')
+                re_pos_attr = get_attribute(f'{self.ang_re_pos_prefix}{id}')
+                le_vel_attr = get_attribute(f'{self.ang_le_vel_prefix}{id}')
+                re_vel_attr = get_attribute(f'{self.ang_re_vel_prefix}{id}')
+                le_sacc_attr = get_attribute(f'{self.le_sacc_prefix}{id}')
+                re_sacc_attr = get_attribute(f'{self.re_sacc_prefix}{id}')
+                rect_roi_attr = get_attribute(f'{self.extracted_rect_prefix}{id}')
 
-                ####
                 # Calculate eye angular VELOCITIES
-
-                _, _, last_le_pos = le_pos_attr.read(1)
+                _, _, last_le_pos = le_pos_attr.read()
                 last_le_pos = last_le_pos[0]
-                _, last_time, last_re_pos = re_pos_attr.read(1)
+                _, last_time, last_re_pos = re_pos_attr.read()
                 last_re_pos = last_re_pos[0]
                 last_time = last_time[-1]
                 if last_time is None:
                     last_time = -np.inf
 
                 # Calculate time elapsed since last frame
-                current_time = self.buffer.get_time()
+                current_time = api.get_time()
                 dt = (current_time - last_time)
 
                 # Calculate velocities
                 le_vel = np.abs((le_pos - last_le_pos) / dt)
                 re_vel = np.abs((re_pos - last_re_pos) / dt)
 
-
-                ####
                 # Calculate saccade trigger
-
-                _, _, last_le_vel = le_vel_attr.read(1)
+                _, _, last_le_vel = le_vel_attr.read()
                 last_le_vel = last_le_vel[0]
-                _, _, last_re_vel = re_vel_attr.read(1)
+                _, _, last_re_vel = re_vel_attr.read()
                 last_re_vel = last_re_vel[0]
 
-                le_sacc = int(last_le_vel < self.saccade_threshold and le_vel > self.saccade_threshold)
-                re_sacc = int(last_re_vel < self.saccade_threshold and re_vel > self.saccade_threshold)
+                le_sacc = int(last_le_vel < self.saccade_threshold < le_vel)
+                re_sacc = int(last_re_vel < self.saccade_threshold < re_vel)
 
                 is_saccade = bool(le_sacc) or bool(re_sacc)
                 if is_saccade:
@@ -386,7 +383,7 @@ class EyePositionDetection(routine.CameraRoutine):
                 re_pos_attr.write(re_pos)
                 le_vel_attr.write(le_vel)
                 re_vel_attr.write(re_vel)
-                self.buffer.saccade_trigger.write(is_saccade)
+                self.saccade_trigger.write(is_saccade)
 
                 le_sacc_attr.write(le_sacc)
                 re_sacc_attr.write(re_sacc)
@@ -396,14 +393,14 @@ class EyePositionDetection(routine.CameraRoutine):
 
 
 from mappapp import utils
-class FishPosDirDetection(routine.CameraRoutine):
+class FishPosDirDetection(CameraRoutine):
 
     buffer_size = 500
 
     camera_device_id = 'fish_freeswim'
 
     def __init__(self, *args, **kwargs):
-        routine.CameraRoutine.__init__(self, *args, **kwargs)
+        CameraRoutine.__init__(self, *args, **kwargs)
 
         self.add_trigger('saccade_trigger')
 
@@ -451,7 +448,7 @@ class FishPosDirDetection(routine.CameraRoutine):
     def set_min_particle_size(self, value):
         self.min_size = value
 
-    def execute(self, **frames):
+    def main(self, **frames):
 
         # Read frame
         frame = frames.get(self.camera_device_id)

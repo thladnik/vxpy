@@ -1,10 +1,10 @@
 // planar/grating.frag
 
-uniform float u_stime;
 uniform float u_spat_period;
 uniform float u_lin_velocity;
 uniform int u_shape;
 uniform int u_direction;
+uniform float u_time;
 
 const float c_pi = 3.14159265359;
 
@@ -17,9 +17,9 @@ void main() {
 
     // Sinewave
     if (u_direction == 1) {
-        c = sin((v_position.y + u_stime * u_lin_velocity)/u_spat_period * 2.0 * c_pi);
+        c = sin((v_position.y + u_time * u_lin_velocity)/u_spat_period * 2.0 * c_pi);
     } else {
-        c = sin((v_position.x + u_stime * u_lin_velocity)/u_spat_period * 2.0 * c_pi);
+        c = sin((v_position.x + u_time * u_lin_velocity)/u_spat_period * 2.0 * c_pi);
     }
 
     // If shape is rectangular: threshold sinewave

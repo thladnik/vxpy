@@ -16,48 +16,56 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import time
+from typing import Any, Dict
 import numpy as np
 
 from mappapp import Config
 from mappapp import Def
-from mappapp import IPC
-from mappapp.core import routine
+from mappapp.api.attribute import ArrayAttribute, ArrayType, write_to_file, write_attribute
+from mappapp.core import routine, ipc
 from mappapp.routines.camera import zf_tracking
+from mappapp.api.ui import register_with_plotter
 
 
+class ReadAll(routine.IoRoutine):
 
-class All(routine.IoRoutine):
-
-    def __init__(self, *args, **kwargs):
-        routine.IoRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         # Read all pins
-        self.pins = dict()
+        self.pin_configs: Dict[str, Dict] = {}
         for did, pins in Config.Io[Def.IoCfg.pins].items():
             for pid, pconf in pins.items():
                 pconf.update(dev=did)
-                self.pins[pid] = pconf
+                self.pin_configs[pid] = pconf
 
         # Set up buffer attributes
-        for pid, pconf in self.pins.items():
+        self.attributes: Dict[str, ArrayAttribute] = {}
+        for pid, pconf in self.pin_configs.items():
             if pconf['type'] in ('di', 'do'):
-                setattr(self.buffer, pid, routine.ArrayAttribute((1,), routine.ArrayDType.int8))
+                attr = ArrayAttribute(pid, (1,), ArrayType.uint8)
             else:
-                setattr(self.buffer, pid, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
+                attr = ArrayAttribute(pid, (1,), ArrayType.float64)
+            self.attributes[pid] = attr
 
             # Add pin to be written to file
-            self.file_attrs.append(pid)
+            write_to_file(self, pid)
 
-    def execute(self, **pins):
+    def initialize(self):
+        for pid, attr in self.attributes.items():
+            axis = self.pin_configs[pid]['type']
+            register_with_plotter(attr.name, axis=axis)
+
+    def main(self, **pins):
         for pid, pin in pins.items():
-            getattr(self.buffer, pid).write(pin.read())
+            write_attribute(pid, pin.read())
 
 
+###
+# TODO: update the following classes to work with current version
 
 class ReadAnalog(routine.IoRoutine):
 
-    def __init__(self, *args, **kwargs):
-        routine.IoRoutine.__init__(self, *args, **kwargs)
+    def setup(self):
 
         self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
         self.pins = [pin for pin in self.pins if pin[-1] == 'a'] # Select just inputs to read
@@ -65,7 +73,7 @@ class ReadAnalog(routine.IoRoutine):
         for pin_name, pin_num, pin_type in self.pins:
             setattr(self.buffer, pin_name, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
 
-    def execute(self, pin_data, device):
+    def main(self, pin_data, device):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
@@ -81,7 +89,7 @@ class ReadDigital(routine.IoRoutine):
         for pin_name, pin_num, pin_type in self.pins:
             setattr(self.buffer, pin_name, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
 
-    def execute(self, pin_data, device):
+    def main(self, pin_data, device):
         for pin_name, pin_num, pin_type in self.pins:
             getattr(self.buffer, pin_name).write(pin_data[pin_name])
 
@@ -95,7 +103,7 @@ class TestTrigger(routine.IoRoutine):
 
         self.connect_to_trigger('saccade_trigger', zf_tracking.EyePositionDetection, TestTrigger.do_trigger01)
 
-    def execute(self, *args, **kwargs):
+    def main(self, *args, **kwargs):
         pass
 
     def do_trigger01(self):
@@ -104,6 +112,7 @@ class TestTrigger(routine.IoRoutine):
     def do_trigger(self,there):
         here = time.time()
         print('Time sent {:.5f} // Time received {:.5f} // Time diff {:.5f}'.format(there,here,here-there))
+
 
 class TriggerLedArenaFlash(routine.IoRoutine):
 
@@ -151,10 +160,10 @@ class TriggerLedArenaFlash(routine.IoRoutine):
     def set_duration_s(self, duration):
         self.duration = duration
 
-    def execute(self, pin_data, device):
+    def main(self, pin_data, device):
         # Check saccade
-        _, _, le_sacc_val = IPC.Camera.read(zf_tracking.EyePositionDetection, 'le_saccade_0')
-        _, sacc_time, re_sacc_val = IPC.Camera.read(zf_tracking.EyePositionDetection, 're_saccade_0')
+        _, _, le_sacc_val = ipc.Camera.read(zf_tracking.EyePositionDetection, 'le_saccade_0')
+        _, sacc_time, re_sacc_val = ipc.Camera.read(zf_tracking.EyePositionDetection, 're_saccade_0')
 
         if re_sacc_val[0] > 0 or le_sacc_val[0] > 0:
             self.trigger_flash()

@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import os
+from enum import Enum
 from typing import Dict
 
 package = 'mappapp'
@@ -23,6 +24,9 @@ package = 'mappapp'
 
 ################################
 # Environment settings
+
+# Number of bytes reserved for array attribute buffers
+DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE = 2 * 10**8  # Default ~200MB
 
 class EnvTypes:
     Dev = 'dev'
@@ -32,9 +36,7 @@ class EnvTypes:
 Env = EnvTypes.Production
 
 
-################################
-# Subfolder definitions
-
+# Subfolder names
 class Path:
     Config = 'configs'
     Gui = 'gui'
@@ -50,9 +52,7 @@ class Path:
     Visual = 'visuals'
 
 
-################################
 # Process names
-
 class Process:
     Camera = 'Camera'
     Controller = 'Controller'
@@ -63,9 +63,7 @@ class Process:
     Worker = 'Worker'
 
 
-################################
 # Process states
-
 class State:
     NA = 0
     SYNC = 1
@@ -100,9 +98,7 @@ MapStateToStr: Dict[int,str] = {
     State.STANDBY: 'Standby',}
 
 
-################################
 # IPC signals
-
 class Signal:
     update_property: int = 10
     rpc: int = 20
@@ -111,10 +107,14 @@ class Signal:
     confirm_shutdown: int = 100
 
 
-################################
+# Device types
+class DeviceType(Enum):
+    Camera = 1
+    Io = 2
+
+
 # Configuration key definitions
 
-########
 # Camera
 
 class Cfg:
@@ -136,12 +136,12 @@ class CameraCfg(Cfg):
     fps = 'int_fps'
     exposure = 'json_exposure'
     gain = 'json_gain'
+    devices = 'json_devices'
 
     # Buffers
     routines = 'json_routines'
 
 
-########
 # Display
 
 class DisplayCfg(Cfg):
@@ -185,7 +185,6 @@ class DisplayCfg(Cfg):
     routines = 'json_routines'
 
 
-########
 # GUI
 
 class GuiCfg(Cfg):
@@ -195,7 +194,6 @@ class GuiCfg(Cfg):
     addons = 'json_addons'
 
 
-########
 # IO
 
 class IoCfg(Cfg):
@@ -208,7 +206,6 @@ class IoCfg(Cfg):
     routines = 'json_routines'
 
 
-########
 # Recording
 
 class RecCfg(Cfg):
@@ -219,13 +216,12 @@ class RecCfg(Cfg):
     output_folder = 'str_output_folder'
 
     # Active routines
+    attributes = 'json_attributes'
     routines = 'json_routines'
 
 
-################################
 # Controls
 
-########
 # General
 
 class GenCtrl:
@@ -234,7 +230,6 @@ class GenCtrl:
     process_syn_barrier = 'process_sync_barrier'
 
 
-########
 # Recording
 
 class RecCtrl:
@@ -246,7 +241,6 @@ class RecCtrl:
     compression_opts = 'compression_opts'
 
 
-################################
 # Protocol
 
 class ProtocolCtrl:
