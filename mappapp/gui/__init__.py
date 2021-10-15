@@ -30,7 +30,7 @@ from mappapp.core import ipc
 from mappapp import Logging
 from mappapp import modules
 from mappapp.api.attribute import get_attribute, read_attribute
-from mappapp.core.gui import IntegratedWidget
+from mappapp.core.gui import IntegratedWidget, WindowWidget
 
 
 class ProcessMonitor(IntegratedWidget):
@@ -369,10 +369,10 @@ class Logger(IntegratedWidget):
                 self.logccount += 1
 
 
-class Camera(IntegratedWidget):
+class Camera(WindowWidget):
 
     def __init__(self, *args):
-        IntegratedWidget.__init__(self, 'Camera', *args)
+        WindowWidget.__init__(self, 'Camera', *args)
 
         self.stream_fps = 20
 
@@ -403,10 +403,10 @@ class Camera(IntegratedWidget):
             self.tab_widget.widget(idx).update_frame()
 
 
-class Display(IntegratedWidget):
+class Display(WindowWidget):
 
-    def __init__(self,*args):
-        IntegratedWidget.__init__(self,'Display',*args)
+    def __init__(self, *args):
+        WindowWidget.__init__(self, 'Display', *args)
         self.setLayout(QtWidgets.QHBoxLayout())
         # Tab widget
         self.tab_widget = QtWidgets.QTabWidget()
@@ -415,10 +415,10 @@ class Display(IntegratedWidget):
         self.add_widgets(Def.Process.Display)
 
 
-class Io(IntegratedWidget):
+class Io(WindowWidget):
 
     def __init__(self, *args):
-        IntegratedWidget.__init__(self, 'I/O', *args)
+        WindowWidget.__init__(self, 'I/O', *args)
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Tab widget
@@ -428,7 +428,7 @@ class Io(IntegratedWidget):
         self.add_widgets(Def.Process.Io)
 
 
-class Plotter(IntegratedWidget):
+class Plotter(WindowWidget):
 
     # Colormap is tab10 from matplotlib:
     # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
@@ -447,7 +447,7 @@ class Plotter(IntegratedWidget):
     mem_seg_len = 1000
 
     def __init__(self, *args):
-        IntegratedWidget.__init__(self, 'Plotter', *args)
+        WindowWidget.__init__(self, 'Plotter', *args)
 
         hspacer = QtWidgets.QSpacerItem(1, 1,
                                         QtWidgets.QSizePolicy.Expanding,

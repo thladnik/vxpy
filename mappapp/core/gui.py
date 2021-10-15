@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
-from PyQt5 import QtWidgets
+from PyQt5 import Qt, QtCore, QtWidgets
 
 from mappapp import Config
 from mappapp import Def
@@ -40,7 +40,7 @@ class AddonWidget(QtWidgets.QWidget):
 class IntegratedWidget(QtWidgets.QGroupBox):
 
     def __init__(self, group_name, main):
-        QtWidgets.QGroupBox.__init__(self, group_name)
+        QtWidgets.QGroupBox.__init__(self, group_name, parent=main)
         self.main: Gui = main
 
         # List of exposed methods to register for rpc callbacks
@@ -66,6 +66,54 @@ class IntegratedWidget(QtWidgets.QGroupBox):
                     Logging.write(Logging.WARNING,f'Addon {widget_name} could not be activated')
                     continue
                 self.tab_widget.addTab(wdgt,widget_name)
+
+    def create_hooks(self):
+        for fun in self.exposed:
+            fun_str = fun.__qualname__
+            ipc.Process.register_rpc_callback(self, fun_str, fun)
+
+
+class WindowWidget(QtWidgets.QWidget):
+
+    def __init__(self, group_name, main):
+        QtWidgets.QWidget.__init__(self, main, flags=QtCore.Qt.Window)
+        self.setWindowTitle(group_name)
+        self.main: Gui = main
+
+        # List of exposed methods to register for rpc callbacks
+        self.exposed = list()
+
+        self.show()
+
+    def add_widgets(self,process_name):
+
+        # Add camera addons
+        selected_addons = Config.Gui[Def.GuiCfg.addons]
+        used_here = selected_addons[process_name]
+
+        for module_name,widgets in used_here.items():
+            for widget_name in widgets:
+                if not (bool(widget_name)):
+                    continue
+
+                # TODO: expand this to draw from all files in ./gui/
+                path = '.'.join([Def.Path.Gui,process_name.lower(),module_name])
+                module = importlib.import_module(path)
+
+                wdgt = getattr(module,widget_name)(self.main)
+                if not (wdgt.module_active):
+                    Logging.write(Logging.WARNING,f'Addon {widget_name} could not be activated')
+                    continue
+                self.tab_widget.addTab(wdgt,widget_name)
+
+    def event(self, event):
+        if event.type() == Qt.QEvent.WindowActivate:
+            print('Subwindow activated')
+            # Raise main window
+            ipc.Process.window.raise_()
+            ipc.Process.window.raise_subwindows()
+
+        return QtWidgets.QWidget.event(self, event)
 
     def create_hooks(self):
         for fun in self.exposed:

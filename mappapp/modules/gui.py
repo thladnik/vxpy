@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import Qt, QtCore, QtGui, QtWidgets
 import sys
 
 from mappapp import Config
@@ -65,16 +65,19 @@ class Window(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
 
+        main_default_height = 400
+        plotter_default_height = 300
+        display_default_dims = (600, 500)
+        camera_default_dims = (600, 500)
+        io_default_dims = (600, 500)
+
         # Set icon
         if sys.platform == 'win32':
             self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
         elif sys.platform == 'linux':
             self.setWindowIcon(QtGui.QIcon('mappapp/testicon.png'))
 
-        # Setup basic UI
-        self.setup_ui()
-
-    def setup_ui(self):
+        self.subwindows = []
 
         # Set up main window
         self.setWindowTitle('MappApp')
@@ -83,66 +86,65 @@ class Window(QtWidgets.QMainWindow):
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
         self.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
-        # Upper
-        self.upper_widget = QtWidgets.QWidget()
-        self.upper_widget.setLayout(QtWidgets.QHBoxLayout())
-        self.centralWidget().layout().addWidget(self.upper_widget)
+        self.screenGeo = ipc.Process.app.primaryScreen().geometry()
+        w, h = self.screenGeo.width(), self.screenGeo.height()
+        x, y = self.screenGeo.x(), self.screenGeo.y()
 
         # Display
         if Config.Display[Def.DisplayCfg.use]:
             self.display = gui.Display(self)
             self.display.create_hooks()
-            self.upper_widget.layout().addWidget(self.display)
+            self.display.move(x, main_default_height + 150)
+            self.display.resize(*display_default_dims)
+            self.subwindows.append(self.display)
 
         # Display
         if Config.Io[Def.IoCfg.use]:
             self.io = gui.Io(self)
             self.io.create_hooks()
-            self.upper_widget.layout().addWidget(self.io)
+            self.io.move(x + display_default_dims[0] + 50, main_default_height + 150)
+            self.io.resize(*io_default_dims)
+            self.subwindows.append(self.io)
 
         # Camera
         if Config.Camera[Def.CameraCfg.use]:
             self.camera = gui.Camera(self)
             self.camera.create_hooks()
-            self.upper_widget.layout().addWidget(self.camera)
+            self.subwindows.append(self.camera)
 
         # Middle
         # Add Plotter
         self.plotter = gui.Plotter(self)
         self.plotter.setMinimumHeight(300)
-        self.plotter.setMaximumHeight(400)
+        self.plotter.move(x, h-plotter_default_height)
+        self.plotter.resize(w, plotter_default_height)
         self.plotter.create_hooks()
-        self.centralWidget().layout().addWidget(self.plotter)
+        self.subwindows.append(self.plotter)
 
-        # Lower
-        self.lower_widget = QtWidgets.QWidget()
-        self.lower_widget.setLayout(QtWidgets.QHBoxLayout())
-        self.centralWidget().layout().addWidget(self.lower_widget)
+        self.controls_widget = QtWidgets.QWidget()
+        self.controls_widget.setLayout(QtWidgets.QHBoxLayout())
+        self.centralWidget().layout().addWidget(self.controls_widget)
 
         # Process monitor
         self.process_monitor = gui.ProcessMonitor(self)
-        self.process_monitor.setMaximumHeight(400)
         self.process_monitor.create_hooks()
-        self.lower_widget.layout().addWidget(self.process_monitor)
+        self.controls_widget.layout().addWidget(self.process_monitor)
 
         # Recordings
         self.recordings = gui.Recording(self)
-        self.recordings.setMaximumHeight(400)
         self.recordings.create_hooks()
-        self.lower_widget.layout().addWidget(self.recordings)
+        self.controls_widget.layout().addWidget(self.recordings)
 
         # Logger
         self.log_display = gui.Logger(self)
-        self.log_display.setMinimumHeight(200)
-        self.log_display.setMaximumHeight(400)
-        self.lower_widget.layout().addWidget(self.log_display)
+        self.controls_widget.layout().addWidget(self.log_display)
 
         # Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
-        ## Menu windows
+        # Menu windows
         self.menu_windows = QtWidgets.QMenu('Windows')
         self.menuBar().addMenu(self.menu_windows)
-        ## Menu processes
+        # Menu processes
         self.menu_process = QtWidgets.QMenu('Processes')
         self.menuBar().addMenu(self.menu_process)
         self.menuBar().addMenu(self.menu_windows)
@@ -160,18 +162,17 @@ class Window(QtWidgets.QMainWindow):
 
         # Set geometry
         # self.move(0, 0)
-        self.screenGeo = ipc.Process.app.primaryScreen().geometry()
-        w, h = self.screenGeo.width(), self.screenGeo.height()
-        x,y = self.screenGeo.x(), self.screenGeo.y()
 
         self.move(x, y)
-        if w > 1920 or h > 1080:
-            if w > 1920:
-                w = self.screenGeo.width()
-            self.resize(w, 75 * h // 100)
-            self.show()
-        else:
-            self.showMaximized()
+        self.resize(w, main_default_height)
+        self.show()
+        # if w > 1920 or h > 1080:
+        #     if w > 1920:
+        #         w = self.screenGeo.width()
+        #     self.resize(w, 75 * h // 100)
+        #     self.show()
+        # else:
+        #     self.showMaximized()
 
     def restart_camera(self):
         ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
@@ -188,6 +189,17 @@ class Window(QtWidgets.QMainWindow):
         if Config.Camera[Def.CameraCfg.use]:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
+
+    def raise_subwindows(self):
+        for w in self.subwindows:
+            w.raise_()
+
+    def event(self, event):
+        if event.type() == Qt.QEvent.WindowActivate:
+            print('Window activated')
+            self.raise_subwindows()
+
+        return QtWidgets.QWidget.event(self, event)
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         if a0 is not None:
