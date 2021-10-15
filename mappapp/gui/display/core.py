@@ -128,7 +128,7 @@ class Protocols(gui.AddonWidget):
         protocol_name = self.lwdgt_protocols.currentItem().text()
 
         # Start recording
-        self.main.recordings.start_recording()
+        ipc.rpc(Def.Process.Controller, modules.Controller.start_recording)
 
         # Start protocol
         ipc.rpc(Def.Process.Controller, modules.Controller.start_protocol, '.'.join([file_name, protocol_name]))

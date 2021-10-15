@@ -81,11 +81,9 @@ class Io(process.AbstractProcess):
         self.protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def start_phase(self):
-        self.set_record_group(f'phase_{ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}')
         self.phase_active = 1
 
     def end_phase(self):
-        print('End phase')
         self.phase_active = 0
 
     def end_protocol(self):
@@ -98,7 +96,7 @@ class Io(process.AbstractProcess):
 
         # Check of pid is actually configured
         if pid not in self._pid_pin_map:
-            Logging.write(Logging.WARNING, f'Output "{pid}" is not configured.')
+            Logging.write(Logging.WARNING, f'Output "{pid}" is not configured. Cannot connect to attribute {attr_name}')
             return
 
         # Select pin
@@ -149,10 +147,10 @@ class Io(process.AbstractProcess):
             dts = np.array(self.timetrack)
             means = dts.mean(axis=0) * 1000
             stds = dts.std(axis=0) * 1000
-            print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
-            print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
-            print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
-            print('----')
+            # print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
+            # print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
+            # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
+            # print('----')
             self.timetrack = []
 
 

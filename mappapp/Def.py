@@ -239,6 +239,7 @@ class RecCtrl:
     use_compression = 'use_compression'
     compression_method = 'compression_method'
     compression_opts = 'compression_opts'
+    record_group_counter = 'record_group_counter'
 
 
 # Protocol

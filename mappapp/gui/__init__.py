@@ -181,12 +181,14 @@ class Recording(IntegratedWidget):
 
         # Data compression
         self.left_wdgt.layout().addWidget(QLabel('Compression'))
-        self.compr = QtWidgets.QComboBox()
-        self.compr_opts = QtWidgets.QComboBox()
-        self.compr.currentTextChanged.connect(self.update_compression_opts)
-        self.compr.addItems(['None', 'GZIP', 'LZF'])
-        self.left_wdgt.layout().addWidget(self.compr)
-        self.left_wdgt.layout().addWidget(self.compr_opts)
+        self.compression_method = QtWidgets.QComboBox()
+        self.compression_opts = QtWidgets.QComboBox()
+        self.compression_method.addItems(['None', 'GZIP', 'LZF'])
+        self.left_wdgt.layout().addWidget(self.compression_method)
+        self.left_wdgt.layout().addWidget(self.compression_opts)
+        self.compression_method.currentTextChanged.connect(self.set_compression_method)
+        self.compression_method.currentTextChanged.connect(self.update_compression_opts)
+        self.compression_opts.currentTextChanged.connect(self.set_compression_opts)
 
         # Buttons
         # Start
@@ -221,19 +223,18 @@ class Recording(IntegratedWidget):
         self.tmr_update_gui.timeout.connect(self.update_ui)
         self.tmr_update_gui.start()
 
+    def set_compression_method(self):
+        ipc.rpc(Def.Process.Controller, modules.Controller.set_compression_method, self.get_compression_method())
+
+    def set_compression_opts(self):
+        ipc.rpc(Def.Process.Controller, modules.Controller.set_compression_opts, self.get_compression_opts())
+
     def open_base_folder(self):
         output_path = abspath(Config.Recording[Def.RecCfg.output_folder])
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def start_recording(self):
-
-        compression_method = self.get_compression_method()
-        compression_opts = self.get_compression_opts()
-
-        # Call controller
-        ipc.rpc(Def.Process.Controller, modules.Controller.start_recording,
-                compression_method=compression_method,
-                compression_opts=compression_opts)
+        ipc.rpc(Def.Process.Controller, modules.Controller.start_manual_recording)
 
     def pause_recording(self):
         ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
@@ -258,13 +259,13 @@ class Recording(IntegratedWidget):
 
         # Finally: stop recording
         print('Stop recording...')
-        ipc.rpc(Def.Process.Controller, modules.Controller.stop_recording)
+        ipc.rpc(Def.Process.Controller, modules.Controller.stop_manual_recording)
 
     def toggle_enable(self, newstate):
         ipc.rpc(Def.Process.Controller, modules.Controller.set_enable_recording, newstate)
 
     def get_compression_method(self):
-        method = self.compr.currentText()
+        method = self.compression_method.currentText()
         if method == 'None':
             method = None
         else:
@@ -273,8 +274,8 @@ class Recording(IntegratedWidget):
         return method
 
     def get_compression_opts(self):
-        method = self.compr.currentText()
-        opts = self.compr_opts.currentText()
+        method = self.compression_method.currentText()
+        opts = self.compression_opts.currentText()
 
         shuffle = opts.lower().find('shuffle') >= 0
         if len(opts) > 0 and method == 'GZIP':
@@ -288,17 +289,17 @@ class Recording(IntegratedWidget):
         return opts
 
     def update_compression_opts(self):
-        self.compr_opts.clear()
+        self.compression_opts.clear()
 
-        compr = self.compr.currentText()
+        compr = self.compression_method.currentText()
         if compr == 'None':
-            self.compr_opts.addItem('None')
+            self.compression_opts.addItem('None')
         elif compr == 'GZIP':
             levels = range(10)
-            self.compr_opts.addItems([f'{i} (shuffle)' for i in levels])
-            self.compr_opts.addItems([str(i) for i in levels])
+            self.compression_opts.addItems([f'{i} (shuffle)' for i in levels])
+            self.compression_opts.addItems([str(i) for i in levels])
         elif compr == 'LZF':
-            self.compr_opts.addItems(['None', 'Shuffle'])
+            self.compression_opts.addItems(['None', 'Shuffle'])
 
     def update_ui(self):
         """(Periodically) update UI based on shared configuration"""

@@ -244,6 +244,12 @@ class Controller(process.AbstractProcess):
         for target, kwargs in self._registered_processes:
             self.initialize_process(target, **kwargs)
 
+        # Set up initial recording states
+        self.manual_recording = False
+        self.set_compression_method(None)
+        self.set_compression_opts(None)
+        self.record_group_counter = 0
+
         # Run event loop
         self.start()
 
@@ -323,23 +329,49 @@ class Controller(process.AbstractProcess):
     ################
     # Recording
 
-    def set_enable_recording(self, newstate):
+    def start_manual_recording(self):
+        self.manual_recording = True
+        self.start_recording()
+
+    def stop_manual_recording(self):
+        self.manual_recording = False
+        self.stop_recording()
+
+    @staticmethod
+    def set_compression_method(method):
+        ipc.Control.Recording[Def.RecCtrl.compression_method] = method
+        if method is None:
+            ipc.Control.Recording[Def.RecCtrl.compression_opts] = None
+        Logging.write(Logging.INFO, f'Set compression method to {method}')
+
+    @staticmethod
+    def set_compression_opts(opts):
+        if ipc.Control.Recording[Def.RecCtrl.compression_method] is None:
+            ipc.Control.Recording[Def.RecCtrl.compression_opts] = None
+            return
+        ipc.Control.Recording[Def.RecCtrl.compression_opts] = opts
+        Logging.write(Logging.INFO, f'Set compression options to {opts}')
+
+    @staticmethod
+    def set_enable_recording(newstate):
         ipc.Control.Recording[Def.RecCtrl.enabled] = newstate
 
-    def start_recording(self, compression_method=None, compression_opts=None):
+    def start_recording(self):
         if ipc.Control.Recording[Def.RecCtrl.active]:
             Logging.write(Logging.WARNING, 'Tried to start new recording while active')
             return False
 
-        if not (ipc.Control.Recording[Def.RecCtrl.enabled]):
+        if not ipc.Control.Recording[Def.RecCtrl.enabled]:
             Logging.write(Logging.WARNING, 'Recording not enabled. Session will not be saved to disk.')
             return True
 
         # Set current folder if none is given
         if not (bool(ipc.Control.Recording[Def.RecCtrl.folder])):
             output_folder = Config.Recording[Def.RecCfg.output_folder]
-            ipc.Control.Recording[Def.RecCtrl.folder] = os.path.join(output_folder,
-                                                                     f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
+            ipc.Control.Recording[Def.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
+
+            # Reset recoprd group perf_counter
+            self.record_group_counter = 0
 
         # Create output folder
         rec_folder = ipc.Control.Recording[Def.RecCtrl.folder]
@@ -347,10 +379,6 @@ class Controller(process.AbstractProcess):
         if not (os.path.exists(rec_folder)):
             Logging.write(Logging.DEBUG, 'Create output folder {}'.format(rec_folder))
             os.mkdir(rec_folder)
-
-        ipc.Control.Recording[Def.RecCtrl.use_compression] = compression_method is not None
-        ipc.Control.Recording[Def.RecCtrl.compression_method] = compression_method
-        ipc.Control.Recording[Def.RecCtrl.compression_opts] = compression_opts
 
         # Set state to recording
         Logging.write(Logging.INFO, 'Start recording')
@@ -367,6 +395,9 @@ class Controller(process.AbstractProcess):
         ipc.Control.Recording[Def.RecCtrl.active] = False
 
     def stop_recording(self, sessiondata=None):
+        if self.manual_recording:
+            return
+
         if ipc.Control.Recording[Def.RecCtrl.active]:
             ipc.Control.Recording[Def.RecCtrl.active] = False
 
@@ -383,7 +414,6 @@ class Controller(process.AbstractProcess):
         ipc.Control.Recording[Def.RecCtrl.folder] = ''
 
     def start_protocol(self, protocol_path):
-        # TODO: also make this dynamic
         # If any relevant subprocesses are currently busy: abort
         if not (self.in_state(Def.State.IDLE, Def.Process.Display)):
             processes = list()
@@ -413,16 +443,28 @@ class Controller(process.AbstractProcess):
         # Go into PREPARE_PROTOCOL
         self.set_state(Def.State.PREPARE_PROTOCOL)
 
-    def start_protocol_phase(self, _id=None):
-        if _id is not None:
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = _id
-            return
+    def start_protocol_phase(self):
+        # Set phase_id within protocol
+        phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+        if phase_id is None:
+            phase_id = 0
+        else:
+            phase_id += 1
+        ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = phase_id
+
+        # Add to record group counter
+        self.record_group_counter += 1
+        ipc.Control.Recording[Def.RecCtrl.record_group_counter] = self.record_group_counter
+
+        # if _id is not None:
+        #     ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = _id
+        #     return
 
         # Else: advance protocol counter
-        if ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] is None:
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = 0
-        else:
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1
+        # if ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] is None:
+        #     ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = 0
+        # else:
+        #     ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1
 
     def abort_protocol(self):
         # TODO: handle stuff?
@@ -487,9 +529,8 @@ class Controller(process.AbstractProcess):
             ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time() + duration + fixed_delay
 
             Logging.write(Logging.INFO,
-                          'Run phase {}. Set start time to {}'
-                          .format(ipc.Control.Protocol[Def.ProtocolCtrl.phase_id],
-                                  ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]))
+                          f'Run protocol phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}. '
+                          f'Set start time to {ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]}')
 
             # Set to running
             self.set_state(Def.State.RUNNING)
@@ -500,9 +541,7 @@ class Controller(process.AbstractProcess):
 
             # If stop time is reached, set PHASE_END
             if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                Logging.write(Logging.INFO,
-                              'End phase {}.'
-                              .format(ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]))
+                Logging.write(Logging.INFO, f'End phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}.')
 
                 self.set_state(Def.State.PHASE_END)
 

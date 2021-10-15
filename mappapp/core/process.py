@@ -124,7 +124,6 @@ class AbstractProcess:
                     if self.name == _routine.name:
                         _routine.initialize()
 
-
         # Set configurations
         if _configurations is not None:
             Config.__dict__.update(_configurations)
@@ -245,7 +244,7 @@ class AbstractProcess:
         # RUNNING
         if self.in_state(Def.State.RUNNING):
 
-            ## If phase stoptime is exceeded: end phase
+            # If phase stoptime is exceeded: end phase
             if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
                 self.end_phase()
                 self.set_state(Def.State.PHASE_END)
@@ -259,7 +258,7 @@ class AbstractProcess:
         # IDLE
         elif self.in_state(Def.State.IDLE):
 
-            ## Ctrl PREPARE_PROTOCOL
+            # Ctrl PREPARE_PROTOCOL
             if self.in_state(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
                 self.start_protocol()
 
@@ -278,6 +277,7 @@ class AbstractProcess:
             if not (self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller)):
                 return False
 
+            self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
             self.start_phase()
 
             # Set next state
@@ -510,7 +510,12 @@ class AbstractProcess:
     def _routine_on_record(self, routine_name):
         return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
 
-    def set_record_group(self, group_name: str, group_attributes: Dict = dict()):
+    def set_record_group_attrs(self, group_attributes: Dict = None):
+        grp = self.file_container.require_group(self.record_group)
+        if group_attributes is not None:
+            grp.attrs.update(group_attributes)
+
+    def set_record_group(self, group_name: str):
         if self.file_container is None:
             return
 
@@ -523,10 +528,8 @@ class AbstractProcess:
             return
 
         # Set group
+        self.file_container.require_group(self.record_group)
         Logging.write(Logging.INFO, f'Set record group "{self.record_group}"')
-        grp = self.file_container.require_group(self.record_group)
-        if group_attributes is not None:
-            grp.attrs.update(group_attributes)
 
         # Create attributes in group
         for attr in get_permanent_attributes():

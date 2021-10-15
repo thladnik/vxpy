@@ -67,6 +67,9 @@ class Worker(process.AbstractProcess):
     def start_phase(self):
         pass
 
+    def end_phase(self):
+        pass
+
     def end_protocol(self):
         pass
 
