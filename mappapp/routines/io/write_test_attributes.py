@@ -60,3 +60,20 @@ class WriteRandoms(IoRoutine):
                 self.poisson_high_end = get_time() + 0.005
 
         self.poisson_1p20_attr.write(new_state)
+
+
+class RandomOnOff(IoRoutine):
+
+    def __init__(self, *args):
+        IoRoutine.__init__(self, *args)
+
+    def setup(self):
+        self.test_onoff = ArrayAttribute('test_onoff', (1,), ArrayType.bool)
+
+    def initialize(self):
+        set_digital_output('onoff_out', 'test_onoff')
+
+    def main(self, *args, **kwargs):
+        t = get_time()
+        sig = int(t / 2) % 2
+        self.test_onoff.write(sig)
