@@ -80,7 +80,7 @@ class Window(QtWidgets.QMainWindow):
         self.subwindows = []
 
         # Set up main window
-        self.setWindowTitle('MappApp')
+        self.setWindowTitle('MappApp - a thing to do stuff')
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
@@ -144,6 +144,11 @@ class Window(QtWidgets.QMainWindow):
         # Menu windows
         self.menu_windows = QtWidgets.QMenu('Windows')
         self.menuBar().addMenu(self.menu_windows)
+        self.window_toggles = []
+        for subwin in self.subwindows:
+            self.window_toggles.append(QtWidgets.QAction(f'Toggle {subwin.windowTitle()}'))
+            self.window_toggles[-1].triggered.connect(subwin.toggle_visibility)
+            self.menu_windows.addAction(self.window_toggles[-1])
         # Menu processes
         self.menu_process = QtWidgets.QMenu('Processes')
         self.menuBar().addMenu(self.menu_process)
@@ -158,30 +163,6 @@ class Window(QtWidgets.QMainWindow):
         self.menu_process.addAction(self.menu_process.restart_display)
 
         # Bind shortcuts
-        self._bind_shortcuts()
-
-        # Set geometry
-        # self.move(0, 0)
-
-        self.move(x, y)
-        self.resize(w, main_default_height)
-        self.show()
-        # if w > 1920 or h > 1080:
-        #     if w > 1920:
-        #         w = self.screenGeo.width()
-        #     self.resize(w, 75 * h // 100)
-        #     self.show()
-        # else:
-        #     self.showMaximized()
-
-    def restart_camera(self):
-        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
-
-    def restart_display(self):
-        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
-
-    def _bind_shortcuts(self):
-
         # Restart display modules
         self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
         self.menu_process.restart_display.setAutoRepeat(False)
@@ -190,13 +171,23 @@ class Window(QtWidgets.QMainWindow):
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 
+        # Set geometry
+        self.move(x, y)
+        self.resize(w, main_default_height)
+        self.show()
+
+    def restart_camera(self):
+        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
+
+    def restart_display(self):
+        ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Display)
+
     def raise_subwindows(self):
         for w in self.subwindows:
             w.raise_()
 
     def event(self, event):
         if event.type() == Qt.QEvent.WindowActivate:
-            print('Window activated')
             self.raise_subwindows()
 
         return QtWidgets.QWidget.event(self, event)

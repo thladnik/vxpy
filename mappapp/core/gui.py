@@ -106,9 +106,14 @@ class WindowWidget(QtWidgets.QWidget):
                     continue
                 self.tab_widget.addTab(wdgt,widget_name)
 
+    def toggle_visibility(self):
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+
     def event(self, event):
         if event.type() == Qt.QEvent.WindowActivate:
-            print('Subwindow activated')
             # Raise main window
             ipc.Process.window.raise_()
             ipc.Process.window.raise_subwindows()
