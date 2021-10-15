@@ -90,16 +90,22 @@ class Window(QtWidgets.QMainWindow):
         w, h = self.screenGeo.width(), self.screenGeo.height()
         x, y = self.screenGeo.x(), self.screenGeo.y()
 
+        # Optional sub windows
+
         # Display
-        if Config.Display[Def.DisplayCfg.use]:
+        if Config.Display[Def.DisplayCfg.use] \
+                and Def.Process.Display in Config.Gui[Def.GuiCfg.addons] \
+                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
             self.display = gui.Display(self)
             self.display.create_hooks()
             self.display.move(x, main_default_height + 150)
             self.display.resize(*display_default_dims)
             self.subwindows.append(self.display)
 
-        # Display
-        if Config.Io[Def.IoCfg.use]:
+        # Io
+        if Config.Io[Def.IoCfg.use] \
+                and Def.Process.Io in Config.Gui[Def.GuiCfg.addons] \
+                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
             self.io = gui.Io(self)
             self.io.create_hooks()
             self.io.move(x + display_default_dims[0] + 50, main_default_height + 150)
@@ -107,12 +113,13 @@ class Window(QtWidgets.QMainWindow):
             self.subwindows.append(self.io)
 
         # Camera
-        if Config.Camera[Def.CameraCfg.use]:
+        if Config.Camera[Def.CameraCfg.use] \
+                and Def.Process.Camera in Config.Gui[Def.GuiCfg.addons] \
+                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
             self.camera = gui.Camera(self)
             self.camera.create_hooks()
             self.subwindows.append(self.camera)
 
-        # Middle
         # Add Plotter
         self.plotter = gui.Plotter(self)
         self.plotter.setMinimumHeight(300)
@@ -121,6 +128,7 @@ class Window(QtWidgets.QMainWindow):
         self.plotter.create_hooks()
         self.subwindows.append(self.plotter)
 
+        # Main controls widget
         self.controls_widget = QtWidgets.QWidget()
         self.controls_widget.setLayout(QtWidgets.QHBoxLayout())
         self.centralWidget().layout().addWidget(self.controls_widget)
