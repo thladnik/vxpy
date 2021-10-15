@@ -22,7 +22,6 @@ import numpy as np
 from mappapp.core import visual
 from mappapp.utils import plane
 
-
 class SingleMovingDot(visual.PlanarVisual):
     description = ''
 
@@ -66,4 +65,92 @@ class SingleMovingDot(visual.PlanarVisual):
         (u_dot_ang_velocity, 80.0, 1.0, 200.0, dict(step_size=1.0)),
         (u_vertical_offset, 20., 1.0, 50., dict(step_size=1.0)),
         ('Start trigger', initialize)
+    ]
+
+
+class SingleMovingDot_YZ(visual.PlanarVisual):
+    description = ''
+
+    u_x_offset = 'u_x_offset'  # mm
+    u_y_offset = 'u_y_offset'  # deg
+    u_dot_lateral_offset = 'u_dot_lateral_offset'  # mm
+    u_dot_ang_dia = 'u_dot_ang_dia'  # deg
+    u_dot_ang_velocity = 'u_dot_ang_velocity'  # deg / s
+    u_vertical_offset = 'u_vertical_offset'  # mm
+    u_time = 'u_time'  # s
+
+    parameters = {
+        u_x_offset: 10.0,
+        u_y_offset: 20.,
+        u_dot_lateral_offset: 10.0,
+        u_dot_ang_dia: 20.,
+        u_dot_ang_velocity: 80.,
+        u_vertical_offset: 20.,
+        u_time: 0.,
+    }
+
+    def __init__(self, *args, **kwargs):
+        visual.PlanarVisual.__init__(self, *args, **kwargs)
+
+        self.plane = plane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+
+        self.program = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
+                                    self.load_shader('./single_moving_dot_YZ.frag'))
+        self.program['a_position'] = self.position_buffer
+
+    def initialize(self, **parameters):
+        self.program['u_time'] = 0.
+
+    def render(self, dt):
+        self.program['u_time'] += dt
+        self.apply_transform(self.program)
+        self.program.draw('triangles', self.index_buffer)
+
+    interface = [
+        (u_x_offset, 0., -1.0, 1.0, dict(step_size=0.001,decimals=4)),
+        (u_y_offset, 0., -1.0, 1.0, dict(step_size=0.001,decimals=4)),
+        (u_dot_lateral_offset, 0.1, -1., 1.0, dict(step_size=.001,decimals=3)),
+        (u_dot_ang_dia, 20.0, 1.0, 50.0, dict(step_size=1.0)),
+        (u_dot_ang_velocity, 80.0, 1.0, 200.0, dict(step_size=1.0)),
+        (u_vertical_offset, 20., 1.0, 50., dict(step_size=1.0)),
+        ('Start trigger', initialize)
+    ]
+
+class Crosshair(visual.PlanarVisual):
+    description = ''
+
+    u_x_offset = 'u_x_offset'  # mm
+    u_y_offset = 'u_y_offset'  # deg
+    u_linewidth = 'u_linewidth'  # deg
+
+    parameters = {
+        u_x_offset: 10.0,
+        u_y_offset: 20.,
+        u_linewidth: .1,
+    }
+
+    def __init__(self, *args, **kwargs):
+        visual.PlanarVisual.__init__(self, *args, **kwargs)
+
+        self.plane = plane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+
+        self.program = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
+                                    self.load_shader('./crosshair.frag'))
+        self.program['a_position'] = self.position_buffer
+
+    def initialize(self, **parameters):
+        self.program['u_time'] = 0.
+
+    def render(self, dt):
+        self.apply_transform(self.program)
+        self.program.draw('triangles', self.index_buffer)
+
+    interface = [
+        (u_x_offset, 0., -1.0, 1.0, dict(step_size=0.001,decimals=4)),
+        (u_y_offset, 0., -1.0, 1.0, dict(step_size=0.001,decimals=4)),
+        (u_linewidth, 0.01, 0., 0.1, dict(step_size=0.001,decimals=4)),
     ]
