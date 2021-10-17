@@ -277,7 +277,7 @@ class AbstractProcess:
             if not (self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller)):
                 return False
 
-            self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
+            # self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
             self.start_phase()
 
             # Set next state
