@@ -28,10 +28,11 @@ void main() {
     // Draw dot color
     gl_FragColor = vec4(vec3(step(0.999999, ndist)), 1.0);
 
+
     // Draw center indicator
-    float dp = 0.005;
-    if((v_nposition.x < 0.5+dp && v_nposition.x > 0.5-dp) && (v_nposition.y < 0.5+dp && v_nposition.y > 0.5-dp)) {
-        gl_FragColor = vec4(vec3(1.0) - step(0.5, gl_FragColor.xyz), 1.0);
-    }
+//    float dp = 0.005;
+//    if((v_nposition.x < 0.5+dp && v_nposition.x > 0.5-dp) && (v_nposition.y < 0.5+dp && v_nposition.y > 0.5-dp)) {
+//        gl_FragColor = vec4(vec3(1.0) - step(0.5, gl_FragColor.xyz), 1.0);
+//    }
 
 }
