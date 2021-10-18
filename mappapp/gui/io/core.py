@@ -20,7 +20,6 @@ from PyQt5 import QtWidgets
 from mappapp import Def
 from mappapp.core import ipc
 from mappapp.core.gui import AddonWidget
-from mappapp.routines.io.read_inputs import TriggerLedArenaFlash
 from mappapp.utils.uiutils import IntSliderWidget
 
 
