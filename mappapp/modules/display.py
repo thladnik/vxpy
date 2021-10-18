@@ -183,10 +183,11 @@ class Display(process.AbstractProcess):
             if self._display():
 
                 if self.stimulus_visual is not None:
+                    pass
                     # Update uniforms from routine attributes
-                    for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
-                        idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
-                        self.stimulus_visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
+                    # for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
+                    #     idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
+                    #     self.stimulus_visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
 
                 # Update routines
                 self.update_routines(self.stimulus_visual)

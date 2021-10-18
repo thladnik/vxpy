@@ -145,8 +145,8 @@ class Attribute(ABC):
     def get_times(self, last):
         return self._get_times(*self._get_range(last))
 
-    def carry(self):
-        self.write(self._read(*self._get_range(last=1), use_lock=True))
+    # def carry(self):
+    #     self.write(self._read(*self._get_range(last=1), use_lock=True))
 
     @abstractmethod
     def _read(self, start_idx, end_idx, use_lock):
