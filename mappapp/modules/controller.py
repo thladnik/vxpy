@@ -117,7 +117,7 @@ class Controller(process.AbstractProcess):
             times.append(time.perf_counter() - t)
         ipc.Control.General.update({Def.GenCtrl.min_sleep_time: max(times)})
         Logging.write(Logging.INFO, 'Minimum sleep period is {0:.3f}ms'.format(1000 * max(times)))
-        ipc.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
+        # ipc.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
 
         # Check time precision on system
         dt = list()
