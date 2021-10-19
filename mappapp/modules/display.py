@@ -104,7 +104,8 @@ class Display(process.AbstractProcess):
                              position=_position,
                              always_on_top=True,
                              app=self.app,
-                             vsync=False)
+                             vsync=False,
+                             decorate=False)
         # self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
         self._display_visual = False
