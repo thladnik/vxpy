@@ -41,7 +41,9 @@ class ReadAll(routine.IoRoutine):
         # Set up buffer attributes
         self.attributes: Dict[str, ArrayAttribute] = {}
         for pid, pconf in self.pin_configs.items():
-            if pconf['type'] in ('di', 'do'):
+            if pconf['type'] in ('do', 'ao'):
+                continue
+            if pconf['type'] == 'di':
                 attr = ArrayAttribute(pid, (1,), ArrayType.uint8)
             else:
                 attr = ArrayAttribute(pid, (1,), ArrayType.float64)
@@ -57,6 +59,8 @@ class ReadAll(routine.IoRoutine):
 
     def main(self, **pins):
         for pid, pin in pins.items():
+            if pid not in self.attributes:
+                continue
             write_attribute(pid, pin.read())
 
 

@@ -71,7 +71,7 @@ class Io(process.AbstractProcess):
         # Set timeout during idle
         self.enable_idle_timeout = True
 
-        self.phase_active = 0
+        self.phase_is_active = 0
 
         self.timetrack = []
         # Run event loop
@@ -81,10 +81,10 @@ class Io(process.AbstractProcess):
         self.protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self)
 
     def start_phase(self):
-        self.phase_active = 1
+        self.phase_is_active = 1
 
     def end_phase(self):
-        self.phase_active = 0
+        self.phase_is_active = 0
 
     def end_protocol(self):
         pass

@@ -36,7 +36,8 @@ class Blank(visual.PlanarVisual):
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.update(**params)
+    def initialize(self, *args, **kwargs):
+        pass
 
     def render(self, frame_time):
         gloo.clear(self.parameters[self.p_color])
