@@ -51,6 +51,7 @@ class SingleMovingDot(visual.PlanarVisual):
         self.program['a_position'] = self.position_buffer
 
     def initialize(self, **parameters):
+        gloo.set_clear_color('white')
         self.program['u_time'] = 0.
 
     def render(self, dt):
