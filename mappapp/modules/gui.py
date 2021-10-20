@@ -123,8 +123,12 @@ class Window(QtWidgets.QMainWindow):
         # Add Plotter
         self.plotter = gui.Plotter(self)
         self.plotter.setMinimumHeight(300)
-        self.plotter.move(x, h-plotter_default_height)
-        self.plotter.resize(w, plotter_default_height)
+        if sys.platform == 'linux':
+            self.plotter.move(x, h-plotter_default_height)
+            self.plotter.resize(w, plotter_default_height)
+        else:
+            self.plotter.move(x, 0.9 * h - plotter_default_height)
+            self.plotter.resize(w, plotter_default_height + int(0.05 * h))
         self.plotter.create_hooks()
         self.subwindows.append(self.plotter)
 
