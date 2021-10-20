@@ -30,53 +30,6 @@ from mappapp.core import protocol
 from mappapp.core import visual
 
 
-class Canvas(app.Canvas):
-
-    def __init__(self, _interval, *args, **kwargs):
-        app.Canvas.__init__(self, *args, **kwargs)
-        self.tick = 0
-        self.measure_fps(.5, self.show_fps)
-        self.stimulus_visual = None
-        gloo.set_viewport(0, 0, *self.physical_size)
-        gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
-
-        # self._timer = app.Timer(interval=_interval/2., connect=self.on_draw, start=True)
-
-        self.debug = False
-        self.times = []
-        self.t = time.perf_counter()
-
-        self.show()
-
-    def on_draw(self, event):
-        gloo.clear()
-        if event is None:
-            return
-
-        self.newt = time.perf_counter()
-
-        # if ipc.Process.stimulus_visual is not None:
-        if ipc.Process._display():
-            # Leave catch in here for now.
-            # This makes debugging new stimuli much easier.
-            try:
-                ipc.Process.stimulus_visual.draw(self.newt - self.t)
-            except Exception as exc:
-                import traceback
-                print(traceback.print_exc())
-
-        self.t = self.newt
-
-        self.update()
-
-    def show_fps(self, fps):
-        if self.debug:
-            print("FPS {:.2f}".format(fps))
-
-    def on_resize(self, event):
-        gloo.set_viewport(0, 0, *event.physical_size)
-
-
 class Display(process.AbstractProcess):
     name = Def.Process.Display
 
@@ -100,6 +53,7 @@ class Display(process.AbstractProcess):
                      Config.Display[Def.DisplayCfg.window_pos_y])
 
         self.canvas = Canvas(_interval,
+                             title='Stimulus display',
                              size=_size,
                              resizable=False,
                              position=_position,
@@ -108,6 +62,14 @@ class Display(process.AbstractProcess):
                              vsync=False,
                              decorate=False)
         # self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
+        # self.mirror_canvas = Canvas('Stimulus mirror',
+        #                             _interval,
+        #                             size=_size,
+        #                             resizable=False,
+        #                             position=_position,
+        #                             always_on_top=True,
+        #                             app=self.app,
+        #                             vsync=False)
 
         self.visual_is_displayed = False
 
@@ -120,7 +82,8 @@ class Display(process.AbstractProcess):
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
         if uniform_name not in self._uniform_maps:
             self._uniform_maps[uniform_name] = (routine_cls, attr_name)
-            Logging.write(Logging.INFO, f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
+            Logging.write(Logging.INFO,
+                          f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
         else:
             Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
 
@@ -217,3 +180,51 @@ class Display(process.AbstractProcess):
 
     def _start_shutdown(self):
         process.AbstractProcess._start_shutdown(self)
+
+
+class Canvas(app.Canvas):
+
+    def __init__(self, _interval, *args, **kwargs):
+        app.Canvas.__init__(self, *args, **kwargs)
+        self.tick = 0
+        self.measure_fps(.5, self.show_fps)
+        self.stimulus_visual = None
+        gloo.set_viewport(0, 0, *self.physical_size)
+        gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
+
+        # self._timer = app.Timer(interval=_interval/2., connect=self.on_draw, start=True)
+
+        self.debug = False
+        self.times = []
+        self.t = time.perf_counter()
+
+        self.show()
+
+    def on_draw(self, event):
+        gloo.clear()
+        if event is None:
+            return
+
+        self.newt = time.perf_counter()
+
+        # if ipc.Process.stimulus_visual is not None:
+        if ipc.Process._display():
+            # Leave catch in here for now.
+            # This makes debugging new stimuli much easier.
+            try:
+                ipc.Process.stimulus_visual.draw(self.newt - self.t)
+            except Exception as exc:
+                import traceback
+                print(traceback.print_exc())
+
+        self.t = self.newt
+
+        self.update()
+
+    def show_fps(self, fps):
+        if self.debug:
+            print("FPS {:.2f}".format(fps))
+
+    def on_resize(self, event):
+        gloo.set_viewport(0, 0, *event.physical_size)
+
