@@ -20,7 +20,7 @@ from vispy import app
 from vispy import gloo
 import time
 
-from mappapp import api
+from mappapp.api import get_time
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
@@ -55,7 +55,8 @@ class Canvas(app.Canvas):
 
         self.newt = time.perf_counter()
 
-        if ipc.Process.stimulus_visual is not None:
+        # if ipc.Process.stimulus_visual is not None:
+        if ipc.Process._display():
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
@@ -108,7 +109,7 @@ class Display(process.AbstractProcess):
                              decorate=False)
         # self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
 
-        self._display_visual = False
+        self.visual_is_displayed = False
 
         self.times = []
 
@@ -131,40 +132,49 @@ class Display(process.AbstractProcess):
             import traceback
             print(traceback.print_exc())
 
+    # Phase controls
+
+    def prepare_phase(self, visual=None, **parameters):
+        # Get visual info from protocol if not provided
+        if visual is None:
+            phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+            # self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
+            self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
+            visual, parameters = self.stimulus_protocol.fetch_phase_visual(phase_id)
+
+        # Prepare visual
+        self.prepare_visual(visual, **parameters)
+
     def start_phase(self):
-        phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
-        # self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
-        visual, parameters = self.stimulus_protocol.fetch_phase_visual(phase_id)
-        self.start_visual(visual, **parameters)
-        ipc.Process.set_record_group_attrs(self.stimulus_visual.parameters)
+        self.start_visual()
+        self.set_record_group_attrs(self.stimulus_visual.parameters)
+        self.set_record_group_attrs({'start_time': get_time()})
 
     def end_phase(self):
-        pass
+        self.stop_visual()
 
     def end_protocol(self):
         self.stimulus_visual = None
         self.canvas.stimulus_visual = self.stimulus_visual
 
-    def start_visual(self, stimulus_visual, **parameters):
+    # Visual controls
+
+    def run_visual(self, visual, **parameters):
+        self.prepare_visual(visual, **parameters)
+        self.start_visual()
+
+    def prepare_visual(self, stimulus_visual, **parameters):
         # If visual hasn't been instantiated yet, do it now
         if isclass(stimulus_visual):
             self.stimulus_visual = stimulus_visual(self.canvas)
         else:
             self.stimulus_visual = stimulus_visual
 
-        self.stimulus_visual.initialize()
         self.stimulus_visual.update(**parameters)
-        self._display_visual = True
 
-    def stop_visual(self):
-        self.stimulus_visual = None
-        self._display_visual = False
-
-    def _start_shutdown(self):
-        process.AbstractProcess._start_shutdown(self)
-
-    def trigger_visual(self, trigger_fun):
-        self.stimulus_visual.trigger(trigger_fun)
+    def start_visual(self):
+        self.stimulus_visual.initialize()
+        self.visual_is_displayed = True
 
     def update_visual(self, **parameters):
         if self.stimulus_visual is None:
@@ -172,19 +182,25 @@ class Display(process.AbstractProcess):
 
         self.stimulus_visual.update(**parameters)
 
+    def stop_visual(self):
+        self.stimulus_visual = None
+        self.visual_is_displayed = False
+
+    def trigger_visual(self, trigger_fun):
+        self.stimulus_visual.trigger(trigger_fun)
+
     def _display(self):
-        return self._run_protocol() or self._display_visual
+        return self._run_protocol() or self.visual_is_displayed
 
     def main(self):
 
-        self.canvas.on_draw(None)
+        # self.canvas.on_draw(None)
         self.app.process_events()
 
         try:
             if self._display():
 
-                if self.stimulus_visual is not None:
-                    pass
+                # if self.stimulus_visual is not None:
                     # Update uniforms from routine attributes
                     # for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
                     #     idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
@@ -198,3 +214,6 @@ class Display(process.AbstractProcess):
             import traceback
             traceback.print_exc()
             # TODO: quit modules here and restart!
+
+    def _start_shutdown(self):
+        process.AbstractProcess._start_shutdown(self)

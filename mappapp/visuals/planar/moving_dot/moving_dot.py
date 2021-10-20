@@ -22,6 +22,7 @@ import numpy as np
 from mappapp.core import visual
 from mappapp.utils import plane
 
+
 class SingleMovingDot(visual.PlanarVisual):
     description = ''
 
@@ -46,19 +47,19 @@ class SingleMovingDot(visual.PlanarVisual):
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.program = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
+        self.mov_dot = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
                                     self.load_shader('./single_moving_dot.frag'))
-        self.program['a_position'] = self.position_buffer
+        self.mov_dot['a_position'] = self.position_buffer
 
     def initialize(self, **parameters):
         gloo.set_clear_color('white')
-        self.program['u_time'] = 0.
+        self.mov_dot['u_time'] = 0.
 
     def render(self, dt):
-        self.program['u_time'] += dt
+        self.mov_dot['u_time'] += dt
 
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)
+        self.apply_transform(self.mov_dot)
+        self.mov_dot.draw('triangles', self.index_buffer)
 
     interface = [
         (u_dot_lateral_offset, 10.0, 0.0, 100.0, dict(step_size=1.0)),
@@ -69,7 +70,7 @@ class SingleMovingDot(visual.PlanarVisual):
     ]
 
 
-class SingleMovingDot_YZ(visual.PlanarVisual):
+class SingleMovingDotYZ(visual.PlanarVisual):
     description = ''
 
     u_x_offset = 'u_x_offset'  # mm
@@ -118,6 +119,7 @@ class SingleMovingDot_YZ(visual.PlanarVisual):
         (u_vertical_offset, 20., 1.0, 50., dict(step_size=1.0)),
         ('Start trigger', initialize)
     ]
+
 
 class Crosshair(visual.PlanarVisual):
     description = ''

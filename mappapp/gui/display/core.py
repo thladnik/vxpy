@@ -300,7 +300,7 @@ class VisualInteractor(gui.AddonWidget):
         # if None in visual_cls.parameters.values():
         #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
 
-        ipc.rpc(Def.Process.Display, modules.Display.start_visual, visual_cls, **defaults) #**visual_cls.parameters)
+        ipc.rpc(Def.Process.Display, modules.Display.run_visual, visual_cls, **defaults) #**visual_cls.parameters)
 
     def update_parameter(self, name):
         def _update(value):

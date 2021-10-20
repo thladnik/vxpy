@@ -218,13 +218,16 @@ class AbstractProcess:
         raise NotImplementedError('Method "start_protocol not implemented in {}.'
                                   .format(self.name))
 
+    def prepare_phase(self):
+        pass
+
     def start_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         raise NotImplementedError('Method "start_phase" not implemented in {}.'
                                   .format(self.name))
 
     def end_phase(self):
-        """Method is called at end of stimulation protocolphase phase."""
+        """Method is called at end of stimulation protocol phase phase."""
         raise NotImplementedError('Method "end_phase" not implemented in {}.'
                                   .format(self.name))
 
@@ -278,7 +281,8 @@ class AbstractProcess:
                 return False
 
             # self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
-            self.start_phase()
+            # Prepare phase for start
+            self.prepare_phase()
 
             # Set next state
             self.set_state(Def.State.READY)
@@ -302,6 +306,9 @@ class AbstractProcess:
                     self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
                     break
+
+            # Immediately start phase
+            self.start_phase()
 
             return False
 

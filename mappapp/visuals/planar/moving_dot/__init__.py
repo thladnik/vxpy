@@ -1,1 +1,1 @@
-from .moving_dot import SingleMovingDot, Crosshair, SingleMovingDot_YZ
+from .moving_dot import SingleMovingDot, Crosshair, SingleMovingDotYZ
