@@ -117,6 +117,7 @@ class WindowWidget(QtWidgets.QWidget):
             # Raise main window
             ipc.Process.window.raise_()
             ipc.Process.window.raise_subwindows()
+            self.raise_()
 
         return QtWidgets.QWidget.event(self, event)
 

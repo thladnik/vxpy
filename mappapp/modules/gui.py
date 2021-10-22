@@ -201,6 +201,7 @@ class Window(QtWidgets.QMainWindow):
     def event(self, event):
         if event.type() == Qt.QEvent.WindowActivate:
             self.raise_subwindows()
+            self.raise_()
 
         return QtWidgets.QWidget.event(self, event)
 
