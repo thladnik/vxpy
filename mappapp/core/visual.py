@@ -240,6 +240,9 @@ class SphericalVisual(AbstractVisual, ABC):
             // Project
             pos = u_mapcalib_projection * pos;
             
+            // Flip direction for x (correct mirror inversion) 
+            pos.x *= -1.;
+            
             // 2D transforms (AFTER 3D projection!)
             pos = vec4(((u_mapcalib_rotate2d * pos.xy) * u_mapcalib_scale  + u_mapcalib_translate2d * pos.w) * u_mapcalib_aspectscale, pos.z, pos.w);
                 
