@@ -201,7 +201,7 @@ class Canvas(app.Canvas):
         self.show()
 
     def on_draw(self, event):
-        gloo.clear()
+        # gloo.clear()
         if event is None:
             return
 

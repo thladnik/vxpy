@@ -4,6 +4,8 @@ uniform float u_dot_lateral_offset;
 uniform float u_dot_ang_dia;
 uniform float u_dot_ang_velocity;
 uniform float u_time;
+uniform sampler2D u_foreground;
+uniform sampler2D u_background;
 uniform float u_vertical_offset;
 uniform float u_mapcalib_yextent;
 uniform float u_mapcalib_small_side_size;
@@ -25,9 +27,11 @@ void main() {
                                                   cos(u_dot_ang_velocity / 180 * c_pi * u_time));
     float dist_to_dotcenter = distance(dot_center, v_position.xy);
     float ndist = 2.0 * dist_to_dotcenter / dot_lin_dia;
+    float moving_dot = step(0.999999, ndist);
+    vec4 color = texture2D(u_background,v_nposition)*moving_dot+texture2D(u_foreground,v_nposition)*(1-moving_dot);
 
     // Draw dot color
-    gl_FragColor = vec4(vec3(step(0.999999, ndist)), 1.0);
+    gl_FragColor = color;
 
 
     // Draw center indicator

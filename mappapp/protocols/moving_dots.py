@@ -20,8 +20,8 @@ import numpy as np
 
 from mappapp.core.protocol import StaticProtocol
 
-from mappapp.visuals.planar.moving_dot.moving_dot import SingleMovingDot
-from mappapp.visuals.planar.blank import Blank
+from mappapp.visuals.planar.moving_dot.moving_dot import SingleMovingDot,SingleMoving2ndDot
+from mappapp.visuals.planar.blank import Blank,Noise
 
 
 class MovingDotsTestProtocol1(StaticProtocol):
@@ -40,14 +40,90 @@ class MovingDotsTestProtocol1(StaticProtocol):
                               5., 10., 5., 10., 2., 20., 2., 5., 20., 10.])
 
         self.add_phase(Blank, 30,
-                       {Blank.p_color: (1., 1., 1., 1.)})
+                       {})
         for s in dot_sizes:
             self.add_phase(Blank, 4,
-                           {Blank.p_color: (1., 1., 1., 1.)})
+                           {})
             self.add_phase(SingleMovingDot, 4,
                            {SingleMovingDot.u_dot_ang_dia: s,
                             SingleMovingDot.u_vertical_offset: 0.,
                             SingleMovingDot.u_dot_lateral_offset: 15.,
                             SingleMovingDot.u_dot_ang_velocity: 42.})
         self.add_phase(Blank, 30,
-                       {Blank.p_color: (1., 1., 1., 1.)})
+                       {})
+
+
+class MovingDotsTestProtocol_YZ1(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+
+        np.random.seed(20)
+        dot_sizes = []
+        for i in range(9):
+            dot_sizes.append(np.random.permutation([1., 3., 5., 10., 20.]))
+        dot_sizes = np.array(dot_sizes).flatten()
+
+        # dot_sizes = np.array([20., 2., 3., 5., 10.,
+        #                       5., 10., 20., 3., 2.,
+        #                       2., 20., 5., 10., 3.])
+
+        # dot_sizes = np.array([20., 5., 10.,
+        #                       5., 10., 20.,
+        #                       20., 10., 5.])
+
+        dot_sizes = np.array([3., 20.,  1.,  5., 10.,
+                              10., 20.,  5.,  1.,  3.,
+                              3., 10., 20., 1.,  5.])
+
+
+        self.add_phase(Blank, 30,
+                       {})
+        for s in dot_sizes:
+            self.add_phase(Blank, 7,
+                           {})
+            self.add_phase(SingleMovingDot, 12,
+                           {SingleMovingDot.u_dot_ang_dia: s,
+                            SingleMovingDot.u_vertical_offset: 6.,
+                            SingleMovingDot.u_dot_lateral_offset: 10.,
+                            # SingleMovingDot.u_dot_ang_velocity: 7.8})
+                            SingleMovingDot.u_dot_ang_velocity: 60})
+        self.add_phase(Blank, 30,
+                       {})
+
+class Moving2ndDotsTest(StaticProtocol):
+
+    def __init__(self, _glWindow):
+        StaticProtocol.__init__(self, _glWindow)
+
+        np.random.seed(20)
+        dot_sizes = []
+        for i in range(9):
+            dot_sizes.append(np.random.permutation([1., 3., 5., 10., 20.]))
+        dot_sizes = np.array(dot_sizes).flatten()
+
+        # dot_sizes = np.array([20., 2., 3., 5., 10.,
+        #                       5., 10., 20., 3., 2.,
+        #                       2., 20., 5., 10., 3.])
+
+        # dot_sizes = np.array([20., 5., 10.,
+        #                       5., 10., 20.,
+        #                       20., 10., 5.])
+
+        dot_sizes = np.array([3., 20.,  1.,  5., 10.,
+                              10., 20.,  5.,  1.,  3.,
+                              3., 10., 20., 1.,  5.])
+
+
+        self.add_phase(Noise, 30,
+                       {})
+        for s in dot_sizes:
+            self.add_phase(Noise, 7,
+                           {})
+            self.add_phase(SingleMoving2ndDot, 12,
+                           {SingleMoving2ndDot.u_dot_ang_dia: s,
+                            SingleMoving2ndDot.u_vertical_offset: 6.,
+                            SingleMoving2ndDot.u_dot_lateral_offset: 10.,
+                            SingleMoving2ndDot.u_dot_ang_velocity: 60})
+        self.add_phase(Noise, 30,
+                       {})
