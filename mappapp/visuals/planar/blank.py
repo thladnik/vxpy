@@ -22,7 +22,7 @@ from mappapp.core import visual
 from mappapp.utils import plane
 
 
-class Blank(visual.PlanarVisual):
+class Clear(visual.PlanarVisual):
     description = 'A blank screen of arbitrary uniform color.'
 
     p_color = 'p_color'
@@ -41,3 +41,101 @@ class Blank(visual.PlanarVisual):
 
     def render(self, frame_time):
         gloo.clear(self.parameters[self.p_color])
+
+
+class Blank(visual.PlanarVisual):
+    description = 'A blank screen of arbitrary uniform color.'
+
+    _vert = """
+    attribute vec3 a_position;
+
+    varying vec2 v_position;
+    varying vec2 v_nposition;
+    
+    void main() {
+        gl_Position = transform_position(a_position);
+        v_position = real_position(a_position);
+        v_nposition = norm_position(a_position);
+    }
+    """
+
+    _frag = """
+    //uniform vec3 u_color;
+            
+    void main() {
+        gl_FragColor = vec4(vec3(1.0), 1.0);
+    }
+
+    """
+
+    u_color = 'p_color'
+
+    parameters = {u_color: None}
+
+    def __init__(self, *args, **params):
+        visual.PlanarVisual.__init__(self, *args)
+
+        self.plane = plane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+        self.blank = gloo.Program(self.parse_vertex_shader(self._vert),
+                                  self._frag)
+        self.blank['a_position'] = self.position_buffer
+
+    def initialize(self, *args, **kwargs):
+        pass
+
+    def render(self, frame_time):
+        self.apply_transform(self.blank)
+        self.blank.draw('triangles', self.index_buffer)
+
+
+class Noise(visual.PlanarVisual):
+    description = 'A blank screen of arbitrary uniform color.'
+
+    _vert = """
+    attribute vec3 a_position;
+
+    varying vec2 v_position;
+    varying vec2 v_nposition;
+
+    void main() {
+        gl_Position = transform_position(a_position);
+        v_position = real_position(a_position);
+        v_nposition = norm_position(a_position);
+    }
+    """
+
+    _frag = """
+    uniform sampler2D u_bg;
+    varying vec2 v_nposition;
+
+    void main() {
+        gl_FragColor = texture2D(u_bg,v_nposition);
+    }
+
+    """
+
+    u_color = 'p_color'
+
+    parameters = {u_color: None}
+
+    def __init__(self, *args, **params):
+        visual.PlanarVisual.__init__(self, *args)
+
+        self.plane = plane.VerticalXYPlane()
+        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
+        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
+        self.blank = gloo.Program(self.parse_vertex_shader(self._vert),
+                                  self._frag)
+        self.blank['a_position'] = self.position_buffer
+        np.random.seed(23)
+        self.blank['u_bg'] = np.random.rand(100, 100).astype(np.float32)
+
+
+    def initialize(self, *args, **kwargs):
+        pass
+
+    def render(self, frame_time):
+        self.apply_transform(self.blank)
+        self.blank.draw('triangles', self.index_buffer)
