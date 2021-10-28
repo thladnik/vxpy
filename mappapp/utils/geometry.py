@@ -93,7 +93,7 @@ def vecNormalize(vec, Norm_axis=-1):  # Normalize the ndarray vectors or tensors
 def sphAngle(vec, r):  # Compute the angle between two spherical coordinates as their distances on a unit sphere
     return np.arcsin(vecNorm(vec[:, np.newaxis, :] - vec[np.newaxis, :, :], 2) / (2 * r)) * 2
 
-def cart2sph(cx,cy,cz):
+def cart2sph1(cx, cy, cz):
     cxy = cx + cy * 1.j
     azi = np.angle(cxy)
     elv = np.angle(np.abs(cxy)+cz * 1.j)
@@ -757,7 +757,7 @@ class SphereHelper:
     @staticmethod
     def getAzElLimitedMask(theta_low, theta_high, phi_low, phi_high, verts=None, theta=None, phi=None):
         if verts is not None:
-            theta, phi, _ = SphereHelper.cart2sph(verts[:, 0], verts[:, 1], verts[:, 2])
+            theta, phi, _ = cart2sph(verts[:, 0], verts[:, 1], verts[:, 2])
         else:
             if theta is None or phi is None:
                 raise Exception('If <verts> is undefined, func requires <theta> and <phi> to be specified')
@@ -768,18 +768,16 @@ class SphereHelper:
 
         return mask
 
-    @staticmethod
-    def cart2sph(x, y, z):
-        hxy = np.hypot(x, y)
-        r = np.hypot(hxy, z)
-        el = np.arctan2(z, hxy)
-        az = np.arctan2(y, x)
-        return az, el, r
+def cart2sph(x, y, z):
+    hxy = np.hypot(x, y)
+    r = np.hypot(hxy, z)
+    el = np.arctan2(z, hxy)
+    az = np.arctan2(y, x)
+    return az, el, r
 
-    @staticmethod
-    def sph2cart(theta, phi, r):
-        rcos_theta = r * np.cos(phi)
-        x = rcos_theta * np.cos(theta)
-        y = rcos_theta * np.sin(theta)
-        z = r * np.sin(phi)
-        return np.array([x, y, z])
+def sph2cart(theta, phi, r):
+    rcos_theta = r * np.cos(phi)
+    x = rcos_theta * np.cos(theta)
+    y = rcos_theta * np.sin(theta)
+    z = r * np.sin(phi)
+    return np.array([x, y, z])

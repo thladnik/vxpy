@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
-from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtWidgets import QLabel
+from PyQt6 import QtWidgets, QtCore, QtGui
+from PyQt6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from mappapp import Def
@@ -64,13 +64,13 @@ class EyePositionDetector(AddonWidget):
         self.sacc_threshold.emit_current_value()
         self.lpanel.layout().addWidget(self.sacc_threshold)
 
-        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         self.lpanel.layout().addItem(spacer)
 
         # Set up image plot
         self.graphics_widget = EyePositionDetector.GraphicsWidget(parent=self)
-        self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                           QtWidgets.QSizePolicy.Expanding)
+        self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+                                           QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addWidget(self.graphics_widget)
 
     @staticmethod
@@ -110,7 +110,7 @@ class EyePositionDetector(AddonWidget):
             self.context_menu = QtWidgets.QMenu()
 
             # Set new line
-            self.menu_new = QtWidgets.QAction('New ROI')
+            self.menu_new = QtGui.QAction('New ROI')
             self.menu_new.triggered.connect(self.add_marker)
             self.context_menu.addAction(self.menu_new)
 
@@ -288,13 +288,13 @@ class FishPosDirDetector(AddonWidget):
         self.btn_calc_background.clicked.connect(self.calculate_background)
         self.lpanel.layout().addWidget(self.btn_calc_background)
 
-        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Maximum, QtWidgets.QSizePolicy.MinimumExpanding)
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         self.lpanel.layout().addItem(spacer)
 
         # Set up image plot
         self.graphics_widget = EyePositionDetector.GraphicsWidget(parent=self)
-        self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
-                                           QtWidgets.QSizePolicy.Expanding)
+        self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+                                           QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addWidget(self.graphics_widget)
 
 
@@ -339,8 +339,8 @@ class FishPosDirDetector(AddonWidget):
             # Set context menu
             self.context_menu = QtWidgets.QMenu()
 
-            # Set new line
-            self.menu_new = QtWidgets.QAction('New ROI')
+            # Set new line`
+            self.menu_new = QtGui.QAction('New ROI')
             self.menu_new.triggered.connect(self.add_marker)
             self.context_menu.addAction(self.menu_new)
 

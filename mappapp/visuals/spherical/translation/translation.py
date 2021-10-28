@@ -28,10 +28,6 @@ class TunnelTranslation(visual.SphericalVisual):
     def parse_u_waveform(waveform):
         return 1 if waveform == 'rectangular' else 2  # 'sinusoidal'
 
-    @staticmethod
-    def parse_u_direction(direction):
-        return 1 if direction == 'vertical' else 2  # 'horizontal'
-
     u_waveform = 'u_waveform'
     u_lin_velocity = 'u_lin_velocity'
     u_spat_period = 'u_spat_period'
@@ -40,7 +36,7 @@ class TunnelTranslation(visual.SphericalVisual):
     p_fish_velocity = 'p_fish_velocity'
 
     default_front_dir = np.array([1., 0., 0.])
-    default_fish_pos = np.array([0., 0.])
+    default_fish_pos = np.array([10e-6, 10e-6])
     default_fish_dir = np.array([1., 0., 0.])
 
     parameters = {u_waveform: 'rectangular',
@@ -58,15 +54,20 @@ class TunnelTranslation(visual.SphericalVisual):
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
 
         # Set up program
-        vert = self.load_vertex_shader('spherical/tunnel_translation.vert')
-        frag = self.load_shader('spherical/tunnel_translation.frag')
-        self.program = gloo.Program(vert, frag)
-        self.program['a_position'] = self.position_buffer
+        vert = self.load_vertex_shader('./tunnel_translation.vert')
+        frag = self.load_shader('./tunnel_translation.frag')
+        self.tunnel_trans = gloo.Program(vert, frag)
+        self.tunnel_trans['a_position'] = self.position_buffer
 
         self.front_direction = self.default_front_dir / np.linalg.norm(self.default_front_dir)
 
-    def render(self, frame_time):
+    def initialize(self, *args, **kwargs):
+        self.tunnel_trans['u_time'] = 0.
+
+    def render(self, dt):
         fish_direction = self.parameters.get(self.p_fish_direction)
+        if fish_direction is None:
+            return
 
         # For tasting of dynamic fish direction
         # fish_direction = np.array([np.sin(frame_time/2), np.cos(frame_time/2), (np.cos(frame_time/4) + 1.0)/4.0])
@@ -83,10 +84,10 @@ class TunnelTranslation(visual.SphericalVisual):
         if not(np.isclose(angle, 0.0, atol=1.e-4)):
             rotate = np.dot(rotate, util.transforms.rotate(angle / np.pi * 180.0, W))
 
-        self.program['u_rotate'] = rotate
+        # self.tunnel_trans['u_rotate'] = rotate
 
-        self.program['u_time'] = frame_time
+        self.tunnel_trans['u_time'] += dt
 
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)
+        self.apply_transform(self.tunnel_trans)
+        self.tunnel_trans.draw('triangles', self.index_buffer)
 

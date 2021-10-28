@@ -49,7 +49,9 @@ class BlackWhiteCheckerboard(visual.SphericalVisual):
         self.checker['a_azimuth'] = self.azimuth_buffer
         self.checker['a_elevation'] = self.elevation_buffer
 
-        self.update(**kwargs)
+
+    def initialize(self, *args, **kwargs):
+        pass
 
     def render(self, frame_time):
         self.apply_transform(self.checker)
@@ -78,6 +80,9 @@ class RegularMesh(visual.SphericalVisual):
         self.mesh['a_elevation'] = self.elevation_buffer
 
         self.update(**kwargs)
+
+    def initialize(self, *args, **kwargs):
+        pass
 
     def render(self, frame_time):
         self.apply_transform(self.mesh)

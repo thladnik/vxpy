@@ -15,16 +15,21 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
 from mappapp.core.protocol import StaticProtocol
 
-# from mappapp.visuals.spherical.insta360_onex import Calibrated
+from mappapp.visuals.spherical.local_flash import BrightFlash
+from mappapp.visuals.planar.blank import ClearBlack
 
-class Insta360Protocol(StaticProtocol):
 
-    _name = 'insta360'
+class MultipleFlashingDots(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
-        self.newPhase(duration=10**4)
-        self.addVisual(Calibrated, dict(filename='insta1_virtMapsConverted'))
+    def __init__(self, *args):
+        StaticProtocol.__init__(self, *args)
+
+        for i in range(10):
+            for s in [3., 5., 10., 20.]:
+                self.add_phase(ClearBlack, 2, {})
+                self.add_phase(BrightFlash, 3,
+                               {BrightFlash.u_dot_diameter: s,
+                                })
+

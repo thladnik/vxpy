@@ -332,17 +332,17 @@ class SingleMovingDotYZ(visual.PlanarVisual):
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.program = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
+        self.mov_dot = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
                                     self.load_shader('./single_moving_dot_YZ.frag'))
-        self.program['a_position'] = self.position_buffer
+        self.mov_dot['a_position'] = self.position_buffer
 
     def initialize(self, **parameters):
-        self.program['u_time'] = 0.
+        self.mov_dot['u_time'] = 0.
 
     def render(self, dt):
-        self.program['u_time'] += dt
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)
+        self.mov_dot['u_time'] += dt
+        self.apply_transform(self.mov_dot)
+        self.mov_dot.draw('triangles', self.index_buffer)
 
     interface = [
         (u_x_offset, 0., -1.0, 1.0, dict(step_size=0.001,decimals=4)),
@@ -375,16 +375,16 @@ class Crosshair(visual.PlanarVisual):
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.program = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
-                                    self.load_shader('./crosshair.frag'))
-        self.program['a_position'] = self.position_buffer
+        self.crosshair = gloo.Program(self.load_vertex_shader('./single_moving_dot.vert'),
+                                      self.load_shader('./crosshair.frag'))
+        self.crosshair['a_position'] = self.position_buffer
 
     def initialize(self, **parameters):
-        self.program['u_time'] = 0.
+        self.crosshair['u_time'] = 0.
 
     def render(self, dt):
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)
+        self.apply_transform(self.crosshair)
+        self.crosshair.draw('triangles', self.index_buffer)
 
     interface = [
         (u_x_offset, 0., -1.0, 1.0, dict(step_size=0.001,decimals=4)),

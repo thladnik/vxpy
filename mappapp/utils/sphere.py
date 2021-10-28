@@ -49,7 +49,7 @@ class UVSphere:
         # Set vertex attributes
         self.a_azimuth = np.ascontiguousarray(self.azims.flatten(), dtype=np.float32)
         self.a_elevation = np.ascontiguousarray(self.elevs.flatten(), dtype=np.float32)
-        self.a_position = geometry.SphereHelper.sph2cart(self.a_azimuth,self.a_elevation,self.radius)
+        self.a_position = geometry.sph2cart(self.a_azimuth, self.a_elevation, self.radius)
         self.a_position = np.ascontiguousarray(self.a_position.T, dtype=np.float32)
 
         # Set indices
@@ -62,10 +62,6 @@ class UVSphere:
 
 
 class IcosahedronSphere:
-    """
-    !!! DOESN'T WORK CURRENTLY
-    TODO: fix Icosphere
-    """
     gr = 1.61803398874989484820
 
     corners = [
@@ -110,72 +106,64 @@ class IcosahedronSphere:
         [9, 8, 1],
     ]
 
-    def __repr__(self):
-        return 'IcosahedronSphere(subdiv_lvl={})'\
-            .format(self.subdiv_lvl)
-
     def __init__(self, subdiv_lvl, **kwargs):
-        SphereModel.__init__(self, **kwargs)
 
-        ### Add vertex attributes for this particular model
-        self.addAttribute(('a_azimuth', np.float32, 1))
-        self.addAttribute(('a_elevation', np.float32, 1))
+        # Calculate initial vertices
+        self._vertices = [self._vertex(*v) for v in self.corners]
 
-        self.faces = self._faces
-        self.cache = dict()
-
-        ### Calculate initial vertices
-        self.vertices = [self.vertex(*v) for v in self.corners]
-
-        ### Subdivide faces
+        # Subdivide faces
+        self._cache = None
         self.subdiv_lvl = subdiv_lvl
-        self.subdivide()
+        self._subdivide()
 
-        ### Set vertices
-        self.a_position = np.array(self.vertices).T
-        self.indices = np.array(self.faces).flatten()
+    def get_indices(self):
+        return np.ascontiguousarray(np.array(self._faces, dtype=np.uint32)).flatten()
 
-        ### Set spherical coordinates
-        self.a_azimuth, self.a_elevation, _ = self.getSphericalCoords()
+    def get_vertices(self):
+        return np.ascontiguousarray(np.array(self._vertices, dtype=np.float32))
 
-    def vertex(self, x, y, z):
+    def get_spherical_coordinates(self):
+        _vertices = self.get_vertices()
+        az, el = np.array(geometry.cart2sph1(_vertices[0, :], _vertices[1, :], _vertices[2, :]))
+        return np.ascontiguousarray(az), np.ascontiguousarray(el)
+
+    def _vertex(self, x, y, z):
         vlen = np.sqrt(x ** 2 + y ** 2 + z ** 2)
         return [i/vlen for i in (x, y, z)]
 
-    def midpoint(self, p1, p2):
+    def _midpoint(self, p1, p2):
         key = '%i/%i' % (min(p1, p2), max(p1, p2))
 
-        if key in self.cache:
-            return self.cache[key]
+        if key in self._cache:
+            return self._cache[key]
 
-        v1 = self.vertices[p1]
-        v2 = self.vertices[p2]
+        v1 = self._vertices[p1]
+        v2 = self._vertices[p2]
         middle = [sum(i)/2 for i in zip(v1, v2)]
 
-        self.vertices.append(self.vertex(*middle))
-        index = len(self.vertices) - 1
+        self._vertices.append(self._vertex(*middle))
+        index = len(self._vertices) - 1
 
-        self.cache[key] = index
+        self._cache[key] = index
 
         return index
 
-    def subdivide(self):
+    def _subdivide(self):
+        self._cache = {}
         for i in range(self.subdiv_lvl):
             new_faces = []
-            for face in self.faces:
-                v = [self.midpoint(face[0], face[1]),
-                     self.midpoint(face[1], face[2]),
-                     self.midpoint(face[2], face[0])]
+            for face in self._faces:
+                v = [self._midpoint(face[0], face[1]),
+                     self._midpoint(face[1], face[2]),
+                     self._midpoint(face[2], face[0])]
 
                 new_faces.append([face[0], v[0], v[2]])
                 new_faces.append([face[1], v[1], v[0]])
                 new_faces.append([face[2], v[2], v[1]])
                 new_faces.append([v[0], v[1], v[2]])
 
-            self.faces = new_faces
+            self._faces = new_faces
 
-    def getSphericalCoords(self):
-        return np.array(geometry.SphereHelper.cart2sph(self.a_position[0,:],self.a_position[1,:],self.a_position[2,:]))
 
 
 class CMNIcoSphere:

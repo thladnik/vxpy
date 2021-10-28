@@ -90,6 +90,18 @@ class Blank(visual.PlanarVisual):
         self.blank.draw('triangles', self.index_buffer)
 
 
+class ClearBlack(visual.PlanarVisual):
+    description = 'A blank screen of arbitrary uniform color.'
+
+    def __init__(self, *args, **params):
+        visual.PlanarVisual.__init__(self, *args)
+
+    def initialize(self, *args, **kwargs):
+        pass
+
+    def render(self, frame_time):
+        gloo.clear(0., 0., 0.)
+
 class Noise(visual.PlanarVisual):
     description = 'A blank screen of arbitrary uniform color.'
 
