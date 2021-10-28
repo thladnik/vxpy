@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from PyQt5 import QtWidgets
+from PyQt6 import QtWidgets
 
 from mappapp.setup import acc
 from mappapp import Def
@@ -63,7 +63,7 @@ class Settings(QtWidgets.QGroupBox):
         self.small_side.connect_to_result(self.update_small_side)
         self.layout().addWidget(self.small_side)
 
-        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(spacer)
 
         # Connect reload config signal

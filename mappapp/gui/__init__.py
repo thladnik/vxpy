@@ -20,8 +20,8 @@ import os
 import h5py
 import numpy as np
 from os.path import abspath
-from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QLabel
+from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from mappapp import Config
@@ -53,10 +53,10 @@ class ProcessMonitor(IntegratedWidget):
         self.layout().addWidget(self.state_labels[process_name], i * 2, 0)
         self.state_widgets[process_name] = QtWidgets.QLineEdit('')
         self.state_widgets[process_name].setDisabled(True)
-        self.state_widgets[process_name].setAlignment(QtCore.Qt.AlignRight)
+        self.state_widgets[process_name].setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
         self.layout().addWidget(self.state_widgets[process_name], i * 2, 1)
         self.intval_widgets[process_name] = QtWidgets.QLineEdit('')
-        self.intval_widgets[process_name].setAlignment(QtCore.Qt.AlignRight)
+        self.intval_widgets[process_name].setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
         self.intval_widgets[process_name].setDisabled(True)
         self.layout().addWidget(self.intval_widgets[process_name], i * 2 + 1, 0, 1, 2)
 
@@ -67,7 +67,7 @@ class ProcessMonitor(IntegratedWidget):
         # Setup widget
         self.setLayout(QtWidgets.QGridLayout())
         # self.setMinimumSize(QtCore.QSize(0,0))
-        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Minimum)
         # self.layout().setColumnMinimumWidth(2, 150)
 
         # Controller modules status
@@ -83,7 +83,7 @@ class ProcessMonitor(IntegratedWidget):
         # Worker modules status
         self._add_process(Def.Process.Worker)
         # Add spacer
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(vSpacer, 6, 0)
 
         # Set timer for GUI update
@@ -137,7 +137,7 @@ class Recording(IntegratedWidget):
         self.wdgt.setObjectName('RecordingWidget')
         self.layout().addWidget(self.wdgt)
 
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
 
         # Basic properties
         self.setCheckable(True)
@@ -167,7 +167,7 @@ class Recording(IntegratedWidget):
 
         self.wdgt.layout().addWidget(self.folder_wdgt, 1, 0, 1, 2)
         self.hsep = QtWidgets.QFrame()
-        self.hsep.setFrameShape(QtWidgets.QFrame.HLine)
+        self.hsep.setFrameShape(QtWidgets.QFrame.Shape.HLine)
         self.wdgt.layout().addWidget(self.hsep, 2, 0, 1, 2)
 
         # GroupBox
@@ -450,8 +450,8 @@ class Plotter(WindowWidget):
         WindowWidget.__init__(self, 'Plotter', *args)
 
         hspacer = QtWidgets.QSpacerItem(1, 1,
-                                        QtWidgets.QSizePolicy.Expanding,
-                                        QtWidgets.QSizePolicy.Minimum)
+                                        QtWidgets.QSizePolicy.Policy.Expanding,
+                                        QtWidgets.QSizePolicy.Policy.Minimum)
         self.cmap = (np.array(self.cmap) * 255).astype(int)
 
         self.exposed.append(Plotter.add_buffer_attribute)

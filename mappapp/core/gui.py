@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
-from PyQt5 import Qt, QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 
 from mappapp import Config
 from mappapp import Def
@@ -76,7 +76,7 @@ class IntegratedWidget(QtWidgets.QGroupBox):
 class WindowWidget(QtWidgets.QWidget):
 
     def __init__(self, group_name, main):
-        QtWidgets.QWidget.__init__(self, main, flags=QtCore.Qt.Window)
+        QtWidgets.QWidget.__init__(self, main, flags=QtCore.Qt.WindowType.Window)
         self.setWindowTitle(group_name)
         self.main: Gui = main
 
@@ -113,7 +113,7 @@ class WindowWidget(QtWidgets.QWidget):
             self.show()
 
     def event(self, event):
-        if event.type() == Qt.QEvent.WindowActivate:
+        if event.type() == QtCore.QEvent.Type.WindowActivate:
             # Raise main window
             ipc.Process.window.raise_()
             ipc.Process.window.raise_subwindows()

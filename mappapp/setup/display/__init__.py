@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtGui import QPainter, QColor, QFont
+from PyQt6 import QtCore, QtWidgets
+from PyQt6.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
 from mappapp import Config
@@ -117,7 +117,7 @@ class ScreenSelection(QtWidgets.QGroupBox):
         QtWidgets.QGroupBox.__init__(self, 'Fullscreen selection (double click)')
         self.main = parent
 
-        self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
 
         self.screens = list()
         self.screen_frames = list()
@@ -130,8 +130,11 @@ class ScreenSelection(QtWidgets.QGroupBox):
     def mouseDoubleClickEvent(self, *args, **kwargs):
         for i, (screen_norm, screen) in enumerate(zip(self.screens_norm, self.screens)):
             rect = QtCore.QRectF(*screen_norm)
+            from PyQt6 import QtGui
+            ev = QtGui.QMouseEvent()
+            ev.pos().x()
 
-            if rect.contains(QtCore.QPoint(args[0].x(), args[0].y())):
+            if rect.contains(QtCore.QPoint(args[0].pos().x(), args[0].pos().y())):
 
                 print('Set display to fullscreen on screen {}'.format(i))
 
@@ -183,12 +186,12 @@ class ScreenSelection(QtWidgets.QGroupBox):
 
             self.painter.begin(self)
 
-            self.painter.setBrush(QtCore.Qt.Dense4Pattern)
+            self.painter.setBrush(QtCore.Qt.BrushStyle.Dense4Pattern)
             self.painter.drawRect(rect)
 
             self.painter.setPen(QColor(168, 34, 3))
             self.painter.setFont(QFont('Decorative', 30))
-            self.painter.drawText(rect, QtCore.Qt.AlignCenter, str(i))
+            self.painter.drawText(rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(i))
 
             self.painter.end()
 
@@ -241,7 +244,7 @@ class GlobalSettings(QtWidgets.QGroupBox):
         self.y_pos.connect_to_result(self.update_y_pos)
         self.layout().addWidget(self.y_pos)
 
-        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(spacer)
 
         acc.main.sig_reload_config.connect(self.load_config)

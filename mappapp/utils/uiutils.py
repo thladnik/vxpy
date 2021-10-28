@@ -18,8 +18,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QLabel
+from PyQt6 import QtCore, QtWidgets
+from PyQt6.QtWidgets import QLabel
 
 class DoubleSliderWidget(QtWidgets.QWidget):
 
@@ -53,13 +53,13 @@ class DoubleSliderWidget(QtWidgets.QWidget):
         self.layout().addWidget(self.spinner)
 
         # Slider
-        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.slider.setMaximumHeight(20)
         self.slider.setMinimum(0)
         self.slider.setMaximum((max_val-min_val)//step_size + 1)
         self.slider.setSingleStep(step_size)
         self.slider.setTickInterval(self.slider.maximum()//10)
-        self.slider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
+        self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
         self.slider.valueChanged.connect(self.slider_value_changed)
         self.layout().addWidget(self.slider)
 
@@ -130,13 +130,13 @@ class IntSliderWidget(QtWidgets.QWidget):
         self.layout().addWidget(self.spinner)
 
         # Slider
-        self.slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.slider.setMaximumHeight(20)
         self.slider.setMinimum(min_val)
         self.slider.setMaximum(max_val)
         self.slider.setSingleStep(step_size)
         self.slider.setTickInterval((max_val-min_val) // 10)
-        self.slider.setTickPosition(QtWidgets.QSlider.TicksBothSides)
+        self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
         self.slider.valueChanged.connect(self.slider_value_changed)
         self.layout().addWidget(self.slider)
 
@@ -170,6 +170,43 @@ class IntSliderWidget(QtWidgets.QWidget):
 
     def emit_current_value(self):
         self.spinner.valueChanged.emit(self.spinner.value())
+
+    def _exc_callback(self):
+        for callback in self._callbacks:
+            callback(self.spinner.value())
+
+
+class Dial3d(QtWidgets.QWidget):
+
+    def __init__(self, slider_name, min_vals, max_vals, default_vals, *args,
+                 label_width=None, step_size=None, **kwargs):
+        QtWidgets.QWidget.__init__(self, *args, **kwargs)
+
+        self._callbacks = []
+
+        if step_size is None:
+            step_size = (max_vals - min_vals) // 10
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+
+        # Label
+        self.label = QtWidgets.QLabel(slider_name)
+        if label_width is not None:
+            self.label.setFixedWidth(label_width)
+        self.layout().addWidget(self.label)
+
+    def get_value(self):
+        return self.spinner.value()
+
+    def set_value(self, value):
+        self.spinner.setValue(value)
+
+    def connect_to_result(self, callback):
+        self._callbacks.append(callback)
+
+    def emit_current_value(self):
+        pass
 
     def _exc_callback(self):
         for callback in self._callbacks:

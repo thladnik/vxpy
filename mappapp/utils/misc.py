@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import configparser
 import json
 import os
-from PyQt5 import QtCore
+from PyQt6 import QtCore
 
 from mappapp import Def
 

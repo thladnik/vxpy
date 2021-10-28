@@ -71,7 +71,8 @@ class AbstractVisual(ABC):
         self.custom_programs: Dict[str, gloo.Program] = dict()
         self.transform_uniforms = dict()
 
-        self._buffer_shape = self.canvas.physical_size[1], self.canvas.physical_size[0]
+        self._buffer_shape = Config.Display[Def.DisplayCfg.window_height], \
+                             Config.Display[Def.DisplayCfg.window_width] #self.canvas.physical_size[1], self.canvas.physical_size[0]
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
         self.frame = self._out_fb

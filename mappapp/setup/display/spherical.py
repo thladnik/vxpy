@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from PyQt5 import QtWidgets
+from PyQt6 import QtWidgets
 
 from mappapp.setup import acc
 from mappapp import Def
@@ -94,7 +94,7 @@ class Parameters(QtWidgets.QWidget):
         self.edits[Def.DisplayCfg.sph_view_scale] = wdgt
         self.layout().addWidget(wdgt)
 
-        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(spacer)
 
     def update_edit(self, key, value):
@@ -220,10 +220,9 @@ class Mesh(QtWidgets.QGroupBox):
         from mappapp.visuals.spherical.calibration import RegularMesh
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
-        acc.display.canvas.visual = RegularMesh(
-            acc.display.canvas,
-            **{RegularMesh.u_elevation_sp: elevation_sp,
-               RegularMesh.u_azimuth_sp: azimuth_sp})
+        acc.display.canvas.visual = RegularMesh(acc.display.canvas)
+        acc.display.canvas.visual.update(**{RegularMesh.u_elevation_sp: elevation_sp,
+                                            RegularMesh.u_azimuth_sp: azimuth_sp})
 
 
 class Checker(QtWidgets.QGroupBox):
@@ -254,7 +253,6 @@ class Checker(QtWidgets.QGroupBox):
         from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
-        acc.display.canvas.visual = BlackWhiteCheckerboard(
-            acc.display.canvas,
-            **{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
-               BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})
+        acc.display.canvas.visual = BlackWhiteCheckerboard(acc.display.canvas)
+        acc.display.canvas.visual.update(**{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
+                                            BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})

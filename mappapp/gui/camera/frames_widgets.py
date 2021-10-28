@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
-from PyQt5 import QtWidgets
+from PyQt6 import QtWidgets
 import pyqtgraph as pg
 
 from mappapp import Config
@@ -32,7 +32,7 @@ class FrameStream(AddonWidget):
 
         self.setLayout(QtWidgets.QGridLayout())
 
-        hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        hspacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.layout().addItem(hspacer, 0, 1)
 
         self.tab_camera_views = QtWidgets.QTabWidget()
@@ -84,7 +84,7 @@ class FrameStream(AddonWidget):
             self.check_flip_lr.stateChanged.connect(lambda s: self.set_flip_lr(s))
             self.check_flip_lr.stateChanged.connect(self.update_frame)
             self.lpanel.layout().addWidget(self.check_flip_lr)
-            spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Expanding)
+            spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Expanding)
             self.lpanel.layout().addItem(spacer)
 
             # Add graphics widget

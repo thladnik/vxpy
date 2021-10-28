@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from configparser import ConfigParser
 import os
-from PyQt5 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 
 from mappapp import Config
 from mappapp import Def
@@ -64,7 +64,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self._configfile = None
         self._currentConfigChanged = False
 
-        vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        vSpacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
 
         # Setup window
         self.resize(1200, 1000)

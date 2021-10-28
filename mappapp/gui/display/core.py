@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import importlib
 import inspect
 import os
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QLabel
+from PyQt6 import QtCore, QtWidgets
+from PyQt6.QtWidgets import QLabel
 import time
 from typing import Any, Dict
 
@@ -75,7 +75,7 @@ class Protocols(gui.AddonWidget):
         self.right_widget.layout().addWidget(self.btn_abort)
 
         # Spacer
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.right_widget.layout().addItem(vSpacer)
 
         # Set update timer
@@ -201,10 +201,10 @@ class VisualInteractor(gui.AddonWidget):
                     self.visuals[folder][file][clsname] = (cls, QtWidgets.QTreeWidgetItem(self.files[folder][file]))
                     self.visuals[folder][file][clsname][1].setText(0, clsname)
                     self.visuals[folder][file][clsname][1].setText(1, cls.description)
-                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ToolTipRole, cls.description)
-                    self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ToolTipRole, cls.description)
+                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
+                    self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
                     # Set visual class to UserRole
-                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.UserRole, (cls.__module__, cls.__name__))
+                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ItemDataRole.UserRole, (cls.__module__, cls.__name__))
 
         # Add items
         self.tree.addTopLevelItems([folder_item for folder_item in self.folders.values()])
@@ -232,7 +232,7 @@ class VisualInteractor(gui.AddonWidget):
         if not(item):
             item = self.tree.currentItem()
 
-        visual = item.data(0, QtCore.Qt.UserRole)
+        visual = item.data(0, QtCore.Qt.ItemDataRole.UserRole)
 
         if visual is None:
             return
@@ -254,6 +254,15 @@ class VisualInteractor(gui.AddonWidget):
                 vdef = args[0]
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
+            elif isinstance(args[0], list):
+                pass
+                # kwargs = dict()
+                # if len(args) > 3:
+                #     kwargs = args.pop(-1)
+                # vdef, vmin, vmax = args
+                # wdgt = uiutils.Dial3d(name, vmin, vmax, vdef)
+                # wdgt.setParent(self.tuner)
+                # wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], bool):
                 kwargs = dict()
                 if len(args) > 3:
@@ -293,7 +302,7 @@ class VisualInteractor(gui.AddonWidget):
 
         print(defaults)
 
-        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.tuner.layout().addItem(spacer)
 
         # TODO: this causes ValueError if visual_cls.paramters.values() contains a numpy.ndarray

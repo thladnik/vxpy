@@ -42,6 +42,9 @@ class Display(process.AbstractProcess):
         process.AbstractProcess.__init__(self, **kwargs)
 
         self.app = app.use_app()
+        self.visual_is_displayed = False
+        self.enable_idle_timeout = False
+        self.times = []
 
         # Create canvas
         _interval = 1. / Config.Display[Def.DisplayCfg.fps]
@@ -61,22 +64,8 @@ class Display(process.AbstractProcess):
                              app=self.app,
                              vsync=False,
                              decorate=False)
-        # self.canvas.fullscreen = Config.Display[Def.DisplayCfg.window_fullscreen]
-        # self.mirror_canvas = Canvas('Stimulus mirror',
-        #                             _interval,
-        #                             size=_size,
-        #                             resizable=False,
-        #                             position=_position,
-        #                             always_on_top=True,
-        #                             app=self.app,
-        #                             vsync=False)
-
-        self.visual_is_displayed = False
-
-        self.times = []
 
         # Run event loop
-        self.enable_idle_timeout = False
         self.run(interval=_interval)
 
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
@@ -178,9 +167,6 @@ class Display(process.AbstractProcess):
             traceback.print_exc()
             # TODO: quit modules here and restart!
 
-    def _start_shutdown(self):
-        process.AbstractProcess._start_shutdown(self)
-
 
 class Canvas(app.Canvas):
 
@@ -228,3 +214,5 @@ class Canvas(app.Canvas):
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
 
+    def _start_shutdown(self):
+        process.AbstractProcess._start_shutdown(self)

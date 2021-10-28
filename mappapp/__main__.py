@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import argparse
 import sys
-from PyQt5 import QtWidgets
+from PyQt6 import QtWidgets
 from vispy import app, gloo
 
 from mappapp.modules import Controller
@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     if sys.platform == 'win32':
 
-        app.use_app('PyQt5')
+        app.use_app('PyQt6')
         gloo.gl.use_gl('gl2')
 
         import wres
@@ -53,7 +53,7 @@ if __name__ == '__main__':
                 acc.app = QtWidgets.QApplication([])
                 acc.main = StartupConfiguration()
                 acc.main.setup_ui()
-                acc.app.exec_()
+                acc.app.exec()
 
                 configfile = acc.configfile
 

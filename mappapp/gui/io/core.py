@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from PyQt5 import QtWidgets
+from PyQt6 import QtWidgets
 
 from mappapp import Def
 from mappapp.core import ipc
@@ -44,7 +44,7 @@ class TuneLedArenaFlash(AddonWidget):
         self.duration.connect_to_result(self.set_flash_duration)
         self.duration.emit_current_value()
         self.layout().addWidget(self.duration)
-        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(spacer)
 
     def set_flash_delay(self, delay):

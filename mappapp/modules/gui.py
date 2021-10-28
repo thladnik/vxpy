@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
-from PyQt5 import Qt, QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtGui, QtWidgets
 import sys
 
 from mappapp import Config
@@ -63,7 +63,7 @@ class Gui(process.AbstractProcess):
 class Window(QtWidgets.QMainWindow):
 
     def __init__(self):
-        QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.Window)
+        QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.WindowType.Window)
 
         main_default_height = 400
         plotter_default_height = 300
@@ -83,7 +83,7 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowTitle('MappApp - a thing to do stuff')
 
         # Setup central widget
-        self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.Widget))
+        self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.WindowType.Widget))
         self.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
         self.screenGeo = ipc.Process.app.primaryScreen().geometry()
@@ -98,7 +98,7 @@ class Window(QtWidgets.QMainWindow):
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
             self.display = gui.Display(self)
             self.display.create_hooks()
-            self.display.move(x, main_default_height + 150)
+            self.display.move(x, main_default_height + 50)
             self.display.resize(*display_default_dims)
             self.subwindows.append(self.display)
 
@@ -158,7 +158,7 @@ class Window(QtWidgets.QMainWindow):
         self.menuBar().addMenu(self.menu_windows)
         self.window_toggles = []
         for subwin in self.subwindows:
-            self.window_toggles.append(QtWidgets.QAction(f'Toggle {subwin.windowTitle()}'))
+            self.window_toggles.append(QtGui.QAction(f'Toggle {subwin.windowTitle()}'))
             self.window_toggles[-1].triggered.connect(subwin.toggle_visibility)
             self.menu_windows.addAction(self.window_toggles[-1])
         # Menu processes
@@ -166,11 +166,11 @@ class Window(QtWidgets.QMainWindow):
         self.menuBar().addMenu(self.menu_process)
         self.menuBar().addMenu(self.menu_windows)
         # Restart camera
-        self.menu_process.restart_camera = QtWidgets.QAction('Restart camera')
+        self.menu_process.restart_camera = QtGui.QAction('Restart camera')
         self.menu_process.restart_camera.triggered.connect(self.restart_camera)
         self.menu_process.addAction(self.menu_process.restart_camera)
         # Restart display
-        self.menu_process.restart_display = QtWidgets.QAction('Restart display')
+        self.menu_process.restart_display = QtGui.QAction('Restart display')
         self.menu_process.restart_display.triggered.connect(self.restart_display)
         self.menu_process.addAction(self.menu_process.restart_display)
 
@@ -199,7 +199,7 @@ class Window(QtWidgets.QMainWindow):
             w.raise_()
 
     def event(self, event):
-        if event.type() == Qt.QEvent.WindowActivate:
+        if event.type() == QtCore.QEvent.Type.WindowActivate:
             self.raise_subwindows()
             self.raise_()
 
