@@ -362,11 +362,35 @@ class Logger(IntegratedWidget):
 
         if len(ipc.Log.History) > self.logccount:
             for rec in ipc.Log.History[self.logccount:]:
-                if rec['levelno'] > 10:
-                    line = '{} : {:10} : {:10} : {}'.format(rec['asctime'], rec['name'], rec['levelname'], rec['msg'])
-                    self.txe_log.append(line)
 
                 self.logccount += 1
+
+                # Skip for debug and unset
+                if rec['levelno'] < 20:
+                    continue
+
+                # Info
+                if rec['levelno'] == 20:
+                    self.txe_log.setTextColor(QtGui.QColor('black'))
+                    self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
+                # Warning
+                elif rec['levelno'] == 30:
+                    self.txe_log.setTextColor(QtGui.QColor('orange'))
+                    self.txe_log.setFontWeight(QtGui.QFont.Weight.Bold)
+                # Error and critical
+                elif rec['levelno'] > 30:
+                    self.txe_log.setTextColor(QtGui.QColor('red'))
+                    self.txe_log.setFontWeight(QtGui.QFont.Weight.Bold)
+                # Fallback
+                else:
+                    self.txe_log.setTextColor(QtGui.QColor('black'))
+                    self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
+
+                # Add
+                line = '{}  {:10}  {:10}  {}'.format(rec['asctime'], rec['name'], rec['levelname'], rec['msg'])
+                self.txe_log.append(line)
+
+import pprint
 
 
 class Camera(WindowWidget):

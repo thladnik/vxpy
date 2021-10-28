@@ -35,7 +35,8 @@ ERROR = logging.ERROR
 def setup_log():
     logger = logging.getLogger('mylog')
     h = logging.handlers.TimedRotatingFileHandler(os.path.join(Def.package, Def.Path.Log, ipc.Log.File.value), 'd')
-    h.setFormatter(logging.Formatter('%(asctime)s <<>> %(name)-10s <<>> %(levelname)-8s <<>> %(message)s <<'))
+    print(os.path.join(Def.package, Def.Path.Log, ipc.Log.File.value))
+    h.setFormatter(logging.Formatter('%(levelname)-8s %(asctime)s %(name)-12s  %(message)s'))
     logger.addHandler(h)
 
     return logger
