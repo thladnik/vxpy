@@ -111,7 +111,7 @@ class AbstractProcess:
                         except:
                             # This is a workaround. Please do not remove or you'll break the GUI.
                             # In order for some IPC features to work the, AbstractProcess init has to be
-                            # called **before** the PyQt5.QtWidgets.QMainWindow init in the GUI modules.
+                            # called **before** the PyQt6.QtWidgets.QMainWindow init in the GUI modules.
                             # Doing this, however, causes an exception about failing to call
                             # the QMainWindow super-class init, since "createHooks" directly sets attributes
                             # on the new, uninitialized QMainWindow sub-class.
@@ -518,6 +518,9 @@ class AbstractProcess:
         return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
 
     def set_record_group_attrs(self, group_attributes: Dict = None):
+        if self.file_container is None:
+            return
+
         grp = self.file_container.require_group(self.record_group)
         if group_attributes is not None:
             grp.attrs.update(group_attributes)
