@@ -400,9 +400,6 @@ class Camera(WindowWidget):
 
         self.stream_fps = 20
 
-        self.setMinimumSize(400, 400)
-        self.setMaximumSize(800, 700)
-
         self.setLayout(QtWidgets.QHBoxLayout())
 
         # Tab widget

@@ -21,16 +21,16 @@ _models = ['Multi_Fish_Eyes_Cam@20fps',
 _formats = {'Multi_Fish_Eyes_Cam@20fps': ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)',
                                           'RGB8 (480x480)', 'Y800 (480x480)'],
             'Single_Fish_Eyes_Cam@20fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
-            'Single_Fish_Spontaneous_1@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
-            'Single_Fish_Spontaneous_2@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
-            'Single_Fish_Spontaneous_3@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
-            'Single_Fish_Spontaneous_4@115fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
-            'Single_Fish_Spontaneous_1@30fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
+            'Single_Fish_Spontaneous_1@115fps': ['RGB8(640x480)@115', 'Y800(600x380)@115', 'RGB8(600x380)@115'],
+            'Single_Fish_Spontaneous_2@115fps': ['RGB8(640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+            'Single_Fish_Spontaneous_3@115fps': ['RGB8(640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+            'Single_Fish_Spontaneous_4@115fps': ['RGB8(640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+            'Single_Fish_Spontaneous_1@30fps': ['RGB8(640x480)', 'Y800 (600x380)', ],
             'Single_Fish_Free_Swim_Dot_Chased@50fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
             'Single_Fish_Free_Swim_On_random_motion@100fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
             'Single_Fish_OKR_embedded@30fps': ['RGB8 (640x480)', 'Y800 (600x380)', ]}
 
-_sampleFile = {'Multi_Fish_Eyes_Cam@20fps': 'Fish_eyes_multiple_fish_30s.avi',
+_sample_files = {'Multi_Fish_Eyes_Cam@20fps': 'Fish_eyes_multiple_fish_30s.avi',
                'Single_Fish_Eyes_Cam@20fps': 'Fish_eyes_spontaneous_saccades_40s.avi',
                'Single_Fish_Spontaneous_1@115fps': 'single_zebrafish_eyes.avi',
                'Single_Fish_Spontaneous_2@115fps': 'single_zebrafish_eyes0001.avi',
@@ -55,6 +55,7 @@ class CameraDevice(AbstractCameraDevice):
 
     def __init__(self, *args, **kwargs):
         super(CameraDevice, self).__init__(*args, **kwargs)
+
         self.t_start = None
         self.t_last = None
         self.i_last = None
@@ -67,11 +68,15 @@ class CameraDevice(AbstractCameraDevice):
         self._fps = None
         self.index = None
 
+    def _get_filepath(self):
+        sample_file = _sample_files[self.info['model']]
+        return os.path.join(Def.package, Def.Path.Sample, sample_file)
+
     def open(self):
-        return os.path.exists(os.path.join(Def.package, Def.Path.Sample, _sampleFile[_models[self.serial]]))
+        return os.path.exists(self._get_filepath())
 
     def start_stream(self):
-        self._cap = cv2.VideoCapture(os.path.join(Def.package, Def.Path.Sample, _sampleFile[_models[self.serial]]))
+        self._cap = cv2.VideoCapture(self._get_filepath())
         self._fps = self._cap.get(cv2.CAP_PROP_FPS)
         self._data = []
 
@@ -118,7 +123,8 @@ class CameraDevice(AbstractCameraDevice):
             return self.get_image()
 
     def get_formats(self):
-        return _formats[self.info['model']]
+        _fmts = [Format.from_str(fmt) for fmt in _formats[self.info['model']]]
+        return _fmts
 
     def set_exposure(self, e):
         pass

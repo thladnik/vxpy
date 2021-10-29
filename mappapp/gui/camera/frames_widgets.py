@@ -24,6 +24,7 @@ from mappapp import Def
 from mappapp.core.gui import AddonWidget
 from mappapp.core.attribute import read_attribute
 
+
 class FrameStream(AddonWidget):
 
     def __init__(self, *args, **kwargs):
@@ -36,7 +37,7 @@ class FrameStream(AddonWidget):
         self.layout().addItem(hspacer, 0, 1)
 
         self.tab_camera_views = QtWidgets.QTabWidget()
-        self.tab_camera_views.setTabPosition(QtWidgets.QTabWidget.West)
+        self.tab_camera_views.setTabPosition(QtWidgets.QTabWidget.TabPosition.West)
         self.layout().addWidget(self.tab_camera_views, 1, 0, 1, 2)
 
         # Add one view per camera device

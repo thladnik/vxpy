@@ -21,7 +21,8 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
 from mappapp.core import process, ipc
-from mappapp.core.camera import AbstractCameraDevice, open_device
+from mappapp.core.camera import AbstractCameraDevice, open_device, _use_apis
+from mappapp.devices.camera.virtual import virtual_camera
 
 
 class Camera(process.AbstractProcess):
@@ -29,11 +30,14 @@ class Camera(process.AbstractProcess):
 
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
+        global _use_apis
+        _use_apis.append(virtual_camera)
 
         self.cameras: Dict[str, AbstractCameraDevice] = dict()
 
         # Set up cameras
         for config in Config.Camera[Def.CameraCfg.devices]:
+            print(config)
             device_id = config['id']
             device = open_device(config)
             if device.open():
@@ -41,22 +45,25 @@ class Camera(process.AbstractProcess):
             else:
                 Logging.write(Logging.WARNING, f'Unable to use camera {config} as \"{device_id}\"' 
                                                '// Exception: {exc}')
+                continue
 
-            # Save to dictionary
+            # Save to dictionary and start
             self.cameras[device_id] = device
+            self.cameras[device_id].start_stream()
 
-        target_fps = Config.Camera[Def.CameraCfg.fps]
 
-        if ipc.Control.General[Def.GenCtrl.min_sleep_time] > 1./target_fps:
+        base_target_fps = 150.
+
+        if ipc.Control.General[Def.GenCtrl.min_sleep_time] > 1./base_target_fps:
             Logging.write(Logging.WARNING,
                           'Mininum sleep period is ABOVE '
                           'average target frametime of 1/{}s.'
                           'This will cause increased CPU usage.'
-                          .format(target_fps))
+                          .format(base_target_fps))
 
         # Run event loop
         self.enable_idle_timeout = False
-        self.run(interval=1/target_fps)
+        self.run(interval=1/base_target_fps)
 
     def start_protocol(self):
         pass

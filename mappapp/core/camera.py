@@ -42,13 +42,13 @@ def get_devices(reload=False):
 def open_device(config):
     global _use_apis
     _use_apis_str = [a.__name__ for a in _use_apis]
-    print(_use_apis)
+
     if config['api'] not in _use_apis_str:
-        raise f'Camera API {config["api"]} not available'
+        raise Exception(f'Camera API {config["api"]} not available')
 
     api = _use_apis[_use_apis_str.index(config['api'])]
 
-    camera = api.CameraDevice(config['serial'])
+    camera = api.CameraDevice(**config)
 
     if camera.open():
         camera.set_api(api)
@@ -76,7 +76,7 @@ class AbstractCameraDevice(ABC):
         self.gain = None
 
     def __repr__(self):
-        return f'CameraDevice {self._api.__name__}.{self.id} (SN{self.serial}) ({self.display_info()})'
+        return f'CameraDevice {self._api.__name__}.{self.id} (SN{self.serial})'
 
     def set_id(self, id):
         self.id = id
@@ -84,13 +84,11 @@ class AbstractCameraDevice(ABC):
     def set_format(self, fmt: Union[str, Format]) -> None:
         if isinstance(fmt, str):
             fmt = Format.from_str(fmt)
+
         if fmt in self.get_formats():
             self._fmt = fmt
         else:
             raise Exception(f'Trying to set unsupported format {fmt} on camera device {self}')
-
-    def display_info(self):
-        return ''
 
     def set_api(self, api):
         self._api = api

@@ -48,10 +48,10 @@ class Gui(process.AbstractProcess):
 
     def prompt_shutdown_confirmation(self):
         reply = QtWidgets.QMessageBox.question(self.window, 'Confirm shutdown', 'Program is still busy. Shut down anyways?',
-                                               QtWidgets.QMessageBox.Cancel | QtWidgets.QMessageBox.Yes,
-                                               QtWidgets.QMessageBox.Cancel)
+                                               QtWidgets.QMessageBox.ButtonRole.Cancel | QtWidgets.QMessageBox.ButtonRole.Yes,
+                                               QtWidgets.QMessageBox.ButtonRole.Cancel)
 
-        if reply == QtWidgets.QMessageBox.Yes:
+        if reply == QtWidgets.QMessageBox.ButtonRole.Yes:
             ipc.rpc(modules.Controller.name, modules.Controller._force_shutdown)
 
     def _start_shutdown(self):
@@ -65,7 +65,7 @@ class Window(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.WindowType.Window)
 
-        main_default_height = 400
+        controls_default_height = 400
         plotter_default_height = 300
         display_default_dims = (600, 500)
         camera_default_dims = (600, 500)
@@ -90,66 +90,26 @@ class Window(QtWidgets.QMainWindow):
         w, h = self.screenGeo.width(), self.screenGeo.height()
         x, y = self.screenGeo.x(), self.screenGeo.y()
 
-        # Optional sub windows
-
-        # Display
-        if Config.Display[Def.DisplayCfg.use] \
-                and Def.Process.Display in Config.Gui[Def.GuiCfg.addons] \
-                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
-            self.display = gui.Display(self)
-            self.display.create_hooks()
-            self.display.move(x, main_default_height + 50)
-            self.display.resize(*display_default_dims)
-            self.subwindows.append(self.display)
-
-        # Io
-        if Config.Io[Def.IoCfg.use] \
-                and Def.Process.Io in Config.Gui[Def.GuiCfg.addons] \
-                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
-            self.io = gui.Io(self)
-            self.io.create_hooks()
-            self.io.move(x + display_default_dims[0] + 50, main_default_height + 150)
-            self.io.resize(*io_default_dims)
-            self.subwindows.append(self.io)
-
-        # Camera
-        if Config.Camera[Def.CameraCfg.use] \
-                and Def.Process.Camera in Config.Gui[Def.GuiCfg.addons] \
-                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
-            self.camera = gui.Camera(self)
-            self.camera.create_hooks()
-            self.subwindows.append(self.camera)
-
-        # Add Plotter
-        self.plotter = gui.Plotter(self)
-        self.plotter.setMinimumHeight(300)
-        if sys.platform == 'linux':
-            self.plotter.move(x, h-plotter_default_height)
-            self.plotter.resize(w, plotter_default_height)
-        else:
-            self.plotter.move(x, 0.9 * h - plotter_default_height)
-            self.plotter.resize(w, plotter_default_height + int(0.05 * h))
-        self.plotter.create_hooks()
-        self.subwindows.append(self.plotter)
+        # Set main controls window
 
         # Main controls widget
-        self.controls_widget = QtWidgets.QWidget()
-        self.controls_widget.setLayout(QtWidgets.QHBoxLayout())
-        self.centralWidget().layout().addWidget(self.controls_widget)
+        self.controls = QtWidgets.QWidget()
+        self.controls.setLayout(QtWidgets.QHBoxLayout())
+        self.centralWidget().layout().addWidget(self.controls)
 
         # Process monitor
         self.process_monitor = gui.ProcessMonitor(self)
         self.process_monitor.create_hooks()
-        self.controls_widget.layout().addWidget(self.process_monitor)
+        self.controls.layout().addWidget(self.process_monitor)
 
         # Recordings
         self.recordings = gui.Recording(self)
         self.recordings.create_hooks()
-        self.controls_widget.layout().addWidget(self.recordings)
+        self.controls.layout().addWidget(self.recordings)
 
         # Logger
         self.log_display = gui.Logger(self)
-        self.controls_widget.layout().addWidget(self.log_display)
+        self.controls.layout().addWidget(self.log_display)
 
         # Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
@@ -185,7 +145,53 @@ class Window(QtWidgets.QMainWindow):
 
         # Set geometry
         self.move(x, y)
-        self.resize(w, main_default_height)
+        self.resize(w, controls_default_height)
+
+        # Optional sub windows
+
+
+        # Display
+        if Config.Display[Def.DisplayCfg.use] \
+                and Def.Process.Display in Config.Gui[Def.GuiCfg.addons] \
+                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
+            self.display = gui.Display(self)
+            self.display.create_hooks()
+            self.display.move(x, self.controls.size().height())
+            self.display.resize(*display_default_dims)
+            self.subwindows.append(self.display)
+
+        # Camera
+        if Config.Camera[Def.CameraCfg.use] \
+                and Def.Process.Camera in Config.Gui[Def.GuiCfg.addons] \
+                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
+            self.camera = gui.Camera(self)
+            self.camera.create_hooks()
+            self.camera.move(x + display_default_dims[0] + 75, self.controls.size().height())
+            self.camera.resize(*camera_default_dims)
+            self.subwindows.append(self.camera)
+
+        # Io
+        if Config.Io[Def.IoCfg.use] \
+                and Def.Process.Io in Config.Gui[Def.GuiCfg.addons] \
+                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
+            self.io = gui.Io(self)
+            self.io.create_hooks()
+            self.io.move(x + display_default_dims[0] + camera_default_dims[0] + 75, self.controls.size().height())
+            self.io.resize(*io_default_dims)
+            self.subwindows.append(self.io)
+
+        # Add Plotter
+        self.plotter = gui.Plotter(self)
+        self.plotter.setMinimumHeight(300)
+        if sys.platform == 'linux':
+            self.plotter.move(x, h-plotter_default_height)
+            self.plotter.resize(w, plotter_default_height)
+        else:
+            self.plotter.move(x, 0.9 * h - plotter_default_height)
+            self.plotter.resize(w, plotter_default_height + int(0.05 * h))
+        self.plotter.create_hooks()
+        self.subwindows.append(self.plotter)
+
         self.show()
 
     def restart_camera(self):
