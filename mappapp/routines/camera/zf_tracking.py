@@ -22,11 +22,13 @@ from scipy.spatial import distance
 
 from mappapp import Config
 from mappapp import Def
+from mappapp.api import get_time
 from mappapp.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute
 from mappapp.api.routine import CameraRoutine
 from mappapp.api.ui import register_with_plotter
 from mappapp.api.io import set_digital_output
 from mappapp.api.dependency import require_camera_device
+from mappapp.core.camera import find_config_for_camera_id, Format
 
 
 class EyePositionDetection(CameraRoutine):
@@ -60,10 +62,10 @@ class EyePositionDetection(CameraRoutine):
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
         # Get camera specs
-        idx = Config.Camera[Def.CameraCfg.device_id].index(self.camera_device_id)
-        self.res_x = Config.Camera[Def.CameraCfg.res_x][idx]
-        self.res_y = Config.Camera[Def.CameraCfg.res_y][idx]
-        target_fps = Config.Camera[Def.CameraCfg.fps]
+        config = find_config_for_camera_id(self.camera_device_id)
+        fmt = Format.from_str(config['format'])
+        self.res_x = fmt.width
+        self.res_y = fmt.height
 
         # Set up parameter variables (accessible externally)
         self.rois = dict()
@@ -358,7 +360,7 @@ class EyePositionDetection(CameraRoutine):
                     last_time = -np.inf
 
                 # Calculate time elapsed since last frame
-                current_time = api.get_time()
+                current_time = get_time()
                 dt = (current_time - last_time)
 
                 # Calculate velocities

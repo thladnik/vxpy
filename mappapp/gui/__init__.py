@@ -555,7 +555,8 @@ class Plotter(WindowWidget):
 
     def mouseDoubleClickEvent(self, a0) -> None:
         # Check if double click on AxisItem
-        items = [o for o in self.plot_item.scene().items(a0.pos()) if isinstance(o, pg.AxisItem)]
+        click_pointf = QtCore.QPointF(a0.pos())
+        items = [o for o in self.plot_item.scene().items(click_pointf) if isinstance(o, pg.AxisItem)]
         if len(items) == 0:
             return
 
@@ -568,7 +569,7 @@ class Plotter(WindowWidget):
                 data_item: pg.PlotDataItem = self.plot_data_items[id]
                 # Flip pen
                 current_pen = data_item.opts['pen']
-                if current_pen.style() == 0:
+                if current_pen.style() == QtCore.Qt.PenStyle.NoPen:
                     data_item.setPen(data['pen'])
                 else:
                     data_item.setPen(None)

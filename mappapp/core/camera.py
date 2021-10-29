@@ -20,11 +20,21 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 from dataclasses import dataclass
 
+from mappapp import Config
+from mappapp import Def
+
 _use_apis = []
 _devices = {}
 
 
-def get_devices(reload=False):
+def find_config_for_camera_id(_id):
+    for config in Config.Camera[Def.CameraCfg.devices]:
+        if config['id'] == _id:
+            return config
+        return None
+
+
+def get_devices(reload=False) -> Dict[str, AbstractCameraDevice]:
     global _devices
 
     if bool(_devices) and not reload:
