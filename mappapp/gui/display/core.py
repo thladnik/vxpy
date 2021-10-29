@@ -89,10 +89,17 @@ class Protocols(gui.AddonWidget):
 
         protocol_paths = get_available_protocol_paths()
         for path in protocol_paths:
-            self.protocols.addItem(path)
+            item = QtWidgets.QListWidgetItem(self.protocols)
+            item.setData(QtCore.Qt.ItemDataRole.UserRole, path)
+            # Shorten display path
+            parts = path.split('.')
+            # shown_path = [''] * len(parts[:-2]) + parts[-2:]
+            item.setText('.'.join(parts[-2:]))
+            item.setToolTip(path)
+            self.protocols.addItem(item)
+
 
     def update_ui(self):
-
         # Enable/Disable control elements
         ctrl_is_idle = ipc.in_state(Def.State.IDLE, Def.Process.Controller)
         self.btn_start.setEnabled(ctrl_is_idle)
@@ -113,7 +120,7 @@ class Protocols(gui.AddonWidget):
             self.progress.setEnabled(False)
 
     def start_protocol(self):
-        protocol_path = self.protocols.currentItem().text()
+        protocol_path = self.protocols.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
 
         # Start recording
         ipc.rpc(Def.Process.Controller, modules.Controller.start_recording)
