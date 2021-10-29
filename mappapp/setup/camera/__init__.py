@@ -132,8 +132,6 @@ class CameraWidget(ModuleWidget):
                         IPython.embed()
                     continue
 
-                print(cname)
-
                 avail_routines.append('.'.join([fname, cname]))
 
         # Calculate difference (available routines that are already used)
@@ -330,7 +328,6 @@ class CameraWidget(ModuleWidget):
             self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx] + 30)
             gain = section[Def.CameraCfg.gain][row_idx]
             exposure = section[Def.CameraCfg.exposure][row_idx]
-            print(gain, exposure)
             self.camera.set_gain(gain)
             self.camera.set_exposure(exposure)
             ### Provoke exception

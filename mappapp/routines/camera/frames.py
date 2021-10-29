@@ -38,8 +38,6 @@ class Frames(CameraRoutine):
             fmt = Format.from_str(dev['format'])
             self.device_list.append((dev['id'], fmt.width, fmt.height))
 
-        print(self.device_list)
-
         # Set up buffer frame attribute for each camera device
         self.frames = {}
         for device_id, res_x, res_y in self.device_list:

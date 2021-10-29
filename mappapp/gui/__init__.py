@@ -664,7 +664,6 @@ class Plotter(WindowWidget):
                 n_times = np.array(n_times)
                 n_data = np.array(n_data)
             except Exception as exc:
-                print(attr_name, n_times)
                 continue
 
             # Set new last index
