@@ -30,7 +30,7 @@ from mappapp.core import ipc
 from mappapp import Logging
 from mappapp import modules
 from mappapp.api.attribute import get_attribute, read_attribute
-from mappapp.core.gui import IntegratedWidget, WindowWidget
+from mappapp.core.gui import IntegratedWidget, WindowWidget, WindowTabWidget
 
 
 class ProcessMonitor(IntegratedWidget):
@@ -393,23 +393,15 @@ class Logger(IntegratedWidget):
 import pprint
 
 
-class Camera(WindowWidget):
+class Camera(WindowTabWidget):
 
     def __init__(self, *args):
-        WindowWidget.__init__(self, 'Camera', *args)
-
-        self.stream_fps = 20
-
-        self.setLayout(QtWidgets.QHBoxLayout())
-
-        # Tab widget
-        self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget)
-
-        self.add_widgets(Def.Process.Camera)
+        WindowTabWidget.__init__(self, 'Camera', *args)
+        self.create_addon_tabs(Def.Process.Camera)
 
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
+        self.stream_fps = 20
         if bool(Config.Camera[Def.CameraCfg.routines]):
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
@@ -418,35 +410,25 @@ class Camera(WindowWidget):
             self.timer_frame_update.start()
 
     def update_frames(self):
-
         # Update frames in tabbed widgets
         for idx in range(self.tab_widget.count()):
             self.tab_widget.widget(idx).update_frame()
 
 
-class Display(WindowWidget):
+class Display(WindowTabWidget):
 
     def __init__(self, *args):
-        WindowWidget.__init__(self, 'Display', *args)
+        WindowTabWidget.__init__(self, 'Display', *args)
         self.setLayout(QtWidgets.QHBoxLayout())
-        # Tab widget
-        self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget)
-
-        self.add_widgets(Def.Process.Display)
+        self.create_addon_tabs(Def.Process.Display)
 
 
-class Io(WindowWidget):
+class Io(WindowTabWidget):
 
     def __init__(self, *args):
-        WindowWidget.__init__(self, 'I/O', *args)
+        WindowTabWidget.__init__(self, 'I/O', *args)
         self.setLayout(QtWidgets.QVBoxLayout())
-
-        # Tab widget
-        self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget)
-
-        self.add_widgets(Def.Process.Io)
+        self.create_addon_tabs(Def.Process.Io)
 
 
 class Plotter(WindowWidget):

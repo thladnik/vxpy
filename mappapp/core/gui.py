@@ -37,35 +37,11 @@ class AddonWidget(QtWidgets.QWidget):
         self.module_active = True
 
 
-class IntegratedWidget(QtWidgets.QGroupBox):
+class ExposedWidget:
 
-    def __init__(self, group_name, main):
-        QtWidgets.QGroupBox.__init__(self, group_name, parent=main)
-        self.main: Gui = main
-
+    def __init__(self):
         # List of exposed methods to register for rpc callbacks
-        self.exposed = list()
-
-    def add_widgets(self,process_name):
-
-        # Add camera addons
-        selected_addons = Config.Gui[Def.GuiCfg.addons]
-        used_here = selected_addons[process_name]
-
-        for module_name,widgets in used_here.items():
-            for widget_name in widgets:
-                if not (bool(widget_name)):
-                    continue
-
-                # TODO: expand this to draw from all files in ./gui/
-                path = '.'.join([Def.Path.Gui,process_name.lower(),module_name])
-                module = importlib.import_module(path)
-
-                wdgt = getattr(module,widget_name)(self.main)
-                if not (wdgt.module_active):
-                    Logging.write(Logging.WARNING,f'Addon {widget_name} could not be activated')
-                    continue
-                self.tab_widget.addTab(wdgt,widget_name)
+        self.exposed: list = []
 
     def create_hooks(self):
         for fun in self.exposed:
@@ -73,9 +49,19 @@ class IntegratedWidget(QtWidgets.QGroupBox):
             ipc.Process.register_rpc_callback(self, fun_str, fun)
 
 
-class WindowWidget(QtWidgets.QWidget):
+class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget):
 
     def __init__(self, group_name, main):
+        QtWidgets.QGroupBox.__init__(self, group_name, parent=main)
+        self.main: Gui = main
+
+        self.exposed = list()
+
+
+class WindowWidget(QtWidgets.QWidget, ExposedWidget):
+
+    def __init__(self, group_name, main):
+        print('GROUP', group_name)
         QtWidgets.QWidget.__init__(self, main, flags=QtCore.Qt.WindowType.Window)
         self.setWindowTitle(group_name)
         self.main: Gui = main
@@ -84,27 +70,6 @@ class WindowWidget(QtWidgets.QWidget):
         self.exposed = list()
 
         self.show()
-
-    def add_widgets(self,process_name):
-
-        # Add camera addons
-        selected_addons = Config.Gui[Def.GuiCfg.addons]
-        used_here = selected_addons[process_name]
-
-        for module_name,widgets in used_here.items():
-            for widget_name in widgets:
-                if not (bool(widget_name)):
-                    continue
-
-                # TODO: expand this to draw from all files in ./gui/
-                path = '.'.join([Def.Path.Gui,process_name.lower(),module_name])
-                module = importlib.import_module(path)
-
-                wdgt = getattr(module,widget_name)(self.main)
-                if not (wdgt.module_active):
-                    Logging.write(Logging.WARNING,f'Addon {widget_name} could not be activated')
-                    continue
-                self.tab_widget.addTab(wdgt,widget_name)
 
     def toggle_visibility(self):
         if self.isVisible():
@@ -121,7 +86,34 @@ class WindowWidget(QtWidgets.QWidget):
 
         return QtWidgets.QWidget.event(self, event)
 
-    def create_hooks(self):
-        for fun in self.exposed:
-            fun_str = fun.__qualname__
-            ipc.Process.register_rpc_callback(self, fun_str, fun)
+
+class WindowTabWidget(WindowWidget, ExposedWidget):
+    def __init__(self, *args, **kwargs):
+        WindowWidget.__init__(self, *args, **kwargs)
+
+        # Add tab widget
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().addWidget(self.tab_widget)
+
+    def create_addon_tabs(self, process_name):
+
+        used_addons = Config.Gui[Def.GuiCfg.addons][process_name]
+
+        for path in used_addons:
+            Logging.write(Logging.DEBUG, f'Load UI addon "{path}"')
+
+            # TODO: search different paths for package structure redo
+            # Load routine
+            parts = path.split('.')
+            module = importlib.import_module('.'.join(parts[:-1]))
+            addon_cls = getattr(module, parts[-1])
+            print(f'Load {parts[-1]}')
+
+            if addon_cls is None:
+                Logging.write(Logging.ERROR, f'UI addon "{path}" not found.')
+                continue
+
+            wdgt = addon_cls(self.main)
+
+            self.tab_widget.addTab(wdgt, parts[-1])
