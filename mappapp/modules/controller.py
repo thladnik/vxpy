@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import ctypes
+import importlib
 import multiprocessing as mp
 import os
 import time
@@ -157,22 +158,22 @@ class Controller(process.AbstractProcess):
         if Config.Io[Def.CameraCfg.use]:
             _routines_to_load[Def.Process.Io] = Config.Io[Def.IoCfg.routines]
 
-        for process_name, routines in _routines_to_load.items():
+        for process_name, routine_list in _routines_to_load.items():
             _routines[process_name] = dict()
-            for routine_file, routine_list in routines.items():
+            for path in routine_list:
+                Logging.write(Logging.DEBUG, f'Load routine "{path}"')
 
-                # Load module (routine file)
-                importpath = f'{Def.Path.Routines}.{process_name.lower()}.{routine_file}'
-                module = __import__(importpath, fromlist=routine_list)
+                # TODO: search different paths for package structure redo
+                # Load routine
+                parts = path.split('.')
+                module = importlib.import_module('.'.join(parts[:-1]))
+                routine_cls = getattr(module, parts[-1])
+                if routine_cls is None:
+                    Logging.write(Logging.ERROR, f'Routine "{path}" not found.')
+                    continue
 
-                # Load routine classes from module
-                for routine_name in routine_list:
-                    Logging.write(Logging.DEBUG, f'Load {process_name} routine from {importpath}.{routine_name}')
-
-                    routine_cls = getattr(module, routine_name)
-
-                    # Instantiate routine class
-                    _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
+                # Instantiate
+                _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
 
         # Set configured cameras
         for device in Config.Camera[Def.CameraCfg.devices]:
