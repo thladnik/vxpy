@@ -48,7 +48,6 @@ class H5File(h5py.File):
         except:
             import traceback
             traceback.print_exc()
-            print('SHAPE: ', value.shape, dset.shape)
             quit()
 
     def save(self):

@@ -61,7 +61,6 @@ class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget):
 class WindowWidget(QtWidgets.QWidget, ExposedWidget):
 
     def __init__(self, group_name, main):
-        print('GROUP', group_name)
         QtWidgets.QWidget.__init__(self, main, flags=QtCore.Qt.WindowType.Window)
         self.setWindowTitle(group_name)
         self.main: Gui = main
@@ -108,7 +107,6 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
             parts = path.split('.')
             module = importlib.import_module('.'.join(parts[:-1]))
             addon_cls = getattr(module, parts[-1])
-            print(f'Load {parts[-1]}')
 
             if addon_cls is None:
                 Logging.write(Logging.ERROR, f'UI addon "{path}" not found.')

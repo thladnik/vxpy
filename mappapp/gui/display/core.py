@@ -300,8 +300,6 @@ class VisualInteractor(gui.AddonWidget):
             if vdef is not None:
                 defaults[name] = vdef
 
-        print(defaults)
-
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.tuner.layout().addItem(spacer)
 
