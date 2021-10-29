@@ -295,100 +295,104 @@ class EyePositionDetection(CameraRoutine):
         self.frame.write(frame)
 
         # Do eye detection and angular position estimation
-        if bool(self.rois):
+        if not bool(self.rois):
+            return
 
-            # If eyes were marked: iterate over ROIs and extract eye positions
-            for id, rect_params in self.rois.items():
+        # If eyes were marked: iterate over ROIs and extract eye positions
+        saccade_happened = False
+        for id, rect_params in self.rois.items():
 
-                ####
-                # Extract rectanglular ROI
+            ####
+            # Extract rectanglular ROI
 
-                # Convert from pyqtgraph image coordinates to openCV
-                rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
+            # Convert from pyqtgraph image coordinates to openCV
+            rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
 
-                # Get rect and frame parameters
-                center, size, angle = rect_params[0], rect_params[1], rect_params[2]
-                center, size = tuple(map(int, center)), tuple(map(int, size))
-                height, width = frame.shape[0], frame.shape[1]
+            # Get rect and frame parameters
+            center, size, angle = rect_params[0], rect_params[1], rect_params[2]
+            center, size = tuple(map(int, center)), tuple(map(int, size))
+            height, width = frame.shape[0], frame.shape[1]
 
-                # Rotate
-                M = cv2.getRotationMatrix2D(center, angle, 1)
-                rotFrame = cv2.warpAffine(frame, M, (width, height))
+            # Rotate
+            M = cv2.getRotationMatrix2D(center, angle, 1)
+            rotFrame = cv2.warpAffine(frame, M, (width, height))
 
-                # Crop rect from frame
-                cropRect = cv2.getRectSubPix(rotFrame, size, center)
+            # Crop rect from frame
+            cropRect = cv2.getRectSubPix(rotFrame, size, center)
 
-                # Rotate rect so that "up" direction in image corresponds to "foward" for the fish
-                center = (size[0]/2, size[1]/2)
-                width, height = size
-                M = cv2.getRotationMatrix2D(center, 90, 1)
-                absCos = abs(M[0, 0])
-                absSin = abs(M[0, 1])
+            # Rotate rect so that "up" direction in image corresponds to "foward" for the fish
+            center = (size[0]/2, size[1]/2)
+            width, height = size
+            M = cv2.getRotationMatrix2D(center, 90, 1)
+            absCos = abs(M[0, 0])
+            absSin = abs(M[0, 1])
 
-                # New bound width/height
-                wBound = int(height * absSin + width * absCos)
-                hBound = int(height * absCos + width * absSin)
+            # New bound width/height
+            wBound = int(height * absSin + width * absCos)
+            hBound = int(height * absCos + width * absSin)
 
-                # Subtract old image center
-                M[0, 2] += wBound / 2 - center[0]
-                M[1, 2] += hBound / 2 - center[1]
-                # Rotate
-                rot_rect = cv2.warpAffine(cropRect, M, (wBound, hBound))
+            # Subtract old image center
+            M[0, 2] += wBound / 2 - center[0]
+            M[1, 2] += hBound / 2 - center[1]
+            # Rotate
+            rot_rect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-                ####
-                # Calculate eye angular POSITIONS
+            ####
+            # Calculate eye angular POSITIONS
 
-                # Apply detection function on cropped rect which contains eyes
-                (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
+            # Apply detection function on cropped rect which contains eyes
+            (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
 
-                # Get shared attributes
-                le_pos_attr = get_attribute(f'{self.ang_le_pos_prefix}{id}')
-                re_pos_attr = get_attribute(f'{self.ang_re_pos_prefix}{id}')
-                le_vel_attr = get_attribute(f'{self.ang_le_vel_prefix}{id}')
-                re_vel_attr = get_attribute(f'{self.ang_re_vel_prefix}{id}')
-                le_sacc_attr = get_attribute(f'{self.le_sacc_prefix}{id}')
-                re_sacc_attr = get_attribute(f'{self.re_sacc_prefix}{id}')
-                rect_roi_attr = get_attribute(f'{self.extracted_rect_prefix}{id}')
+            # Get shared attributes
+            le_pos_attr = get_attribute(f'{self.ang_le_pos_prefix}{id}')
+            re_pos_attr = get_attribute(f'{self.ang_re_pos_prefix}{id}')
+            le_vel_attr = get_attribute(f'{self.ang_le_vel_prefix}{id}')
+            re_vel_attr = get_attribute(f'{self.ang_re_vel_prefix}{id}')
+            le_sacc_attr = get_attribute(f'{self.le_sacc_prefix}{id}')
+            re_sacc_attr = get_attribute(f'{self.re_sacc_prefix}{id}')
+            rect_roi_attr = get_attribute(f'{self.extracted_rect_prefix}{id}')
 
-                # Calculate eye angular VELOCITIES
-                _, _, last_le_pos = le_pos_attr.read()
-                last_le_pos = last_le_pos[0]
-                _, last_time, last_re_pos = re_pos_attr.read()
-                last_re_pos = last_re_pos[0]
-                last_time = last_time[-1]
-                if last_time is None:
-                    last_time = -np.inf
+            # Calculate eye angular VELOCITIES
+            _, _, last_le_pos = le_pos_attr.read()
+            last_le_pos = last_le_pos[0]
+            _, last_time, last_re_pos = re_pos_attr.read()
+            last_re_pos = last_re_pos[0]
+            last_time = last_time[-1]
+            if last_time is None:
+                last_time = -np.inf
 
-                # Calculate time elapsed since last frame
-                current_time = get_time()
-                dt = (current_time - last_time)
+            # Calculate time elapsed since last frame
+            current_time = get_time()
+            dt = (current_time - last_time)
 
-                # Calculate velocities
-                le_vel = np.abs((le_pos - last_le_pos) / dt)
-                re_vel = np.abs((re_pos - last_re_pos) / dt)
+            # Calculate velocities
+            le_vel = np.abs((le_pos - last_le_pos) / dt)
+            re_vel = np.abs((re_pos - last_re_pos) / dt)
 
-                # Calculate saccade trigger
-                _, _, last_le_vel = le_vel_attr.read()
-                last_le_vel = last_le_vel[0]
-                _, _, last_re_vel = re_vel_attr.read()
-                last_re_vel = last_re_vel[0]
+            # Calculate saccade trigger
+            _, _, last_le_vel = le_vel_attr.read()
+            last_le_vel = last_le_vel[0]
+            _, _, last_re_vel = re_vel_attr.read()
+            last_re_vel = last_re_vel[0]
 
-                le_sacc = int(last_le_vel < self.saccade_threshold < le_vel)
-                re_sacc = int(last_re_vel < self.saccade_threshold < re_vel)
+            le_sacc = int(last_le_vel < self.saccade_threshold < le_vel)
+            re_sacc = int(last_re_vel < self.saccade_threshold < re_vel)
 
-                is_saccade = bool(le_sacc) or bool(re_sacc)
-                if is_saccade:
-                    self._triggers['saccade_trigger'].emit()
+            is_saccade = bool(le_sacc) or bool(re_sacc)
+            saccade_happened = saccade_happened or is_saccade
+            if is_saccade:
+                self._triggers['saccade_trigger'].emit()
 
-                # Write to buffer
-                le_pos_attr.write(le_pos)
-                re_pos_attr.write(re_pos)
-                le_vel_attr.write(le_vel)
-                re_vel_attr.write(re_vel)
-                self.saccade_trigger.write(is_saccade)
+            # Write to buffer
+            le_pos_attr.write(le_pos)
+            re_pos_attr.write(re_pos)
+            le_vel_attr.write(le_vel)
+            re_vel_attr.write(re_vel)
 
-                le_sacc_attr.write(le_sacc)
-                re_sacc_attr.write(re_sacc)
+            le_sacc_attr.write(le_sacc)
+            re_sacc_attr.write(re_sacc)
 
-                # Set current rect ROI data
-                rect_roi_attr.write(new_rect)
+            # Set current rect ROI data
+            rect_roi_attr.write(new_rect)
+
+        self.saccade_trigger.write(saccade_happened)
