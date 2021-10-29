@@ -88,7 +88,6 @@ class Protocols(gui.AddonWidget):
         self.btn_start.setEnabled(False)
 
         protocol_paths = get_available_protocol_paths()
-        print(protocol_paths)
         for path in protocol_paths:
             self.protocols.addItem(path)
 
