@@ -24,8 +24,8 @@ from mappapp.visuals.planar.grating.grating import BlackAndWhiteGrating as BWG
 
 class ShowSFRange(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(1,4):
             self.add_phase(BWG, 5,
@@ -37,8 +37,8 @@ class ShowSFRange(StaticProtocol):
 
 class Stresstest(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(10.0, 30.0, 4.0):
             for v in np.arange(2, 10, 2):

@@ -30,6 +30,7 @@ from mappapp import modules
 from mappapp.core import gui, ipc
 from mappapp.core import visual
 from mappapp.utils import uiutils
+from mappapp.core.protocol import get_available_protocol_paths, get_protocol
 
 
 class Protocols(gui.AddonWidget):
@@ -43,15 +44,10 @@ class Protocols(gui.AddonWidget):
         self.left_widget.setLayout(QtWidgets.QVBoxLayout())
         self.layout().addWidget(self.left_widget)
 
-        # File list
-        self._lwdgt_files = QtWidgets.QListWidget()
-        self._lwdgt_files.itemSelectionChanged.connect(self.update_file_list)
-        self.left_widget.layout().addWidget(QLabel('Files'))
-        self.left_widget.layout().addWidget(self._lwdgt_files)
         # Protocol list
-        self.lwdgt_protocols = QtWidgets.QListWidget()
-        self.left_widget.layout().addWidget(QLabel('Protocols'))
-        self.left_widget.layout().addWidget(self.lwdgt_protocols)
+        self.protocols = QtWidgets.QListWidget()
+        self.left_widget.layout().addWidget(QLabel('Files'))
+        self.left_widget.layout().addWidget(self.protocols)
 
         # Right
         self.right_widget = QtWidgets.QWidget()
@@ -85,29 +81,23 @@ class Protocols(gui.AddonWidget):
         self._tmr_update.start()
 
         # Once set up: compile file list for first time
-        self._compile_file_list()
+        self.load_protocol_list()
 
-    def _compile_file_list(self):
-        self._lwdgt_files.clear()
+    def load_protocol_list(self):
+        self.protocols.clear()
         self.btn_start.setEnabled(False)
 
-        for file in protocols.all():
-            self._lwdgt_files.addItem(file)
-
-    def update_file_list(self):
-        self.lwdgt_protocols.clear()
-        self.btn_start.setEnabled(False)
-
-        for protocol in protocols.read(protocols.open_(self._lwdgt_files.currentItem().text())):
-            self.lwdgt_protocols.addItem(protocol.__name__)
+        protocol_paths = get_available_protocol_paths()
+        print(protocol_paths)
+        for path in protocol_paths:
+            self.protocols.addItem(path)
 
     def update_ui(self):
 
         # Enable/Disable control elements
         ctrl_is_idle = ipc.in_state(Def.State.IDLE, Def.Process.Controller)
-        self.btn_start.setEnabled(ctrl_is_idle and len(self.lwdgt_protocols.selectedItems()) > 0)
-        self.lwdgt_protocols.setEnabled(ctrl_is_idle)
-        self._lwdgt_files.setEnabled(ctrl_is_idle)
+        self.btn_start.setEnabled(ctrl_is_idle)
+        self.protocols.setEnabled(ctrl_is_idle)
         protocol_is_running = bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])
         self.btn_abort.setEnabled(protocol_is_running)
 
@@ -124,14 +114,13 @@ class Protocols(gui.AddonWidget):
             self.progress.setEnabled(False)
 
     def start_protocol(self):
-        file_name = self._lwdgt_files.currentItem().text()
-        protocol_name = self.lwdgt_protocols.currentItem().text()
+        protocol_path = self.protocols.currentItem().text()
 
         # Start recording
         ipc.rpc(Def.Process.Controller, modules.Controller.start_recording)
 
         # Start protocol
-        ipc.rpc(Def.Process.Controller, modules.Controller.start_protocol, '.'.join([file_name, protocol_name]))
+        ipc.rpc(Def.Process.Controller, modules.Controller.start_protocol, protocol_path)
 
     def abort_protocol(self):
         self.progress.setValue(0)

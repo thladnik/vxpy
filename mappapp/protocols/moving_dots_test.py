@@ -21,8 +21,8 @@ from mappapp.visuals.planar.moving_dot.moving_dot import SingleMovingDot
 
 class ShowMovingDotsInVaryingSizes(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for i in range(2):
             self.add_phase(SingleMovingDot, 3,

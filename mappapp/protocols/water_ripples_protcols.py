@@ -23,8 +23,8 @@ from mappapp.visuals.spherical.water_ripples import RipplesOnStaticBackground
 
 class Example(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         import numpy as np
 
         for depth in [0.7, 0.2]:
@@ -43,8 +43,8 @@ class Example(StaticProtocol):
 
 class ElevationsExample(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         import numpy as np
 
         for depth in [0.7, 0.2]:
@@ -61,8 +61,8 @@ class ElevationsExample(StaticProtocol):
 
 class UpperFlashesExample(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for depth in [0.7, 0.2]:
                 for vel in [1.0, 3.0, 5.0, 8.0]:

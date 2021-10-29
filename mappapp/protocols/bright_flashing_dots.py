@@ -23,8 +23,8 @@ from mappapp.visuals.planar.blank import ClearBlack
 
 class MultipleFlashingDots(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for i in range(10):
             for s in [3., 5., 10., 20.]:

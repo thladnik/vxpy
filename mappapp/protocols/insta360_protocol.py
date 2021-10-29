@@ -24,7 +24,7 @@ class Insta360Protocol(StaticProtocol):
 
     _name = 'insta360'
 
-    def __init__(self, _glWindow):
-        super().__init__(_glWindow)
+    def __init__(self, *args, **kwargs):
+        super(StaticProtocol, self).__init__(*args, **kwargs)
         self.newPhase(duration=10**4)
         self.addVisual(Calibrated, dict(filename='insta1_virtMapsConverted'))

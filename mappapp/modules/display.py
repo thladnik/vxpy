@@ -24,16 +24,15 @@ from mappapp.api import get_time
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
-from mappapp import protocols
 from mappapp.core import process, ipc
-from mappapp.core import protocol
+from mappapp.core.protocol import AbstractProtocol, get_protocol
 from mappapp.core import visual
 
 
 class Display(process.AbstractProcess):
     name = Def.Process.Display
 
-    stimulus_protocol: protocol.AbstractProtocol = None
+    stimulus_protocol: AbstractProtocol = None
     stimulus_visual: visual.AbstractVisual = None
 
     _uniform_maps = dict()
@@ -77,9 +76,14 @@ class Display(process.AbstractProcess):
             Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
 
     def start_protocol(self):
-        self.stimulus_protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self.canvas)
+        _protocol = get_protocol(ipc.Control.Protocol[Def.ProtocolCtrl.name])
+        if _protocol is None:
+            # Controller should abort this
+            return
+
+        self.stimulus_protocol = _protocol()
         try:
-            self.stimulus_protocol.initialize()
+            self.stimulus_protocol.initialize_visuals(self.canvas)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())

@@ -23,8 +23,8 @@ from mappapp.visuals.spherical.calibration import BlackWhiteCheckerboard, Regula
 
 class Calibration16x16(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         self.add_phase(BlackWhiteCheckerboard, 10 ** 6,
                        {BlackWhiteCheckerboard.u_elevation_sp: 16,
@@ -33,8 +33,8 @@ class Calibration16x16(StaticProtocol):
 
 class CalibrationMultiple(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
 
         for num in range(5):
@@ -45,8 +45,8 @@ class CalibrationMultiple(StaticProtocol):
 
 class RegularMesh16x16(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         self.add_phase(RegularMesh, 10**6,
                        {RegularMesh.u_rows: 16,
@@ -55,8 +55,8 @@ class RegularMesh16x16(StaticProtocol):
 
 class RegularMesh32x32(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         self.add_phase(RegularMesh, 10**6,
                        {RegularMesh.u_rows: 32,

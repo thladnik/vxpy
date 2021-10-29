@@ -28,10 +28,10 @@ from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
 from mappapp import modules
-from mappapp import protocols
 from mappapp.api.dependency import register_camera_device, register_io_device, assert_device_requirements
 from mappapp.core import process, ipc
 from mappapp.core import routine
+from mappapp.core.protocol import get_protocol
 from mappapp.utils import misc
 from mappapp.core.attribute import Attribute
 
@@ -497,7 +497,14 @@ class Controller(process.AbstractProcess):
         # PREPARE_PROTOCOL
         if self.in_state(Def.State.PREPARE_PROTOCOL):
 
-            self.protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self)
+            protocol_path = ipc.Control.Protocol[Def.ProtocolCtrl.name]
+            _protocol = get_protocol(protocol_path)
+            if _protocol is None:
+                Logging.write(Logging.ERROR, f'Cannot get protocol {protocol_path}. Aborting ')
+                self.set_state(Def.State.PROTOCOL_ABORT)
+                return
+
+            self.protocol = _protocol()
 
             # Wait for processes to WAIT_FOR_PHASE (if they are not stopped)
             check = [not (ipc.in_state(Def.State.WAIT_FOR_PHASE, process_name))

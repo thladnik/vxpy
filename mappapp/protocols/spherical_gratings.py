@@ -25,8 +25,8 @@ from mappapp.visuals.planar.blank import Blank
 
 class StaticGratingDemo(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(10,50,10):
             self.add_phase(Blank, 3, {Blank.p_color: (0.0, 0.0, 0.0, 1.0)})
@@ -41,8 +41,8 @@ class StaticGratingDemo(StaticProtocol):
 
 class MovingGratingDemo(StaticProtocol):
 
-    def __init__(self, *args):
-        StaticProtocol.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(10,50,10):
             for v in np.arange(10,50,10):

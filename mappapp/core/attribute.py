@@ -94,6 +94,9 @@ def get_permanent_attributes(process_name=None):
     if process_name is None:
         process_name = ipc.Process.name
 
+    if process_name not in Attribute.to_file:
+        return []
+
     return Attribute.to_file[process_name]
 
 

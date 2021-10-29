@@ -23,9 +23,9 @@ from mappapp.api.attribute import ArrayAttribute, ArrayType, read_attribute
 from mappapp import Config
 from mappapp import Def
 from mappapp import Logging
-from mappapp import protocols
 from mappapp.core import process, ipc
 from mappapp.core.attribute import Attribute
+from mappapp.core.protocol import get_protocol
 
 
 class Io(process.AbstractProcess):
@@ -78,8 +78,17 @@ class Io(process.AbstractProcess):
         self.run(interval=1./Config.Io[Def.IoCfg.max_sr])
 
     def start_protocol(self):
-        self.protocol = protocols.load(ipc.Control.Protocol[Def.ProtocolCtrl.name])(self)
+        _protocol = get_protocol(ipc.Control.Protocol[Def.ProtocolCtrl.name])
+        if _protocol is None:
+            # Controller should abort this
+            return
 
+        self.stimulus_protocol = _protocol()
+        try:
+            self.stimulus_protocol.initialize_io()
+        except Exception as exc:
+            import traceback
+            print(traceback.print_exc())
     def start_phase(self):
         self.phase_is_active = 1
 

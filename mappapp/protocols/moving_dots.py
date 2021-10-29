@@ -26,8 +26,8 @@ from mappapp.visuals.planar.blank import Blank,Noise
 
 class MovingDotsTestProtocol1(StaticProtocol):
 
-    def __init__(self, _glWindow):
-        StaticProtocol.__init__(self, _glWindow)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         # np.random.seed(20)
         # dot_sizes = []

@@ -22,57 +22,57 @@ from mappapp.visuals.planar.calibration.calibration import Sinusoid2d
 
 class Checkerboard_sp10xsp10(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 10, Sinusoid2d.u_sf_vertical: 1. / 10, Sinusoid2d.u_checker_pattern: True})
 
 class Checkerboard_sp20xsp20(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 20, Sinusoid2d.u_sf_vertical: 1. / 20, Sinusoid2d.u_checker_pattern: True})
 
 class Checkerboard_sp20xsp40(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 20, Sinusoid2d.u_sf_vertical: 1. / 40, Sinusoid2d.u_checker_pattern: True})
 
 class Checkerboard_sp40xsp40(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 40, Sinusoid2d.u_sf_vertical: 1. / 40, Sinusoid2d.u_checker_pattern: True})
 
 class Checkerboard_sp80xsp40(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 80, Sinusoid2d.u_sf_vertical: 1. / 40, Sinusoid2d.u_checker_pattern: True})
 
 class Checkerboard_sp80xsp80(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 80, Sinusoid2d.u_sf_vertical: 1. / 80, Sinusoid2d.u_checker_pattern: True})
 
 
 class Sinusoid2d_sp10xsp10(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 10, Sinusoid2d.u_sf_vertical: 1. / 10, Sinusoid2d.u_checker_pattern: False})
 
 class Sinusoid2d_sp20xsp20(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
         self.add_phase(Sinusoid2d,10 ** 8,
                        {Sinusoid2d.u_sf_horizontal: 1. / 20, Sinusoid2d.u_sf_vertical: 1. / 20, Sinusoid2d.u_checker_pattern: False})

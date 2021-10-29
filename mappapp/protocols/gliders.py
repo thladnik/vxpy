@@ -22,8 +22,8 @@ from mappapp.visuals.spherical.glider import Glider2Point, Glider3Point
 
 class Glider2PPos(StaticProtocol):
 
-    def __init__(self, canvas):
-        StaticProtocol.__init__(self, canvas)
+    def __init__(self, *args, **kwargs):
+        StaticProtocol.__init__(self, *args, **kwargs)
 
         self.add_phase(Glider2Point, 10, {Glider2Point.p_parity: 1})
 
