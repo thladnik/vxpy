@@ -20,8 +20,12 @@ import sys
 if __name__ == '__main__':
 
     if 'setup' in sys.argv:
-        from vxpy.setup import setup_resources
-        setup_resources()
+        from vxpy import setup
+        setup.setup_resources()
+
+        # Download sample files for release
+        if 'nosamples' not in sys.argv:
+            setup.download_samples()
 
     elif 'configure' in sys.argv:
         from vxpy.configure.main import StartupConfiguration
