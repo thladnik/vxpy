@@ -48,10 +48,10 @@ class Gui(process.AbstractProcess):
 
     def prompt_shutdown_confirmation(self):
         reply = QtWidgets.QMessageBox.question(self.window, 'Confirm shutdown', 'Program is still busy. Shut down anyways?',
-                                               QtWidgets.QMessageBox.ButtonRole.RejectRole | QtWidgets.QMessageBox.ButtonRole.Yes,
-                                               QtWidgets.QMessageBox.ButtonRole.Cancel)
+                                               QtWidgets.QMessageBox.StandardButton.Cancel | QtWidgets.QMessageBox.StandardButton.Yes,
+                                               QtWidgets.QMessageBox.StandardButton.Cancel)
 
-        if reply == QtWidgets.QMessageBox.ButtonRole.Yes:
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
             ipc.rpc(modules.Controller.name, modules.Controller._force_shutdown)
 
     def _start_shutdown(self):
