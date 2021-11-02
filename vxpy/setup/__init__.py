@@ -1,4 +1,3 @@
-import os
 import shutil
 import sys
 import requests
@@ -9,6 +8,14 @@ from vxpy.setup import res
 
 
 def setup_resources():
+    # Create empty default folders
+    if not os.path.exists(PATH_LOG):
+        os.mkdir(PATH_LOG)
+    if not os.path.exists(PATH_SAMPLE):
+        os.mkdir(PATH_SAMPLE)
+    if not os.path.exists(PATH_TEMP):
+        os.mkdir(PATH_TEMP)
+
     # Copy all default resources
     src_dir = res.__path__[0]
     dst_dir = os.path.join(os.getcwd(), '.')

@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open('requirements.txt', 'r') as f:
     requirements = f.readlines()
@@ -6,11 +6,8 @@ with open('requirements.txt', 'r') as f:
 setup(
     name='vxpy',
     version='0.0.1',
-    packages=['vxpy', 'vxpy.api', 'vxpy.gui', 'vxpy.gui.io', 'vxpy.gui.camera', 'vxpy.gui.display',
-              'vxpy.lib', 'vxpy.lib.pyapi', 'vxpy.core', 'vxpy.configure', 'vxpy.configure.camera',
-              'vxpy.configure.display', 'vxpy.utils', 'vxpy.devices', 'vxpy.devices.camera',
-              'vxpy.devices.camera.tis', 'vxpy.devices.camera.virtual', 'vxpy.modules', 'vxpy.routines',
-              'vxpy.routines.io', 'vxpy.routines.camera', 'vxpy.routines.display', 'vxpy.setup'],
+    packages=find_packages(include=['vxpy', 'vxpy.*']),
+    include_package_data=True,
     url='',
     license='GPL 3',
     author='Tim Hladnik',
