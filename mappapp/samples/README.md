@@ -1,1 +1,0 @@
-*earth_uv_no_clouds_8k.jpg from http://www.shadedrelief.com/natural3/pages/textures.html
