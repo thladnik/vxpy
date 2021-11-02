@@ -1,4 +1,5 @@
 import cv2
+import h5py
 import numpy as np
 import os
 import time
@@ -60,67 +61,48 @@ class CameraDevice(AbstractCameraDevice):
         self.t_last = None
         self.i_last = None
         self.f_last = None
-        self._preload_file = False
+        self._preload_file = True
         self.res_x = None
         self.res_y = None
         self._data = None
         self._cap = None
         self._fps = None
         self.index = None
+        self._h5 = None
 
     def _get_filepath(self):
-        sample_file = _sample_files[self.info['model']]
-        return os.path.join(Def.Path.Sample, sample_file)
+        return os.path.join(Def.Path.Sample, 'samples_compr.h5')
 
     def open(self):
-        return os.path.exists(self._get_filepath())
+        if os.path.exists(self._get_filepath()):
+            h5 = h5py.File(self._get_filepath(), 'r')
+            contained = self.info['model'] in h5
+            h5.close()
+            return contained
+        return False
 
     def start_stream(self):
-        self._cap = cv2.VideoCapture(self._get_filepath())
-        self._fps = self._cap.get(cv2.CAP_PROP_FPS)
-        self._data = []
-
-        self.t_start = time.perf_counter()
-        self.t_last = time.perf_counter()
-        self.i_last = -1
-        self.f_last = None
-
-        # Extract resolution from format
-        # s = re.search('\((.*?)x(.*?)\)', self.format)
-        # self.res_x = int(s.group(1))
-        # self.res_y = int(s.group(2))
-        self.res_x, self.res_y = self._fmt.width, self._fmt.height
-
+        self._h5 = h5py.File(self._get_filepath(), 'r')
+        self._cap = self._h5[self.info['model']]
         if self._preload_file:
-            self.index = 0
-            while True:
-                ret, frame = self._cap.read()
-                if ret:
-                    self._data.append(frame[:self.res_y,:self.res_x,0])
-                else:
-                    break
-            self._data = np.array(self._data)
+            self._data = self._cap[:]
+        self.index = 0
+        self.res_x, self.res_y = self._fmt.width, self._fmt.height
 
     def snap_image(self, *args, **kwargs):
         pass
 
     def get_image(self):
-        # From previously loaded file
+        self.index += 1
+        if self._cap.shape[0] <= self.index:
+            self.index = 0
+
         if self._preload_file:
-            self.index += 1
-            if self._data.shape[0] <= self.index:
-                self.index = 0
-
-            return self._data[self.index]
-
-        # From live capture
-        ret, frame = self._cap.read()
-        if ret:
-            return frame[:self.res_y, :self.res_x]
+            # From preloaded data
+            return self._data[self.index][:self.res_y, :self.res_x]
         else:
-            # From start
-            self._cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            return self.get_image()
+            # From dataset
+            return self._cap[self.index][:self.res_y, :self.res_x]
 
     def get_formats(self):
         _fmts = [Format.from_str(fmt) for fmt in _formats[self.info['model']]]

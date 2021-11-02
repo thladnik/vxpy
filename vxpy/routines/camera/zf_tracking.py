@@ -289,7 +289,9 @@ class EyePositionDetection(CameraRoutine):
         if frame is None:
             return
 
-        frame = frame[:,:,0]
+        # Reduce to mono
+        if frame.ndim > 2:
+            frame = frame[:,:,0]
 
         # Write frame to buffer
         self.frame.write(frame)
