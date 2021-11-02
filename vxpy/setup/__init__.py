@@ -3,6 +3,7 @@ import shutil
 import sys
 import requests
 
+import vxpy
 from vxpy.Def import *
 from vxpy.setup import res
 
@@ -20,7 +21,7 @@ def setup_resources():
 
 
 def download_samples():
-    source_url = 'https://github.com/thladnik/vxPy/releases/download/v0.0.1-alpha/samples_compr.h5'
+    source_url = f'https://github.com/thladnik/vxPy/releases/download/v{vxpy.__version__}/samples_compr.h5'
     local_path = os.path.join(PATH_SAMPLE, 'samples_compr.h5')
 
     with open(local_path, 'wb') as fobj:
