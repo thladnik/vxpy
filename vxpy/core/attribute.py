@@ -22,7 +22,7 @@ import ctypes
 import multiprocessing as mp
 import numpy as np
 import typing
-from typing import Tuple
+from typing import Tuple, List
 
 from vxpy import Config
 from vxpy import Def
@@ -83,6 +83,14 @@ def write_to_file(instance, attr_name):
         Attribute.to_file[process_name].append(Attribute.all[attr_name])
 
 
+def get_attribute_names() -> List[str]:
+    return [n for n in Attribute.all.keys()]
+
+
+def get_attribute_list() -> List[Tuple[str, Attribute]]:
+    return [(k, v) for k,v in Attribute.all.items()]
+
+
 def get_attribute(attr_name):
     if attr_name not in Attribute.all:
         return None
@@ -121,6 +129,7 @@ class Attribute(ABC):
         self.name = name
         Attribute.all[name] = self
 
+        self.shape: tuple = None
         self._length = _length
         self._data = None
         self._index = mp.Value(ctypes.c_uint64)
@@ -380,6 +389,9 @@ class ObjectAttribute(Attribute):
 
         # Define detault length
         self._length = 1000
+
+        # Set default shape to 1
+        self.shape = (None, )
 
         # Create shared list
         self._data = ipc.Manager.list([None] * self._length)

@@ -36,6 +36,8 @@ def display_rpc(function, *args, **kwargs):
 def gui_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Gui, function, *args, **kwargs)
 
+def worker_rpc(function, *args, **kwargs):
+    ipc.rpc(Def.Process.Worker, function, *args, **kwargs)
 
 def io_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Io, function, *args, **kwargs)

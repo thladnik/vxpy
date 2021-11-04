@@ -115,3 +115,12 @@ class IoRoutine(Routine):
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
+
+
+class WorkerRoutine(Routine):
+
+    name = Def.Process.Worker
+
+    def __init__(self, *args, **kwargs):
+        Routine.__init__(self, *args, **kwargs)
+

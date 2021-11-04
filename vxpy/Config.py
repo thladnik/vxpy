@@ -22,4 +22,5 @@ Display: dict
 Camera: dict
 Gui: dict
 Io: dict
+Worker: dict
 Recording: dict

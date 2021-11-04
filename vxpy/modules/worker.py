@@ -37,7 +37,7 @@ class Worker(process.AbstractProcess):
 
         #self.schedule_task('readFrames', 1/100)
 
-        ### Run event loop
+        # Run event loop
         self.run(interval=1./10)
 
     def _load_task(self, task_name):
@@ -76,17 +76,4 @@ class Worker(process.AbstractProcess):
     def main(self):
 
         self._run_protocol()
-
-        for i, (task_name, task_time, task_interval) in enumerate(zip(self._scheduled_tasks,
-                                                                    self._scheduled_times,
-                                                                    self._task_intervals)):
-            ### If scheduled time is now
-            if task_time <= time():
-                Logging.write(Logging.DEBUG,'Run task {}'.format(task_time))
-
-                # Run
-                self.run_task(task_name)
-
-                ## Set next time
-                task_idx = self._scheduled_tasks.index(task_name)
-                self._scheduled_times[task_idx] = time() + self._task_intervals[task_idx]
+        self.update_routines()

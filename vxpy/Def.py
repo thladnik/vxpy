@@ -197,7 +197,6 @@ class DisplayCfg(Cfg):
 
 
 # GUI
-
 class GuiCfg(Cfg):
     name = Process.Gui.lower()
 
@@ -206,7 +205,6 @@ class GuiCfg(Cfg):
 
 
 # IO
-
 class IoCfg(Cfg):
     name = Process.Io.lower()
 
@@ -217,8 +215,14 @@ class IoCfg(Cfg):
     routines = 'json_routines'
 
 
-# Recording
+# Worker
+class WorkerCfg(Cfg):
+    name = Process.Worker.lower()
 
+    routines = 'json_routines'
+
+
+# Recording
 class RecCfg(Cfg):
     name = 'recording'
 

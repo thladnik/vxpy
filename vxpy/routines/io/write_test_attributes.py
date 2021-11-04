@@ -77,3 +77,19 @@ class RandomOnOff(IoRoutine):
         t = get_time()
         sig = int(t / 2) % 2
         self.test_onoff.write(sig)
+
+
+class SinesAddedWhiteNoise(IoRoutine):
+
+    def __init__(self, *args):
+        IoRoutine.__init__(self, *args)
+
+    def setup(self):
+        self.whitenoise = ArrayAttribute('test_sines_whitenoise', (1,), ArrayType.float64)
+
+    def initialize(self):
+        register_with_plotter('test_sines_whitenoise', axis=SinesAddedWhiteNoise.__name__)
+
+    def main(self, *args, **kwargs):
+        t = get_time()
+        self.whitenoise.write(3. * np.random.normal() + np.sin(t * np.pi * 20) + np.sin(t * np.pi * 180))

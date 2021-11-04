@@ -464,6 +464,7 @@ class Plotter(WindowWidget):
 
         self.plot_widget = pg.PlotWidget()
         self.plot_item: pg.PlotItem = self.plot_widget.plotItem
+        self.plot_item.setLabel('bottom', text='Time', units='s')
         self.layout().addWidget(self.plot_widget, 1, 0, 1, 5)
 
         self.legend_item = pg.LegendItem()

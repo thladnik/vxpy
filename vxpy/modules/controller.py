@@ -155,8 +155,10 @@ class Controller(process.AbstractProcess):
             _routines_to_load[Def.Process.Camera] = Config.Camera[Def.CameraCfg.routines]
         if Config.Display[Def.DisplayCfg.use]:
             _routines_to_load[Def.Process.Display] = Config.Display[Def.DisplayCfg.routines]
-        if Config.Io[Def.CameraCfg.use]:
+        if Config.Io[Def.IoCfg.use]:
             _routines_to_load[Def.Process.Io] = Config.Io[Def.IoCfg.routines]
+        if Config.Worker[Def.WorkerCfg.use]:
+            _routines_to_load[Def.Process.Worker] = Config.Worker[Def.WorkerCfg.routines]
 
         for process_name, routine_list in _routines_to_load.items():
             _routines[process_name] = dict()
