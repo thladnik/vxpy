@@ -73,14 +73,16 @@ class Window(QtWidgets.QMainWindow):
 
         # Set icon
         if sys.platform == 'win32':
-            self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
+            pass
+            # self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
         elif sys.platform == 'linux':
-            self.setWindowIcon(QtGui.QIcon('mappapp/testicon.png'))
+            pass
+            # self.setWindowIcon(QtGui.QIcon('mappapp/testicon.png'))
 
         self.subwindows = []
 
         # Set up main window
-        self.setWindowTitle('MappApp - a thing to do stuff')
+        self.setWindowTitle('vxPy - vision experiments in Python')
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.WindowType.Widget))
