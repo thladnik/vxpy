@@ -1,1 +1,1 @@
-recursive-include vxpy *.dll *.md *.ini
+recursive-include vxpy *.dll *.md *.ini *.frag *.vert *.glsl
