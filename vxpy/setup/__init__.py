@@ -15,6 +15,8 @@ def setup_resources():
         os.mkdir(PATH_SAMPLE)
     if not os.path.exists(PATH_TEMP):
         os.mkdir(PATH_TEMP)
+    if not os.path.exists(PATH_RECORDING_OUTPUT):
+        os.mkdir(PATH_RECORDING_OUTPUT)
 
     # Copy all default resources
     src_dir = res.__path__[0]
