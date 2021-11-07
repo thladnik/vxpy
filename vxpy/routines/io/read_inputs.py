@@ -21,7 +21,7 @@ import numpy as np
 
 from vxpy import Config
 from vxpy import Def
-from vxpy.api.attribute import ArrayAttribute, ArrayType, write_to_file, write_attribute
+from vxpy.api.attribute import ArrayAttribute, ArrayType, write_attribute
 from vxpy.core import routine, ipc
 from vxpy.routines.camera import zf_tracking
 from vxpy.api.ui import register_with_plotter
@@ -49,73 +49,19 @@ class ReadAll(routine.IoRoutine):
                 attr = ArrayAttribute(pid, (1,), ArrayType.float64)
             self.attributes[pid] = attr
 
-            # Add pin to be written to file
-            write_to_file(self, pid)
-
     def initialize(self):
         for pid, attr in self.attributes.items():
             axis = self.pin_configs[pid]['type']
+            # Plot in ui
             register_with_plotter(attr.name, axis=axis)
+            # Add pin to be written to file
+            attr.add_to_file()
 
     def main(self, **pins):
         for pid, pin in pins.items():
             if pid not in self.attributes:
                 continue
             write_attribute(pid, pin.read())
-
-
-###
-# TODO: update the following classes to work with current version
-
-class ReadAnalog(routine.IoRoutine):
-
-    def setup(self):
-
-        self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
-        self.pins = [pin for pin in self.pins if pin[-1] == 'a'] # Select just inputs to read
-
-        for pin_name, pin_num, pin_type in self.pins:
-            setattr(self.buffer, pin_name, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
-
-    def main(self, pin_data, device):
-        for pin_name, pin_num, pin_type in self.pins:
-            getattr(self.buffer, pin_name).write(pin_data[pin_name])
-
-
-class ReadDigital(routine.IoRoutine):
-
-    def __init__(self, *args, **kwargs):
-        routine.IoRoutine.__init__(self, *args, **kwargs)
-
-        self.pins = [tuple(s.split(':')) for s in Config.Io[Def.IoCfg.pins]]
-        self.pins = [pin for pin in self.pins if pin[-1] == 'i'] # Select just inputs to read
-
-        for pin_name, pin_num, pin_type in self.pins:
-            setattr(self.buffer, pin_name, routine.ArrayAttribute((1,), routine.ArrayDType.float64))
-
-    def main(self, pin_data, device):
-        for pin_name, pin_num, pin_type in self.pins:
-            getattr(self.buffer, pin_name).write(pin_data[pin_name])
-
-
-class TestTrigger(routine.IoRoutine):
-
-    def __init__(self, *args, **kwargs):
-        routine.IoRoutine.__init__(self, *args, **kwargs)
-
-        self.exposed.append(TestTrigger.do_trigger)
-
-        self.connect_to_trigger('saccade_trigger', zf_tracking.EyePositionDetection, TestTrigger.do_trigger01)
-
-    def main(self, *args, **kwargs):
-        pass
-
-    def do_trigger01(self):
-        print('I am so triggered!!! -.-"')
-
-    def do_trigger(self,there):
-        here = time.time()
-        print('Time sent {:.5f} // Time received {:.5f} // Time diff {:.5f}'.format(there,here,here-there))
 
 
 class TriggerLedArenaFlash(routine.IoRoutine):

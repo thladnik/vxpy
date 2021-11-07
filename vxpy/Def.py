@@ -46,6 +46,7 @@ PATH_PROTOCOL = 'protocols'
 PATH_RECORDING_OUTPUT = 'recordings'
 PATH_TEMP = 'temp'
 PATH_SAMPLE = 'samples'
+PATH_DEVICE = 'devices'
 
 # Subfolder names
 class Path:

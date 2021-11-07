@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-from typing import List, Tuple
+from typing import List, Dict, Tuple
 
 from vxpy import Config
 from vxpy import Def
@@ -36,12 +36,10 @@ class Frames(CameraRoutine):
             fmt = Format.from_str(dev['format'])
             self.device_list.append((dev['id'], fmt.width, fmt.height))
 
-        # Set up buffer frame attribute for each camera device
-        self.frames = {}
+        # Set one array attribute per camera device
+        self.frames: Dict[str, ArrayAttribute] = {}
         for device_id, res_x, res_y in self.device_list:
-            # Set one array attribute per camera device
-            attr_name = f'{device_id}_frame'
-            self.frames[attr_name] = ArrayAttribute(attr_name, (res_y, res_x), ArrayType.uint8)
+            self.frames[device_id] = ArrayAttribute(f'{device_id}_frame', (res_y, res_x), ArrayType.uint8)
 
     def initialize(self):
         for attr in self.frames.values():
@@ -53,14 +51,10 @@ class Frames(CameraRoutine):
             if frame is None:
                 continue
 
-            attr_name = f'{device_id}_frame'
-
             # Update shared attributes
             if frame.ndim > 2:
-                # getattr(self.buffer, f'{device_id}_frame').write(frame[:, :, 0])
-                self.frames[attr_name].write(frame[:, :, 0])
+                self.frames[device_id].write(frame[:, :, 0])
             else:
-                self.frames[attr_name].write(frame[:, :])
-                # getattr(self.buffer, f'{device_id}_frame').write(frame[:, :])
+                self.frames[device_id].write(frame[:, :])
 
 

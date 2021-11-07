@@ -22,6 +22,7 @@ import numpy as np
 from vxpy.api.attribute import ArrayAttribute, ArrayType, read_attribute
 from vxpy import Config
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy.core import process, ipc
 from vxpy.core.attribute import Attribute
@@ -46,7 +47,7 @@ class Io(process.AbstractProcess):
 
             try:
                 Logging.write(Logging.INFO, f'Set up device {did}')
-                device_type_module = importlib.import_module(f'mappapp.devices.{dev_config["type"]}')
+                device_type_module = importlib.import_module(f'{PATH_PACKAGE}.{PATH_DEVICE}.{dev_config["type"]}')
                 device_cls = getattr(device_type_module, dev_config["model"])
 
                 self._devices[did] = device_cls(dev_config)

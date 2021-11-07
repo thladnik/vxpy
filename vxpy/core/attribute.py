@@ -52,27 +52,43 @@ def build_attributes(attrs):
 def match_to_record_attributes(attr_name: str):
     attribute_filters = Config.Recording[Def.RecCfg.attributes]
 
-    for string in attribute_filters:
-        if '*' not in string:
-            if string == attr_name:
-                return True
-        elif string.startswith('*') and string.endswith('*'):
-            if string in attr_name:
-                return True
-        elif string.startswith('*'):
-            if attr_name.endswith(string.strip('*')):
-                return True
-        elif string.endswith('*'):
-            if attr_name.startswith(string.strip('*')):
-                return True
+    matched = False
+    for filt_string in attribute_filters:
 
-    return False
+        # Check if filter is negated
+        neg = False
+        if filt_string.startswith('~'):
+            filt_string = filt_string[1:]
+            neg = True
+
+        # Check if substring is matched
+        match = False
+        if '*' not in filt_string:
+            if filt_string == attr_name:
+                match = True
+        elif filt_string.startswith('*') and filt_string.endswith('*'):
+            if filt_string in attr_name:
+                match = True
+        elif filt_string.startswith('*'):
+            if attr_name.endswith(filt_string.strip('*')):
+                match = True
+        elif filt_string.endswith('*'):
+            if attr_name.startswith(filt_string.strip('*')):
+                match = True
+
+        # Return if negative match result was found
+        if match and neg:
+            return False
+
+        # Update
+        matched = matched or match
+
+    # No matches
+    return matched
 
 
 def write_to_file(instance, attr_name):
     process_name = instance.name
-
-    print(process_name, attr_name)
 
     if process_name not in Attribute.to_file:
         Attribute.to_file[process_name] = []
@@ -85,7 +101,7 @@ def write_to_file(instance, attr_name):
             Attribute.to_file[process_name].append(Attribute.all[attr_name])
             return
         else:
-            msg = 'Attribute does not match template list.'
+            msg = 'Excluded by template list.'
 
     Logging.write(Logging.WARNING, f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
 

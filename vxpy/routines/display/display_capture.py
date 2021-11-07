@@ -83,7 +83,9 @@ class Frames(DisplayRoutine):
         self.width = Config.Display[Def.DisplayCfg.window_width]
         self.height = Config.Display[Def.DisplayCfg.window_height]
         self.frame = ArrayAttribute('display_frame', (self.height, self.width, 3), ArrayType.uint8)
-        write_to_file(self, 'display_frame')
+
+    def initialize(self):
+        self.frame.add_to_file()
 
     def main(self, visual):
         if visual is None:
