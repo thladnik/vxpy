@@ -61,7 +61,7 @@ class CalculatePSD(WorkerRoutine):
 
         y = y.flatten()
 
-        f, p = signal.csd(y, y, fs=2 * 1./np.mean(np.diff(t)), nperseg=self.nperseg)
+        f, p = signal.csd(y, y, fs=1./np.mean(np.diff(t)), nperseg=self.nperseg)
 
         self.frequencies.write(f)
         self.power.write(p)

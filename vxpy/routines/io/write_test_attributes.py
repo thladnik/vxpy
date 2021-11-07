@@ -92,4 +92,4 @@ class SinesAddedWhiteNoise(IoRoutine):
 
     def main(self, *args, **kwargs):
         t = get_time()
-        self.whitenoise.write(3. * np.random.normal() + np.sin(t * np.pi * 20) + np.sin(t * np.pi * 180))
+        self.whitenoise.write(3. * np.random.normal() + np.sin(t * 2. * np.pi * 20) + np.sin(t * 2. *  np.pi * 180))
