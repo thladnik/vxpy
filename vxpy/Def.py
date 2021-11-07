@@ -43,7 +43,7 @@ PATH_DLL = os.path.join('lib', 'dll')
 PATH_LOG = 'logs'
 PATH_VISUAL = 'visuals'
 PATH_PROTOCOL = 'protocols'
-PATH_OUTPUT = 'recordings'
+PATH_RECORDING_OUTPUT = 'recordings'
 PATH_TEMP = 'temp'
 PATH_SAMPLE = 'samples'
 

@@ -34,7 +34,7 @@ from vxpy import Logging
 from vxpy.Logging import setup_log_queue
 from vxpy.core import routine, ipc
 from vxpy.core import container
-from vxpy import gui
+from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
 
 # Type hinting
@@ -183,7 +183,7 @@ class AbstractProcess:
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
                 # print(f'{self.name} says {self.t}')
-                api.gui_rpc(gui.ProcessMonitor.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
+                api.gui_rpc(ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
 
             # Wait until interval time is up
             dt = (self.local_t + interval) - time.perf_counter()

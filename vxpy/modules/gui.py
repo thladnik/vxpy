@@ -15,7 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-
 from PyQt6 import QtCore, QtGui, QtWidgets
 import sys
 
@@ -23,7 +22,8 @@ from vxpy import Config
 from vxpy import Def
 from vxpy import modules
 from vxpy.core import process, ipc
-from vxpy import gui
+from vxpy.gui.window_controls import LoggingWidget, ProcessMonitorWidget, RecordingWidget
+from vxpy.gui.window_widgets import CameraWindow, DisplayWindow, IoWindow, PlottingWindow
 
 
 class Gui(process.AbstractProcess):
@@ -73,11 +73,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Set icon
         if sys.platform == 'win32':
-            pass
-            # self.setWindowIcon(QtGui.QIcon('MappApp.ico'))
+            self.setWindowIcon(QtGui.QIcon('vxpy_icon.ico'))
         elif sys.platform == 'linux':
-            pass
-            # self.setWindowIcon(QtGui.QIcon('mappapp/testicon.png'))
+            self.setWindowIcon(QtGui.QIcon('vxpy_icon.png'))
 
         self.subwindows = []
 
@@ -100,17 +98,17 @@ class Window(QtWidgets.QMainWindow):
         self.centralWidget().layout().addWidget(self.controls)
 
         # Process monitor
-        self.process_monitor = gui.ProcessMonitor(self)
+        self.process_monitor = ProcessMonitorWidget(self)
         self.process_monitor.create_hooks()
         self.controls.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = gui.Recording(self)
+        self.recordings = RecordingWidget(self)
         self.recordings.create_hooks()
         self.controls.layout().addWidget(self.recordings)
 
         # Logger
-        self.log_display = gui.Logger(self)
+        self.log_display = LoggingWidget(self)
         self.controls.layout().addWidget(self.log_display)
 
         # Setup menubar
@@ -156,7 +154,7 @@ class Window(QtWidgets.QMainWindow):
         if Config.Display[Def.DisplayCfg.use] \
                 and Def.Process.Display in Config.Gui[Def.GuiCfg.addons] \
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
-            self.display = gui.Display(self)
+            self.display = DisplayWindow(self)
             self.display.create_hooks()
             self.display.move(x, self.controls.size().height())
             self.display.resize(*display_default_dims)
@@ -166,7 +164,7 @@ class Window(QtWidgets.QMainWindow):
         if Config.Camera[Def.CameraCfg.use] \
                 and Def.Process.Camera in Config.Gui[Def.GuiCfg.addons] \
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
-            self.camera = gui.Camera(self)
+            self.camera = CameraWindow(self)
             self.camera.create_hooks()
             self.camera.move(x + display_default_dims[0] + 75, self.controls.size().height())
             self.camera.resize(*camera_default_dims)
@@ -176,14 +174,14 @@ class Window(QtWidgets.QMainWindow):
         if Config.Io[Def.IoCfg.use] \
                 and Def.Process.Io in Config.Gui[Def.GuiCfg.addons] \
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
-            self.io = gui.Io(self)
+            self.io = IoWindow(self)
             self.io.create_hooks()
             self.io.move(x + display_default_dims[0] + camera_default_dims[0] + 75, self.controls.size().height())
             self.io.resize(*io_default_dims)
             self.subwindows.append(self.io)
 
         # Add Plotter
-        self.plotter = gui.Plotter(self)
+        self.plotter = PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
         if sys.platform == 'linux':
             self.plotter.move(x, h-plotter_default_height)

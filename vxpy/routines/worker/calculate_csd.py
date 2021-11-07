@@ -8,6 +8,8 @@ from vxpy import Logging
 
 class CalculatePSD(WorkerRoutine):
 
+    nperseg = 2 ** 10
+
     def __init__(self, *args, **kwargs):
         WorkerRoutine.__init__(self, *args, **kwargs)
 
@@ -42,7 +44,6 @@ class CalculatePSD(WorkerRoutine):
     def setup(self):
         self.input_signal: ArrayAttribute = None
         self.integration_window_width = None
-        self.nperseg = 2 ** 9
         psd_return_size = self.nperseg // 2 + 1
         self.frequencies = ArrayAttribute('psd_frequency', (psd_return_size, ), ArrayType.float64)
         self.power = ArrayAttribute('psd_power', (psd_return_size, ), ArrayType.float64)
@@ -55,7 +56,7 @@ class CalculatePSD(WorkerRoutine):
             return
 
         i, t, y = self.input_signal.read(self.integration_window_width)
-        if t[0] is None:
+        if t[0] is None or not isinstance(y, np.ndarray):
             return
 
         y = y.flatten()

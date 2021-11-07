@@ -28,12 +28,14 @@ from vxpy import Config
 from vxpy import Def
 from vxpy import Logging
 from vxpy import modules
+from vxpy.api import gui_rpc
 from vxpy.api.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import process, ipc
 from vxpy.core import routine
-from vxpy.core.protocol import get_protocol
-from vxpy.utils import misc
 from vxpy.core.attribute import Attribute
+from vxpy.core.protocol import get_protocol
+from vxpy.gui.window_controls import RecordingWidget
+from vxpy.utils import misc
 
 
 class Controller(process.AbstractProcess):
@@ -387,6 +389,8 @@ class Controller(process.AbstractProcess):
         Logging.write(Logging.INFO, 'Start recording')
         ipc.Control.Recording[Def.RecCtrl.active] = True
 
+        gui_rpc(RecordingWidget.show_lab_notebook)
+
         return True
 
     def pause_recording(self):
@@ -404,13 +408,7 @@ class Controller(process.AbstractProcess):
         if ipc.Control.Recording[Def.RecCtrl.active]:
             ipc.Control.Recording[Def.RecCtrl.active] = False
 
-        if not (Config.Gui[Def.GuiCfg.use]) and sessiondata is None:
-            # TODO: prompt user for sessiondata?
-            pass
-
-        # Save metadata and externally provided sessiondata
-        metadata = dict(hello1name='test', hello2val=123)
-        # TODO: compose proper metadata, append sessiondata and save to file
+        gui_rpc(RecordingWidget.close_lab_notebook)
 
         Logging.write(Logging.INFO, 'Stop recording')
         self.set_state(Def.State.IDLE)
