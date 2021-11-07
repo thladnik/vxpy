@@ -72,15 +72,22 @@ def match_to_record_attributes(attr_name: str):
 def write_to_file(instance, attr_name):
     process_name = instance.name
 
+    print(process_name, attr_name)
+
     if process_name not in Attribute.to_file:
         Attribute.to_file[process_name] = []
 
     if attr_name not in Attribute.all:
-        Logging.write(Logging.WARNING, f'Trying to write non-existent attribute {attr_name} to file')
-        return
+        msg = 'Attribute does not exist.'
+    else:
+        if match_to_record_attributes(attr_name):
+            Logging.write(Logging.INFO, f'Set attribute "{attr_name}" to be written to file. ')
+            Attribute.to_file[process_name].append(Attribute.all[attr_name])
+            return
+        else:
+            msg = 'Attribute does not match template list.'
 
-    if match_to_record_attributes(attr_name):
-        Attribute.to_file[process_name].append(Attribute.all[attr_name])
+    Logging.write(Logging.WARNING, f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
 
 
 def get_attribute_names() -> List[str]:
@@ -109,12 +116,6 @@ def get_permanent_attributes(process_name=None):
 
 
 def get_permanent_data(process_name=None):
-    if process_name is None:
-        process_name = ipc.Process.name
-
-    if process_name not in Attribute.to_file:
-        return None
-
     for attribute in get_permanent_attributes(process_name):
         yield attribute.name, *[v[0] for v in attribute.read()]
 
@@ -157,8 +158,8 @@ class Attribute(ABC):
     def get_times(self, last):
         return self._get_times(*self._get_range(last))
 
-    # def carry(self):
-    #     self.write(self._read(*self._get_range(last=1), use_lock=True))
+    def add_to_file(self):
+        write_to_file(ipc.Process, self.name)
 
     @abstractmethod
     def _read(self, start_idx, end_idx, use_lock):
@@ -182,8 +183,9 @@ class Attribute(ABC):
 
     def write(self, value):
         if np.isclose(self._last_time, ipc.Process.global_t, rtol=0., atol=ipc.Process.interval / 4.):
-            raise Exception(f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name}. '
-                            f'Last={self._last_time} / Current={ipc.Process.global_t}')
+            Logging.write(Logging.WARNING,
+                          f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name} during same iteration. '
+                          f'Last={self._last_time} / Current={ipc.Process.global_t}')
 
         internal_idx = self.index % self._length
 

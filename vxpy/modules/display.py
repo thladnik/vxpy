@@ -171,6 +171,9 @@ class Display(process.AbstractProcess):
             traceback.print_exc()
             # TODO: quit modules here and restart!
 
+    def _start_shutdown(self):
+        process.AbstractProcess._start_shutdown(self)
+
 
 class Canvas(app.Canvas):
 
@@ -218,5 +221,3 @@ class Canvas(app.Canvas):
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
 
-    def _start_shutdown(self):
-        process.AbstractProcess._start_shutdown(self)

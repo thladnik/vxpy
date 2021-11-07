@@ -21,18 +21,16 @@ from typing import List, Tuple
 from vxpy import Config
 from vxpy import Def
 from vxpy.api.routine import CameraRoutine
-from vxpy.api.attribute import ArrayAttribute, ArrayType, write_to_file
+from vxpy.api.attribute import ArrayAttribute, ArrayType
 from vxpy.core.camera import Format
 
 
 class Frames(CameraRoutine):
 
+    def __init__(self, *args, **kwargs):
+        CameraRoutine.__init__(self, *args, **kwargs)
+
     def setup(self):
-
-        # self.device_list = list(zip(Config.Camera[Def.CameraCfg.device_id],
-        #                             Config.Camera[Def.CameraCfg.res_x],
-        #                             Config.Camera[Def.CameraCfg.res_y]))
-
         self.device_list: List[Tuple[str, int, int]] = []
         for dev in Config.Camera[Def.CameraCfg.devices]:
             fmt = Format.from_str(dev['format'])
@@ -44,7 +42,10 @@ class Frames(CameraRoutine):
             # Set one array attribute per camera device
             attr_name = f'{device_id}_frame'
             self.frames[attr_name] = ArrayAttribute(attr_name, (res_y, res_x), ArrayType.uint8)
-            write_to_file(self, attr_name)
+
+    def initialize(self):
+        for attr in self.frames.values():
+            attr.add_to_file()
 
     def main(self, **frames):
         for device_id, frame in frames.items():

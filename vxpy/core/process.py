@@ -99,6 +99,28 @@ class AbstractProcess:
         # Set logger
         setup_log_queue(_log)
 
+        # Set configurations
+        if _configurations is not None:
+            Config.__dict__.update(_configurations)
+
+        # Set controls
+        if _controls is not None:
+            for ckey, control in _controls.items():
+                setattr(ipc.Control, ckey, control)
+
+        if _proxies is not None:
+            for pkey, proxy in _proxies.items():
+                setattr(ipc, pkey, proxy)
+
+        # Set states
+        if not (_states is None):
+            for skey, state in _states.items():
+                setattr(ipc.State, skey, state)
+
+        # Set additional attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
         # Set routines and let routine wrapper create hooks in modules instance and initialize buffers
         if isinstance(_routines, dict):
             self._routines = _routines
@@ -123,28 +145,6 @@ class AbstractProcess:
                     # Run local initialization for producer modules
                     if self.name == _routine.name:
                         _routine.initialize()
-
-        # Set configurations
-        if _configurations is not None:
-            Config.__dict__.update(_configurations)
-
-        # Set controls
-        if _controls is not None:
-            for ckey, control in _controls.items():
-                setattr(ipc.Control, ckey, control)
-
-        if _proxies is not None:
-            for pkey, proxy in _proxies.items():
-                setattr(ipc, pkey, proxy)
-
-        # Set states
-        if not (_states is None):
-            for skey, state in _states.items():
-                setattr(ipc.State, skey, state)
-
-        # Set additional attributes
-        for key, value in kwargs.items():
-            setattr(self, key, value)
 
         # Set modules state
         if not (getattr(ipc.State, self.name) is None):
@@ -302,7 +302,7 @@ class AbstractProcess:
                 # TODO: sync of starts could also be done with multiprocessing.Barrier
                 t = time.time()
                 if ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
-                    Logging.write(Logging.INFO, 'Start at {}'.format(t))
+                    Logging.write(Logging.DEBUG, 'Start at {}'.format(t))
                     self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
                     break
@@ -584,7 +584,7 @@ class AbstractProcess:
                 self.file_container.close()
                 self.file_container = None
 
-        # Call routine main function
+        # Call routine main functions
         for routine_name, routine in self._routines[self.name].items():
             routine.main(*args, **kwargs)
 

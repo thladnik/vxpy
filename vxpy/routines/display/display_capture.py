@@ -45,10 +45,11 @@ class DynamicParameters(DisplayRoutine):
     and registers them to be written to file"""
 
     def setup(self):
-
         # Set up shared variables
         self.parameters = ObjectAttribute('ddp')
-        write_to_file(self, 'ddp')
+
+    def initialize(self):
+        self.parameters.add_to_file()
 
     def main(self, visual: AbstractVisual):
         if visual is None:
