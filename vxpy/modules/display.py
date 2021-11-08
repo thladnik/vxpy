@@ -65,6 +65,7 @@ class Display(process.AbstractProcess):
                              decorate=False)
 
         # Run event loop
+        self.enable_idle_timeout = False
         self.run(interval=_interval)
 
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):

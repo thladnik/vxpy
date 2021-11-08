@@ -89,6 +89,7 @@ class SinesAddedWhiteNoise(IoRoutine):
 
     def initialize(self):
         register_with_plotter('test_sines_whitenoise', axis=SinesAddedWhiteNoise.__name__)
+        self.whitenoise.add_to_file()
 
     def main(self, *args, **kwargs):
         t = get_time()

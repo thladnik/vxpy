@@ -40,7 +40,7 @@ class ProcessMonitorWidget(IntegratedWidget):
 
     def _setup_ui(self):
 
-        self.setFixedWidth(240)
+        self.setFixedWidth(150)
 
         # Setup widget
         self.setLayout(QtWidgets.QGridLayout())
@@ -107,22 +107,37 @@ class RecordingWidget(IntegratedWidget):
 
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Recordings', *args)
-        # Create inner widget
-        self.setLayout(QtWidgets.QVBoxLayout())
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.setContentsMargins(0,0,0,0)
+        # self.setMaximumWidth(600)
+        # self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Minimum)
+        # Set object name for stylesheet access via class
+        self.wdgt = QtWidgets.QWidget()
+        self.wdgt.setLayout(QtWidgets.QHBoxLayout())
+        self.wdgt.setObjectName('RecordingWidget')
+        self.layout().addWidget(self.wdgt)
 
         self.exposed.append(RecordingWidget.show_lab_notebook)
         self.exposed.append(RecordingWidget.close_lab_notebook)
 
-        self.wdgt = QtWidgets.QWidget()
-        self.wdgt.setLayout(QtWidgets.QGridLayout())
-        self.wdgt.setObjectName('RecordingWidget')
-        self.layout().addWidget(self.wdgt)
-
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
 
         # Basic properties
+        self.default_controls_width = 300
+        self.default_notebook_width = 300
         self.setCheckable(True)
-        self.setMaximumWidth(400)
+
+        self.controls = QtWidgets.QWidget()
+        self.controls.setFixedWidth(self.default_controls_width)
+        self.controls.setLayout(QtWidgets.QGridLayout())
+        self.wdgt.layout().addWidget(self.controls)
+
+        self.lab_notebook = QtWidgets.QWidget()
+        self.lab_notebook.setLayout(QtWidgets.QGridLayout())
+        self.lab_notebook.setFixedWidth(self.default_notebook_width)
+        self.lab_notebook.hide()
+        self.wdgt.layout().addWidget(self.lab_notebook)
+        self.close_lab_notebook()
 
         # Current folder
         self.folder_wdgt = QtWidgets.QWidget()
@@ -146,10 +161,10 @@ class RecordingWidget(IntegratedWidget):
         self.rec_folder.setEnabled(False)
         self.folder_wdgt.layout().addWidget(self.rec_folder, 2, 1, 1, 2)
 
-        self.wdgt.layout().addWidget(self.folder_wdgt, 1, 0, 1, 2)
+        self.controls.layout().addWidget(self.folder_wdgt, 1, 0, 1, 2)
         self.hsep = QtWidgets.QFrame()
         self.hsep.setFrameShape(QtWidgets.QFrame.Shape.HLine)
-        self.wdgt.layout().addWidget(self.hsep, 2, 0, 1, 2)
+        self.controls.layout().addWidget(self.hsep, 2, 0, 1, 2)
 
         # GroupBox
         self.clicked.connect(self.toggle_enable)
@@ -158,7 +173,7 @@ class RecordingWidget(IntegratedWidget):
         self.left_wdgt = QtWidgets.QWidget()
         self.left_wdgt.setLayout(QtWidgets.QVBoxLayout())
         self.left_wdgt.layout().setContentsMargins(0,0,0,0)
-        self.wdgt.layout().addWidget(self.left_wdgt, 5, 0)
+        self.controls.layout().addWidget(self.left_wdgt, 5, 0)
 
         # Data compression
         self.left_wdgt.layout().addWidget(QLabel('Compression'))
@@ -195,8 +210,8 @@ class RecordingWidget(IntegratedWidget):
         # Update recorded attributes
         for match_string in Config.Recording[Def.RecCfg.attributes]:
             self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
-        self.rec_routines.layout().addItem(vSpacer)
-        self.wdgt.layout().addWidget(self.rec_routines, 5, 1)
+        # self.rec_routines.layout().addItem(vSpacer)
+        self.controls.layout().addWidget(self.rec_routines, 5, 1)
 
         # Set timer for GUI update
         self.tmr_update_gui = QtCore.QTimer()
@@ -215,11 +230,15 @@ class RecordingWidget(IntegratedWidget):
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def show_lab_notebook(self):
-        self.lab_notebook = QtWidgets.QWidget()
-        self.lab_notebook.resize(400,400)
+        self.setFixedWidth(self.default_controls_width + self.default_notebook_width)
         self.lab_notebook.show()
 
     def close_lab_notebook(self):
+        margins = self.controls.layout().contentsMargins().left() + \
+                  self.controls.layout().contentsMargins().right() + \
+                  self.wdgt.layout().contentsMargins().left() + \
+                  self.wdgt.layout().contentsMargins().right()
+        self.setFixedWidth(self.default_controls_width + margins)
         self.lab_notebook.close()
 
     def start_recording(self):
@@ -232,22 +251,21 @@ class RecordingWidget(IntegratedWidget):
         # First: pause recording
         ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
 
-        reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
-                                               QtWidgets.QMessageBox.StandardButton.Save | QtWidgets.QMessageBox.StandardButton.Discard,
-                                               QtWidgets.QMessageBox.StandardButton.Save)
-        if reply == QtWidgets.QMessageBox.StandardButton.Save:
-            print('Save metadata and stuff...')
-        else:
-            reply = QtWidgets.QMessageBox.question(self, 'Confirm discard', 'Are you sure you want to DISCARD all recorded data?',
-                                                   QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-                                                   QtWidgets.QMessageBox.StandardButton.No)
-            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-                print('Fine... I`ll trash it all..')
-            else:
-                print('Puh... good choice')
+        # reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
+        #                                        QtWidgets.QMessageBox.StandardButton.Save | QtWidgets.QMessageBox.StandardButton.Discard,
+        #                                        QtWidgets.QMessageBox.StandardButton.Save)
+        # if reply == QtWidgets.QMessageBox.StandardButton.Save:
+        #     pass
+        # else:
+        #     reply = QtWidgets.QMessageBox.question(self, 'Confirm discard', 'Are you sure you want to DISCARD all recorded data?',
+        #                                            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+        #                                            QtWidgets.QMessageBox.StandardButton.No)
+        #     if reply == QtWidgets.QMessageBox.StandardButton.Yes:
+        #         print('Fine... I`ll trash it all..')
+        #     else:
+        #         print('Puh... good choice')
 
         # Finally: stop recording
-        print('Stop recording...')
         ipc.rpc(Def.Process.Controller, modules.Controller.stop_manual_recording)
 
     def toggle_enable(self, newstate):
@@ -298,9 +316,9 @@ class RecordingWidget(IntegratedWidget):
         current_folder = ipc.Control.Recording[Def.RecCtrl.folder]
 
         if active and enabled:
-            self.wdgt.setStyleSheet('QWidget#RecordingWidget {background: rgba(179, 31, 18, 0.5);}')
+            self.setStyleSheet('QWidget#RecordingWidget {background: rgba(179, 31, 18, 0.5);}')
         else:
-            self.wdgt.setStyleSheet('QWidget#RecordingWidgetQGroupBox#RecGroupBox {background: rgba(0, 0, 0, 0.0);}')
+            self.setStyleSheet('QWidget#RecordingWidgetQGroupBox#RecGroupBox {background: rgba(0, 0, 0, 0.0);}')
 
         # Set enabled
         self.setCheckable(not(active) and not(bool(current_folder)))
@@ -331,6 +349,7 @@ class LoggingWidget(IntegratedWidget):
         IntegratedWidget.__init__(self, 'Log', *args)
 
         self.setLayout(QtWidgets.QHBoxLayout())
+        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
 
         self.txe_log = QtWidgets.QTextEdit()
         self.txe_log.setReadOnly(True)

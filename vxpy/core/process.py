@@ -565,7 +565,6 @@ class AbstractProcess:
 
                 # Open new file
                 Logging.write(Logging.DEBUG, f'Open new file {filepath}')
-                # self.h5_file = h5py.File(filepath, 'w')
                 self.file_container = container.NpBufferedH5File(filepath, 'w')
                 # self.file_container = container.H5File(filepath, 'a')
 

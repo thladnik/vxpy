@@ -19,9 +19,9 @@ _models = ['Multi_Fish_Eyes_Cam@20fps',
            'Single_Fish_Free_Swim_On_random_motion@100fps',
            'Single_Fish_OKR_embedded@30fps']
 
-_formats = {'Multi_Fish_Eyes_Cam@20fps': ['RGB8 (752x480)', 'Y800 (752x480)', 'RGB8 (640x480)', 'Y800 (640x480)',
-                                          'RGB8 (480x480)', 'Y800 (480x480)'],
-            'Single_Fish_Eyes_Cam@20fps': ['RGB8 (640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
+_formats = {'Multi_Fish_Eyes_Cam@20fps': ['RGB8(752x480)@20', 'Y800(752x480)@20', 'RGB8(640x480)@20', 'Y800(640x480)@20',
+                                          'RGB8(480x480)@20', 'Y800(480x480)@20'],
+            'Single_Fish_Eyes_Cam@20fps': ['RGB8(640x480)@115', 'Y800(600x380)@115', 'RGB8(600x380)@115'],
             'Single_Fish_Spontaneous_1@115fps': ['RGB8(640x480)@115', 'Y800(600x380)@115', 'RGB8(600x380)@115'],
             'Single_Fish_Spontaneous_2@115fps': ['RGB8(640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
             'Single_Fish_Spontaneous_3@115fps': ['RGB8(640x480)', 'Y800 (600x380)', 'RGB8 (600x380)'],
@@ -69,6 +69,9 @@ class CameraDevice(AbstractCameraDevice):
         self._fps = None
         self.index = None
         self._h5 = None
+
+    def __repr__(self):
+        return f'VirtualCameraDevice("{self.serial}", "{self.info["model"]}")'
 
     def _get_filepath(self):
         return os.path.join(Def.Path.Sample, 'samples_compr.h5')

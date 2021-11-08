@@ -59,12 +59,12 @@ class DisplayPSD(AddonWidget):
 
         # Start timer
         self.plot_timer = QtCore.QTimer()
-        self.plot_timer.setInterval(1000 // 20)
+        self.plot_timer.setInterval(1000 // 10)
         self.plot_timer.timeout.connect(self.update_plot)
         self.plot_timer.start()
 
         self.ui_timer = QtCore.QTimer()
-        self.ui_timer.setInterval(1000 // 200)
+        self.ui_timer.setInterval(1000 // 2)
         self.ui_timer.timeout.connect(self.update_ui)
         self.ui_timer.start()
 

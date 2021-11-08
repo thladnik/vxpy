@@ -135,6 +135,7 @@ class Controller(process.AbstractProcess):
             msg_type = Logging.WARNING
         else:
             msg_type = Logging.INFO
+        print(msg)
         Logging.write(msg_type, msg)
 
         # Recording

@@ -40,10 +40,10 @@ class Camera(process.AbstractProcess):
             device_id = config['id']
             device = open_device(config)
             if device.open():
-                Logging.write(Logging.INFO, f'Using camera {config} as \"{device_id}\"')
+                Logging.write(Logging.INFO, f'Use {device} as \"{device_id}\"')
             else:
-                Logging.write(Logging.WARNING, f'Unable to use camera {config} as \"{device_id}\"' 
-                                               '// Exception: {exc}')
+                # TODO: add more info for user
+                Logging.write(Logging.WARNING, f'Unable to use {device} as \"{device_id}\"')
                 continue
 
             # Save to dictionary and start

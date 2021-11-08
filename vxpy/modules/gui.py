@@ -149,6 +149,8 @@ class Window(QtWidgets.QMainWindow):
 
         # Optional sub windows
 
+        row2_yoffset = -20
+        row2_xoffset = 10
 
         # Display
         if Config.Display[Def.DisplayCfg.use] \
@@ -156,7 +158,7 @@ class Window(QtWidgets.QMainWindow):
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
             self.display = DisplayWindow(self)
             self.display.create_hooks()
-            self.display.move(x, self.controls.size().height())
+            self.display.move(x + row2_xoffset, self.controls.size().height() + row2_yoffset)
             self.display.resize(*display_default_dims)
             self.subwindows.append(self.display)
 
@@ -166,7 +168,7 @@ class Window(QtWidgets.QMainWindow):
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
             self.camera = CameraWindow(self)
             self.camera.create_hooks()
-            self.camera.move(x + display_default_dims[0] + 75, self.controls.size().height())
+            self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset, self.controls.size().height() + row2_yoffset)
             self.camera.resize(*camera_default_dims)
             self.subwindows.append(self.camera)
 
@@ -176,7 +178,7 @@ class Window(QtWidgets.QMainWindow):
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
             self.io = IoWindow(self)
             self.io.create_hooks()
-            self.io.move(x + display_default_dims[0] + camera_default_dims[0] + 75, self.controls.size().height())
+            self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset, self.controls.size().height() + row2_yoffset)
             self.io.resize(*io_default_dims)
             self.subwindows.append(self.io)
 
@@ -193,6 +195,13 @@ class Window(QtWidgets.QMainWindow):
         self.subwindows.append(self.plotter)
 
         self.show()
+
+    def get_display_size(self):
+        return self.display.size().width(), self.display.size().height()
+
+    def get_camera_size(self):
+        return self.camera.size().width(), self.camera.size().height()
+
 
     def restart_camera(self):
         ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
