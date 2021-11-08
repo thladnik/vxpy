@@ -1,1 +1,1 @@
-from .planar_grating import BlackAndWhiteGrating, WhiteAndBlackGrating
+from .planar_grating import BlackAndWhiteGrating

@@ -1,39 +1,37 @@
-// spherical/grating.frag
+// Constants
+const float PI = 3.14159265359;
 
-const float c_pi = 3.14159265359;
-
-uniform float u_stime;
-uniform int u_waveform;
+// Uniform input
+uniform int p_shape;
+uniform int p_type;
 uniform float u_spat_period;
 uniform float u_ang_velocity;
-uniform int u_direction;
+uniform float u_time;
 
+// Input
 varying float v_azimuth;
 varying float v_elevation;
 
+// Main
+void main() {
 
-void main()
-{
-
-    // Checkerboard
-    float c;
-    //
-    if (u_direction == 1) {
-        c = sin(1.0/(u_spat_period/360.0) * v_elevation + u_stime * u_ang_velocity/u_spat_period *  2.0 * c_pi);
+    // Set position to be used
+    float p;
+    if (p_type == 1) {
+        p = v_elevation;
     } else {
-        c = sin(1.0/(u_spat_period/360.0) * v_azimuth + u_stime * u_ang_velocity/u_spat_period * 2.0 * c_pi);
+        p = v_azimuth;
     }
 
-    // If shape is rectangular: threshold sine wave
-    if (u_waveform == 1) {
-        if (c > 0) {
-           c = 1.0;
-        } else {
-             c = 0.0;
-        }
+    // Calculate brightness using position
+    float c = sin(1.0/(u_spat_period/360.0) * p + u_time * u_ang_velocity/u_spat_period *  2.0 * PI);
+
+    // If waveform is rectangular (1): apply threshold to brightness
+    if (p_shape == 1) {
+        c = step(c, 0.);
     }
 
-    // Final color
+    // Set final color
     gl_FragColor = vec4(c, c, c, 1.0);
 
 }

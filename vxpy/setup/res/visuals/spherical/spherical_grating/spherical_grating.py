@@ -17,26 +17,41 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from vispy import gloo
 
-from vxpy.core import visual
+from vxpy.api.visual import SphericalVisual
 from vxpy.utils import sphere
 
 
-class BlackWhiteGrating(visual.SphericalVisual):
+class BlackWhiteGrating(SphericalVisual):
+    # (optional) Add a short description
+    description = 'Spherical black und white contrast grating stimulus'
 
-    u_waveform = 'u_waveform'
-    u_direction = 'u_direction'
+    # (optional) Define names for used variables
+    p_shape = 'p_shape'
+    p_type = 'p_type'
     u_ang_velocity = 'u_ang_velocity'
     u_spat_period = 'u_spat_period'
 
-    interface = [(u_waveform, 'rectangular', 'sinusoidal'),
-                 (u_direction, 'horizontal', 'vertical'),
-                 (u_ang_velocity, 5., 0., 100., {'step_size': 1.}),
-                 (u_spat_period, 40., 2., 360., {'step_size': 1.})]
+    # (optional) Define parameters of an interface
+    interface = [
+        # Name, 'value1', 'value2', 'value3'
+        (p_shape, 'rectangular', 'sinusoidal'),
+        (p_type, 'rotation', 'translation'),
+        # Name, default, min, max, additional info
+        (u_ang_velocity, 5., 0., 100., {'step_size': 1.}),
+        (u_spat_period, 40., 2., 360., {'step_size': 1.})]
 
     def __init__(self, *args):
-        visual.SphericalVisual.__init__(self, *args)
+        """Black und white contrast grating stimulus on a sphere
 
-        # Set up sphere
+        :param p_shape: <string> shape of grating; either 'rectangular' or 'sinusoidal'; rectangular is a zero-rectified sinusoidal
+        :param p_type: <string> motion type of grating; either 'rotation' or 'translation'
+        :param u_lin_velocity: <float> linear velocity of grating in [mm/s]
+        :param u_spat_period: <float> spatial period of the grating in [mm]
+        :param u_time: <float> time elapsed since start of visual [s]
+        """
+        SphericalVisual.__init__(self, *args)
+
+        # Set up 3d model of sphere
         self.sphere = sphere.UVSphere(azim_lvls=60, elev_lvls=30)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
@@ -47,23 +62,30 @@ class BlackWhiteGrating(visual.SphericalVisual):
         vert = self.load_vertex_shader('./spherical_grating.vert')
         frag = self.load_shader('./spherical_grating.frag')
         self.grating = gloo.Program(vert, frag)
+
+    def initialize(self, **params):
+        # Reset u_time to 0 on each visual initialization
+        self.grating['u_time'] = 0.0
+
+        # Set positions with buffers
         self.grating['a_position'] = self.position_buffer
         self.grating['a_azimuth'] = self.azimuth_buffer
         self.grating['a_elevation'] = self.elevation_buffer
 
-    def initialize(self, **params):
-        self.grating['u_stime'] = 0.0
-
-        self.update(**params)
-
     def render(self, dt):
-        self.grating['u_stime'] += dt
+        # Add elapsed time to u_time
+        self.grating['u_time'] += dt
 
+        # Apply default transforms to the program for mapping according to hardware calibration
         self.apply_transform(self.grating)
+
+        # Draw the actual visual stimulus using the indices of the  triangular faces
         self.grating.draw('triangles', self.index_buffer)
 
-    def parse_u_waveform(self, waveform):
+    @staticmethod
+    def parse_p_shape(waveform):
         return 1 if waveform == 'rectangular' else 2  # 'sinusoidal'
 
-    def parse_u_direction(self, direction):
-        return 1 if direction == 'vertical' else 2  # 'horizontal'
+    @staticmethod
+    def parse_p_type(direction):
+        return 1 if direction == 'translation' else 2  # 'horizontal'

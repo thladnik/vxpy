@@ -29,8 +29,8 @@ class ShowSFRange(StaticProtocol):
 
         for sp in np.arange(1,4):
             self.add_phase(BWG, 5,
-                           {BWG.u_direction: 'horizontal',
-                            BWG.u_shape: 'rectangular',
+                           {BWG.p_direction: 'horizontal',
+                            BWG.p_shape: 'rectangular',
                             BWG.u_spat_period: sp,
                             BWG.u_lin_velocity: 1})
 
@@ -43,7 +43,7 @@ class Stresstest(StaticProtocol):
         for sp in np.arange(10.0, 30.0, 4.0):
             for v in np.arange(2, 10, 2):
                 self.add_phase(BWG, 5,
-                               {BWG.u_direction: 'horizontal',
-                                BWG.u_shape: 'rectangular',
+                               {BWG.p_direction: 'horizontal',
+                                BWG.p_shape: 'rectangular',
                                 BWG.u_spat_period: sp,
                                 BWG.u_lin_velocity: v})

@@ -30,12 +30,11 @@ class VerticalXYPlane:
         x = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)
         y = np.linspace(-1.0, 1.0, sample_rate, endpoint=True)
 
-
         coordsX, coordsY = np.meshgrid(x, y)
         coordsX = coordsX.flatten()
         coordsY = coordsY.flatten()
 
-        self.a_position = np.array([coordsX, coordsY, np.zeros(sample_rate**2)]).T
+        self.a_position = np.ascontiguousarray([coordsX, coordsY, np.zeros(sample_rate**2)], dtype=np.float32).T
 
         ### Set indices
         idcs = list()
@@ -43,5 +42,5 @@ class VerticalXYPlane:
             for j in np.arange(sample_rate):
                 idcs.append([i * sample_rate + j, i * sample_rate + j + 1, (i+1) * sample_rate + j + 1])
                 idcs.append([i * sample_rate + j, (i+1) * sample_rate + j, (i+1) * sample_rate + j + 1])
-        self.indices = np.array(idcs).flatten()
+        self.indices = np.ascontiguousarray(idcs, dtype=np.uint32).flatten()
 
