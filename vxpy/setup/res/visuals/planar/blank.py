@@ -32,7 +32,7 @@ class Clear(visual.PlanarVisual):
     def __init__(self, *args, **params):
         visual.PlanarVisual.__init__(self, *args)
 
-        self.plane = plane.VerticalXYPlane()
+        self.plane = plane.XYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
@@ -75,7 +75,7 @@ class Blank(visual.PlanarVisual):
     def __init__(self, *args, **params):
         visual.PlanarVisual.__init__(self, *args)
 
-        self.plane = plane.VerticalXYPlane()
+        self.plane = plane.XYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
         self.blank = gloo.Program(self.parse_vertex_shader(self._vert),
@@ -135,7 +135,7 @@ class Noise(visual.PlanarVisual):
     def __init__(self, *args, **params):
         visual.PlanarVisual.__init__(self, *args)
 
-        self.plane = plane.VerticalXYPlane()
+        self.plane = plane.XYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
         self.blank = gloo.Program(self.parse_vertex_shader(self._vert),
