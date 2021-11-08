@@ -31,7 +31,7 @@ def find_config_for_camera_id(_id):
     for config in Config.Camera[Def.CameraCfg.devices]:
         if config['id'] == _id:
             return config
-        return None
+    return None
 
 
 def get_devices(reload=False) -> Dict[str, AbstractCameraDevice]:

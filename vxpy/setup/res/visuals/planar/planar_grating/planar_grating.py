@@ -54,7 +54,7 @@ class BlackAndWhiteGrating(PlanarVisual):
         PlanarVisual.__init__(self, *args)
 
         # Set up model of a 2d plane
-        self.plane_2d = plane.VerticalXYPlane()
+        self.plane_2d = plane.XYPlane()
 
         # Get vertex positions and corresponding face indices
         faces = self.plane_2d.indices
