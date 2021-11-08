@@ -124,8 +124,8 @@ class AbstractProcess:
         # Set routines and let routine wrapper create hooks in modules instance and initialize buffers
         if isinstance(_routines, dict):
             self._routines = _routines
-
-            for process_routines in self._routines.values():
+            if self.name in self._routines:
+                process_routines = self._routines[self.name]
                 for _routine in process_routines.values():
                     for fun in _routine.exposed:
                         try:
@@ -133,18 +133,16 @@ class AbstractProcess:
                         except:
                             # This is a workaround. Please do not remove or you'll break the GUI.
                             # In order for some IPC features to work the, AbstractProcess init has to be
-                            # called **before** the PyQt6.QtWidgets.QMainWindow init in the GUI modules.
+                            # called **before** the PySide6.QtWidgets.QMainWindow init in the GUI modules.
                             # Doing this, however, causes an exception about failing to call
                             # the QMainWindow super-class init, since "createHooks" directly sets attributes
                             # on the new, uninitialized QMainWindow sub-class.
                             # Catching this (unimportant) exception prevents a crash.
                             pass
 
-                    _routine._connect_triggers(_routines)
-
                     # Run local initialization for producer modules
-                    if self.name == _routine.name:
-                        _routine.initialize()
+                    _routine._connect_triggers(_routines)
+                    _routine.initialize()
 
         # Set modules state
         if not (getattr(ipc.State, self.name) is None):
