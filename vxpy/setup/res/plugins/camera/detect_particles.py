@@ -32,10 +32,10 @@ class ParticleDetection(CameraRoutine):
     def __init__(self, *args, **kwargs):
         CameraRoutine.__init__(self, *args, **kwargs)
 
-    def setup(self):
         # (optional) Make sure right camera is configured (easier debugging)
         require_camera_device('multiple_fish')
 
+    def setup(self):
         # Get camera dimensions
         config = find_config_for_camera_id('multiple_fish')
         fmt = Format.from_str(config['format'])
