@@ -1,4 +1,5 @@
 
+import os
 from os.path import abspath
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtWidgets import QLabel
@@ -122,6 +123,7 @@ class RecordingWidget(IntegratedWidget):
 
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
 
+        self.lab_nb_folder = None
         # Basic properties
         self.default_controls_width = 300
         self.default_notebook_width = 300
@@ -134,7 +136,12 @@ class RecordingWidget(IntegratedWidget):
 
         self.lab_notebook = QtWidgets.QWidget()
         self.lab_notebook.setLayout(QtWidgets.QGridLayout())
-        self.lab_notebook.setFixedWidth(self.default_notebook_width)
+        self.lab_notebook.layout().addWidget(QtWidgets.QLabel('Experimenter'), 0, 0)
+        self.nb_experimenter = QtWidgets.QLineEdit()
+        self.lab_notebook.layout().addWidget(self.nb_experimenter, 1, 0)
+        self.lab_notebook.layout().addWidget(QtWidgets.QLabel('Notes'), 2, 0)
+        self.nb_notes = QtWidgets.QTextEdit()
+        self.lab_notebook.layout().addWidget(self.nb_notes, 3, 0, 1, 2)
         self.lab_notebook.hide()
         self.wdgt.layout().addWidget(self.lab_notebook)
         self.close_lab_notebook()
@@ -231,6 +238,7 @@ class RecordingWidget(IntegratedWidget):
 
     def show_lab_notebook(self):
         self.setFixedWidth(self.default_controls_width + self.default_notebook_width)
+        self.lab_nb_folder = ipc.Control.Recording[Def.RecCtrl.folder]
         self.lab_notebook.show()
 
     def close_lab_notebook(self):
@@ -239,6 +247,13 @@ class RecordingWidget(IntegratedWidget):
                   self.wdgt.layout().contentsMargins().left() + \
                   self.wdgt.layout().contentsMargins().right()
         self.setFixedWidth(self.default_controls_width + margins)
+        if self.lab_nb_folder is not None:
+            experimenter = self.nb_experimenter.text()
+            notes = self.nb_notes.toPlainText()
+            with open(os.path.join(self.lab_nb_folder, 'lab_notebook.txt'), 'w') as f:
+                f.write(f'Experimenter: {experimenter}\n---\nNotes\n{notes}')
+            self.lab_nb_folder = None
+        self.nb_notes.clear()
         self.lab_notebook.close()
 
     def start_recording(self):
