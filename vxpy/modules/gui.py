@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 import sys
 
 from vxpy import Config
@@ -83,7 +83,7 @@ class Window(QtWidgets.QMainWindow):
         self.setWindowTitle('vxPy - vision experiments in Python')
 
         # Setup central widget
-        self.setCentralWidget(QtWidgets.QWidget(parent=self, flags=QtCore.Qt.WindowType.Widget))
+        self.setCentralWidget(QtWidgets.QWidget(parent=self, f=QtCore.Qt.WindowType.Widget))
         self.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
         self.screenGeo = ipc.Process.app.primaryScreen().geometry()
@@ -110,38 +110,6 @@ class Window(QtWidgets.QMainWindow):
         # Logger
         self.log_display = LoggingWidget(self)
         self.controls.layout().addWidget(self.log_display)
-
-        # Setup menubar
-        self.setMenuBar(QtWidgets.QMenuBar())
-        # Menu windows
-        self.menu_windows = QtWidgets.QMenu('Windows')
-        self.menuBar().addMenu(self.menu_windows)
-        self.window_toggles = []
-        for subwin in self.subwindows:
-            self.window_toggles.append(QtGui.QAction(f'Toggle {subwin.windowTitle()}'))
-            self.window_toggles[-1].triggered.connect(subwin.toggle_visibility)
-            self.menu_windows.addAction(self.window_toggles[-1])
-        # Menu processes
-        self.menu_process = QtWidgets.QMenu('Processes')
-        self.menuBar().addMenu(self.menu_process)
-        self.menuBar().addMenu(self.menu_windows)
-        # Restart camera
-        self.menu_process.restart_camera = QtGui.QAction('Restart camera')
-        self.menu_process.restart_camera.triggered.connect(self.restart_camera)
-        self.menu_process.addAction(self.menu_process.restart_camera)
-        # Restart display
-        self.menu_process.restart_display = QtGui.QAction('Restart display')
-        self.menu_process.restart_display.triggered.connect(self.restart_display)
-        self.menu_process.addAction(self.menu_process.restart_display)
-
-        # Bind shortcuts
-        # Restart display modules
-        self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
-        self.menu_process.restart_display.setAutoRepeat(False)
-        # Restart camera modules
-        if Config.Camera[Def.CameraCfg.use]:
-            self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
-            self.menu_process.restart_camera.setAutoRepeat(False)
 
         # Set geometry
         self.move(x, y)
@@ -193,6 +161,38 @@ class Window(QtWidgets.QMainWindow):
             self.plotter.resize(w, plotter_default_height + int(0.05 * h))
         self.plotter.create_hooks()
         self.subwindows.append(self.plotter)
+
+        # Setup menubar
+        self.setMenuBar(QtWidgets.QMenuBar())
+        # Menu windows
+        self.menu_windows = QtWidgets.QMenu('Windows')
+        self.menuBar().addMenu(self.menu_windows)
+        self.window_toggles = []
+        for subwin in self.subwindows:
+            self.window_toggles.append(QtGui.QAction(f'Toggle {subwin.windowTitle()}'))
+            self.window_toggles[-1].triggered.connect(subwin.toggle_visibility)
+            self.menu_windows.addAction(self.window_toggles[-1])
+        # Menu processes
+        self.menu_process = QtWidgets.QMenu('Processes')
+        self.menuBar().addMenu(self.menu_process)
+        self.menuBar().addMenu(self.menu_windows)
+        # Restart camera
+        self.menu_process.restart_camera = QtGui.QAction('Restart camera')
+        self.menu_process.restart_camera.triggered.connect(self.restart_camera)
+        self.menu_process.addAction(self.menu_process.restart_camera)
+        # Restart display
+        self.menu_process.restart_display = QtGui.QAction('Restart display')
+        self.menu_process.restart_display.triggered.connect(self.restart_display)
+        self.menu_process.addAction(self.menu_process.restart_display)
+
+        # Bind shortcuts
+        # Restart display modules
+        self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
+        self.menu_process.restart_display.setAutoRepeat(False)
+        # Restart camera modules
+        if Config.Camera[Def.CameraCfg.use]:
+            self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
+            self.menu_process.restart_camera.setAutoRepeat(False)
 
         self.show()
 

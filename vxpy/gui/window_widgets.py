@@ -1,8 +1,8 @@
 
 import h5py
 import numpy as np
-from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtWidgets import QLabel
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from vxpy import Config

@@ -19,7 +19,7 @@ import configparser
 import importlib
 import json
 import os
-from PyQt6 import QtCore
+from PySide6 import QtCore
 
 from vxpy import Def
 from vxpy.Def import *

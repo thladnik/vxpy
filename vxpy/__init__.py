@@ -27,7 +27,7 @@ from vxpy.configure import acc
 
 def set_vispy_env():
     if sys.platform == 'win32':
-        app.use_app('PyQt6')
+        app.use_app('PySide6')
         gloo.gl.use_gl('gl2')
 
     elif sys.platform == 'linux':

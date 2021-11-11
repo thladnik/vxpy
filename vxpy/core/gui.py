@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
-from PyQt6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from vxpy import Config
 from vxpy import Def
@@ -61,7 +61,7 @@ class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget):
 class WindowWidget(QtWidgets.QWidget, ExposedWidget):
 
     def __init__(self, group_name, main):
-        QtWidgets.QWidget.__init__(self, main, flags=QtCore.Qt.WindowType.Window)
+        QtWidgets.QWidget.__init__(self, main, f=QtCore.Qt.WindowType.Window)
         self.setWindowTitle(group_name)
         self.main: Gui = main
 

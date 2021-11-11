@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import cv2
 import numpy as np
-from PyQt6 import QtWidgets
+from PySide6 import QtWidgets
 import pyqtgraph as pg
 
 from vxpy.api.attribute import ArrayAttribute, ArrayType, read_attribute

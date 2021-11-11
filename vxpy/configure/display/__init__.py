@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
-from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtGui import QPainter, QColor, QFont
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
 from vxpy import Config
@@ -130,7 +130,7 @@ class ScreenSelection(QtWidgets.QGroupBox):
     def mouseDoubleClickEvent(self, *args, **kwargs):
         for i, (screen_norm, screen) in enumerate(zip(self.screens_norm, self.screens)):
             rect = QtCore.QRectF(*screen_norm)
-            from PyQt6 import QtGui
+            from PySide6 import QtGui
             ev = QtGui.QMouseEvent()
             ev.pos().x()
 

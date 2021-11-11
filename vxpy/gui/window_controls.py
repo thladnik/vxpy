@@ -1,8 +1,8 @@
 
 import os
 from os.path import abspath
-from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtWidgets import QLabel
+from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6.QtWidgets import QLabel
 
 from vxpy import Config
 from vxpy import Def

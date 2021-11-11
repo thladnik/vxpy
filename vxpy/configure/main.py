@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from configparser import ConfigParser
 import os
-from PyQt6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from vxpy import Config
 from vxpy import Def
@@ -53,7 +53,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                      Def.IoCfg.name: ModuleWidget,
                      Def.RecCfg.name: ModuleWidget}
 
-    sig_reload_config = QtCore.pyqtSignal()
+    # sig_reload_config = QtCore.pyqtSignal()
 
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)

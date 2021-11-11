@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import importlib
 import inspect
 import os
-from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtWidgets import QLabel
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtWidgets import QLabel
 import time
 from typing import Any, Dict
 

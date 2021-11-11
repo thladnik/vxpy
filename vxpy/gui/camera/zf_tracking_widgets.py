@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
-from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtWidgets import QLabel
+from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from vxpy import Def

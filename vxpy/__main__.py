@@ -30,7 +30,7 @@ if __name__ == '__main__':
     elif 'configure' in sys.argv:
         from vxpy.configure.main import StartupConfiguration
         from vxpy.configure import acc
-        from PyQt6 import QtWidgets
+        from PySide6 import QtWidgets
 
         acc.app = QtWidgets.QApplication([])
         acc.main = StartupConfiguration()
