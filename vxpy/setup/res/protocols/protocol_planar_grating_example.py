@@ -20,7 +20,7 @@ import numpy as np
 
 from vxpy.core.protocol import StaticProtocol
 
-from visuals.planar.planar_grating import BlackAndWhiteGrating as BWG
+from visuals.planar_grating import BlackAndWhiteGrating as BWG
 
 class ShowSFRange(StaticProtocol):
 

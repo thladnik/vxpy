@@ -21,7 +21,7 @@ import os
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from vxpy import api
 from vxpy import Def
@@ -29,7 +29,7 @@ from vxpy import modules
 from vxpy.core import gui, ipc
 from vxpy.core import visual
 from vxpy.utils import uiutils
-from vxpy.core.protocol import get_available_protocol_paths, get_protocol
+from vxpy.core.protocol import get_available_protocol_paths
 
 
 class Protocols(gui.AddonWidget):
@@ -159,48 +159,44 @@ class VisualInteractor(gui.AddonWidget):
         self.left_widget.layout().addWidget(self.tree)
         self.tree.itemDoubleClicked.connect(self.start_visual)
 
-        self.folders = dict()
-        self.files = dict()
+        self.tree_widgets = dict()
+        self.toplevel_items: List[QtWidgets.QTreeWidgetItem] = []
+        self.visual_items: List[QtWidgets.QTreeWidgetItem]  = []
         self.visuals = dict()
-        # TODO: add recursion for more directory levels?
-        for folder in os.listdir(Def.Path.Visual):
-            folder = str(folder)
-            base_path = os.path.join(Def.Path.Visual, folder)
-            if os.path.isfile(base_path) or folder.startswith('_'):
+        # TODO: add core module visuals
+        
+        # Add application visuals
+        for visual_container in os.listdir(Def.Path.Visual):
+            visual_container = str(visual_container)
+            base_path = (Def.Path.Visual, visual_container)
+            if visual_container.startswith('_'):
                 continue
 
-            self.folders[folder] = QtWidgets.QTreeWidgetItem(self.tree)
-            self.folders[folder].setText(0, folder)
-            self.files[folder] = dict()
-            self.visuals[folder] = dict()
+            # Import module
+            if os.path.isdir(os.path.join(*base_path)):
+                module = importlib.import_module('.'.join(base_path))
+            else:
+                module = importlib.import_module('.'.join([*base_path[:-1], base_path[-1].split('.')[0]]))
 
-            for file in os.listdir(base_path):
-                file = str(file)
-                full_path = os.path.join(base_path, file)
-                if file.startswith('_'):
+            self.tree_widgets[base_path] = QtWidgets.QTreeWidgetItem(self.tree)
+            self.tree_widgets[base_path].setText(0, visual_container)            
+
+            for clsname, cls in inspect.getmembers(module, inspect.isclass):
+                if not(issubclass(cls, (visual.BaseVisual, visual.PlanarVisual, visual.SphericalVisual))) or cls in (visual.PlanarVisual, visual.SphericalVisual):
                     continue
 
-                self.files[folder][file] = QtWidgets.QTreeWidgetItem(self.folders[folder])
-                self.files[folder][file].setText(0, file)
-                self.visuals[folder][file] = dict()
-
-                # Import module
-                module = importlib.import_module('.'.join([Def.Path.Visual, folder, file.split('.')[0]]))
-
-                for clsname, cls in inspect.getmembers(module, inspect.isclass):
-                    if not(issubclass(cls, (visual.BaseVisual, visual.PlanarVisual, visual.SphericalVisual))) or cls in (visual.PlanarVisual, visual.SphericalVisual):
-                        continue
-
-                    self.visuals[folder][file][clsname] = (cls, QtWidgets.QTreeWidgetItem(self.files[folder][file]))
-                    self.visuals[folder][file][clsname][1].setText(0, clsname)
-                    self.visuals[folder][file][clsname][1].setText(1, cls.description)
-                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
-                    self.visuals[folder][file][clsname][1].setData(1, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
-                    # Set visual class to UserRole
-                    self.visuals[folder][file][clsname][1].setData(0, QtCore.Qt.ItemDataRole.UserRole, (cls.__module__, cls.__name__))
+                # Create item which references the visual class
+                tree_widget_item = (cls, QtWidgets.QTreeWidgetItem(self.tree_widgets[base_path]))
+                tree_widget_item[1].setText(0, clsname)
+                tree_widget_item[1].setText(1, cls.description)
+                tree_widget_item[1].setData(0, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
+                tree_widget_item[1].setData(1, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
+                # Set visual class to UserRole
+                tree_widget_item[1].setData(0, QtCore.Qt.ItemDataRole.UserRole, (cls.__module__, cls.__name__))
+                self.visual_items.append(tree_widget_item)
 
         # Add items
-        self.tree.addTopLevelItems([folder_item for folder_item in self.folders.values()])
+        self.tree.addTopLevelItems(self.toplevel_items)
 
         # Buttons
         # Start

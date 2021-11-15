@@ -19,7 +19,7 @@ import numpy as np
 
 from vxpy.core.protocol import StaticProtocol
 
-from visuals.spherical.spherical_grating import BlackWhiteGrating
+from visuals.spherical_grating import BlackWhiteGrating
 
 
 class StaticGratingDemo(StaticProtocol):
