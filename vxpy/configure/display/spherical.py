@@ -217,7 +217,7 @@ class Mesh(QtWidgets.QGroupBox):
         self.layout().addWidget(self.btn_show)
 
     def show_visual(self):
-        from vxpy.visuals.spherical.calibration import RegularMesh
+        from vxpy.visuals.spherical_calibration import RegularMesh
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
         acc.display.canvas.visual = RegularMesh(acc.display.canvas)
@@ -250,7 +250,7 @@ class Checker(QtWidgets.QGroupBox):
         self.layout().addWidget(self.btn_show)
 
     def show_visual(self):
-        from vxpy.visuals.spherical.calibration import BlackWhiteCheckerboard
+        from vxpy.visuals.spherical_calibration import BlackWhiteCheckerboard
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
         acc.display.canvas.visual = BlackWhiteCheckerboard(acc.display.canvas)

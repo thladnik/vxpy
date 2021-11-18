@@ -119,10 +119,10 @@ class Checker(QtWidgets.QGroupBox):
         self.layout().addWidget(self.btn_show)
 
     def show_planar_checkerboard(self):
-        from vxpy.visuals.planar.calibration.calibration import Sinusoid2d
+        from vxpy.visuals.planar_calibration import Sinusoid2d
         vertical_sf = self.vertical_sp.get_value(),
         horizontal_sf = self.horizontal_sp.get_value()
-        acc.display.canvas.visual = Sinusoid2d(acc.display.canvas,
-                                               **{Sinusoid2d.u_sp_vertical: vertical_sf,
-                                                Sinusoid2d.u_sp_horizontal: horizontal_sf,
-                                                Sinusoid2d.u_checker_pattern: True})
+        acc.display.canvas.visual = Sinusoid2d(acc.display.canvas)
+        acc.display.canvas.visual.update(**{Sinusoid2d.u_sp_vertical: vertical_sf,
+                                            Sinusoid2d.u_sp_horizontal: horizontal_sf,
+                                            Sinusoid2d.u_checker_pattern: True})

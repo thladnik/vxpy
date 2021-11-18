@@ -34,7 +34,7 @@ class Canvas(app.Canvas):
         app.Canvas.__init__(self, *args, **kwargs)
         self.tick = 0
         self.visual = None
-        gloo.set_viewport(0, 0, *self.physical_size)
+        gloo.set_viewport(0, 0, *self.size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
         self.show()
@@ -46,7 +46,7 @@ class Canvas(app.Canvas):
         self.update()
 
     def on_resize(self, event):
-        gloo.set_viewport(0, 0, *event.physical_size)
+        gloo.set_viewport(0, 0, *event.size)
 
 
 class Main(ModuleWidget):

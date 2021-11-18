@@ -53,7 +53,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
                      Def.IoCfg.name: ModuleWidget,
                      Def.RecCfg.name: ModuleWidget}
 
-    # sig_reload_config = QtCore.pyqtSignal()
+    sig_reload_config = QtCore.Signal()
 
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
