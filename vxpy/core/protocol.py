@@ -54,7 +54,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
             if not isinstance(obj, type) or not issubclass(obj, AbstractProtocol):
                 continue
             # Skip all base classses
-            if obj == StaticProtocol:
+            if obj == StaticPhasicProtocol:
                 continue
 
             fullpath = f'{path}.{s}'
@@ -64,7 +64,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
     return _available_protocols
 
 
-def get_protocol(path) -> Union[StaticProtocol, None]:
+def get_protocol(path) -> Union[StaticPhasicProtocol, None]:
     if path not in get_available_protocol_paths():
         Logging.write(Logging.write, f'Cannot get protocol {path}')
         return
@@ -79,7 +79,11 @@ class AbstractProtocol:
     pass
 
 
-class StaticProtocol(AbstractProtocol):
+# class StaticProtocol(AbstractProtocol):
+#
+
+
+class StaticPhasicProtocol(AbstractProtocol):
     """Static experimental protocol which does NOT support closed-loop designs.
     """
 

@@ -18,14 +18,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
-from vxpy.core.protocol import StaticProtocol
+from vxpy.core.protocol import StaticPhasicProtocol
 
 from visuals.planar_grating import BlackAndWhiteGrating as BWG
 
-class ShowSFRange(StaticProtocol):
+class ShowSFRange(StaticPhasicProtocol):
 
     def __init__(self, *args, **kwargs):
-        StaticProtocol.__init__(self, *args, **kwargs)
+        StaticPhasicProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(1,4):
             self.add_phase(BWG, 5,
@@ -35,10 +35,10 @@ class ShowSFRange(StaticProtocol):
                             BWG.u_lin_velocity: 1})
 
 
-class Stresstest(StaticProtocol):
+class Stresstest(StaticPhasicProtocol):
 
     def __init__(self, *args, **kwargs):
-        StaticProtocol.__init__(self, *args, **kwargs)
+        StaticPhasicProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(10.0, 30.0, 4.0):
             for v in np.arange(2, 10, 2):

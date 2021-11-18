@@ -17,15 +17,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import numpy as np
 
-from vxpy.core.protocol import StaticProtocol
+from vxpy.core.protocol import StaticPhasicProtocol
 
 from visuals.spherical_grating import BlackWhiteGrating
 
 
-class StaticGratingDemo(StaticProtocol):
+class StaticGratingDemo(StaticPhasicProtocol):
 
     def __init__(self, *args, **kwargs):
-        StaticProtocol.__init__(self, *args, **kwargs)
+        StaticPhasicProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(10,50,10):
             self.add_phase(
@@ -36,10 +36,10 @@ class StaticGratingDemo(StaticProtocol):
                  BlackWhiteGrating.u_spat_period: sp}
             )
 
-class MovingGratingDemo(StaticProtocol):
+class MovingGratingDemo(StaticPhasicProtocol):
 
     def __init__(self, *args, **kwargs):
-        StaticProtocol.__init__(self, *args, **kwargs)
+        StaticPhasicProtocol.__init__(self, *args, **kwargs)
 
         for sp in np.arange(10,50,10):
             for v in np.arange(10,50,10):
