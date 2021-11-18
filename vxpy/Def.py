@@ -41,12 +41,13 @@ PATH_CONFIG = 'configs'
 PATH_GUI = 'gui'
 PATH_DLL = os.path.join('lib', 'dll')
 PATH_LOG = 'logs'
-PATH_VISUAL = 'visuals'
+PATH_VISUALS = 'visuals'
 PATH_PROTOCOL = 'protocols'
 PATH_RECORDING_OUTPUT = 'recordings'
 PATH_TEMP = 'temp'
 PATH_SAMPLE = 'samples'
 PATH_DEVICE = 'devices'
+
 
 # Subfolder names
 class Path:

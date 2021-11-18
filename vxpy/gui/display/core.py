@@ -21,11 +21,13 @@ import os
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple, Union
 
 from vxpy import api
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import modules
+import vxpy.visuals
 from vxpy.core import gui, ipc
 from vxpy.core import visual
 from vxpy.utils import uiutils
@@ -159,44 +161,10 @@ class VisualInteractor(gui.AddonWidget):
         self.left_widget.layout().addWidget(self.tree)
         self.tree.itemDoubleClicked.connect(self.start_visual)
 
-        self.tree_widgets = dict()
-        self.toplevel_items: List[QtWidgets.QTreeWidgetItem] = []
-        self.visual_items: List[QtWidgets.QTreeWidgetItem]  = []
-        self.visuals = dict()
-        # TODO: add core module visuals
-        
-        # Add application visuals
-        for visual_container in os.listdir(Def.Path.Visual):
-            visual_container = str(visual_container)
-            base_path = (Def.Path.Visual, visual_container)
-            if visual_container.startswith('_'):
-                continue
-
-            # Import module
-            if os.path.isdir(os.path.join(*base_path)):
-                module = importlib.import_module('.'.join(base_path))
-            else:
-                module = importlib.import_module('.'.join([*base_path[:-1], base_path[-1].split('.')[0]]))
-
-            self.tree_widgets[base_path] = QtWidgets.QTreeWidgetItem(self.tree)
-            self.tree_widgets[base_path].setText(0, visual_container)            
-
-            for clsname, cls in inspect.getmembers(module, inspect.isclass):
-                if not(issubclass(cls, (visual.BaseVisual, visual.PlanarVisual, visual.SphericalVisual))) or cls in (visual.PlanarVisual, visual.SphericalVisual):
-                    continue
-
-                # Create item which references the visual class
-                tree_widget_item = (cls, QtWidgets.QTreeWidgetItem(self.tree_widgets[base_path]))
-                tree_widget_item[1].setText(0, clsname)
-                tree_widget_item[1].setText(1, cls.description)
-                tree_widget_item[1].setData(0, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
-                tree_widget_item[1].setData(1, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
-                # Set visual class to UserRole
-                tree_widget_item[1].setData(0, QtCore.Qt.ItemDataRole.UserRole, (cls.__module__, cls.__name__))
-                self.visual_items.append(tree_widget_item)
-
-        # Add items
-        self.tree.addTopLevelItems(self.toplevel_items)
+        self.toplevel_tree_items: List[QtWidgets.QTreeWidgetItem] = []
+        self.tree_items: List[Tuple[object, QtWidgets.QTreeWidgetItem]] = []
+        self.append_directory_to_tree(PATH_VISUALS)
+        # self.append_directory_to_tree(vxpy.visuals)
 
         # Buttons
         # Start
@@ -212,6 +180,44 @@ class VisualInteractor(gui.AddonWidget):
         self.tuner = QtWidgets.QGroupBox('Visual parameters',self.right_widget)
         self.tuner.setLayout(QtWidgets.QVBoxLayout())
         self.right_widget.layout().addWidget(self.tuner)
+
+    def append_directory_to_tree(self, path: Union[str, object]):
+        # Add application visuals
+        if isinstance(path, str):
+            module_list = os.listdir(path)
+        else:
+            module_list = dir(path)
+
+        for visual_container in module_list:
+            visual_container = str(visual_container)
+            base_path = (path, visual_container)
+            if visual_container.startswith('_'):
+                continue
+
+            # Import module
+            if os.path.isdir(os.path.join(*base_path)):
+                module = importlib.import_module('.'.join(base_path))
+            else:
+                module = importlib.import_module('.'.join([*base_path[:-1], base_path[-1].split('.')[0]]))
+
+            toplevel_tree_item = QtWidgets.QTreeWidgetItem(self.tree)
+            toplevel_tree_item.setText(0, visual_container)
+            self.toplevel_tree_items.append(toplevel_tree_item)
+
+            for clsname, cls in inspect.getmembers(module, inspect.isclass):
+                if not (issubclass(cls, (visual.BaseVisual, visual.PlanarVisual, visual.SphericalVisual))) or cls in (
+                visual.PlanarVisual, visual.SphericalVisual):
+                    continue
+
+                # Create item which references the visual class
+                tree_item = (cls, QtWidgets.QTreeWidgetItem(self.toplevel_tree_items[-1]))
+                tree_item[1].setText(0, clsname)
+                tree_item[1].setText(1, cls.description)
+                tree_item[1].setData(0, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
+                tree_item[1].setData(1, QtCore.Qt.ItemDataRole.ToolTipRole, cls.description)
+                # Set visual class to UserRole
+                tree_item[1].setData(0, QtCore.Qt.ItemDataRole.UserRole, (cls.__module__, cls.__name__))
+                self.tree_items.append(tree_item)
 
     def resize_columns(self):
         self.tree.resizeColumnToContents(0)
