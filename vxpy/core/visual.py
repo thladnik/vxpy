@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from abc import ABC, abstractmethod
+import inspect
 import numpy as np
 import os
 from typing import Any, Dict
@@ -102,7 +103,10 @@ class AbstractVisual(ABC):
     def load_shader(cls, filepath: str):
         if filepath.startswith('./'):
             # Use path relative to visual
-            path = os.path.join(*cls.__module__.split('.')[:-1], filepath[2:])
+            pyfileloc = inspect.getfile(cls)
+            print(pyfileloc.split(os.sep))
+            path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath[2:]])
+            print(path)
         else:
             # Use absolute path to global shader folder
             path = os.path.join(Def.Path.Shader, filepath)
