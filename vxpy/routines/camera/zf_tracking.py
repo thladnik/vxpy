@@ -383,7 +383,7 @@ class EyePositionDetection(CameraRoutine):
             is_saccade = bool(le_sacc) or bool(re_sacc)
             saccade_happened = saccade_happened or is_saccade
             if is_saccade:
-                self._triggers['saccade_trigger'].emit()
+                self.emit_trigger('saccade_trigger')
 
             # Write to buffer
             le_pos_attr.write(le_pos)
