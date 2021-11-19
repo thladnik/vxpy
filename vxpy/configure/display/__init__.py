@@ -127,14 +127,11 @@ class ScreenSelection(QtWidgets.QGroupBox):
 
         self.screens_norm = self.screens
 
-    def mouseDoubleClickEvent(self, *args, **kwargs):
+    def mouseDoubleClickEvent(self, ev, *args, **kwargs):
         for i, (screen_norm, screen) in enumerate(zip(self.screens_norm, self.screens)):
             rect = QtCore.QRectF(*screen_norm)
-            from PySide6 import QtGui
-            ev = QtGui.QMouseEvent()
-            ev.pos().x()
 
-            if rect.contains(QtCore.QPoint(args[0].pos().x(), args[0].pos().y())):
+            if rect.contains(QtCore.QPoint(ev.pos().x(), ev.pos().y())):
 
                 print('Set display to fullscreen on screen {}'.format(i))
 
