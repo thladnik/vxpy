@@ -582,8 +582,9 @@ class AbstractProcess:
                 self.file_container = None
 
         # Call routine main functions
-        for routine_name, routine in self._routines[self.name].items():
-            routine.main(*args, **kwargs)
+        if self.name in self._routines:
+            for routine_name, routine in self._routines[self.name].items():
+                routine.main(*args, **kwargs)
 
         if not(ipc.Control.Recording[Def.RecCtrl.active]) or self.file_container is None:
             return

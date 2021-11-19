@@ -121,6 +121,7 @@ class Window(QtWidgets.QMainWindow):
         row2_xoffset = 10
 
         # Display
+        self.display = None
         if Config.Display[Def.DisplayCfg.use] \
                 and Def.Process.Display in Config.Gui[Def.GuiCfg.addons] \
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
@@ -131,6 +132,7 @@ class Window(QtWidgets.QMainWindow):
             self.subwindows.append(self.display)
 
         # Camera
+        self.camera = None
         if Config.Camera[Def.CameraCfg.use] \
                 and Def.Process.Camera in Config.Gui[Def.GuiCfg.addons] \
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
@@ -141,6 +143,7 @@ class Window(QtWidgets.QMainWindow):
             self.subwindows.append(self.camera)
 
         # Io
+        self.io = None
         if Config.Io[Def.IoCfg.use] \
                 and Def.Process.Io in Config.Gui[Def.GuiCfg.addons] \
                 and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
@@ -197,11 +200,14 @@ class Window(QtWidgets.QMainWindow):
         self.show()
 
     def get_display_size(self):
+        if self.display is None:
+            return 0, 0,
         return self.display.size().width(), self.display.size().height()
 
     def get_camera_size(self):
+        if self.camera is None:
+            return 0, 0,
         return self.camera.size().width(), self.camera.size().height()
-
 
     def restart_camera(self):
         ipc.rpc(Def.Process.Controller, modules.Controller.initialize_process, modules.Camera)
