@@ -21,7 +21,7 @@ void main() {
 
     // Final color
     // White
-    // gl_FragColor = vec4(c, c, c, 1.0);
+     gl_FragColor = vec4(c, c, c, 1.0);
     // Az/el colored
-    gl_FragColor = vec4(c * v_azimuth / (2.0 * c_pi), 0.0, c * (c_pi / 2.0 + v_elevation) / c_pi, 1.0);
+//    gl_FragColor = vec4(c * v_azimuth / (2.0 * c_pi), 0.0, c * (c_pi / 2.0 + v_elevation) / c_pi, 1.0);
 }
