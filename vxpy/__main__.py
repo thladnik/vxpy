@@ -28,14 +28,9 @@ if __name__ == '__main__':
             setup.download_samples()
 
     elif 'configure' in sys.argv:
-        from vxpy.configure.main import StartupConfiguration
-        from vxpy.configure import acc
-        from PySide6 import QtWidgets
+        from vxpy.configure import main
+        main()
 
-        acc.app = QtWidgets.QApplication([])
-        acc.main = StartupConfiguration()
-        acc.main.setup_ui()
-        acc.app.exec()
     elif 'migrate':
         pass
         # TODO: migrate current application folder to more recent version (mainly setup resource files?)
