@@ -13,7 +13,7 @@ void main() {
     float c2 = cos(1.0 / u_elevation_sp * 360.0 * v_elevation);
 
     float c;
-    if (c1 > 0.95 || c2 > 0.95) {
+    if (c1 > 0.90 || c2 > 0.90) {
         c = 1.0;
     } else {
         c = 0.0;

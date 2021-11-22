@@ -112,9 +112,11 @@ class Protocols(gui.AddonWidget):
         if start_phase is not None:
             self.progress.setEnabled(True)
             phase_diff = time.time() - start_phase
-            self.progress.setMaximum(int((ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] - start_phase) * 1000))
-            if phase_diff > 0.:
-                self.progress.setValue(int(phase_diff * 1000))
+            phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
+            if phase_stop is not None:
+                self.progress.setMaximum(int((phase_stop - start_phase) * 1000))
+                if phase_diff > 0.:
+                    self.progress.setValue(int(phase_diff * 1000))
 
         if not(bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])):
             self.progress.setEnabled(False)

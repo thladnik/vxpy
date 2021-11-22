@@ -58,7 +58,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self)
 
-        self.setWindowTitle('MappApp - Startup configuration')
+        self.setWindowTitle('vxPy configuration')
 
     def setup_ui(self):
 

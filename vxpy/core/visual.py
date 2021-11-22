@@ -404,6 +404,7 @@ class SphericalVisual(AbstractVisual, ABC):
             view_scale = Config.Display[Def.DisplayCfg.sph_view_scale][i]
             elev_angle = Config.Display[Def.DisplayCfg.sph_view_elev_angle][i]
             radial_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset][i]
+            lateral_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_lateral_offset][i]
 
             # Set relative size
             self.transform_uniforms['u_mapcalib_scale'] = view_scale * np.array([1, 1])
@@ -427,7 +428,10 @@ class SphericalVisual(AbstractVisual, ABC):
 
             # 2D translation radially
             radial_offset = np.array([-np.real(1.j ** (.5 + i)), -np.imag(1.j ** (.5 + i))]) * radial_offset_scalar
-            self.transform_uniforms['u_mapcalib_translate2d'] = radial_offset + xy_offset
+            sign = -1 if i % 2 == 0 else +1
+            lateral_offset = np.array([sign * np.real(1.j ** (.5 + i)), sign * -1 * np.imag(1.j ** (.5 + i))]) * lateral_offset_scalar
+            self.transform_uniforms['u_mapcalib_translate2d'] = radial_offset + xy_offset + lateral_offset
+
 
             # Render 90 degree mask to mask buffer
             # (BEFORE further 90deg rotation)

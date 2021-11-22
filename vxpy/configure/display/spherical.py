@@ -59,6 +59,13 @@ class Parameters(QtWidgets.QWidget):
         self.edits[Def.DisplayCfg.sph_pos_glob_radial_offset] = wdgt
         self.layout().addWidget(wdgt)
 
+        # Lateral offset
+        wdgt = DoubleSliderWidget('Lateral offset', -1., 1., 0.,
+                                  step_size=.001, decimals=3, label_width=label_width)
+        wdgt.connect_to_result(self.update_lateral_offset)
+        self.edits[Def.DisplayCfg.sph_pos_glob_lateral_offset] = wdgt
+        self.layout().addWidget(wdgt)
+
         # Elevation
         wdgt = DoubleSliderWidget('Elevation [deg]', -45., 45., 0.,
                                   step_size=.1, decimals=1, label_width=label_width)
@@ -102,6 +109,9 @@ class Parameters(QtWidgets.QWidget):
 
     def update_radial_offset(self, value):
         self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_pos_glob_radial_offset, value)
+
+    def update_lateral_offset(self, value):
+        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_pos_glob_lateral_offset, value)
 
     def update_elevation(self, value):
         self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_view_elev_angle, value)
