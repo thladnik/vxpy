@@ -29,6 +29,10 @@ def camera_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Camera, function, *args, **kwargs)
 
 
+def controller_rpc(function, *args, **kwargs):
+    ipc.rpc(Def.Process.Controller, function, *args, **kwargs)
+
+
 def display_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Display, function, *args, **kwargs)
 
@@ -36,11 +40,14 @@ def display_rpc(function, *args, **kwargs):
 def gui_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Gui, function, *args, **kwargs)
 
+
 def worker_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Worker, function, *args, **kwargs)
 
+
 def io_rpc(function, *args, **kwargs):
     ipc.rpc(Def.Process.Io, function, *args, **kwargs)
+
 
 def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):
     display_rpc(modules.Display.set_display_uniform_attribute, uniform_name, routine_cls, attr_name)

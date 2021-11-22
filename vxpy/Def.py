@@ -184,6 +184,7 @@ class DisplayCfg(Cfg):
     # Spherical
     sph_view_azim_orient = 'float_sph_view_azim_orient'
     sph_pos_glob_radial_offset = 'json_sph_pos_glob_radial_offset'
+    sph_pos_glob_lateral_offset = 'json_sph_pos_glob_lateral_offset'
     sph_view_elev_angle = 'json_sph_view_elev_angle'
     sph_view_azim_angle = 'json_sph_view_azim_angle'
     sph_view_distance = 'json_sph_view_origin_distance'

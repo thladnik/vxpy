@@ -445,6 +445,13 @@ class Controller(process.AbstractProcess):
         # Go into PREPARE_PROTOCOL
         self.set_state(Def.State.PREPARE_PROTOCOL)
 
+    def end_protocol_phase(self):
+        if not self.in_state(Def.State.RUNNING):
+            return
+
+        Logging.write(Logging.INFO, f'End phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}.')
+        self.set_state(Def.State.PHASE_END)
+
     def start_protocol_phase(self):
         # Set phase_id within protocol
         phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
@@ -457,16 +464,6 @@ class Controller(process.AbstractProcess):
         # Add to record group counter
         self.record_group_counter += 1
         ipc.Control.Recording[Def.RecCtrl.record_group_counter] = self.record_group_counter
-
-        # if _id is not None:
-        #     ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = _id
-        #     return
-
-        # Else: advance protocol counter
-        # if ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] is None:
-        #     ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = 0
-        # else:
-        #     ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] + 1
 
     def abort_protocol(self):
         # TODO: handle stuff?
@@ -533,9 +530,12 @@ class Controller(process.AbstractProcess):
             phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
             duration = self.protocol.fetch_phase_duration(phase_id)
 
+            # Set phase times
+            now = time.time()
             fixed_delay = 0.1
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] = time.time() + fixed_delay
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time() + duration + fixed_delay
+            ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] = now + fixed_delay
+            phase_stop = now + duration + fixed_delay if duration is not None else None
+            ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = phase_stop
 
             Logging.write(Logging.INFO,
                           f'Run protocol phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}. '
@@ -549,11 +549,9 @@ class Controller(process.AbstractProcess):
         elif self.in_state(Def.State.RUNNING):
 
             # If stop time is reached, set PHASE_END
-            if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
-                Logging.write(Logging.INFO, f'End phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}.')
-
-                self.set_state(Def.State.PHASE_END)
-
+            phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
+            if phase_stop is not None and phase_stop < time.time():
+                self.end_protocol_phase()
                 return
 
         ########

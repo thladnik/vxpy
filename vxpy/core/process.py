@@ -246,7 +246,8 @@ class AbstractProcess:
         if self.in_state(Def.State.RUNNING):
 
             # If phase stoptime is exceeded: end phase
-            if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] < time.time():
+            phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
+            if phase_stop is not None and phase_stop < time.time():
                 self.end_phase()
                 self.set_state(Def.State.PHASE_END)
                 return False
