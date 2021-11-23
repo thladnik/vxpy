@@ -104,9 +104,7 @@ class AbstractVisual(ABC):
         if filepath.startswith('./'):
             # Use path relative to visual
             pyfileloc = inspect.getfile(cls)
-            print(pyfileloc.split(os.sep))
             path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath[2:]])
-            print(path)
         else:
             # Use absolute path to global shader folder
             path = os.path.join(Def.Path.Shader, filepath)
