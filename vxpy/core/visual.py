@@ -28,6 +28,8 @@ from vispy.util import transforms
 from vxpy import Config
 from vxpy import Def
 from vxpy import Logging
+from vxpy.api import controller_rpc
+from vxpy.api.protocol import end_protocol_phase
 from vxpy.utils import geometry
 from vxpy.utils import sphere
 
@@ -84,6 +86,8 @@ class AbstractVisual(ABC):
         self._display_prog['a_position'] = self.square
         self._display_prog['u_texture'] = self._out_texture
 
+        self.is_active = True
+
         gloo.set_state(depth_test=True)
 
     def __setattr__(self, key, value):
@@ -122,6 +126,13 @@ class AbstractVisual(ABC):
 
     def trigger(self, trigger_fun):
         getattr(self, trigger_fun.__name__)()
+
+    def start(self):
+        self.is_active = True
+
+    def end(self):
+        controller_rpc(end_protocol_phase)
+        self.is_active = False
 
     def update(self, _update_verbosely=True, **params):
         """
@@ -187,6 +198,9 @@ class BaseVisual(AbstractVisual, ABC):
         AbstractVisual.__init__(self, *args, **kargs)
 
     def draw(self, dt):
+        gloo.clear()
+        if not self.is_active:
+            return
 
         self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(90, (0, 1, 0)))
         self.translate = 5
@@ -361,6 +375,8 @@ class SphericalVisual(AbstractVisual, ABC):
 
     def draw(self, dt):
         gloo.clear()
+        if not self.is_active:
+            return
 
         self.frame_time = dt
 
@@ -507,6 +523,8 @@ class PlanarVisual(AbstractVisual, ABC):
 
     def draw(self, dt):
         gloo.clear()
+        if not self.is_active:
+            return
 
         # Construct vertices
         height = Config.Display[Def.DisplayCfg.window_height]

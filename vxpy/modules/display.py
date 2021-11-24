@@ -131,6 +131,7 @@ class Display(process.AbstractProcess):
 
     def start_visual(self):
         self.stimulus_visual.initialize()
+        self.stimulus_visual.start()
         self.visual_is_displayed = True
 
     def update_visual(self, **parameters):
@@ -147,30 +148,16 @@ class Display(process.AbstractProcess):
         self.stimulus_visual.trigger(trigger_fun)
 
     def _display(self):
-        return self._run_protocol() or self.visual_is_displayed
+        return self._handle_protocol() or self.visual_is_displayed
 
     def main(self):
 
-        # self.canvas.on_draw(None)
         self.app.process_events()
+        self.canvas.update()
+        # if self.stimulus_visual is not None:
+        #     self.stimulus_visual.draw(1./60)
 
-        try:
-            if self._display():
-
-                # if self.stimulus_visual is not None:
-                    # Update uniforms from routine attributes
-                    # for uniform_name, (routine_cls, attr_name) in self._uniform_maps.items():
-                    #     idcs, times, uniform_value = api.read_attribute(routine_cls, attr_name)
-                    #     self.stimulus_visual.update(**{uniform_name: uniform_value}, _update_verbosely=False)
-
-                # Update routines
-                self.update_routines(self.stimulus_visual)
-            else:
-                self.update_routines(None)
-        except Exception as exc:
-            import traceback
-            traceback.print_exc()
-            # TODO: quit modules here and restart!
+        self.update_routines(self.stimulus_visual)
 
     def _start_shutdown(self):
         process.AbstractProcess._start_shutdown(self)
@@ -186,8 +173,6 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
-        # self._timer = app.Timer(interval=_interval/2., connect=self.on_draw, start=True)
-
         self.debug = False
         self.times = []
         self.t = time.perf_counter()
@@ -195,25 +180,22 @@ class Canvas(app.Canvas):
         self.show()
 
     def on_draw(self, event):
-        # gloo.clear()
         if event is None:
             return
 
         self.newt = time.perf_counter()
 
-        # if ipc.Process.stimulus_visual is not None:
-        if ipc.Process._display():
+        if ipc.Process.stimulus_visual is not None and ipc.Process.stimulus_visual.is_active:
             # Leave catch in here for now.
             # This makes debugging new stimuli much easier.
             try:
+                # print('Draw {:.3f}'.format(self.newt))
                 ipc.Process.stimulus_visual.draw(self.newt - self.t)
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
 
         self.t = self.newt
-
-        self.update()
 
     def show_fps(self, fps):
         if self.debug:

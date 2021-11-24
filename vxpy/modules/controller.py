@@ -46,7 +46,6 @@ class Controller(process.AbstractProcess):
     _processes: Dict[str, mp.Process] = dict()
     _registered_processes: List[Tuple[process.AbstractProcess, Dict]] = list()
 
-    _protocolized: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
     _active_protocols: List[str] = list()
 
     def __init__(self, config_file):
@@ -300,8 +299,6 @@ class Controller(process.AbstractProcess):
         # Run controller
         self.run(interval=0.001)
 
-        # This is where everything happens
-
         # Shutdown procedure
         Logging.write(Logging.DEBUG, 'Wait for processes to terminate')
         while True:
@@ -311,10 +308,6 @@ class Controller(process.AbstractProcess):
 
             # Check status of processes until last one is stopped
             for process_name in list(self._processes):
-                # UI is handled at end
-                # if process_name == Def.Process.Gui:
-                #     continue
-
                 if not (getattr(ipc.State, process_name).value == Def.State.STOPPED):
                     continue
 
@@ -325,12 +318,6 @@ class Controller(process.AbstractProcess):
 
         self._running = False
         self.set_state(Def.State.STOPPED)
-
-        # Finally: tell UI to shut down
-        # if Def.Process.Gui in self._processes:
-        #     self._processes[Def.Process.Gui].terminate()
-        #     del self._processes[Def.Process.Gui]
-        #     del ipc.Pipes[Def.Process.Gui]
 
     ################
     # Recording
@@ -376,7 +363,7 @@ class Controller(process.AbstractProcess):
             output_folder = Config.Recording[Def.RecCfg.output_folder]
             ipc.Control.Recording[Def.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
 
-            # Reset recoprd group perf_counter
+            # Reset record group perf_counter
             self.record_group_counter = 0
 
         # Create output folder
@@ -448,6 +435,9 @@ class Controller(process.AbstractProcess):
     def end_protocol_phase(self):
         if not self.in_state(Def.State.RUNNING):
             return
+
+        if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] is None:
+            ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time()
 
         Logging.write(Logging.INFO, f'End phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}.')
         self.set_state(Def.State.PHASE_END)

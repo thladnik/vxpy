@@ -68,7 +68,10 @@ class DynamicParameters(DisplayRoutine):
                             or var_type not in ('int', 'float', 'vec2', 'vec3', 'mat2', 'mat3', 'mat4') \
                             or var_name.startswith('u_mapcalib_'):
                         continue
-                    new[f'{program_name}_{var_name}'] = program[var_name]
+                    try:
+                        new[f'{program_name}_{var_name}'] = program[var_name]
+                    except:
+                        pass
 
             values.update(new)
 

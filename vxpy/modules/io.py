@@ -163,6 +163,5 @@ class Io(process.AbstractProcess):
             # print('----')
             self.timetrack = []
 
-
-        if self._run_protocol():
-            pass
+        # if self._run_protocol():
+        #     pass

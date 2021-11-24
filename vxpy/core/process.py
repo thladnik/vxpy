@@ -24,6 +24,7 @@ import os
 import signal
 import sys
 import time
+from typing import Any, Callable, Dict, List, Union
 
 from vxpy import api
 from vxpy.api import event
@@ -36,12 +37,6 @@ from vxpy.core import routine, ipc
 from vxpy.core import container
 from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
-
-# Type hinting
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing import Any, Callable, Dict, Union
 
 
 ##################################
@@ -66,6 +61,7 @@ class AbstractProcess:
 
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
+    _protocolized: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
 
     _routines: Dict[str, Dict[str, routine.Routine]] = dict()
     file_container: Union[None, h5py.File, container.NpBufferedH5File, container.H5File] = None
@@ -172,6 +168,7 @@ class AbstractProcess:
         # Run event loop
         while self._is_running():
             self.handle_inbox()
+            self._handle_protocol()
 
             self.tt.append(time.perf_counter())
             if (self.tt[-1] - self.tt[0]) > 1.:
@@ -234,12 +231,15 @@ class AbstractProcess:
         raise NotImplementedError('Method "end_protocol" not implemented in {}.'
                                   .format(self.name))
 
-    def _run_protocol(self):
+    def _handle_protocol(self):
         """Method can be called by all processes that in some way respond to
         the protocol control states.
 
         Returns True of protocol is currently running and False if not.
         """
+
+        if self.name not in self._protocolized:
+            return
 
         ########
         # RUNNING

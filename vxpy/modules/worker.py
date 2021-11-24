@@ -75,5 +75,5 @@ class Worker(process.AbstractProcess):
 
     def main(self):
 
-        self._run_protocol()
+        self._handle_protocol()
         self.update_routines()
