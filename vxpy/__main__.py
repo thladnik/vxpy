@@ -27,6 +27,10 @@ if __name__ == '__main__':
         if 'nosamples' not in sys.argv:
             setup.download_samples()
 
+    elif 'getsamples' in sys.argv:
+        from vxpy import setup
+        setup.download_samples()
+
     elif 'configure' in sys.argv:
         from vxpy.configure import main
         main()
