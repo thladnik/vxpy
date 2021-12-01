@@ -25,12 +25,18 @@ from vxpy.core import ipc
 
 logger = None
 write = None
+debug = None
+info = None
+warning = None
+error = None
+critical = None
 
 DEBUG = logging.DEBUG
 INFO = logging.INFO
 WARN = logging.WARN
 WARNING = logging.WARNING
 ERROR = logging.ERROR
+CRITICAL = logging.CRITICAL
 
 
 def setup_log():
@@ -46,7 +52,10 @@ def setup_log():
 
 
 def setup_log_queue(log):
-    global logger, write
+    global logger, write, debug, info, warning, error, critical
+
+    if logger is not None:
+        return
 
     # Set shared attributes required for logging
     if log is not None:
@@ -60,3 +69,8 @@ def setup_log_queue(log):
         logger.addHandler(h)
         logger.setLevel(logging.DEBUG)
         write = logging.getLogger(ipc.Process.name).log
+        debug = logging.getLogger(ipc.Process.name).debug
+        info = logging.getLogger(ipc.Process.name).info
+        warning = logging.getLogger(ipc.Process.name).warning
+        error = logging.getLogger(ipc.Process.name).error
+        critical = logging.getLogger(ipc.Process.name).critical

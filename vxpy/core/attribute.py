@@ -78,13 +78,13 @@ def match_to_record_attributes(attr_name: str):
 
         # Return if negative match result was found
         if match and neg:
-            return False
+            return -1, False
 
         # Update
         matched = matched or match
 
     # No matches
-    return matched
+    return 1, matched
 
 
 def write_to_file(instance, attr_name):
@@ -96,14 +96,17 @@ def write_to_file(instance, attr_name):
     if attr_name not in Attribute.all:
         msg = 'Attribute does not exist.'
     else:
-        if match_to_record_attributes(attr_name):
-            Logging.write(Logging.INFO, f'Set attribute "{attr_name}" to be written to file. ')
+        matchcode, included = match_to_record_attributes(attr_name)
+        if included:
+            Logging.info(f'Set attribute "{attr_name}" to be written to file. ')
             Attribute.to_file[process_name].append(Attribute.all[attr_name])
             return
-        else:
+        if matchcode == -1:
             msg = 'Excluded by template list.'
+        else:
+            msg = 'Not in template list.'
 
-    Logging.write(Logging.WARNING, f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
+    Logging.warning(f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
 
 
 def get_attribute_names() -> List[str]:
@@ -199,9 +202,9 @@ class Attribute(ABC):
 
     def write(self, value):
         if np.isclose(self._last_time, ipc.Process.global_t, rtol=0., atol=ipc.Process.interval / 4.):
-            Logging.write(Logging.WARNING,
-                          f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name} during same iteration. '
-                          f'Last={self._last_time} / Current={ipc.Process.global_t}')
+            Logging.warning(
+                f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name} during same iteration. '
+                f'Last={self._last_time} / Current={ipc.Process.global_t}')
 
         internal_idx = self.index % self._length
 

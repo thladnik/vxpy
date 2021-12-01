@@ -154,7 +154,7 @@ class AbstractProcess:
 
     def run(self, interval):
         self.interval = interval
-        Logging.write(Logging.INFO, f'Process started')
+        Logging.info(f'Process started')
 
         # Set state to running
         self._running = True
@@ -210,26 +210,22 @@ class AbstractProcess:
 
     def start_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
-        raise NotImplementedError('Method "start_protocol not implemented in {}.'
-                                  .format(self.name))
+        pass
 
     def prepare_phase(self):
         pass
 
     def start_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
-        raise NotImplementedError('Method "start_phase" not implemented in {}.'
-                                  .format(self.name))
+        pass
 
     def end_phase(self):
         """Method is called at end of stimulation protocol phase phase."""
-        raise NotImplementedError('Method "end_phase" not implemented in {}.'
-                                  .format(self.name))
+        pass
 
     def end_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
-        raise NotImplementedError('Method "end_protocol" not implemented in {}.'
-                                  .format(self.name))
+        pass
 
     def _handle_protocol(self):
         """Method can be called by all processes that in some way respond to
@@ -248,12 +244,18 @@ class AbstractProcess:
             # If phase stoptime is exceeded: end phase
             phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
+
                 self.end_phase()
+
                 self.set_state(Def.State.PHASE_END)
+
+                # Do NOT execute
                 return False
 
             # Default: set phase time and execute protocol
             self.phase_time = time.time() - self.phase_start_time
+
+            # Execute
             return True
 
         ########
@@ -266,10 +268,11 @@ class AbstractProcess:
 
                 # Set next state
                 self.set_state(Def.State.WAIT_FOR_PHASE)
+
+                # Do NOT execute
                 return False
 
-            # Fallback, timeout during IDLE operation
-            # self.idle()
+            # Do NOT execute
             return False
 
         ########
@@ -285,6 +288,8 @@ class AbstractProcess:
 
             # Set next state
             self.set_state(Def.State.READY)
+
+            # Do NOT execute
             return False
 
         ########
@@ -294,14 +299,11 @@ class AbstractProcess:
             if not (self.in_state(Def.State.RUNNING, Def.Process.Controller)):
                 return False
 
-            # Wait for go time
-            # TODO: there is an issue where Process gets stuck on READY, when protocol is
-            #       aborted while it is waiting in this loop. Fix: periodic checking? Might mess up timing?
+            # Wait for go-time
             while self.in_state(Def.State.RUNNING, Def.Process.Controller):
-                # TODO: sync of starts could also be done with multiprocessing.Barrier
                 t = time.time()
                 if ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
-                    Logging.write(Logging.DEBUG, 'Start at {}'.format(t))
+                    Logging.debug('Start at {:.4f}'.format(t))
                     self.set_state(Def.State.RUNNING)
                     self.phase_start_time = t
                     break
@@ -309,22 +311,22 @@ class AbstractProcess:
             # Immediately start phase
             self.start_phase()
 
-            return False
+            # Execute
+            return True
 
         ########
         # PHASE_END
         elif self.in_state(Def.State.PHASE_END):
 
-            ####
-            ## Ctrl in PREPARE_PHASE -> there's a next phase
+            # Ctrl in PREPARE_PHASE -> there's a next phase
             if self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller):
                 self.set_state(Def.State.WAIT_FOR_PHASE)
-
-
+            # Ctrl in PROTOCOL_END -> clean up protocol remnants
             elif self.in_state(Def.State.PROTOCOL_END, Def.Process.Controller):
 
                 self.end_protocol()
 
+                # Reset to idle
                 self.set_state(Def.State.IDLE)
             else:
                 pass
@@ -373,7 +375,7 @@ class AbstractProcess:
         if fun_str not in self._registered_callbacks:
             self._registered_callbacks[fun_str] = (instance, fun)
         else:
-            Logging.write(Logging.WARNING, 'Trying to register callback \"{}\" more than once'.format(fun_str))
+            Logging.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
 
     ################################
     # Private functions
@@ -397,8 +399,7 @@ class AbstractProcess:
             try:
 
                 if _send_verbosely:
-                    Logging.write(Logging.DEBUG,
-                                  f'RPC call to modules <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                    Logging.debug(f'RPC call to modules <{fun_str}> with Args {args} and Kwargs {kwargs}')
 
                 getattr(self, fun_str)(*args, **kwargs)
 
@@ -406,17 +407,15 @@ class AbstractProcess:
                 import traceback
                 print(traceback.print_exc())
 
-                Logging.write(Logging.WARNING,
-                              f'RPC call to modules <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
-                              f' // Exception: {exc}')
+                Logging.warning(f'RPC call to modules <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
+                                f' // Exception: {exc}')
 
         # RPC on registered callback
         elif fun_str in self._registered_callbacks:
             try:
 
                 if _send_verbosely:
-                    Logging.write(Logging.DEBUG,
-                                  f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                    Logging.debug(f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
 
                 instance, fun = self._registered_callbacks[fun_str]
                 fun(instance, *args, **kwargs)
@@ -425,13 +424,11 @@ class AbstractProcess:
                 import traceback
                 traceback.print_exc()
 
-                Logging.write(Logging.WARNING,
-                              f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
-                              f' // Exception: {exc}')
-
+                Logging.warning(f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
+                                f' // Exception: {exc}')
 
         else:
-            Logging.write(Logging.WARNING, 'Function for RPC of method \"{}\" not found'.format(fun_str))
+            Logging.warning('Function for RPC of method \"{}\" not found'.format(fun_str))
 
     def handle_inbox(self, *args):
 
@@ -447,7 +444,7 @@ class AbstractProcess:
 
         # Log
         if kwargs.get('_send_verbosely'):
-            Logging.write(Logging.DEBUG, f'Received message: {msg}')
+            Logging.debug(f'Received message: {msg}')
 
         # If shutdown signal
         if signal == Def.Signal.shutdown:
@@ -461,7 +458,7 @@ class AbstractProcess:
 
         # Skip if dataset exists already
         if path in self.file_container:
-            Logging.write(Logging.WARNING, f'Tried to create existing attribute {path}')
+            Logging.warning(f'Tried to create existing attribute {path}')
             return
 
         try:
@@ -471,12 +468,11 @@ class AbstractProcess:
                                                maxshape=(None, *attr_shape,),
                                                chunks=(1, *attr_shape,),
                                                **self.compression_args)
-            Logging.write(Logging.DEBUG, f'Create record dataset "{path}"')
+            Logging.debug(f'Create record dataset "{path}"')
 
         except Exception as exc:
             import traceback
-            Logging.write(Logging.WARNING,
-                          f'Failed to create record dataset "{path}"'
+            Logging.warning(f'Failed to create record dataset "{path}"'
                           f' // Exception: {exc}')
             traceback.print_exc()
 
@@ -538,7 +534,7 @@ class AbstractProcess:
 
         # Set group
         self.file_container.require_group(self.record_group)
-        Logging.write(Logging.INFO, f'Set record group "{self.record_group}"')
+        Logging.info(f'Set record group "{self.record_group}"')
 
         # Create attributes in group
         for attr in get_permanent_attributes():
@@ -555,7 +551,7 @@ class AbstractProcess:
         if ipc.Control.Recording[Def.RecCtrl.active]:
             if self.file_container is None:
                 if not (bool(ipc.Control.Recording[Def.RecCtrl.folder])):
-                    Logging.write(Logging.WARNING, 'Recording has been started but output folder is not set.')
+                    Logging.warning('Recording has been started but output folder is not set.')
                     return None
 
                 # If output folder is set: open file
@@ -563,7 +559,7 @@ class AbstractProcess:
                 filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
                 # Open new file
-                Logging.write(Logging.DEBUG, f'Open new file {filepath}')
+                Logging.debug(f'Open new file {filepath}')
                 self.file_container = container.NpBufferedH5File(filepath, 'w')
                 # self.file_container = container.H5File(filepath, 'a')
 
