@@ -100,7 +100,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
         used_addons = Config.Gui[Def.GuiCfg.addons][process_name]
 
         for path in used_addons:
-            Logging.write(Logging.DEBUG, f'Load UI addon "{path}"')
+            Logging.info(f'Load UI addon "{path}"')
 
             # TODO: search different paths for package structure redo
             # Load routine
@@ -109,7 +109,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
             addon_cls = getattr(module, parts[-1])
 
             if addon_cls is None:
-                Logging.write(Logging.ERROR, f'UI addon "{path}" not found.')
+                Logging.error(f'UI addon "{path}" not found.')
                 continue
 
             wdgt = addon_cls(self.main)
