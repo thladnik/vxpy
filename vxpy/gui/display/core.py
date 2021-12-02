@@ -158,6 +158,7 @@ class VisualInteractor(gui.AddonWidget):
         self.tree = QtWidgets.QTreeWidget(self.left_widget)
         self.tree.setColumnCount(2)
         self.tree.setHeaderLabels(['', 'Description'])
+        self.tree.itemChanged.connect(self.resize_columns)
         self.tree.itemCollapsed.connect(self.resize_columns)
         self.tree.itemExpanded.connect(self.resize_columns)
         self.left_widget.layout().addWidget(self.tree)
