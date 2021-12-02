@@ -70,6 +70,8 @@ class DynamicParameters(DisplayRoutine):
                         continue
                     try:
                         new[f'{program_name}_{var_name}'] = program[var_name]
+                        if var_name == 'u_time':
+                            print(program[var_name][0], '(routine)')
                     except:
                         pass
 

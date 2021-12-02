@@ -167,8 +167,10 @@ class AbstractProcess:
         self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
-            self.handle_inbox()
+            self._handle_inbox()
             self._handle_protocol()
+
+            self._open_file()
 
             self.tt.append(time.perf_counter())
             if (self.tt[-1] - self.tt[0]) > 1.:
@@ -199,6 +201,8 @@ class AbstractProcess:
 
             # Execute main method
             self.main()
+
+            self._close_file()
 
     def main(self):
         """Event loop to be re-implemented in subclass"""
@@ -361,7 +365,7 @@ class AbstractProcess:
     def _start_shutdown(self):
         # Handle all pipe messages before shutdown
         while ipc.Pipes[self.name][1].poll():
-            self.handle_inbox()
+            self._handle_inbox()
 
         # Set modules state
         self.set_state(Def.State.STOPPED)
@@ -430,7 +434,7 @@ class AbstractProcess:
         else:
             Logging.warning('Function for RPC of method \"{}\" not found'.format(fun_str))
 
-    def handle_inbox(self, *args):
+    def _handle_inbox(self, *args):
 
         # Poll pipe
         if not (ipc.Pipes[self.name][1].poll()):
@@ -545,38 +549,60 @@ class AbstractProcess:
             self._create_dataset(path, attr.shape, attr.dtype[1])
             self._create_dataset(f'{path}_time', (1,), np.float64)
 
-    def update_routines(self, *args, **kwargs):
+    def _open_file(self) -> bool:
+        """Check if output file should be open and open one if it should be, but isn't.
 
-        # Handle file container
+        :return:
+        """
+
+        if not(ipc.Control.Recording[Def.RecCtrl.active]):
+            return True
+
+        if self.file_container is not None:
+            return True
+
+        if not(bool(ipc.Control.Recording[Def.RecCtrl.folder])):
+            Logging.warning('Recording has been started but output folder is not set.')
+            return False
+
+        # If output folder is set: open file
+        rec_folder = ipc.Control.Recording[Def.RecCtrl.folder]
+        filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
+
+        # Open new file
+        Logging.debug(f'Open new file {filepath}')
+        self.file_container = container.NpBufferedH5File(filepath, 'w')
+        # self.file_container = container.H5File(filepath, 'a')
+
+        # Set compression
+        compr_method = ipc.Control.Recording[Def.RecCtrl.compression_method]
+        compr_opts = ipc.Control.Recording[Def.RecCtrl.compression_opts]
+        self.compression_args = dict()
+        if compr_method is not None:
+            self.compression_args = {'compression': compr_method, **compr_opts}
+
+        # Set current group to root
+        self.set_record_group('')
+
+        return True
+
+    def _close_file(self) -> bool:
+        """
+
+        :return:
+        """
         if ipc.Control.Recording[Def.RecCtrl.active]:
-            if self.file_container is None:
-                if not (bool(ipc.Control.Recording[Def.RecCtrl.folder])):
-                    Logging.warning('Recording has been started but output folder is not set.')
-                    return None
+            return True
 
-                # If output folder is set: open file
-                rec_folder = ipc.Control.Recording[Def.RecCtrl.folder]
-                filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
+        if self.file_container is None:
+            return True
 
-                # Open new file
-                Logging.debug(f'Open new file {filepath}')
-                self.file_container = container.NpBufferedH5File(filepath, 'w')
-                # self.file_container = container.H5File(filepath, 'a')
+        Logging.debug(f'Close file {self.file_container}')
+        self.file_container.close()
+        self.file_container = None
+        return True
 
-                # Set compression
-                compr_method = ipc.Control.Recording[Def.RecCtrl.compression_method]
-                compr_opts = ipc.Control.Recording[Def.RecCtrl.compression_opts]
-                self.compression_args = dict()
-                if compr_method is not None:
-                    self.compression_args = {'compression': compr_method, **compr_opts}
-
-                # Set current group to root
-                self.set_record_group('')
-
-        else:
-            if self.file_container is not None:
-                self.file_container.close()
-                self.file_container = None
+    def update_routines(self, *args, **kwargs):
 
         # Call routine main functions
         if self.name in self._routines:

@@ -132,7 +132,6 @@ class Display(process.AbstractProcess):
     def start_visual(self):
         self.stimulus_visual.initialize()
         self.stimulus_visual.start()
-        self.visual_is_displayed = True
 
     def update_visual(self, **parameters):
         if self.stimulus_visual is None:
@@ -141,23 +140,18 @@ class Display(process.AbstractProcess):
         self.stimulus_visual.update(**parameters)
 
     def stop_visual(self):
+        self.stimulus_visual.end()
         self.stimulus_visual = None
-        self.visual_is_displayed = False
 
     def trigger_visual(self, trigger_fun):
         self.stimulus_visual.trigger(trigger_fun)
 
-    def _display(self):
-        return self._handle_protocol() or self.visual_is_displayed
-
     def main(self):
 
-        self.app.process_events()
-        self.canvas.update()
-        # if self.stimulus_visual is not None:
-        #     self.stimulus_visual.draw(1./60)
-
-        self.update_routines(self.stimulus_visual)
+        if self.stimulus_visual is not None and self.stimulus_visual.is_active:
+            self.app.process_events()
+            self.canvas.update()
+            self.update_routines(self.stimulus_visual)
 
     def _start_shutdown(self):
         process.AbstractProcess._start_shutdown(self)
@@ -185,15 +179,14 @@ class Canvas(app.Canvas):
 
         self.newt = time.perf_counter()
 
-        if ipc.Process.stimulus_visual is not None and ipc.Process.stimulus_visual.is_active:
-            # Leave catch in here for now.
-            # This makes debugging new stimuli much easier.
-            try:
-                # print('Draw {:.3f}'.format(self.newt))
-                ipc.Process.stimulus_visual.draw(self.newt - self.t)
-            except Exception as exc:
-                import traceback
-                print(traceback.print_exc())
+        # Leave catch in here for now.
+        # This makes debugging new stimuli much easier.
+        try:
+            # print('Draw {:.3f}'.format(self.newt))
+            ipc.Process.stimulus_visual.draw(self.newt - self.t)
+        except Exception as exc:
+            import traceback
+            print(traceback.print_exc())
 
         self.t = self.newt
 

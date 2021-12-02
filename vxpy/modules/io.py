@@ -162,6 +162,3 @@ class Io(process.AbstractProcess):
             # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
             # print('----')
             self.timetrack = []
-
-        # if self._run_protocol():
-        #     pass

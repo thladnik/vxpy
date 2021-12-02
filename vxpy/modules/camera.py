@@ -78,8 +78,6 @@ class Camera(process.AbstractProcess):
 
     def main(self):
 
-        # self._run_protocol()
-
         # Snap image
         for device_id, cam in self.cameras.items():
             cam.snap_image()
