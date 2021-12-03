@@ -309,7 +309,7 @@ class AbstractProcess:
                 if ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
                     Logging.debug('Start at {:.4f}'.format(t))
                     self.set_state(Def.State.RUNNING)
-                    self.phase_start_time = t
+                    self.phase_start_time = ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]
                     break
 
             # Immediately start phase
