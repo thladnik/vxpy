@@ -1,1 +1,0 @@
-from .spherical_grating import BlackWhiteGrating

@@ -5,7 +5,6 @@ import zipfile
 
 import vxpy
 from vxpy.Def import *
-from vxpy.setup import res
 
 
 def setup_resources():
