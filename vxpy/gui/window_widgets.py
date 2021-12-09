@@ -6,9 +6,9 @@ from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import WindowWidget, WindowTabWidget
@@ -23,7 +23,7 @@ class CameraWindow(WindowTabWidget):
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
         self.stream_fps = 20
-        if bool(config.Camera[Def.CameraCfg.routines]):
+        if bool(config.Camera[definitions.CameraCfg.routines]):
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
             self.timer_frame_update.setInterval(1000 // self.stream_fps)

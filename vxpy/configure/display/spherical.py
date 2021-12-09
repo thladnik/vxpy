@@ -19,8 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtWidgets
 
 from vxpy.configure import acc
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget, Checkbox
 
 
@@ -57,49 +57,49 @@ class Parameters(QtWidgets.QWidget):
         wdgt = DoubleSliderWidget('Radial offset', 0., 1., 0.,
                                   step_size=.001, decimals=3, label_width=label_width)
         wdgt.connect_to_result(self.update_radial_offset)
-        self.edits[Def.DisplayCfg.sph_pos_glob_radial_offset] = wdgt
+        self.edits[definitions.DisplayCfg.sph_pos_glob_radial_offset] = wdgt
         self.layout().addWidget(wdgt)
 
         # Lateral offset
         wdgt = DoubleSliderWidget('Lateral offset', -1., 1., 0.,
                                   step_size=.001, decimals=3, label_width=label_width)
         wdgt.connect_to_result(self.update_lateral_offset)
-        self.edits[Def.DisplayCfg.sph_pos_glob_lateral_offset] = wdgt
+        self.edits[definitions.DisplayCfg.sph_pos_glob_lateral_offset] = wdgt
         self.layout().addWidget(wdgt)
 
         # Elevation
         wdgt = DoubleSliderWidget('Elevation [deg]', -45., 45., 0.,
                                   step_size=.1, decimals=1, label_width=label_width)
         wdgt.connect_to_result(self.update_elevation)
-        self.edits[Def.DisplayCfg.sph_view_elev_angle] = wdgt
+        self.edits[definitions.DisplayCfg.sph_view_elev_angle] = wdgt
         self.layout().addWidget(wdgt)
 
         # Azimuth
         wdgt = DoubleSliderWidget('Azimuth [deg]', -20., 20., 0.,
                                   step_size=.1, decimals=1, label_width=label_width)
         wdgt.connect_to_result(self.update_azimuth)
-        self.edits[Def.DisplayCfg.sph_view_azim_angle] = wdgt
+        self.edits[definitions.DisplayCfg.sph_view_azim_angle] = wdgt
         self.layout().addWidget(wdgt)
 
         # View distance
         wdgt = DoubleSliderWidget('Distance [norm]', 1., 50., 5.,
                                   step_size=.05, decimals=2, label_width=label_width)
         wdgt.connect_to_result(self.update_view_distance)
-        self.edits[Def.DisplayCfg.sph_view_distance] = wdgt
+        self.edits[definitions.DisplayCfg.sph_view_distance] = wdgt
         self.layout().addWidget(wdgt)
 
         # FOV
         wdgt = DoubleSliderWidget('FOV [deg]', .1, 179., 70.,
                                   step_size=.05, decimals=2, label_width=label_width)
         wdgt.connect_to_result(self.update_view_fov)
-        self.edits[Def.DisplayCfg.sph_view_fov] = wdgt
+        self.edits[definitions.DisplayCfg.sph_view_fov] = wdgt
         self.layout().addWidget(wdgt)
 
         # View scale
         wdgt = DoubleSliderWidget('Scale [norm]', .001, 10., 1.,
                                   step_size=.001, decimals=3, label_width=label_width)
         wdgt.connect_to_result(self.update_view_scale)
-        self.edits[Def.DisplayCfg.sph_view_scale] = wdgt
+        self.edits[definitions.DisplayCfg.sph_view_scale] = wdgt
         self.layout().addWidget(wdgt)
 
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
@@ -109,25 +109,25 @@ class Parameters(QtWidgets.QWidget):
         self.edits[key].set_value(value)
 
     def update_radial_offset(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_pos_glob_radial_offset, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_pos_glob_radial_offset, value)
 
     def update_lateral_offset(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_pos_glob_lateral_offset, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_pos_glob_lateral_offset, value)
 
     def update_elevation(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_view_elev_angle, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_elev_angle, value)
 
     def update_azimuth(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_view_azim_angle, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_azim_angle, value)
 
     def update_view_distance(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_view_distance, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_distance, value)
 
     def update_view_fov(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_view_fov, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_fov, value)
 
     def update_view_scale(self, value):
-        self.settings_wdgt.update_config(self.channel_num, Def.DisplayCfg.sph_view_scale, value)
+        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_scale, value)
 
 
 class Settings(QtWidgets.QWidget):
@@ -159,14 +159,14 @@ class Settings(QtWidgets.QWidget):
         acc.main.sig_reload_config.connect(self.reload_config)
 
     def reload_config(self):
-        section = Def.DisplayCfg.name
+        section = definitions.DisplayCfg.name
 
-        parameters = [Def.DisplayCfg.sph_pos_glob_radial_offset,
-                      Def.DisplayCfg.sph_view_elev_angle,
-                      Def.DisplayCfg.sph_view_azim_angle,
-                      Def.DisplayCfg.sph_view_distance,
-                      Def.DisplayCfg.sph_view_fov,
-                      Def.DisplayCfg.sph_view_scale]
+        parameters = [definitions.DisplayCfg.sph_pos_glob_radial_offset,
+                      definitions.DisplayCfg.sph_view_elev_angle,
+                      definitions.DisplayCfg.sph_view_azim_angle,
+                      definitions.DisplayCfg.sph_view_distance,
+                      definitions.DisplayCfg.sph_view_fov,
+                      definitions.DisplayCfg.sph_view_scale]
 
         for key, value in zip(parameters, [acc.cur_conf.getParsed(section, key) for key in parameters]):
             # By default set "global overwrite" channel to 0 channel parameters
@@ -180,11 +180,11 @@ class Settings(QtWidgets.QWidget):
         self.tabs.setTabEnabled(0, newstate)
 
     def update_azimuth_orient(self, value):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name, Def.DisplayCfg.sph_view_azim_orient, value)
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_view_azim_orient, value)
         acc.display.update_canvas()
 
     def update_config(self, channel_num, key, value):
-        section = Def.DisplayCfg.name
+        section = definitions.DisplayCfg.name
 
         # Fetch current config
         conf = acc.cur_conf.getParsed(section, key)

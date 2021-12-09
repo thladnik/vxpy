@@ -1,5 +1,5 @@
 """
-MappApp ./Def.py
+MappApp ./definitions.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -31,6 +31,7 @@ class EnvTypes(Enum):
     PRODUCTION = 1
     DEBUG = 2
     DEV = 3
+
 
 Env = EnvTypes.DEV
 
@@ -89,7 +90,6 @@ class DeviceType(Enum):
     Camera = 1
     Io = 2
 
-# Camera
 
 class Cfg:
     name = None
@@ -97,6 +97,7 @@ class Cfg:
     use = 'bool_use'
 
 
+# Camera
 class CameraCfg(Cfg):
     name = PROCESS_CAMERA.lower()
 
@@ -117,7 +118,6 @@ class CameraCfg(Cfg):
 
 
 # Display
-
 class DisplayCfg(Cfg):
     name = PROCESS_DISPLAY.lower()
 

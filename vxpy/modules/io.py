@@ -21,9 +21,9 @@ import numpy as np
 
 from vxpy.api.attribute import ArrayAttribute, ArrayType, read_attribute
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.core import process, ipc
 from vxpy.core.attribute import Attribute
@@ -41,7 +41,7 @@ class Io(process.AbstractProcess):
         process.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
-        for did, dev_config in config.Io[Def.IoCfg.device].items():
+        for did, dev_config in config.Io[definitions.IoCfg.device].items():
             if not(all(k in dev_config for k in ("type", "model"))):
                 Logging.write(Logging.WARNING, f'Insufficient information to configure device {did}')
                 continue
@@ -58,10 +58,10 @@ class Io(process.AbstractProcess):
                 continue
 
             # Configure pins on device
-            if did in config.Io[Def.IoCfg.pins]:
+            if did in config.Io[definitions.IoCfg.pins]:
                 Logging.write(Logging.INFO, f'Set up pin configuration for device {did}')
 
-                pin_config = config.Io[Def.IoCfg.pins][did]
+                pin_config = config.Io[definitions.IoCfg.pins][did]
                 self._devices[did].configure_pins(**pin_config)
 
                 # Map pins to flat dictionary
@@ -77,10 +77,10 @@ class Io(process.AbstractProcess):
 
         self.timetrack = []
         # Run event loop
-        self.run(interval=1. / config.Io[Def.IoCfg.max_sr])
+        self.run(interval=1. / config.Io[definitions.IoCfg.max_sr])
 
     def start_protocol(self):
-        _protocol = get_protocol(ipc.Control.Protocol[Def.ProtocolCtrl.name])
+        _protocol = get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
         if _protocol is None:
             # Controller should abort this
             return

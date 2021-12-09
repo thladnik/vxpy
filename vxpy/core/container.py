@@ -20,8 +20,8 @@ import h5py
 import numpy as np
 import os
 
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.core import ipc
 from vxpy import Logging
 from vxpy import modules
@@ -163,7 +163,7 @@ class NpBuffer:
         self.shape = shape
         self.attrs = dict()
 
-        self.temp_filepath = os.path.join(ipc.Control.Recording[Def.RecCtrl.folder], f'{self.path.replace("/", "_")}.dat')
+        self.temp_filepath = os.path.join(ipc.Control.Recording[definitions.RecCtrl.folder], f'{self.path.replace("/", "_")}.dat')
         self._memmap = None
 
 

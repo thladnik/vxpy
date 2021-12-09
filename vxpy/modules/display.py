@@ -22,9 +22,9 @@ import time
 
 from vxpy.api import get_time
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.core import process, ipc
 from vxpy.core.protocol import AbstractProtocol, get_protocol
@@ -48,13 +48,13 @@ class Display(process.AbstractProcess):
         self.times = []
 
         # Create canvas
-        _interval = 1. / config.Display[Def.DisplayCfg.fps]
+        _interval = 1. / config.Display[definitions.DisplayCfg.fps]
 
-        _size = (config.Display[Def.DisplayCfg.window_width],
-                 config.Display[Def.DisplayCfg.window_height])
+        _size = (config.Display[definitions.DisplayCfg.window_width],
+                 config.Display[definitions.DisplayCfg.window_height])
 
-        _position = (config.Display[Def.DisplayCfg.window_pos_x],
-                     config.Display[Def.DisplayCfg.window_pos_y])
+        _position = (config.Display[definitions.DisplayCfg.window_pos_x],
+                     config.Display[definitions.DisplayCfg.window_pos_y])
 
         self.canvas = Canvas(_interval,
                              title='Stimulus display',
@@ -79,7 +79,7 @@ class Display(process.AbstractProcess):
             Logging.write(Logging.WARNING, f'Uniform "{uniform_name}" is already set.')
 
     def start_protocol(self):
-        _protocol = get_protocol(ipc.Control.Protocol[Def.ProtocolCtrl.name])
+        _protocol = get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
         if _protocol is None:
             # Controller should abort this
             return
@@ -96,9 +96,9 @@ class Display(process.AbstractProcess):
     def prepare_phase(self, visual=None, **parameters):
         # Get visual info from protocol if not provided
         if visual is None:
-            phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
             # self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
-            self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
+            self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
             visual, parameters = self.stimulus_protocol.fetch_phase_visual(phase_id)
 
         # Prepare visual

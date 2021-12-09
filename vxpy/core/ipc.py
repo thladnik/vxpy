@@ -18,8 +18,8 @@ import multiprocessing as mp
 from enum import Enum
 from multiprocessing.managers import SyncManager
 
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy import Logging
 
 # Type hinting
@@ -145,7 +145,7 @@ def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
     """
     if not (isinstance(function, str)):
         function = function.__qualname__
-    send(process_name, Def.Signal.rpc, function, *args, **kwargs)
+    send(process_name, definitions.Signal.rpc, function, *args, **kwargs)
 
 
 class Log:

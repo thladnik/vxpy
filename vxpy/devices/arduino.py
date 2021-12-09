@@ -20,8 +20,8 @@ import traceback
 import pyfirmata
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy import Logging
 
 # Type hinting

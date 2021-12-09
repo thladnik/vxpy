@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 
-from vxpy.Def import *
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.core import ipc
 from vxpy.api.attribute import read_attribute

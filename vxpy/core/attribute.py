@@ -26,7 +26,7 @@ from typing import Tuple, List
 
 import numpy as np
 
-from vxpy import Def
+from vxpy import definitions
 from vxpy import Logging
 from vxpy import config
 from vxpy.core import ipc
@@ -52,7 +52,7 @@ def build_attributes(attrs):
 
 
 def match_to_record_attributes(attr_name: str):
-    attribute_filters = config.Recording[Def.RecCfg.attributes]
+    attribute_filters = config.Recording[definitions.RecCfg.attributes]
 
     matched = False
     for filt_string in attribute_filters:
@@ -292,7 +292,7 @@ class ArrayAttribute(Attribute):
         # Significantly reduce max attribute buffer size in case element size is < 1KB
         if (itemsize * attr_el_size) < 10**3:
             max_multiplier = 0.01
-        self._length = int((max_multiplier * Def.DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
+        self._length = int((max_multiplier * definitions.DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
 
         if self._chunked and self._chunk_size is not None:
             assert self._length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'

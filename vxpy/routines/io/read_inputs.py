@@ -20,8 +20,8 @@ from typing import Any, Dict
 import numpy as np
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.api.attribute import ArrayAttribute, ArrayType, write_attribute
 from vxpy.core import routine, ipc
 from vxpy.routines.camera import zf_tracking
@@ -34,7 +34,7 @@ class ReadAll(routine.IoRoutine):
 
         # Read all pins
         self.pin_configs: Dict[str, Dict] = {}
-        for did, pins in config.Io[Def.IoCfg.pins].items():
+        for did, pins in config.Io[definitions.IoCfg.pins].items():
             for pid, pconf in pins.items():
                 pconf.update(dev=did)
                 self.pin_configs[pid] = pconf

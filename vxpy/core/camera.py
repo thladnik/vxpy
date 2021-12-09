@@ -21,15 +21,15 @@ from typing import Dict, List, Union
 from dataclasses import dataclass
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 
 _use_apis = []
 _devices = {}
 
 
 def find_config_for_camera_id(_id):
-    for cfg in config.Camera[Def.CameraCfg.devices]:
+    for cfg in config.Camera[definitions.CameraCfg.devices]:
         if cfg['id'] == _id:
             return cfg
     return None

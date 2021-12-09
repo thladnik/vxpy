@@ -4,7 +4,7 @@ import requests
 import zipfile
 
 import vxpy
-from vxpy.Def import *
+from vxpy.definitions import *
 
 
 def setup_resources():

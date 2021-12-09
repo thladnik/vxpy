@@ -3,7 +3,7 @@ import os
 from typing import Dict
 
 from vxpy.core.camera import AbstractCameraDevice, Format
-from vxpy.Def import *
+from vxpy.definitions import *
 
 _models = ['Multi_Fish_Eyes_Cam@20fps',
            'Single_Fish_Eyes_Cam@20fps',

@@ -6,8 +6,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QLabel
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.core import ipc
 from vxpy import Logging
 from vxpy import modules
@@ -88,15 +88,15 @@ class ProcessMonitorWidget(IntegratedWidget):
         le.setText(state.name)
 
         # Set style
-        if state == Def.State.IDLE:
+        if state == definitions.State.IDLE:
             le.setStyleSheet('color: #3bb528; font-weight:bold;')
-        elif state == Def.State.STARTING:
+        elif state == definitions.State.STARTING:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif state == Def.State.READY:
+        elif state == definitions.State.READY:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif state == Def.State.STOPPED:
+        elif state == definitions.State.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
-        elif state == Def.State.RUNNING:
+        elif state == definitions.State.RUNNING:
             le.setStyleSheet('color: #deb737; font-weight:bold;')
         else:
             le.setStyleSheet('color: #000000')
@@ -217,7 +217,7 @@ class RecordingWidget(IntegratedWidget):
 
         self.rec_routines.layout().addWidget(self.rec_attribute_list)
         # Update recorded attributes
-        for match_string in config.Recording[Def.RecCfg.attributes]:
+        for match_string in config.Recording[definitions.RecCfg.attributes]:
             self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
         # self.rec_routines.layout().addItem(vSpacer)
         self.controls.layout().addWidget(self.rec_routines, 5, 1)
@@ -235,12 +235,12 @@ class RecordingWidget(IntegratedWidget):
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.set_compression_opts, self.get_compression_opts())
 
     def open_base_folder(self):
-        output_path = abspath(config.Recording[Def.RecCfg.output_folder])
+        output_path = abspath(config.Recording[definitions.RecCfg.output_folder])
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def show_lab_notebook(self):
         self.setFixedWidth(self.default_controls_width + self.default_notebook_width)
-        self.lab_nb_folder = ipc.Control.Recording[Def.RecCtrl.folder]
+        self.lab_nb_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
         self.lab_notebook.show()
 
     def close_lab_notebook(self):
@@ -328,9 +328,9 @@ class RecordingWidget(IntegratedWidget):
     def update_ui(self):
         """(Periodically) update UI based on shared configuration"""
 
-        enabled = ipc.Control.Recording[Def.RecCtrl.enabled]
-        active = ipc.Control.Recording[Def.RecCtrl.active]
-        current_folder = ipc.Control.Recording[Def.RecCtrl.folder]
+        enabled = ipc.Control.Recording[definitions.RecCtrl.enabled]
+        active = ipc.Control.Recording[definitions.RecCtrl.active]
+        current_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
 
         if active and enabled:
             self.setStyleSheet('QWidget#RecordingWidget {background: rgba(179, 31, 18, 0.5);}')
@@ -342,22 +342,22 @@ class RecordingWidget(IntegratedWidget):
         self.setChecked(enabled)
 
         # Set current folder
-        self.rec_folder.setText(ipc.Control.Recording[Def.RecCtrl.folder])
+        self.rec_folder.setText(ipc.Control.Recording[definitions.RecCtrl.folder])
 
         # Set buttons dis-/enabled
         # Start
         self.btn_start.setEnabled(not(active) and enabled)
-        self.btn_start.setText('Start' if ipc.in_state(Def.State.IDLE, PROCESS_CONTROLLER) else 'Resume')
+        self.btn_start.setText('Start' if ipc.in_state(definitions.State.IDLE, PROCESS_CONTROLLER) else 'Resume')
         # Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self.btn_pause.setEnabled(False)
         # Stop
-        self.btn_stop.setEnabled(bool(ipc.Control.Recording[Def.RecCtrl.folder]) and enabled)
+        self.btn_stop.setEnabled(bool(ipc.Control.Recording[definitions.RecCtrl.folder]) and enabled)
         # Overwrite stop button during protocol
-        if bool(ipc.Control.Protocol[Def.ProtocolCtrl.name]):
+        if bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name]):
             self.btn_stop.setEnabled(False)
 
-        self.base_dir.setText(config.Recording[Def.RecCfg.output_folder])
+        self.base_dir.setText(config.Recording[definitions.RecCfg.output_folder])
 
 
 class LoggingWidget(IntegratedWidget):

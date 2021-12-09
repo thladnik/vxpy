@@ -20,8 +20,8 @@ from PySide6 import QtWidgets
 import pyqtgraph as pg
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.core.gui import AddonWidget
 from vxpy.core.attribute import read_attribute
 
@@ -43,7 +43,7 @@ class FrameStream(AddonWidget):
 
         # Add one view per camera device
         self.view_wdgts = dict()
-        for device in config.Camera[Def.CameraCfg.devices]:
+        for device in config.Camera[definitions.CameraCfg.devices]:
             device_id = device['id']
             self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())

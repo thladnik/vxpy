@@ -20,8 +20,8 @@ from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.core import ipc
 from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import AddonWidget

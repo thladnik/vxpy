@@ -19,9 +19,9 @@ import logging
 import logging.handlers
 import os
 
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy.core import ipc
 
 logger = None

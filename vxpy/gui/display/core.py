@@ -24,9 +24,9 @@ import time
 from typing import Any, Dict, List, Tuple, Union
 
 from vxpy import api
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import modules
 import vxpy.visuals
 from vxpy.core import gui, ipc
@@ -102,24 +102,24 @@ class Protocols(gui.AddonWidget):
 
     def update_ui(self):
         # Enable/Disable control elements
-        ctrl_is_idle = ipc.in_state(Def.State.IDLE, PROCESS_CONTROLLER)
+        ctrl_is_idle = ipc.in_state(definitions.State.IDLE, PROCESS_CONTROLLER)
         self.btn_start.setEnabled(ctrl_is_idle)
         self.protocols.setEnabled(ctrl_is_idle)
-        protocol_is_running = bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])
+        protocol_is_running = bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
         self.btn_abort.setEnabled(protocol_is_running)
 
         # Update progress
-        start_phase = ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]
+        start_phase = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
         if start_phase is not None:
             self.progress.setEnabled(True)
             phase_diff = time.time() - start_phase
-            phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
+            phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
             if phase_stop is not None:
                 self.progress.setMaximum(int((phase_stop - start_phase) * 1000))
                 if phase_diff > 0.:
                     self.progress.setValue(int(phase_diff * 1000))
 
-        if not(bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])):
+        if not(bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name])):
             self.progress.setEnabled(False)
 
     def start_protocol(self):

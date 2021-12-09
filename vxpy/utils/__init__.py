@@ -18,31 +18,31 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import cv2
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 
 def detect_fish_particle(im):
     return
 
 
 def get_camera_properties(device_id):
-    idx = config.Camera[Def.CameraCfg.device_id].index(device_id)
+    idx = config.Camera[definitions.CameraCfg.device_id].index(device_id)
     props = {
-        Def.CameraCfg.device_id: device_id,
-        Def.CameraCfg.manufacturer: config.Camera[Def.CameraCfg.manufacturer][idx],
-        Def.CameraCfg.model: config.Camera[Def.CameraCfg.model][idx],
-        Def.CameraCfg.format: config.Camera[Def.CameraCfg.format][idx],
-        Def.CameraCfg.res_x: config.Camera[Def.CameraCfg.res_x][idx],
-        Def.CameraCfg.res_y: config.Camera[Def.CameraCfg.res_y][idx],
-        Def.CameraCfg.exposure: config.Camera[Def.CameraCfg.exposure][idx],
-        Def.CameraCfg.gain: config.Camera[Def.CameraCfg.gain][idx],
+        definitions.CameraCfg.device_id: device_id,
+        definitions.CameraCfg.manufacturer: config.Camera[definitions.CameraCfg.manufacturer][idx],
+        definitions.CameraCfg.model: config.Camera[definitions.CameraCfg.model][idx],
+        definitions.CameraCfg.format: config.Camera[definitions.CameraCfg.format][idx],
+        definitions.CameraCfg.res_x: config.Camera[definitions.CameraCfg.res_x][idx],
+        definitions.CameraCfg.res_y: config.Camera[definitions.CameraCfg.res_y][idx],
+        definitions.CameraCfg.exposure: config.Camera[definitions.CameraCfg.exposure][idx],
+        definitions.CameraCfg.gain: config.Camera[definitions.CameraCfg.gain][idx],
     }
     return props
 
 
 def get_camera_resolution(device_id):
-    idx = config.Camera[Def.CameraCfg.device_id].index(device_id)
-    return config.Camera[Def.CameraCfg.res_x][idx], config.Camera[Def.CameraCfg.res_y][idx]
+    idx = config.Camera[definitions.CameraCfg.device_id].index(device_id)
+    return config.Camera[definitions.CameraCfg.res_x][idx], config.Camera[definitions.CameraCfg.res_y][idx]
 
 
 def calculate_background_mog2(frames):

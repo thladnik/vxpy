@@ -29,8 +29,8 @@ from typing import Any, Callable, Dict, List, Union
 from vxpy import api
 from vxpy.api import event
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.core.ipc import build_pipes, set_process
 from vxpy import Logging
 from vxpy.Logging import setup_log_queue
@@ -164,7 +164,7 @@ class AbstractProcess:
         # Set modules state
         ipc.set_state(State.IDLE)
 
-        min_sleep_time = ipc.Control.General[Def.GenCtrl.min_sleep_time]
+        min_sleep_time = ipc.Control.General[definitions.GenCtrl.min_sleep_time]
         self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
@@ -244,15 +244,15 @@ class AbstractProcess:
 
         ########
         # RUNNING
-        if self.in_state(Def.State.RUNNING):
+        if self.in_state(definitions.State.RUNNING):
 
             # If phase stoptime is exceeded: end phase
-            phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
+            phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
 
                 self.end_phase()
 
-                self.set_state(Def.State.PHASE_END)
+                self.set_state(definitions.State.PHASE_END)
 
                 # Do NOT execute
                 return False
@@ -265,14 +265,14 @@ class AbstractProcess:
 
         ########
         # IDLE
-        elif self.in_state(Def.State.IDLE):
+        elif self.in_state(definitions.State.IDLE):
 
             # Ctrl PREPARE_PROTOCOL
-            if self.in_state(Def.State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
+            if self.in_state(definitions.State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
                 self.start_protocol()
 
                 # Set next state
-                self.set_state(Def.State.WAIT_FOR_PHASE)
+                self.set_state(definitions.State.WAIT_FOR_PHASE)
 
                 # Do NOT execute
                 return False
@@ -282,35 +282,35 @@ class AbstractProcess:
 
         ########
         # WAIT_FOR_PHASE
-        elif self.in_state(Def.State.WAIT_FOR_PHASE):
+        elif self.in_state(definitions.State.WAIT_FOR_PHASE):
 
-            if not (self.in_state(Def.State.PREPARE_PHASE, PROCESS_CONTROLLER)):
+            if not (self.in_state(definitions.State.PREPARE_PHASE, PROCESS_CONTROLLER)):
                 return False
 
-            # self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
+            # self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
             # Prepare phase for start
             self.prepare_phase()
 
             # Set next state
-            self.set_state(Def.State.READY)
+            self.set_state(definitions.State.READY)
 
             # Do NOT execute
             return False
 
         ########
         # READY
-        elif self.in_state(Def.State.READY):
+        elif self.in_state(definitions.State.READY):
             # If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not (self.in_state(Def.State.RUNNING, PROCESS_CONTROLLER)):
+            if not (self.in_state(definitions.State.RUNNING, PROCESS_CONTROLLER)):
                 return False
 
             # Wait for go-time
-            while self.in_state(Def.State.RUNNING, PROCESS_CONTROLLER):
+            while self.in_state(definitions.State.RUNNING, PROCESS_CONTROLLER):
                 t = time.time()
-                if ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
+                if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] <= t:
                     Logging.debug('Start at {:.4f}'.format(t))
-                    self.set_state(Def.State.RUNNING)
-                    self.phase_start_time = ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]
+                    self.set_state(definitions.State.RUNNING)
+                    self.phase_start_time = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
                     break
 
             # Immediately start phase
@@ -321,18 +321,18 @@ class AbstractProcess:
 
         ########
         # PHASE_END
-        elif self.in_state(Def.State.PHASE_END):
+        elif self.in_state(definitions.State.PHASE_END):
 
             # Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.in_state(Def.State.PREPARE_PHASE, PROCESS_CONTROLLER):
-                self.set_state(Def.State.WAIT_FOR_PHASE)
+            if self.in_state(definitions.State.PREPARE_PHASE, PROCESS_CONTROLLER):
+                self.set_state(definitions.State.WAIT_FOR_PHASE)
             # Ctrl in PROTOCOL_END -> clean up protocol remnants
-            elif self.in_state(Def.State.PROTOCOL_END, PROCESS_CONTROLLER):
+            elif self.in_state(definitions.State.PROTOCOL_END, PROCESS_CONTROLLER):
 
                 self.end_protocol()
 
                 # Reset to idle
-                self.set_state(Def.State.IDLE)
+                self.set_state(definitions.State.IDLE)
             else:
                 pass
 
@@ -347,7 +347,7 @@ class AbstractProcess:
 
     def idle(self):
         if self.enable_idle_timeout:
-            time.sleep(ipc.Control.General[Def.GenCtrl.min_sleep_time])
+            time.sleep(ipc.Control.General[definitions.GenCtrl.min_sleep_time])
 
     def get_state(self, process=None):
         """Convenience function for access in modules class"""
@@ -369,7 +369,7 @@ class AbstractProcess:
             self._handle_inbox()
 
         # Set modules state
-        self.set_state(Def.State.STOPPED)
+        self.set_state(definitions.State.STOPPED)
 
         self._shutdown = True
 
@@ -452,11 +452,11 @@ class AbstractProcess:
             Logging.debug(f'Received message: {msg}')
 
         # If shutdown signal
-        if signal == Def.Signal.shutdown:
+        if signal == definitions.Signal.shutdown:
             self._start_shutdown()
 
         # If RPC
-        elif signal == Def.Signal.rpc:
+        elif signal == definitions.Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
     def _create_dataset(self, path: str, attr_shape: tuple, attr_dtype: Any):
@@ -515,7 +515,7 @@ class AbstractProcess:
         self.file_container.append(path, value)
 
     def _routine_on_record(self, routine_name):
-        return f'{self.name}/{routine_name}' in config.Recording[Def.RecCfg.routines]
+        return f'{self.name}/{routine_name}' in config.Recording[definitions.RecCfg.routines]
 
     def set_record_group_attrs(self, group_attributes: Dict = None):
         if self.file_container is None:
@@ -556,18 +556,18 @@ class AbstractProcess:
         :return:
         """
 
-        if not(ipc.Control.Recording[Def.RecCtrl.active]):
+        if not(ipc.Control.Recording[definitions.RecCtrl.active]):
             return True
 
         if self.file_container is not None:
             return True
 
-        if not(bool(ipc.Control.Recording[Def.RecCtrl.folder])):
+        if not(bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
             Logging.warning('Recording has been started but output folder is not set.')
             return False
 
         # If output folder is set: open file
-        rec_folder = ipc.Control.Recording[Def.RecCtrl.folder]
+        rec_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
         filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
         # Open new file
@@ -576,8 +576,8 @@ class AbstractProcess:
         # self.file_container = container.H5File(filepath, 'a')
 
         # Set compression
-        compr_method = ipc.Control.Recording[Def.RecCtrl.compression_method]
-        compr_opts = ipc.Control.Recording[Def.RecCtrl.compression_opts]
+        compr_method = ipc.Control.Recording[definitions.RecCtrl.compression_method]
+        compr_opts = ipc.Control.Recording[definitions.RecCtrl.compression_opts]
         self.compression_args = dict()
         if compr_method is not None:
             self.compression_args = {'compression': compr_method, **compr_opts}
@@ -592,7 +592,7 @@ class AbstractProcess:
 
         :return:
         """
-        if ipc.Control.Recording[Def.RecCtrl.active]:
+        if ipc.Control.Recording[definitions.RecCtrl.active]:
             return True
 
         if self.file_container is None:
@@ -610,7 +610,7 @@ class AbstractProcess:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
 
-        if not(ipc.Control.Recording[Def.RecCtrl.active]) or self.file_container is None:
+        if not(ipc.Control.Recording[definitions.RecCtrl.active]) or self.file_container is None:
             return
 
         # Write attributes to file

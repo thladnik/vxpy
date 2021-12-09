@@ -21,9 +21,9 @@ import json
 import os
 from PySide6 import QtCore
 
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 
 
 class ConfigParser(configparser.ConfigParser):

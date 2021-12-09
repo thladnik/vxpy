@@ -20,7 +20,7 @@ import importlib
 import os
 from typing import List, Union
 
-from vxpy.Def import *
+from vxpy.definitions import *
 from vxpy import Logging
 
 _available_protocols: List[str] = []

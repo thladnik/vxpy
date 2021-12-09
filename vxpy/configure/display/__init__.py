@@ -21,8 +21,8 @@ from PySide6.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.configure import acc
 from vxpy.configure.display import planar, spherical
 from vxpy.configure.utils import ModuleWidget
@@ -55,7 +55,7 @@ class Main(ModuleWidget):
     visual = None
 
     def __init__(self, parent):
-        ModuleWidget.__init__(self, Def.DisplayCfg.name, parent=parent)
+        ModuleWidget.__init__(self, definitions.DisplayCfg.name, parent=parent)
 
         # app.use_app('glfw')
         acc.display = self
@@ -94,18 +94,18 @@ class Main(ModuleWidget):
         app.process_events()
 
     def update_canvas(self):
-        section = Def.DisplayCfg.name
+        section = definitions.DisplayCfg.name
 
-        config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
+        config.Display = acc.cur_conf.getParsedSection(definitions.DisplayCfg.name)
 
         # Update size
-        w, h = acc.cur_conf.getParsed(section, Def.DisplayCfg.window_width), \
-               acc.cur_conf.getParsed(section, Def.DisplayCfg.window_height),
+        w, h = acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_width), \
+               acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_height),
         self.canvas.size = (w, h)
 
         # Update position
-        x, y = acc.cur_conf.getParsed(section, Def.DisplayCfg.window_pos_x), \
-               acc.cur_conf.getParsed(section, Def.DisplayCfg.window_pos_y)
+        x, y = acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_x), \
+               acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_y)
         self.canvas.position = (x, y)
 
     def closed_main_window(self):
@@ -149,7 +149,7 @@ class ScreenSelection(QtWidgets.QGroupBox):
                 #self.main.canvas._native_window.windowHandle().setScreen(scr_handle)
                 #self.main.canvas._native_window.showFullScreen()
 
-                acc.cur_conf.setParsed(Def.DisplayCfg.name, Def.DisplayCfg.window_fullscreen, True)
+                acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.window_fullscreen, True)
 
 
     def paintEvent(self, QPaintEvent):
@@ -248,38 +248,38 @@ class GlobalSettings(QtWidgets.QGroupBox):
         acc.main.sig_reload_config.connect(self.load_config)
 
     def update_window_x_pos(self, win_x_pos):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.window_pos_x,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.window_pos_x,
                                win_x_pos)
         acc.display.update_canvas()
 
     def update_window_y_pos(self, win_y_pos):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.window_pos_y,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.window_pos_y,
                                win_y_pos)
         acc.display.update_canvas()
 
     def update_window_width(self, width):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.window_width,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.window_width,
                                width)
         acc.display.update_canvas()
 
     def update_window_height(self, height):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.window_height,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.window_height,
                                height)
         acc.display.update_canvas()
 
     def update_x_pos(self, x_pos):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.glob_x_pos,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.glob_x_pos,
                                x_pos)
         acc.display.update_canvas()
 
     def update_y_pos(self, y_pos):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.glob_y_pos,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.glob_y_pos,
                                y_pos)
         acc.display.update_canvas()
 
@@ -295,14 +295,14 @@ class GlobalSettings(QtWidgets.QGroupBox):
         self.win_y_pos.setValue(fgeo.y())
 
     def load_config(self):
-        section = Def.DisplayCfg.name
+        section = definitions.DisplayCfg.name
 
-        self.win_x_pos.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.window_pos_x))
-        self.win_y_pos.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.window_pos_y))
-        self.win_width.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.window_width))
-        self.win_height.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.window_height))
-        self.x_pos.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.glob_x_pos))
-        self.y_pos.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.glob_y_pos))
+        self.win_x_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_x))
+        self.win_y_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_y))
+        self.win_width.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_width))
+        self.win_height.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_height))
+        self.x_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.glob_x_pos))
+        self.y_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.glob_y_pos))
 
 
 class VisualSettings(QtWidgets.QTabWidget):

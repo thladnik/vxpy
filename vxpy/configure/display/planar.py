@@ -19,8 +19,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtWidgets
 
 from vxpy.configure import acc
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget
 
 
@@ -71,27 +71,27 @@ class Settings(QtWidgets.QGroupBox):
         acc.main.sig_reload_config.connect(self.reload_config)
 
     def reload_config(self):
-        section = Def.DisplayCfg.name
+        section = definitions.DisplayCfg.name
 
-        self.x_extent.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.pla_xextent))
-        self.y_extent.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.pla_yextent))
-        self.small_side.set_value(acc.cur_conf.getParsed(section, Def.DisplayCfg.pla_small_side))
+        self.x_extent.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.pla_xextent))
+        self.y_extent.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.pla_yextent))
+        self.small_side.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.pla_small_side))
 
     def update_x_extent(self, x_extent):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.pla_xextent,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.pla_xextent,
                                x_extent)
         acc.display.update_canvas()
 
     def update_y_extent(self, y_extent):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.pla_yextent,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.pla_yextent,
                                y_extent)
         acc.display.update_canvas()
 
     def update_small_side(self, small_side):
-        acc.cur_conf.setParsed(Def.DisplayCfg.name,
-                               Def.DisplayCfg.pla_small_side,
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
+                               definitions.DisplayCfg.pla_small_side,
                                small_side)
         acc.display.update_canvas()
 

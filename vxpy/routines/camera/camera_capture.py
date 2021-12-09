@@ -19,8 +19,8 @@ from __future__ import annotations
 from typing import List, Dict, Tuple
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy.api.routine import CameraRoutine
 from vxpy.api.attribute import ArrayAttribute, ArrayType
 from vxpy.core.camera import Format
@@ -33,7 +33,7 @@ class Frames(CameraRoutine):
 
     def setup(self):
         self.device_list: List[Tuple[str, int, int]] = []
-        for dev in config.Camera[Def.CameraCfg.devices]:
+        for dev in config.Camera[definitions.CameraCfg.devices]:
             fmt = Format.from_str(dev['format'])
             self.device_list.append((dev['id'], fmt.width, fmt.height))
 

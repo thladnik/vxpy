@@ -1,4 +1,4 @@
-from vxpy.Def import DeviceType
+from vxpy.definitions import DeviceType
 
 required = []
 registered = []

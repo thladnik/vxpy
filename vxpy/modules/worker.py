@@ -19,9 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from time import time
 import importlib
 
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.core import process
 
@@ -59,9 +59,9 @@ class Worker(process.AbstractProcess):
         self._task_intervals.append(task_interval)
 
     def run_task(self, task_name, *args, **kwargs):
-        self.set_state(Def.State.RUNNING)
+        self.set_state(definitions.State.RUNNING)
         self._load_task(task_name).run(*args, **kwargs)
-        self.set_state(Def.State.IDLE)
+        self.set_state(definitions.State.IDLE)
 
     def start_protocol(self):
         pass

@@ -19,9 +19,9 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import sys
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import modules
 from vxpy.core import process, ipc
 from vxpy.gui.window_controls import LoggingWidget, ProcessMonitorWidget, RecordingWidget
@@ -59,7 +59,7 @@ class Gui(process.AbstractProcess):
     def _start_shutdown(self):
         self.window.close()
 
-        ipc.Process.set_state(Def.State.STOPPED)
+        ipc.Process.set_state(definitions.State.STOPPED)
 
 
 class Window(QtWidgets.QMainWindow):
@@ -124,9 +124,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Display
         self.display = None
-        if config.Display[Def.DisplayCfg.use] \
-                and PROCESS_DISPLAY in config.Gui[Def.GuiCfg.addons] \
-                and bool(config.Gui[Def.GuiCfg.addons][PROCESS_DISPLAY]):
+        if config.Display[definitions.DisplayCfg.use] \
+                and PROCESS_DISPLAY in config.Gui[definitions.GuiCfg.addons] \
+                and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_DISPLAY]):
             self.display = DisplayWindow(self)
             self.display.create_hooks()
             self.display.move(x + row2_xoffset, self.controls.size().height() + row2_yoffset)
@@ -135,9 +135,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Camera
         self.camera = None
-        if config.Camera[Def.CameraCfg.use] \
-                and PROCESS_CAMERA in config.Gui[Def.GuiCfg.addons] \
-                and bool(config.Gui[Def.GuiCfg.addons][PROCESS_CAMERA]):
+        if config.Camera[definitions.CameraCfg.use] \
+                and PROCESS_CAMERA in config.Gui[definitions.GuiCfg.addons] \
+                and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_CAMERA]):
             self.camera = CameraWindow(self)
             self.camera.create_hooks()
             self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset, self.controls.size().height() + row2_yoffset)
@@ -146,9 +146,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Io
         self.io = None
-        if config.Io[Def.IoCfg.use] \
-                and PROCESS_IO in config.Gui[Def.GuiCfg.addons] \
-                and bool(config.Gui[Def.GuiCfg.addons][PROCESS_IO]):
+        if config.Io[definitions.IoCfg.use] \
+                and PROCESS_IO in config.Gui[definitions.GuiCfg.addons] \
+                and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_IO]):
             self.io = IoWindow(self)
             self.io.create_hooks()
             self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset, self.controls.size().height() + row2_yoffset)
@@ -195,7 +195,7 @@ class Window(QtWidgets.QMainWindow):
         self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
         self.menu_process.restart_display.setAutoRepeat(False)
         # Restart camera modules
-        if config.Camera[Def.CameraCfg.use]:
+        if config.Camera[definitions.CameraCfg.use]:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 
@@ -235,5 +235,5 @@ class Window(QtWidgets.QMainWindow):
             #     ipc.Process.main()
 
             # Inform controller of close event
-            ipc.send(PROCESS_CONTROLLER, Def.Signal.shutdown)
+            ipc.send(PROCESS_CONTROLLER, definitions.Signal.shutdown)
             a0.setAccepted(False)

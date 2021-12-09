@@ -19,8 +19,8 @@ import importlib
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
+from vxpy.definitions import *
+from vxpy import definitions
 from vxpy import Logging
 from vxpy.core import ipc
 
@@ -98,7 +98,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
 
     def create_addon_tabs(self, process_name):
 
-        used_addons = config.Gui[Def.GuiCfg.addons][process_name]
+        used_addons = config.Gui[definitions.GuiCfg.addons][process_name]
 
         for path in used_addons:
             Logging.info(f'Load UI addon "{path}"')

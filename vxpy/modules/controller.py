@@ -25,9 +25,9 @@ import time
 from typing import List, Dict, Tuple
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy import modules
 from vxpy.api import gui_rpc
@@ -106,12 +106,12 @@ class Controller(process.AbstractProcess):
         }
 
         # Set up STATES
-        ipc.State.Controller = ipc.Manager.Value(ctypes.c_int8, Def.State.NA)
-        ipc.State.Camera = ipc.Manager.Value(ctypes.c_int8, Def.State.NA)
-        ipc.State.Display = ipc.Manager.Value(ctypes.c_int8, Def.State.NA)
-        ipc.State.Gui = ipc.Manager.Value(ctypes.c_int8, Def.State.NA)
-        ipc.State.Io = ipc.Manager.Value(ctypes.c_int8, Def.State.NA)
-        ipc.State.Worker = ipc.Manager.Value(ctypes.c_int8, Def.State.NA)
+        ipc.State.Controller = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
+        ipc.State.Camera = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
+        ipc.State.Display = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
+        ipc.State.Gui = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
+        ipc.State.Io = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
+        ipc.State.Worker = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
 
         ################################
         # Set up CONTROLS
@@ -124,9 +124,9 @@ class Controller(process.AbstractProcess):
             t = time.perf_counter()
             time.sleep(10 ** -10)
             times.append(time.perf_counter() - t)
-        ipc.Control.General.update({Def.GenCtrl.min_sleep_time: max(times)})
+        ipc.Control.General.update({definitions.GenCtrl.min_sleep_time: max(times)})
         Logging.info('Minimum sleep period is {0:.3f}ms'.format(1000 * max(times)))
-        # ipc.Control.General.update({Def.GenCtrl.process_null_time: time.time() + 100.})
+        # ipc.Control.General.update({definitions.GenCtrl.process_null_time: time.time() + 100.})
 
         # Check time precision on system
         dt = list()
@@ -145,27 +145,27 @@ class Controller(process.AbstractProcess):
         # Recording
         ipc.Control.Recording = ipc.Manager.dict()
         ipc.Control.Recording.update({
-            Def.RecCtrl.enabled: True,
-            Def.RecCtrl.active: False,
-            Def.RecCtrl.folder: ''})
+            definitions.RecCtrl.enabled: True,
+            definitions.RecCtrl.active: False,
+            definitions.RecCtrl.folder: ''})
 
         # Protocol
-        ipc.Control.Protocol = ipc.Manager.dict({Def.ProtocolCtrl.name: None,
-                                                 Def.ProtocolCtrl.phase_id: None,
-                                                 Def.ProtocolCtrl.phase_start: None,
-                                                 Def.ProtocolCtrl.phase_stop: None})
+        ipc.Control.Protocol = ipc.Manager.dict({definitions.ProtocolCtrl.name: None,
+                                                 definitions.ProtocolCtrl.phase_id: None,
+                                                 definitions.ProtocolCtrl.phase_start: None,
+                                                 definitions.ProtocolCtrl.phase_stop: None})
 
         # Load routine modules
         _routines = dict()
         _routines_to_load = dict()
-        if config.Camera[Def.CameraCfg.use]:
-            _routines_to_load[PROCESS_CAMERA] = config.Camera[Def.CameraCfg.routines]
-        if config.Display[Def.DisplayCfg.use]:
-            _routines_to_load[PROCESS_DISPLAY] = config.Display[Def.DisplayCfg.routines]
-        if config.Io[Def.IoCfg.use]:
-            _routines_to_load[PROCESS_IO] = config.Io[Def.IoCfg.routines]
-        if config.Worker[Def.WorkerCfg.use]:
-            _routines_to_load[PROCESS_WORKER] = config.Worker[Def.WorkerCfg.routines]
+        if config.Camera[definitions.CameraCfg.use]:
+            _routines_to_load[PROCESS_CAMERA] = config.Camera[definitions.CameraCfg.routines]
+        if config.Display[definitions.DisplayCfg.use]:
+            _routines_to_load[PROCESS_DISPLAY] = config.Display[definitions.DisplayCfg.routines]
+        if config.Io[definitions.IoCfg.use]:
+            _routines_to_load[PROCESS_IO] = config.Io[definitions.IoCfg.routines]
+        if config.Worker[definitions.WorkerCfg.use]:
+            _routines_to_load[PROCESS_WORKER] = config.Worker[definitions.WorkerCfg.routines]
 
         for process_name, routine_list in _routines_to_load.items():
             _routines[process_name] = dict()
@@ -185,11 +185,11 @@ class Controller(process.AbstractProcess):
                 _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
 
         # Set configured cameras
-        for device in config.Camera[Def.CameraCfg.devices]:
+        for device in config.Camera[definitions.CameraCfg.devices]:
             register_camera_device(device['id'])
 
         # Set configured io devices
-        for dev_name in config.Io[Def.IoCfg.device]:
+        for dev_name in config.Io[definitions.IoCfg.device]:
             register_io_device(dev_name)
 
         # Compare required vs registered devices
@@ -207,16 +207,16 @@ class Controller(process.AbstractProcess):
         # Worker
         self._register_process(modules.Worker)
         # GUI
-        if config.Gui[Def.GuiCfg.use]:
+        if config.Gui[definitions.GuiCfg.use]:
             self._register_process(modules.Gui)
         # Camera
-        if config.Camera[Def.CameraCfg.use]:
+        if config.Camera[definitions.CameraCfg.use]:
             self._register_process(modules.Camera)
         # Display
-        if config.Display[Def.DisplayCfg.use]:
+        if config.Display[definitions.DisplayCfg.use]:
             self._register_process(modules.Display)
         # IO
-        if config.Io[Def.IoCfg.use]:
+        if config.Io[definitions.IoCfg.use]:
             self._register_process(modules.Io)
 
         # Select subset of registered processes which should implement
@@ -282,7 +282,7 @@ class Controller(process.AbstractProcess):
 
             # Set modules state
             # (this is the ONLY instance where a modules state may be set externally)
-            getattr(ipc.State, process_name).value = Def.State.STOPPED
+            getattr(ipc.State, process_name).value = definitions.State.STOPPED
 
             # Delete references
             del self._processes[process_name]
@@ -297,7 +297,7 @@ class Controller(process.AbstractProcess):
         self._processes[process_name].start()
 
         # Set state to IDLE
-        self.set_state(Def.State.IDLE)
+        self.set_state(definitions.State.IDLE)
 
     def start(self):
 
@@ -313,7 +313,7 @@ class Controller(process.AbstractProcess):
 
             # Check status of processes until last one is stopped
             for process_name in list(self._processes):
-                if not (getattr(ipc.State, process_name).value == Def.State.STOPPED):
+                if not (getattr(ipc.State, process_name).value == definitions.State.STOPPED):
                     continue
 
                 # Terminate and delete references
@@ -322,7 +322,7 @@ class Controller(process.AbstractProcess):
                 del ipc.Pipes[process_name]
 
         self._running = False
-        self.set_state(Def.State.STOPPED)
+        self.set_state(definitions.State.STOPPED)
 
     ################
     # Recording
@@ -337,42 +337,42 @@ class Controller(process.AbstractProcess):
 
     @staticmethod
     def set_compression_method(method):
-        ipc.Control.Recording[Def.RecCtrl.compression_method] = method
+        ipc.Control.Recording[definitions.RecCtrl.compression_method] = method
         if method is None:
-            ipc.Control.Recording[Def.RecCtrl.compression_opts] = None
+            ipc.Control.Recording[definitions.RecCtrl.compression_opts] = None
         Logging.info(f'Set compression method to {method}')
 
     @staticmethod
     def set_compression_opts(opts):
-        if ipc.Control.Recording[Def.RecCtrl.compression_method] is None:
-            ipc.Control.Recording[Def.RecCtrl.compression_opts] = None
+        if ipc.Control.Recording[definitions.RecCtrl.compression_method] is None:
+            ipc.Control.Recording[definitions.RecCtrl.compression_opts] = None
             return
-        ipc.Control.Recording[Def.RecCtrl.compression_opts] = opts
+        ipc.Control.Recording[definitions.RecCtrl.compression_opts] = opts
         Logging.info(f'Set compression options to {opts}')
 
     @staticmethod
     def set_enable_recording(newstate):
-        ipc.Control.Recording[Def.RecCtrl.enabled] = newstate
+        ipc.Control.Recording[definitions.RecCtrl.enabled] = newstate
 
     def start_recording(self):
-        if ipc.Control.Recording[Def.RecCtrl.active]:
+        if ipc.Control.Recording[definitions.RecCtrl.active]:
             Logging.warning('Tried to start new recording while active')
             return False
 
-        if not ipc.Control.Recording[Def.RecCtrl.enabled]:
+        if not ipc.Control.Recording[definitions.RecCtrl.enabled]:
             Logging.warning('Recording not enabled. Session will not be saved to disk.')
             return True
 
         # Set current folder if none is given
-        if not (bool(ipc.Control.Recording[Def.RecCtrl.folder])):
-            output_folder = config.Recording[Def.RecCfg.output_folder]
-            ipc.Control.Recording[Def.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
+        if not (bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
+            output_folder = config.Recording[definitions.RecCfg.output_folder]
+            ipc.Control.Recording[definitions.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
 
             # Reset record group perf_counter
             self.record_group_counter = 0
 
         # Create output folder
-        rec_folder = ipc.Control.Recording[Def.RecCtrl.folder]
+        rec_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
         Logging.debug('Set output folder {}'.format(rec_folder))
         if not (os.path.exists(rec_folder)):
             Logging.debug('Create output folder {}'.format(rec_folder))
@@ -380,40 +380,40 @@ class Controller(process.AbstractProcess):
 
         # Set state to recording
         Logging.info('Start recording')
-        ipc.Control.Recording[Def.RecCtrl.active] = True
+        ipc.Control.Recording[definitions.RecCtrl.active] = True
 
         gui_rpc(RecordingWidget.show_lab_notebook)
 
         return True
 
     def pause_recording(self):
-        if not (ipc.Control.Recording[Def.RecCtrl.active]):
+        if not (ipc.Control.Recording[definitions.RecCtrl.active]):
             Logging.warning('Tried to pause inactive recording.')
             return
 
         Logging.info('Pause recording')
-        ipc.Control.Recording[Def.RecCtrl.active] = False
+        ipc.Control.Recording[definitions.RecCtrl.active] = False
 
     def stop_recording(self, sessiondata=None):
         if self.manual_recording:
             return
 
-        if ipc.Control.Recording[Def.RecCtrl.active]:
-            ipc.Control.Recording[Def.RecCtrl.active] = False
+        if ipc.Control.Recording[definitions.RecCtrl.active]:
+            ipc.Control.Recording[definitions.RecCtrl.active] = False
 
         gui_rpc(RecordingWidget.close_lab_notebook)
 
         Logging.info('Stop recording')
-        self.set_state(Def.State.IDLE)
-        ipc.Control.Recording[Def.RecCtrl.folder] = ''
+        self.set_state(definitions.State.IDLE)
+        ipc.Control.Recording[definitions.RecCtrl.folder] = ''
 
     def start_protocol(self, protocol_path):
         # If any relevant subprocesses are currently busy: abort
-        if not (self.in_state(Def.State.IDLE, PROCESS_DISPLAY)):
+        if not (self.in_state(definitions.State.IDLE, PROCESS_DISPLAY)):
             processes = list()
-            if not (self.in_state(Def.State.IDLE, PROCESS_DISPLAY)):
+            if not (self.in_state(definitions.State.IDLE, PROCESS_DISPLAY)):
                 processes.append(PROCESS_DISPLAY)
-            if not (self.in_state(Def.State.IDLE, PROCESS_IO)):
+            if not (self.in_state(definitions.State.IDLE, PROCESS_IO)):
                 processes.append(PROCESS_IO)
 
             Logging.warning(
@@ -422,48 +422,48 @@ class Controller(process.AbstractProcess):
             return
 
         # Start recording if enabled; abort if recording can't be started
-        if ipc.Control.Recording[Def.RecCtrl.enabled] \
-                and not (ipc.Control.Recording[Def.RecCtrl.active]):
+        if ipc.Control.Recording[definitions.RecCtrl.enabled] \
+                and not (ipc.Control.Recording[definitions.RecCtrl.active]):
             if not (self.start_recording()):
                 return
 
         # Set phase info
-        ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = None
-        ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] = None
-        ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = None
+        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = None
+        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
+        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = None
         # Set protocol class path
-        ipc.Control.Protocol[Def.ProtocolCtrl.name] = protocol_path
+        ipc.Control.Protocol[definitions.ProtocolCtrl.name] = protocol_path
 
         # Go into PREPARE_PROTOCOL
-        self.set_state(Def.State.PREPARE_PROTOCOL)
+        self.set_state(definitions.State.PREPARE_PROTOCOL)
 
     def end_protocol_phase(self):
-        if not self.in_state(Def.State.RUNNING):
+        if not self.in_state(definitions.State.RUNNING):
             return
 
-        if ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] is None:
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time()
+        if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] is None:
+            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = time.time()
 
-        Logging.info(f'End phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}.')
-        self.set_state(Def.State.PHASE_END)
+        Logging.info(f'End phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}.')
+        self.set_state(definitions.State.PHASE_END)
 
     def start_protocol_phase(self):
         # Set phase_id within protocol
-        phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
         if phase_id is None:
             phase_id = 0
         else:
             phase_id += 1
-        ipc.Control.Protocol[Def.ProtocolCtrl.phase_id] = phase_id
+        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = phase_id
 
         # Add to record group counter
         self.record_group_counter += 1
-        ipc.Control.Recording[Def.RecCtrl.record_group_counter] = self.record_group_counter
+        ipc.Control.Recording[definitions.RecCtrl.record_group_counter] = self.record_group_counter
 
     def abort_protocol(self):
         # TODO: handle stuff?
-        ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = time.time()
-        self.set_state(Def.State.PROTOCOL_END)
+        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = time.time()
+        self.set_state(definitions.State.PROTOCOL_END)
 
     def main(self):
 
@@ -488,19 +488,19 @@ class Controller(process.AbstractProcess):
 
         ########
         # PREPARE_PROTOCOL
-        if self.in_state(Def.State.PREPARE_PROTOCOL):
+        if self.in_state(definitions.State.PREPARE_PROTOCOL):
 
-            protocol_path = ipc.Control.Protocol[Def.ProtocolCtrl.name]
+            protocol_path = ipc.Control.Protocol[definitions.ProtocolCtrl.name]
             _protocol = get_protocol(protocol_path)
             if _protocol is None:
                 Logging.error(f'Cannot get protocol {protocol_path}. Aborting ')
-                self.set_state(Def.State.PROTOCOL_ABORT)
+                self.set_state(definitions.State.PROTOCOL_ABORT)
                 return
 
             self.protocol = _protocol()
 
             # Wait for processes to WAIT_FOR_PHASE (if they are not stopped)
-            check = [not (ipc.in_state(Def.State.WAIT_FOR_PHASE, process_name))
+            check = [not (ipc.in_state(definitions.State.WAIT_FOR_PHASE, process_name))
                      for process_name in self._active_protocols]
             if any(check):
                 return
@@ -509,76 +509,76 @@ class Controller(process.AbstractProcess):
             self.start_protocol_phase()
 
             # Set PREPARE_PHASE
-            self.set_state(Def.State.PREPARE_PHASE)
+            self.set_state(definitions.State.PREPARE_PHASE)
 
         ########
         # PREPARE_PHASE
-        if self.in_state(Def.State.PREPARE_PHASE):
+        if self.in_state(definitions.State.PREPARE_PHASE):
 
             # Wait for processes to be ready (have phase prepared)
-            check = [not (ipc.in_state(Def.State.READY, process_name))
+            check = [not (ipc.in_state(definitions.State.READY, process_name))
                      for process_name in self._active_protocols]
             if any(check):
                 return
 
             # Start phase
-            phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
             duration = self.protocol.fetch_phase_duration(phase_id)
 
             # Set phase times
             now = time.time()
             fixed_delay = 0.1
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] = now + fixed_delay
+            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = now + fixed_delay
             phase_stop = now + duration + fixed_delay if duration is not None else None
-            ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop] = phase_stop
+            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = phase_stop
 
             Logging.info(
-                          f'Run protocol phase {ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]}. '
-                          f'Set start time to {ipc.Control.Protocol[Def.ProtocolCtrl.phase_start]}')
+                          f'Run protocol phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}. '
+                          f'Set start time to {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]}')
 
             # Set to running
-            self.set_state(Def.State.RUNNING)
+            self.set_state(definitions.State.RUNNING)
 
         ########
         # RUNNING
-        elif self.in_state(Def.State.RUNNING):
+        elif self.in_state(definitions.State.RUNNING):
 
             # If stop time is reached, set PHASE_END
-            phase_stop = ipc.Control.Protocol[Def.ProtocolCtrl.phase_stop]
+            phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
                 self.end_protocol_phase()
                 return
 
         ########
         # PHASE_END
-        elif self.in_state(Def.State.PHASE_END):
+        elif self.in_state(definitions.State.PHASE_END):
 
             # If there are no further phases, end protocol
-            phase_id = ipc.Control.Protocol[Def.ProtocolCtrl.phase_id]
+            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
             if (phase_id + 1) >= self.protocol.phase_count():
-                self.set_state(Def.State.PROTOCOL_END)
+                self.set_state(definitions.State.PROTOCOL_END)
                 return
 
             # Else, continue with next phase
             self.start_protocol_phase()
 
             # Move to PREPARE_PHASE (again)
-            self.set_state(Def.State.PREPARE_PHASE)
+            self.set_state(definitions.State.PREPARE_PHASE)
 
         ########
         # PROTOCOL_END
-        elif self.in_state(Def.State.PROTOCOL_END):
+        elif self.in_state(definitions.State.PROTOCOL_END):
 
             # When all processes are in IDLE again, stop recording and
             # move Controller to IDLE
-            check = [ipc.in_state(Def.State.IDLE, process_name)
+            check = [ipc.in_state(definitions.State.IDLE, process_name)
                      for process_name in self._active_protocols]
             if all(check):
                 self.stop_recording()
 
-                ipc.Control.Protocol[Def.ProtocolCtrl.name] = ''
+                ipc.Control.Protocol[definitions.ProtocolCtrl.name] = ''
 
-                self.set_state(Def.State.IDLE)
+                self.set_state(definitions.State.IDLE)
 
         else:
             # If nothing's happning: sleep for a bit
@@ -590,10 +590,10 @@ class Controller(process.AbstractProcess):
         # Check if any processes are still busy
         shutdown_state = True
         for p, _ in self._registered_processes:
-            shutdown_state &= self.in_state(Def.State.IDLE, p.name) or self.in_state(Def.State.NA, p.name)
+            shutdown_state &= self.in_state(definitions.State.IDLE, p.name) or self.in_state(definitions.State.NA, p.name)
 
         # Check if recording is running
-        shutdown_state &= not (ipc.Control.Recording[Def.RecCtrl.active])
+        shutdown_state &= not (ipc.Control.Recording[definitions.RecCtrl.active])
 
         if not shutdown_state:
             Logging.debug('Not ready for shutdown. Confirming.')
@@ -606,4 +606,4 @@ class Controller(process.AbstractProcess):
         Logging.debug('Shut down processes')
         self._shutdown = True
         for process_name in self._processes:
-            ipc.send(process_name, Def.Signal.shutdown)
+            ipc.send(process_name, definitions.Signal.shutdown)

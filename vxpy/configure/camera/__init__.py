@@ -21,9 +21,9 @@ from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 from typing import Union
 
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Default
 from vxpy.devices import camera as camdev
 from vxpy.configure import acc
@@ -35,7 +35,7 @@ import vxpy.core.camera
 class CameraWidget(ModuleWidget):
 
     def __init__(self, parent):
-        ModuleWidget.__init__(self,Def.CameraCfg.name,parent=parent)
+        ModuleWidget.__init__(self, definitions.CameraCfg.name, parent=parent)
         self.setLayout(QtWidgets.QGridLayout())
         self.camera = None
         # import json
@@ -88,13 +88,13 @@ class CameraWidget(ModuleWidget):
 
         # Get routines listed in configuration
         used_routines = list()
-        for fname, routines in acc.cur_conf.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines).items():
+        for fname, routines in acc.cur_conf.getParsed(definitions.CameraCfg.name, definitions.CameraCfg.routines).items():
             for cname in routines:
                 used_routines.append('{}.{}'.format(fname, cname))
 
         # Get all available routines for camera
         modules_list = list()
-        for fname in os.listdir(os.path.join(Def.PATH_PACKAGE, PATH_ROUTINES, Def.CameraCfg.name)):
+        for fname in os.listdir(os.path.join(definitions.PATH_PACKAGE, PATH_ROUTINES, definitions.CameraCfg.name)):
             if fname.startswith('_') \
                 or fname.startswith('.') \
                    or not(fname.endswith('.py')):
@@ -103,7 +103,7 @@ class CameraWidget(ModuleWidget):
             modules_list.append(fname.replace('.py', ''))
 
         importpath = '.'.join([PATH_ROUTINES,
-                               Def.CameraCfg.name.lower()])
+                               definitions.CameraCfg.name.lower()])
 
         modules = __import__(importpath, fromlist=modules_list)
 
@@ -138,7 +138,7 @@ class CameraWidget(ModuleWidget):
 
     def remove_routine(self):
 
-        routines = acc.cur_conf.getParsed(Def.CameraCfg.name, Def.CameraCfg.routines)
+        routines = acc.cur_conf.getParsed(definitions.CameraCfg.name, definitions.CameraCfg.routines)
 
         rname = self.used_routine_list.currentItem().text()
         file_, class_ = rname.split('.')
@@ -163,8 +163,8 @@ class CameraWidget(ModuleWidget):
         if not(bool(routines[file_])):
             del routines[file_]
 
-        acc.cur_conf.setParsed(Def.CameraCfg.name,
-                               Def.CameraCfg.routines,
+        acc.cur_conf.setParsed(definitions.CameraCfg.name,
+                               definitions.CameraCfg.routines,
                                routines)
 
         self.load_settings_from_config()
@@ -178,8 +178,8 @@ class CameraWidget(ModuleWidget):
         file_, class_ = rname.split('.')
 
         # Get routines
-        routines = acc.cur_conf.getParsed(Def.CameraCfg.name,
-                                          Def.CameraCfg.routines)
+        routines = acc.cur_conf.getParsed(definitions.CameraCfg.name,
+                                          definitions.CameraCfg.routines)
 
         # Add new routine
         if file_ not in routines:
@@ -188,8 +188,8 @@ class CameraWidget(ModuleWidget):
             routines[file_].append(class_)
 
         # Set routines
-        acc.cur_conf.setParsed(Def.CameraCfg.name,
-                               Def.CameraCfg.routines,
+        acc.cur_conf.setParsed(definitions.CameraCfg.name,
+                               definitions.CameraCfg.routines,
                                routines)
 
         # Update GUI
@@ -198,8 +198,8 @@ class CameraWidget(ModuleWidget):
     def update_camera_list(self):
 
         self.camera_list.clear()
-        self.camera_list.addItems(acc.cur_conf.getParsed(Def.CameraCfg.name,
-                                                         Def.CameraCfg.device_id))
+        self.camera_list.addItems(acc.cur_conf.getParsed(definitions.CameraCfg.name,
+                                                         definitions.CameraCfg.device_id))
 
     def toggle_cam_remove_btn(self, p_str):
         self.btn_remove_cam.setEnabled(bool(p_str))
@@ -207,8 +207,8 @@ class CameraWidget(ModuleWidget):
     def remove_camera(self):
 
         device_id = self.camera_list.currentItem().text()
-        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
-        device_list = section[Def.CameraCfg.device_id]
+        section = acc.cur_conf.getParsedSection(definitions.CameraCfg.name)
+        device_list = section[definitions.CameraCfg.device_id]
 
         if not(device_id in device_list):
             return
@@ -229,31 +229,31 @@ class CameraWidget(ModuleWidget):
         idx = device_list.index(device_id)
 
         del device_list[idx]
-        manufacturer = section[Def.CameraCfg.manufacturer]
+        manufacturer = section[definitions.CameraCfg.manufacturer]
         del manufacturer[idx]
-        model = section[Def.CameraCfg.model]
+        model = section[definitions.CameraCfg.model]
         del model[idx]
-        format_ = section[Def.CameraCfg.format]
+        format_ = section[definitions.CameraCfg.format]
         del format_[idx]
-        res_x = section[Def.CameraCfg.res_x]
+        res_x = section[definitions.CameraCfg.res_x]
         del res_x[idx]
-        res_y = section[Def.CameraCfg.res_y]
+        res_y = section[definitions.CameraCfg.res_y]
         del res_y[idx]
-        gain = section[Def.CameraCfg.gain]
+        gain = section[definitions.CameraCfg.gain]
         del gain[idx]
-        exposure = section[Def.CameraCfg.exposure]
+        exposure = section[definitions.CameraCfg.exposure]
         del exposure[idx]
 
         # Update config
-        name = Def.CameraCfg.name
-        acc.cur_conf.setParsed(name, Def.CameraCfg.device_id, device_list)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.manufacturer, manufacturer)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.model, model)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.format, format_)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.res_x, res_x)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.res_y, res_y)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.gain, gain)
-        acc.cur_conf.setParsed(name, Def.CameraCfg.exposure, exposure)
+        name = definitions.CameraCfg.name
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.device_id, device_list)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.manufacturer, manufacturer)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.model, model)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.format, format_)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.res_x, res_x)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.res_y, res_y)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.gain, gain)
+        acc.cur_conf.setParsed(name, definitions.CameraCfg.exposure, exposure)
 
         self.update_camera_list()
 
@@ -275,9 +275,9 @@ class CameraWidget(ModuleWidget):
             return
 
         ### Update configuration
-        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(definitions.CameraCfg.name)
         ## Add new camera
-        if row_idx >= len(section[Def.CameraCfg.device_id]):
+        if row_idx >= len(section[definitions.CameraCfg.device_id]):
             action = 'Add'
             for key, value in dialog.data.items():
                 if not(key in section):
@@ -292,11 +292,11 @@ class CameraWidget(ModuleWidget):
                 section[key][row_idx] = value
 
         print('{} camera {}: {}'.format(action,
-                                        dialog.data[Def.CameraCfg.device_id],
+                                        dialog.data[definitions.CameraCfg.device_id],
                                         dialog.data))
 
         for key, value in section.items():
-            acc.cur_conf.setParsed(Def.CameraCfg.name, key, value)
+            acc.cur_conf.setParsed(definitions.CameraCfg.name, key, value)
 
         self.update_camera_list()
 
@@ -307,26 +307,26 @@ class CameraWidget(ModuleWidget):
         else:
             row_idx = idx
 
-        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(definitions.CameraCfg.name)
 
         if self.camera is not None:
             self.camera.stop()
 
         import vxpy.devices.camera
         try:
-            cam = getattr(vxpy.devices.camera_aio, section[Def.CameraCfg.manufacturer][row_idx])
-            self.camera = cam(section[Def.CameraCfg.model][row_idx],section[Def.CameraCfg.format][row_idx])
-            self.res_x, self.res_y = section[Def.CameraCfg.res_x][row_idx],section[Def.CameraCfg.res_y][row_idx]
-            self.camera_stream.setMinimumWidth(section[Def.CameraCfg.res_y][row_idx] + 30)
-            gain = section[Def.CameraCfg.gain][row_idx]
-            exposure = section[Def.CameraCfg.exposure][row_idx]
+            cam = getattr(vxpy.devices.camera_aio, section[definitions.CameraCfg.manufacturer][row_idx])
+            self.camera = cam(section[definitions.CameraCfg.model][row_idx], section[definitions.CameraCfg.format][row_idx])
+            self.res_x, self.res_y = section[definitions.CameraCfg.res_x][row_idx], section[definitions.CameraCfg.res_y][row_idx]
+            self.camera_stream.setMinimumWidth(section[definitions.CameraCfg.res_y][row_idx] + 30)
+            gain = section[definitions.CameraCfg.gain][row_idx]
+            exposure = section[definitions.CameraCfg.exposure][row_idx]
             self.camera.set_gain(gain)
             self.camera.set_exposure(exposure)
             ### Provoke exception
             self.camera.snap_image()
             self.camera.get_image()
         except Exception as exc:
-            print('Could not access device {}. Exception: {}'.format(section[Def.CameraCfg.device_id][row_idx],exc))
+            print('Could not access device {}. Exception: {}'.format(section[definitions.CameraCfg.device_id][row_idx], exc))
             import traceback
             print(traceback.print_exc())
             self.camera = self.res_x = self.res_y = None
@@ -406,8 +406,8 @@ class EditCameraWidget(QtWidgets.QDialog):
     def update_models(self):
         self.model.clear()
 
-        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
-        select_models = section[Def.CameraCfg.model]
+        section = acc.cur_conf.getParsedSection(definitions.CameraCfg.name)
+        select_models = section[definitions.CameraCfg.model]
 
         avail_models = getattr(camdev,self.manufacturer.currentText()).get_models()
 
@@ -425,8 +425,8 @@ class EditCameraWidget(QtWidgets.QDialog):
     def update_formats(self):
         self.vidformat.clear()
 
-        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
-        select_formats = section[Def.CameraCfg.format]
+        section = acc.cur_conf.getParsedSection(definitions.CameraCfg.name)
+        select_formats = section[definitions.CameraCfg.format]
 
         avail_formats = getattr(camdev,self.manufacturer.currentText()).get_formats(self.model.currentText())
         if self.camera_idx < len(select_formats) and not(select_formats[self.camera_idx] in avail_formats):
@@ -442,55 +442,55 @@ class EditCameraWidget(QtWidgets.QDialog):
 
     def update_fields(self):
 
-        section = acc.cur_conf.getParsedSection(Def.CameraCfg.name)
+        section = acc.cur_conf.getParsedSection(definitions.CameraCfg.name)
 
         # If this is a new camera (index not in range)
-        if self.camera_idx >= len(section[Def.CameraCfg.device_id]):
-            self.exposure.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.exposure])
-            self.gain.setValue(Default.Configuration[Def.CameraCfg.name][Def.CameraCfg.gain])
+        if self.camera_idx >= len(section[definitions.CameraCfg.device_id]):
+            # self.exposure.setValue(Default.Configuration[definitions.CameraCfg.name][definitions.CameraCfg.exposure])
+            # self.gain.setValue(Default.Configuration[definitions.CameraCfg.name][definitions.CameraCfg.gain])
             return
 
         # Set current value
         # Device ID
-        self.device_id.setText(section[Def.CameraCfg.device_id][self.camera_idx])
+        self.device_id.setText(section[definitions.CameraCfg.device_id][self.camera_idx])
         # Manufacturer
-        if self.manufacturer.currentText() != section[Def.CameraCfg.manufacturer][self.camera_idx]:
-            self.manufacturer.setCurrentText(section[Def.CameraCfg.manufacturer][self.camera_idx])
+        if self.manufacturer.currentText() != section[definitions.CameraCfg.manufacturer][self.camera_idx]:
+            self.manufacturer.setCurrentText(section[definitions.CameraCfg.manufacturer][self.camera_idx])
         else:
             # Manually emit to trigger consecutive list updates
-            self.manufacturer.currentTextChanged.emit(section[Def.CameraCfg.manufacturer][self.camera_idx])
+            self.manufacturer.currentTextChanged.emit(section[definitions.CameraCfg.manufacturer][self.camera_idx])
         # Model
-        self.model.setCurrentText(section[Def.CameraCfg.model][self.camera_idx])
+        self.model.setCurrentText(section[definitions.CameraCfg.model][self.camera_idx])
         # Format
-        self.vidformat.setCurrentText(section[Def.CameraCfg.format][self.camera_idx])
+        self.vidformat.setCurrentText(section[definitions.CameraCfg.format][self.camera_idx])
         # Exposure
-        self.exposure.setValue(section[Def.CameraCfg.exposure][self.camera_idx])
+        self.exposure.setValue(section[definitions.CameraCfg.exposure][self.camera_idx])
         # Gain
-        self.gain.setValue(section[Def.CameraCfg.gain][self.camera_idx])
+        self.gain.setValue(section[definitions.CameraCfg.gain][self.camera_idx])
 
     def check_fields(self):
 
         data = dict()
-        data[Def.CameraCfg.device_id] = self.device_id.text()
-        data[Def.CameraCfg.manufacturer] = self.manufacturer.currentText()
-        data[Def.CameraCfg.model] = self.model.currentText()
-        data[Def.CameraCfg.format] = self.vidformat.currentText()
-        data[Def.CameraCfg.exposure] = self.exposure.value()
-        data[Def.CameraCfg.gain] = self.gain.value()
+        data[definitions.CameraCfg.device_id] = self.device_id.text()
+        data[definitions.CameraCfg.manufacturer] = self.manufacturer.currentText()
+        data[definitions.CameraCfg.model] = self.model.currentText()
+        data[definitions.CameraCfg.format] = self.vidformat.currentText()
+        data[definitions.CameraCfg.exposure] = self.exposure.value()
+        data[definitions.CameraCfg.gain] = self.gain.value()
 
         check = True
-        check &= bool(data[Def.CameraCfg.device_id])
-        check &= bool(data[Def.CameraCfg.manufacturer])
-        check &= bool(data[Def.CameraCfg.model])
-        check &= bool(data[Def.CameraCfg.format])
-        check &= not(data[Def.CameraCfg.exposure] == 0.0)
-        check &= not(data[Def.CameraCfg.gain] == 0.0)
+        check &= bool(data[definitions.CameraCfg.device_id])
+        check &= bool(data[definitions.CameraCfg.manufacturer])
+        check &= bool(data[definitions.CameraCfg.model])
+        check &= bool(data[definitions.CameraCfg.format])
+        check &= not(data[definitions.CameraCfg.exposure] == 0.0)
+        check &= not(data[definitions.CameraCfg.gain] == 0.0)
 
         ### Extract resolution from format
         import re
-        s = re.search('\((.*?)x(.*?)\)',data[Def.CameraCfg.format])
-        data[Def.CameraCfg.res_x] = int(s.group(1))
-        data[Def.CameraCfg.res_y] = int(s.group(2))
+        s = re.search('\((.*?)x(.*?)\)', data[definitions.CameraCfg.format])
+        data[definitions.CameraCfg.res_x] = int(s.group(1))
+        data[definitions.CameraCfg.res_y] = int(s.group(2))
 
         if check:
             self.data = data

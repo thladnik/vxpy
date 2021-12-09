@@ -8,11 +8,11 @@ Created on Mon Nov 21 09:44:40 2016
 ####
 # Compat with MappApp:
 import os
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 
-os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), Def.PATH_PACKAGE, PATH_DLL))
+os.environ['PATH'] += ';{}'.format(os.path.join(os.getcwd(), definitions.PATH_PACKAGE, PATH_DLL))
 ##
 ####
 

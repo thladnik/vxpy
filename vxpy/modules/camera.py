@@ -18,9 +18,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from typing import Dict
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.core import process, ipc
 from vxpy.core.camera import AbstractCameraDevice, open_device, _use_apis
@@ -38,7 +38,7 @@ class Camera(process.AbstractProcess):
         self.cameras: Dict[str, AbstractCameraDevice] = dict()
 
         # Set up cameras
-        for cfg in config.Camera[Def.CameraCfg.devices]:
+        for cfg in config.Camera[definitions.CameraCfg.devices]:
             device_id = cfg['id']
             device = open_device(cfg)
             if device.open():
@@ -55,7 +55,7 @@ class Camera(process.AbstractProcess):
 
         base_target_fps = 150.
 
-        if ipc.Control.General[Def.GenCtrl.min_sleep_time] > 1./base_target_fps:
+        if ipc.Control.General[definitions.GenCtrl.min_sleep_time] > 1./base_target_fps:
             Logging.write(Logging.WARNING,
                           'Mininum sleep period is ABOVE '
                           'average target frametime of 1/{}s.'

@@ -20,9 +20,9 @@ import os
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
-from vxpy.Def import *
-from vxpy import Def
-from vxpy.Def import *
+from vxpy.definitions import *
+from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import Logging
 from vxpy.configure import acc
 from vxpy.configure.utils import ModuleWidget
@@ -47,16 +47,16 @@ class ModuleCheckbox(QtWidgets.QCheckBox):
 
     def react_to_toggle(self, bool):
         print('Set module \"{}\" usage to {}'.format(self.text(), bool))
-        acc.cur_conf.setParsed(self.module_name, Def.Cfg.use, bool)
+        acc.cur_conf.setParsed(self.module_name, definitions.Cfg.use, bool)
 
 
 class StartupConfiguration(QtWidgets.QMainWindow):
 
-    _availModules = {Def.CameraCfg.name: CameraWidget,
-                     Def.DisplayCfg.name: Display,
-                     Def.GuiCfg.name: ModuleWidget,
-                     Def.IoCfg.name: ModuleWidget,
-                     Def.RecCfg.name: ModuleWidget}
+    _availModules = {definitions.CameraCfg.name: CameraWidget,
+                     definitions.DisplayCfg.name: Display,
+                     definitions.GuiCfg.name: ModuleWidget,
+                     definitions.IoCfg.name: ModuleWidget,
+                     definitions.RecCfg.name: ModuleWidget}
 
     sig_reload_config = QtCore.Signal()
 
@@ -188,11 +188,11 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         acc.cur_conf.read(self._configfile)
 
         # Set display config for visual compat.
-        config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
+        config.Display = acc.cur_conf.getParsedSection(definitions.DisplayCfg.name)
 
         # Update module selection
         for module_name, checkbox in self.module_checkboxes.items():
-            use = acc.cur_conf.getParsed(module_name, Def.Cfg.use)
+            use = acc.cur_conf.getParsed(module_name, definitions.Cfg.use)
             checkbox.setChecked(use)
             self.module_widgets[module_name].setEnabled(use)
 

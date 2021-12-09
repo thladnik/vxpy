@@ -83,7 +83,7 @@
 #     def __init__(self, *args):
 #         AbstractCamera.__init__(self, *args)
 #
-#         self._device = cv2.VideoCapture(os.path.join(Def.package, Def.Path.Sample,self._sampleFile[self.model]))
+#         self._device = cv2.VideoCapture(os.path.join(definitions.package, definitions.Path.Sample,self._sampleFile[self.model]))
 #         self._fps = self._device.get(cv2.CAP_PROP_FPS)
 #         self._data = []
 #

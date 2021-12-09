@@ -1,6 +1,6 @@
 from vxpy.gui.window_widgets import PlottingWindow
 from vxpy.core.gui import AddonWidget
-from vxpy.Def import *
+from vxpy.definitions import *
 from vxpy.core import ipc
 
 def register_with_plotter(attr_name: str, *args, **kwargs):
