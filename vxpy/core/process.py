@@ -29,6 +29,7 @@ from typing import Any, Callable, Dict, List, Union
 from vxpy import api
 from vxpy.api import event
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core.ipc import build_pipes, set_process
 from vxpy import Logging
@@ -61,7 +62,7 @@ class AbstractProcess:
 
     enable_idle_timeout: bool = True
     _registered_callbacks: dict = dict()
-    _protocolized: List[str] = [Def.Process.Camera, Def.Process.Display, Def.Process.Io, Def.Process.Worker]
+    _protocolized: List[str] = [PROCESS_CAMERA, PROCESS_DISPLAY, PROCESS_IO, PROCESS_WORKER]
 
     _routines: Dict[str, Dict[str, routine.Routine]] = dict()
     file_container: Union[None, h5py.File, container.NpBufferedH5File, container.H5File] = None
@@ -142,7 +143,7 @@ class AbstractProcess:
 
         # Set modules state
         if not (getattr(ipc.State, self.name) is None):
-            ipc.set_state(Def.State.STARTING)
+            ipc.set_state(State.STARTING)
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
@@ -161,7 +162,7 @@ class AbstractProcess:
         self._shutdown = False
 
         # Set modules state
-        ipc.set_state(Def.State.IDLE)
+        ipc.set_state(State.IDLE)
 
         min_sleep_time = ipc.Control.General[Def.GenCtrl.min_sleep_time]
         self.tt = [time.perf_counter()]
@@ -267,7 +268,7 @@ class AbstractProcess:
         elif self.in_state(Def.State.IDLE):
 
             # Ctrl PREPARE_PROTOCOL
-            if self.in_state(Def.State.PREPARE_PROTOCOL, Def.Process.Controller):
+            if self.in_state(Def.State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
                 self.start_protocol()
 
                 # Set next state
@@ -283,7 +284,7 @@ class AbstractProcess:
         # WAIT_FOR_PHASE
         elif self.in_state(Def.State.WAIT_FOR_PHASE):
 
-            if not (self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller)):
+            if not (self.in_state(Def.State.PREPARE_PHASE, PROCESS_CONTROLLER)):
                 return False
 
             # self.set_record_group(f'phase{ipc.Control.Recording[Def.RecCtrl.record_group_counter]}')
@@ -300,11 +301,11 @@ class AbstractProcess:
         # READY
         elif self.in_state(Def.State.READY):
             # If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not (self.in_state(Def.State.RUNNING, Def.Process.Controller)):
+            if not (self.in_state(Def.State.RUNNING, PROCESS_CONTROLLER)):
                 return False
 
             # Wait for go-time
-            while self.in_state(Def.State.RUNNING, Def.Process.Controller):
+            while self.in_state(Def.State.RUNNING, PROCESS_CONTROLLER):
                 t = time.time()
                 if ipc.Control.Protocol[Def.ProtocolCtrl.phase_start] <= t:
                     Logging.debug('Start at {:.4f}'.format(t))
@@ -323,10 +324,10 @@ class AbstractProcess:
         elif self.in_state(Def.State.PHASE_END):
 
             # Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.in_state(Def.State.PREPARE_PHASE, Def.Process.Controller):
+            if self.in_state(Def.State.PREPARE_PHASE, PROCESS_CONTROLLER):
                 self.set_state(Def.State.WAIT_FOR_PHASE)
             # Ctrl in PROTOCOL_END -> clean up protocol remnants
-            elif self.in_state(Def.State.PROTOCOL_END, Def.Process.Controller):
+            elif self.in_state(Def.State.PROTOCOL_END, PROCESS_CONTROLLER):
 
                 self.end_protocol()
 

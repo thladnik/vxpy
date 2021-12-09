@@ -19,6 +19,7 @@ import logging
 import logging.handlers
 import os
 
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 from vxpy.core import ipc

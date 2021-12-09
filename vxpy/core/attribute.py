@@ -17,17 +17,19 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-from abc import ABC, abstractmethod
+
 import ctypes
 import multiprocessing as mp
-import numpy as np
 import typing
+from abc import ABC, abstractmethod
 from typing import Tuple, List
 
-from vxpy import config
+import numpy as np
+
 from vxpy import Def
-from vxpy.core import ipc
 from vxpy import Logging
+from vxpy import config
+from vxpy.core import ipc
 
 
 def read_attribute(attr_name, *args, **kwargs):

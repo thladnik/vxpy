@@ -21,6 +21,7 @@ import json
 import os
 from PySide6 import QtCore
 
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 

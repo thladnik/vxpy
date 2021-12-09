@@ -20,6 +20,7 @@ import traceback
 import pyfirmata
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy import Logging
 

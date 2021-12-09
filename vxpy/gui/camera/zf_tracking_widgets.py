@@ -20,6 +20,7 @@ from PySide6 import QtWidgets, QtCore, QtGui
 from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy.api.attribute import read_attribute
@@ -75,15 +76,15 @@ class EyePositionDetector(AddonWidget):
 
     @staticmethod
     def update_image_threshold(im_thresh):
-        ipc.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_threshold, im_thresh)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.EyePositionDetection.set_threshold, im_thresh)
 
     @staticmethod
     def update_particle_minsize(minsize):
-        ipc.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_min_particle_size, minsize)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.EyePositionDetection.set_min_particle_size, minsize)
 
     @staticmethod
     def update_sacc_threshold(sacc_thresh):
-        ipc.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_saccade_threshold, sacc_thresh)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.EyePositionDetection.set_saccade_threshold, sacc_thresh)
 
     def update_frame(self):
         idx, time, frame = read_attribute('eyeposdetect_frame')
@@ -245,7 +246,7 @@ class EyePositionDetector(AddonWidget):
             # Set updates ROI parameters
             self.parent.roi_params[self.id] = self.rect
             # Send update to detector routine
-            ipc.rpc(Def.Process.Camera, zf_tracking.EyePositionDetection.set_roi, self.id, self.rect)
+            ipc.rpc(PROCESS_CAMERA, zf_tracking.EyePositionDetection.set_roi, self.id, self.rect)
             #routines.camera.Core.EyePositionDetection.set_roi(self.id, self.rect)
 
 
@@ -300,19 +301,19 @@ class FishPosDirDetector(AddonWidget):
 
     @staticmethod
     def update_bg_calc_range(value):
-        ipc.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.set_bg_calc_range, value)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.FishPosDirDetection.set_bg_calc_range, value)
 
     @staticmethod
     def calculate_background(value):
-        ipc.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.calculate_background)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.FishPosDirDetection.calculate_background)
 
     @staticmethod
     def update_image_threshold(value):
-        ipc.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.set_threshold, value)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.FishPosDirDetection.set_threshold, value)
 
     @staticmethod
     def update_particle_minsize(value):
-        ipc.rpc(Def.Process.Camera, zf_tracking.FishPosDirDetection.set_min_particle_size, value)
+        ipc.rpc(PROCESS_CAMERA, zf_tracking.FishPosDirDetection.set_min_particle_size, value)
 
     def update_frame(self):
         idx, time, frame = ipc.Camera.read(zf_tracking.FishPosDirDetection, 'tframe')

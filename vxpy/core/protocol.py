@@ -20,7 +20,7 @@ import importlib
 import os
 from typing import List, Union
 
-from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 
 _available_protocols: List[str] = []
@@ -33,7 +33,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
         return _available_protocols
 
     _available_protocols = []
-    basepath = Def.Path.Protocol
+    basepath = PATH_PROTOCOL
     filelist = os.listdir(basepath)
     for filename in filelist:
 

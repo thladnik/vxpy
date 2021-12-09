@@ -1,10 +1,12 @@
 
 import os
+from enum import Enum
 from os.path import abspath
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QLabel
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy import Logging
@@ -50,17 +52,17 @@ class ProcessMonitorWidget(IntegratedWidget):
         # self.layout().setColumnMinimumWidth(2, 150)
 
         # Controller modules status
-        self._add_process(Def.Process.Controller)
+        self._add_process(PROCESS_CONTROLLER)
         # Camera modules status
-        self._add_process(Def.Process.Camera)
+        self._add_process(PROCESS_CAMERA)
         # Display modules status
-        self._add_process(Def.Process.Display)
+        self._add_process(PROCESS_DISPLAY)
         # Gui modules status
-        self._add_process(Def.Process.Gui)
+        self._add_process(PROCESS_GUI)
         # IO modules status
-        self._add_process(Def.Process.Io)
+        self._add_process(PROCESS_IO)
         # Worker modules status
-        self._add_process(Def.Process.Worker)
+        self._add_process(PROCESS_WORKER)
         # Add spacer
         vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(vSpacer, 6, 0)
@@ -81,20 +83,20 @@ class ProcessMonitorWidget(IntegratedWidget):
         else:
             print(process_name, '{:.2f} +/- {:.2f}ms'.format(mean_inval * 1000, std_inval * 1000))
 
-    def _set_process_state(self,le: QtWidgets.QLineEdit,code):
+    def _set_process_state(self, le: QtWidgets.QLineEdit, state: Enum):
         # Set text
-        le.setText(Def.MapStateToStr[code] if code in Def.MapStateToStr else '')
+        le.setText(state.name)
 
         # Set style
-        if code == Def.State.IDLE:
+        if state == Def.State.IDLE:
             le.setStyleSheet('color: #3bb528; font-weight:bold;')
-        elif code == Def.State.STARTING:
+        elif state == Def.State.STARTING:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif code == Def.State.READY:
+        elif state == Def.State.READY:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif code == Def.State.STOPPED:
+        elif state == Def.State.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
-        elif code == Def.State.RUNNING:
+        elif state == Def.State.RUNNING:
             le.setStyleSheet('color: #deb737; font-weight:bold;')
         else:
             le.setStyleSheet('color: #000000')
@@ -227,10 +229,10 @@ class RecordingWidget(IntegratedWidget):
         self.tmr_update_gui.start()
 
     def set_compression_method(self):
-        ipc.rpc(Def.Process.Controller, modules.Controller.set_compression_method, self.get_compression_method())
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.set_compression_method, self.get_compression_method())
 
     def set_compression_opts(self):
-        ipc.rpc(Def.Process.Controller, modules.Controller.set_compression_opts, self.get_compression_opts())
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.set_compression_opts, self.get_compression_opts())
 
     def open_base_folder(self):
         output_path = abspath(config.Recording[Def.RecCfg.output_folder])
@@ -257,14 +259,14 @@ class RecordingWidget(IntegratedWidget):
         self.lab_notebook.close()
 
     def start_recording(self):
-        ipc.rpc(Def.Process.Controller, modules.Controller.start_manual_recording)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.start_manual_recording)
 
     def pause_recording(self):
-        ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.pause_recording)
 
     def finalize_recording(self):
         # First: pause recording
-        ipc.rpc(Def.Process.Controller, modules.Controller.pause_recording)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.pause_recording)
 
         # reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
         #                                        QtWidgets.QMessageBox.StandardButton.Save | QtWidgets.QMessageBox.StandardButton.Discard,
@@ -281,10 +283,10 @@ class RecordingWidget(IntegratedWidget):
         #         print('Puh... good choice')
 
         # Finally: stop recording
-        ipc.rpc(Def.Process.Controller, modules.Controller.stop_manual_recording)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.stop_manual_recording)
 
     def toggle_enable(self, newstate):
-        ipc.rpc(Def.Process.Controller, modules.Controller.set_enable_recording, newstate)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.set_enable_recording, newstate)
 
     def get_compression_method(self):
         method = self.compression_method.currentText()
@@ -345,7 +347,7 @@ class RecordingWidget(IntegratedWidget):
         # Set buttons dis-/enabled
         # Start
         self.btn_start.setEnabled(not(active) and enabled)
-        self.btn_start.setText('Start' if ipc.in_state(Def.State.IDLE, Def.Process.Controller) else 'Resume')
+        self.btn_start.setText('Start' if ipc.in_state(Def.State.IDLE, PROCESS_CONTROLLER) else 'Resume')
         # Pause // TODO: implement pause functionality during non-protocol recordings?
         #self._btn_pause.setEnabled(active and enabled)
         self.btn_pause.setEnabled(False)

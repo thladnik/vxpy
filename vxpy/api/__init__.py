@@ -16,6 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy import modules
@@ -26,27 +27,27 @@ def get_time():
 
 
 def camera_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Camera, function, *args, **kwargs)
+    ipc.rpc(PROCESS_CAMERA, function, *args, **kwargs)
 
 
 def controller_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Controller, function, *args, **kwargs)
+    ipc.rpc(PROCESS_CONTROLLER, function, *args, **kwargs)
 
 
 def display_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Display, function, *args, **kwargs)
+    ipc.rpc(PROCESS_DISPLAY, function, *args, **kwargs)
 
 
 def gui_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Gui, function, *args, **kwargs)
+    ipc.rpc(PROCESS_GUI, function, *args, **kwargs)
 
 
 def worker_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Worker, function, *args, **kwargs)
+    ipc.rpc(PROCESS_WORKER, function, *args, **kwargs)
 
 
 def io_rpc(function, *args, **kwargs):
-    ipc.rpc(Def.Process.Io, function, *args, **kwargs)
+    ipc.rpc(PROCESS_IO, function, *args, **kwargs)
 
 
 def set_display_uniform_attribute(uniform_name, routine_cls, attr_name):

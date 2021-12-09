@@ -21,6 +21,7 @@ from PySide6.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.configure import acc
 from vxpy.configure.display import planar, spherical

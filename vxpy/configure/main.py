@@ -20,6 +20,7 @@ import os
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 from vxpy import Logging
@@ -30,6 +31,10 @@ from vxpy.configure.display import Main as Display
 from vxpy.utils import misc
 
 Logging.write = lambda *args,**kwargs: None
+Logging.debug = lambda *args,**kwargs: None
+Logging.info = lambda *args,**kwargs: None
+Logging.warning = lambda *args,**kwargs: None
+Logging.error = lambda *args,**kwargs: None
 
 
 class ModuleCheckbox(QtWidgets.QCheckBox):

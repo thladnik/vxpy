@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file
 from vxpy.api.routine import DisplayRoutine
@@ -70,8 +71,6 @@ class DynamicParameters(DisplayRoutine):
                         continue
                     try:
                         new[f'{program_name}_{var_name}'] = program[var_name]
-                        if var_name == 'u_time':
-                            print(program[var_name][0], '(routine)')
                     except:
                         pass
 

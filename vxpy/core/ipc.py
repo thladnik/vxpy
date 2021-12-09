@@ -15,8 +15,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import multiprocessing as mp
+from enum import Enum
 from multiprocessing.managers import SyncManager
 
+from vxpy.Def import *
 from vxpy import Def
 from vxpy import Logging
 
@@ -58,7 +60,7 @@ Io: ProcessProxy
 Worker: ProcessProxy
 
 
-def set_state(new_state: int):
+def set_state(new_state: Enum):
     """Set state of local modules to new_state"""
     getattr(State, Process.name).value = new_state
 
@@ -74,7 +76,7 @@ def get_state(process_name: str = None):
     return getattr(State, process_name).value
 
 
-def in_state(state: int, process_name: str = None):
+def in_state(state: Enum, process_name: str = None):
     """Check if modules is in the given state.
 
     By default, if process_name is None, the local modules's name is used

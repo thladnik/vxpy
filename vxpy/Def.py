@@ -32,9 +32,7 @@ class EnvTypes(Enum):
     DEBUG = 2
     DEV = 3
 
-
-Env = EnvTypes.PRODUCTION
-
+Env = EnvTypes.DEV
 
 PATH_PACKAGE = 'vxpy'
 PATH_CONFIG = 'configs'
@@ -47,37 +45,20 @@ PATH_RECORDING_OUTPUT = 'recordings'
 PATH_TEMP = 'temp'
 PATH_SAMPLE = 'samples'
 PATH_DEVICE = 'devices'
+PATH_ROUTINES = 'routines'
+PATH_SHADERS = 'shaders'
+PATH_TASKS = 'tasks'
+
+PROCESS_CAMERA = 'Camera'
+PROCESS_CONTROLLER = 'Controller'
+PROCESS_DISPLAY = 'Display'
+PROCESS_GUI = 'Gui'
+PROCESS_IO = 'Io'
+PROCESS_WORKER = 'Worker'
 
 
-# Subfolder names
-class Path:
-    Config = 'configs'
-    Libdll = os.path.join('lib','dll')
-    Log = 'logs'
-    Model = 'models'
-    Output = 'output'
-    Protocol = 'protocols'
-    Routines = 'routines'
-    Sample = 'samples'
-    Shader = 'shaders'
-    Task = 'tasks'
-    Visual = 'visuals'
-
-
-# Process names
-class Process:
-    Camera = 'Camera'
-    Controller = 'Controller'
-    Display = 'Display'
-    Gui = 'Gui'
-    Io = 'Io'
-    Logger = 'Logger'
-    Worker = 'Worker'
-
-
-# TODO: replace states by enums
 # Process states
-class State:
+class State(Enum):
     NA = 0
     SYNC = 1
     STOPPED = 99
@@ -94,39 +75,19 @@ class State:
     STANDBY = 42
 
 
-MapStateToStr: Dict[int,str] = {
-    State.NA: 'N\A',
-    State.SYNC: 'Synchronizing',
-    State.STOPPED: 'Stopped',
-    State.STARTING: 'Starting',
-    State.PREPARE_PROTOCOL: 'Prepare protocol',
-    State.WAIT_FOR_PHASE: 'Wait for phase',
-    State.PREPARE_PHASE: 'Preparing phase',
-    State.READY: 'Ready',
-    State.PHASE_END: 'Phase ended',
-    State.PROTOCOL_ABORT: 'Abort protocol',
-    State.PROTOCOL_END: 'Protocol ended',
-    State.IDLE: 'Idle',
-    State.RUNNING: 'Running',
-    State.STANDBY: 'Standby',}
-
-
 # IPC signals
-class Signal:
-    update_property: int = 10
-    rpc: int = 20
-    query: int = 30
-    shutdown: int = 99
-    confirm_shutdown: int = 100
+class Signal(Enum):
+    update_property = 10
+    rpc = 20
+    query = 30
+    shutdown = 99
+    confirm_shutdown = 100
 
 
 # Device types
 class DeviceType(Enum):
     Camera = 1
     Io = 2
-
-
-# Configuration key definitions
 
 # Camera
 
@@ -137,7 +98,7 @@ class Cfg:
 
 
 class CameraCfg(Cfg):
-    name = Process.Camera.lower()
+    name = PROCESS_CAMERA.lower()
 
     # Camera configuration
     device_id = 'json_device_id'
@@ -158,7 +119,7 @@ class CameraCfg(Cfg):
 # Display
 
 class DisplayCfg(Cfg):
-    name = Process.Display.lower()
+    name = PROCESS_DISPLAY.lower()
 
     # General
     type = 'str_type'
@@ -201,7 +162,7 @@ class DisplayCfg(Cfg):
 
 # GUI
 class GuiCfg(Cfg):
-    name = Process.Gui.lower()
+    name = PROCESS_GUI.lower()
 
     # Addons
     addons = 'json_addons'
@@ -209,7 +170,7 @@ class GuiCfg(Cfg):
 
 # IO
 class IoCfg(Cfg):
-    name = Process.Io.lower()
+    name = PROCESS_IO.lower()
 
     device = 'json_device'
     max_sr = 'int_max_sr'
@@ -220,7 +181,7 @@ class IoCfg(Cfg):
 
 # Worker
 class WorkerCfg(Cfg):
-    name = Process.Worker.lower()
+    name = PROCESS_WORKER.lower()
 
     routines = 'json_routines'
 

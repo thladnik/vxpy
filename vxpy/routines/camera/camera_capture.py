@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import List, Dict, Tuple
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.api.routine import CameraRoutine
 from vxpy.api.attribute import ArrayAttribute, ArrayType

@@ -19,6 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtWidgets
 
 from vxpy.configure import acc
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget, Checkbox
 

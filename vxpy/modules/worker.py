@@ -19,13 +19,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from time import time
 import importlib
 
+from vxpy.Def import *
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy.core import process
 
 
 class Worker(process.AbstractProcess):
-    name = Def.Process.Worker
+    name = PROCESS_WORKER
 
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
@@ -42,7 +44,7 @@ class Worker(process.AbstractProcess):
 
     def _load_task(self, task_name):
         if not(task_name in self._tasks):
-            module = '.'.join([Def.Path.Task,task_name])
+            module = '.'.join([PATH_TASKS,task_name])
             try:
                 Logging.write(Logging.DEBUG,'Import task {}'.format(module))
                 self._tasks[task_name] = importlib.import_module(module)

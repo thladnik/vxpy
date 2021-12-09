@@ -20,6 +20,7 @@ from typing import Any, Dict
 import numpy as np
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.api.attribute import ArrayAttribute, ArrayType, write_attribute
 from vxpy.core import routine, ipc

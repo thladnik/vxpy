@@ -21,6 +21,7 @@ from typing import Dict, List, Union
 from dataclasses import dataclass
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 
 _use_apis = []

@@ -8,6 +8,7 @@ Created on Mon Nov 21 09:44:40 2016
 ####
 # Compat with MappApp:
 import os
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 

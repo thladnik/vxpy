@@ -22,7 +22,9 @@ import time
 
 from vxpy.api import get_time
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy.core import process, ipc
 from vxpy.core.protocol import AbstractProtocol, get_protocol
@@ -30,7 +32,7 @@ from vxpy.core import visual
 
 
 class Display(process.AbstractProcess):
-    name = Def.Process.Display
+    name = PROCESS_DISPLAY
 
     stimulus_protocol: AbstractProtocol = None
     stimulus_visual: visual.AbstractVisual = None

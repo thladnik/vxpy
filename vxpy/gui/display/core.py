@@ -24,6 +24,7 @@ import time
 from typing import Any, Dict, List, Tuple, Union
 
 from vxpy import api
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 from vxpy import modules
@@ -101,7 +102,7 @@ class Protocols(gui.AddonWidget):
 
     def update_ui(self):
         # Enable/Disable control elements
-        ctrl_is_idle = ipc.in_state(Def.State.IDLE, Def.Process.Controller)
+        ctrl_is_idle = ipc.in_state(Def.State.IDLE, PROCESS_CONTROLLER)
         self.btn_start.setEnabled(ctrl_is_idle)
         self.protocols.setEnabled(ctrl_is_idle)
         protocol_is_running = bool(ipc.Control.Protocol[Def.ProtocolCtrl.name])
@@ -125,15 +126,15 @@ class Protocols(gui.AddonWidget):
         protocol_path = self.protocols.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
 
         # Start recording
-        ipc.rpc(Def.Process.Controller, modules.Controller.start_recording)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.start_recording)
 
         # Start protocol
-        ipc.rpc(Def.Process.Controller, modules.Controller.start_protocol, protocol_path)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.start_protocol, protocol_path)
 
     def abort_protocol(self):
         self.progress.setValue(0)
         self.progress.setEnabled(False)
-        ipc.rpc(Def.Process.Controller, modules.Controller.abort_protocol)
+        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.abort_protocol)
 
 
 class VisualInteractor(gui.AddonWidget):
@@ -305,15 +306,15 @@ class VisualInteractor(gui.AddonWidget):
         # if None in visual_cls.parameters.values():
         #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
 
-        ipc.rpc(Def.Process.Display, modules.Display.run_visual, visual_cls, **defaults) #**visual_cls.parameters)
+        ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, **defaults) #**visual_cls.parameters)
 
     def update_parameter(self, name):
         def _update(value):
-            ipc.rpc(Def.Process.Display, modules.Display.update_visual, **{name: value})
+            ipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, **{name: value})
         return _update
 
     def stop_visual(self):
-        ipc.rpc(Def.Process.Display, modules.Display.stop_visual)
+        ipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         while layout.count():

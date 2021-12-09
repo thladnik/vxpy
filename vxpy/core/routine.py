@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 
-from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy.core import ipc
 from vxpy.api.attribute import read_attribute
@@ -103,7 +103,7 @@ class Trigger:
 
 class CameraRoutine(Routine):
 
-    name = Def.Process.Camera
+    name = PROCESS_CAMERA
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
@@ -111,7 +111,7 @@ class CameraRoutine(Routine):
 
 class DisplayRoutine(Routine):
 
-    name = Def.Process.Display
+    name = PROCESS_DISPLAY
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
@@ -119,7 +119,7 @@ class DisplayRoutine(Routine):
 
 class IoRoutine(Routine):
 
-    name = Def.Process.Io
+    name = PROCESS_IO
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
@@ -127,7 +127,7 @@ class IoRoutine(Routine):
 
 class WorkerRoutine(Routine):
 
-    name = Def.Process.Worker
+    name = PROCESS_WORKER
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)

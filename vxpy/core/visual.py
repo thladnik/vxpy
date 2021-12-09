@@ -27,7 +27,9 @@ from vispy.gloo import gl
 from vispy.util import transforms
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy.api import controller_rpc
 from vxpy.api.protocol import end_protocol_phase
@@ -112,7 +114,7 @@ class AbstractVisual(ABC):
             path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath[2:]])
         else:
             # Use absolute path to global shader folder
-            path = os.path.join(Def.Path.Shader, filepath)
+            path = os.path.join(PATH_SHADERS, filepath)
 
         with open(path, 'r') as f:
             code = f.read()

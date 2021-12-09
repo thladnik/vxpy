@@ -20,6 +20,7 @@ import h5py
 import numpy as np
 import os
 
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy import Logging

@@ -25,7 +25,9 @@ import time
 from typing import List, Dict, Tuple
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy import modules
 from vxpy.api import gui_rpc
@@ -39,7 +41,7 @@ from vxpy.utils import misc
 
 
 class Controller(process.AbstractProcess):
-    name = Def.Process.Controller
+    name = PROCESS_CONTROLLER
 
     configfile: str = None
 
@@ -96,11 +98,11 @@ class Controller(process.AbstractProcess):
 
         # Set up modules proxies (TODO: get rid of IPC.State)
         _proxies = {
-            Def.Process.Controller: process.ProcessProxy(Def.Process.Controller),
-            Def.Process.Camera: process.ProcessProxy(Def.Process.Camera),
-            Def.Process.Display: process.ProcessProxy(Def.Process.Display),
-            Def.Process.Gui: process.ProcessProxy(Def.Process.Gui),
-            Def.Process.Io: process.ProcessProxy(Def.Process.Io),
+            PROCESS_CONTROLLER: process.ProcessProxy(PROCESS_CONTROLLER),
+            PROCESS_CAMERA: process.ProcessProxy(PROCESS_CAMERA),
+            PROCESS_DISPLAY: process.ProcessProxy(PROCESS_DISPLAY),
+            PROCESS_GUI: process.ProcessProxy(PROCESS_GUI),
+            PROCESS_IO: process.ProcessProxy(PROCESS_IO),
         }
 
         # Set up STATES
@@ -157,13 +159,13 @@ class Controller(process.AbstractProcess):
         _routines = dict()
         _routines_to_load = dict()
         if config.Camera[Def.CameraCfg.use]:
-            _routines_to_load[Def.Process.Camera] = config.Camera[Def.CameraCfg.routines]
+            _routines_to_load[PROCESS_CAMERA] = config.Camera[Def.CameraCfg.routines]
         if config.Display[Def.DisplayCfg.use]:
-            _routines_to_load[Def.Process.Display] = config.Display[Def.DisplayCfg.routines]
+            _routines_to_load[PROCESS_DISPLAY] = config.Display[Def.DisplayCfg.routines]
         if config.Io[Def.IoCfg.use]:
-            _routines_to_load[Def.Process.Io] = config.Io[Def.IoCfg.routines]
+            _routines_to_load[PROCESS_IO] = config.Io[Def.IoCfg.routines]
         if config.Worker[Def.WorkerCfg.use]:
-            _routines_to_load[Def.Process.Worker] = config.Worker[Def.WorkerCfg.routines]
+            _routines_to_load[PROCESS_WORKER] = config.Worker[Def.WorkerCfg.routines]
 
         for process_name, routine_list in _routines_to_load.items():
             _routines[process_name] = dict()
@@ -407,12 +409,12 @@ class Controller(process.AbstractProcess):
 
     def start_protocol(self, protocol_path):
         # If any relevant subprocesses are currently busy: abort
-        if not (self.in_state(Def.State.IDLE, Def.Process.Display)):
+        if not (self.in_state(Def.State.IDLE, PROCESS_DISPLAY)):
             processes = list()
-            if not (self.in_state(Def.State.IDLE, Def.Process.Display)):
-                processes.append(Def.Process.Display)
-            if not (self.in_state(Def.State.IDLE, Def.Process.Io)):
-                processes.append(Def.Process.Io)
+            if not (self.in_state(Def.State.IDLE, PROCESS_DISPLAY)):
+                processes.append(PROCESS_DISPLAY)
+            if not (self.in_state(Def.State.IDLE, PROCESS_IO)):
+                processes.append(PROCESS_IO)
 
             Logging.warning(
                           'One or more processes currently busy. Can not start new protocol.'

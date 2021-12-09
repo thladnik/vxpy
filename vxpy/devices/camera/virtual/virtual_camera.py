@@ -1,12 +1,9 @@
-import cv2
 import h5py
-import numpy as np
 import os
-import time
 from typing import Dict
 
 from vxpy.core.camera import AbstractCameraDevice, Format
-from vxpy import Def
+from vxpy.Def import *
 
 _models = ['Multi_Fish_Eyes_Cam@20fps',
            'Single_Fish_Eyes_Cam@20fps',
@@ -74,7 +71,7 @@ class CameraDevice(AbstractCameraDevice):
         return f'VirtualCameraDevice("{self.serial}", "{self.info["model"]}")'
 
     def _get_filepath(self):
-        return os.path.join(Def.Path.Sample, 'samples_compr.h5')
+        return os.path.join(PATH_SAMPLE, 'samples_compr.h5')
 
     def open(self):
         if os.path.exists(self._get_filepath()):

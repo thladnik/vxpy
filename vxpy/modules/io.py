@@ -21,6 +21,7 @@ import numpy as np
 
 from vxpy.api.attribute import ArrayAttribute, ArrayType, read_attribute
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 from vxpy import Logging
@@ -30,7 +31,7 @@ from vxpy.core.protocol import get_protocol
 
 
 class Io(process.AbstractProcess):
-    name = Def.Process.Io
+    name = PROCESS_IO
 
     _pid_pin_map = dict()
     _pid_attr_map = dict()

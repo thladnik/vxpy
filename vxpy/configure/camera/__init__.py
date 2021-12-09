@@ -21,7 +21,9 @@ from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 from typing import Union
 
+from vxpy.Def import *
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Default
 from vxpy.devices import camera as camdev
 from vxpy.configure import acc
@@ -39,16 +41,6 @@ class CameraWidget(ModuleWidget):
         # import json
         # camdata = json.loads('{"api": "mappapp.devices.camera.tis.gst_linux", "serial": "25610433", "id": "zf_behavior", "format": "GRAY16_LE(640x480)@100", "exposure": 5.0, "gain": 1.5}')
         # dev = mappapp.core.camera.open_device(camdata)
-
-        # Routine selection ComboBox
-
-        # Add new routine
-
-
-        # Remove routine
-
-
-        # Routine list
 
         # Add new camera
         self.btn_add_cam = QtWidgets.QPushButton('Add camera')
@@ -102,7 +94,7 @@ class CameraWidget(ModuleWidget):
 
         # Get all available routines for camera
         modules_list = list()
-        for fname in os.listdir(os.path.join(Def.PATH_PACKAGE, Def.Path.Routines, Def.CameraCfg.name)):
+        for fname in os.listdir(os.path.join(Def.PATH_PACKAGE, PATH_ROUTINES, Def.CameraCfg.name)):
             if fname.startswith('_') \
                 or fname.startswith('.') \
                    or not(fname.endswith('.py')):
@@ -110,7 +102,7 @@ class CameraWidget(ModuleWidget):
 
             modules_list.append(fname.replace('.py', ''))
 
-        importpath = '.'.join([Def.Path.Routines,
+        importpath = '.'.join([PATH_ROUTINES,
                                Def.CameraCfg.name.lower()])
 
         modules = __import__(importpath, fromlist=modules_list)

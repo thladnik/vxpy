@@ -19,6 +19,7 @@ import importlib
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy import Logging
 from vxpy.core import ipc

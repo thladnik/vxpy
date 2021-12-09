@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy.core.gui import AddonWidget

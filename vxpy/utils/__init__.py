@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import cv2
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 
 def detect_fish_particle(im):

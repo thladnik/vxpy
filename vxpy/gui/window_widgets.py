@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.Def import *
 from vxpy import Logging
@@ -17,7 +18,7 @@ class CameraWindow(WindowTabWidget):
 
     def __init__(self, *args):
         WindowTabWidget.__init__(self, 'Camera', *args)
-        self.create_addon_tabs(Def.Process.Camera)
+        self.create_addon_tabs(PROCESS_CAMERA)
 
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
@@ -40,7 +41,7 @@ class DisplayWindow(WindowTabWidget):
     def __init__(self, *args):
         WindowTabWidget.__init__(self, 'Display', *args)
         self.setLayout(QtWidgets.QHBoxLayout())
-        self.create_addon_tabs(Def.Process.Display)
+        self.create_addon_tabs(PROCESS_DISPLAY)
 
 
 class IoWindow(WindowTabWidget):
@@ -48,7 +49,7 @@ class IoWindow(WindowTabWidget):
     def __init__(self, *args):
         WindowTabWidget.__init__(self, 'I/O', *args)
         self.setLayout(QtWidgets.QVBoxLayout())
-        self.create_addon_tabs(Def.Process.Io)
+        self.create_addon_tabs(PROCESS_IO)
 
 
 class PlottingWindow(WindowWidget):

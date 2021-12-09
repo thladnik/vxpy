@@ -18,7 +18,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from typing import Dict
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
+from vxpy.Def import *
 from vxpy import Logging
 from vxpy.core import process, ipc
 from vxpy.core.camera import AbstractCameraDevice, open_device, _use_apis
@@ -26,7 +28,7 @@ from vxpy.devices.camera.virtual import virtual_camera
 
 
 class Camera(process.AbstractProcess):
-    name = Def.Process.Camera
+    name = PROCESS_CAMERA
 
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)

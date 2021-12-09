@@ -20,6 +20,7 @@ from PySide6 import QtWidgets
 import pyqtgraph as pg
 
 from vxpy import config
+from vxpy.Def import *
 from vxpy import Def
 from vxpy.core.gui import AddonWidget
 from vxpy.core.attribute import read_attribute
