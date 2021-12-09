@@ -151,9 +151,9 @@ class AbstractVisual(ABC):
 
         if _update_verbosely:
             # (optional) Logging
-            log.info(msg)
+            Logging.info(msg)
         else:
-            log.debug(msg)
+            Logging.debug(msg)
 
         # Write new value to parameters dictionary
         for key, value in params.items():
