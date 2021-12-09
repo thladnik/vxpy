@@ -182,8 +182,8 @@ class Canvas(app.Canvas):
         # Leave catch in here for now.
         # This makes debugging new stimuli much easier.
         try:
-            # print('Draw {:.3f}'.format(self.newt))
-            ipc.Process.stimulus_visual.draw(self.newt - self.t)
+            if ipc.Process.stimulus_visual is not None:
+                ipc.Process.stimulus_visual.draw(self.newt - self.t)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())

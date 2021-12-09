@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import logging
 from abc import ABC, abstractmethod
 import inspect
 import numpy as np
@@ -145,6 +146,15 @@ class AbstractVisual(ABC):
         if not(bool(params)):
             return
 
+        msg = f'Update visual {self.__class__.__name__}. ' \
+              'Set ' + ' '.join([f'{key}: {value}' for key, value in params.items()])
+
+        if _update_verbosely:
+            # (optional) Logging
+            log.info(msg)
+        else:
+            log.debug(msg)
+
         # Write new value to parameters dictionary
         for key, value in params.items():
             # (Optional) parsing through custom function
@@ -152,12 +162,6 @@ class AbstractVisual(ABC):
                 value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
             # Save to parameters
             self.parameters[key] = value
-
-        # (optional) Logging
-        if _update_verbosely:
-            Logging.write(Logging.INFO,
-                          f'Update visual {self.__class__.__name__}. '
-                          'Set ' + ' '.join([f'{key}: {value}' for key, value in self.parameters.items()]))
 
         # Update program uniforms from parameters
         for program_name, program in self.custom_programs.items():
