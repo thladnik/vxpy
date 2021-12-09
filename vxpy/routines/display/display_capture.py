@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file
 from vxpy.api.routine import DisplayRoutine
@@ -85,8 +85,8 @@ class Frames(DisplayRoutine):
     def setup(self, *args, **kwargs):
 
         # Set up shared variables
-        self.width = Config.Display[Def.DisplayCfg.window_width]
-        self.height = Config.Display[Def.DisplayCfg.window_height]
+        self.width = config.Display[Def.DisplayCfg.window_width]
+        self.height = config.Display[Def.DisplayCfg.window_height]
         self.frame = ArrayAttribute('display_frame', (self.height, self.width, 3), ArrayType.uint8)
 
     def initialize(self):

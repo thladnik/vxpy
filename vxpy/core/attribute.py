@@ -24,7 +24,7 @@ import numpy as np
 import typing
 from typing import Tuple, List
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy import Logging
@@ -50,7 +50,7 @@ def build_attributes(attrs):
 
 
 def match_to_record_attributes(attr_name: str):
-    attribute_filters = Config.Recording[Def.RecCfg.attributes]
+    attribute_filters = config.Recording[Def.RecCfg.attributes]
 
     matched = False
     for filt_string in attribute_filters:

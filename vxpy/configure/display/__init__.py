@@ -20,7 +20,7 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.configure import acc
 from vxpy.configure.display import planar, spherical
@@ -95,7 +95,7 @@ class Main(ModuleWidget):
     def update_canvas(self):
         section = Def.DisplayCfg.name
 
-        Config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
+        config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
 
         # Update size
         w, h = acc.cur_conf.getParsed(section, Def.DisplayCfg.window_width), \

@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 from scipy.spatial import distance
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.api import get_time
 from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute

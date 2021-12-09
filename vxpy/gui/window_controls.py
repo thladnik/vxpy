@@ -4,7 +4,7 @@ from os.path import abspath
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QLabel
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.core import ipc
 from vxpy import Logging
@@ -215,7 +215,7 @@ class RecordingWidget(IntegratedWidget):
 
         self.rec_routines.layout().addWidget(self.rec_attribute_list)
         # Update recorded attributes
-        for match_string in Config.Recording[Def.RecCfg.attributes]:
+        for match_string in config.Recording[Def.RecCfg.attributes]:
             self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
         # self.rec_routines.layout().addItem(vSpacer)
         self.controls.layout().addWidget(self.rec_routines, 5, 1)
@@ -233,7 +233,7 @@ class RecordingWidget(IntegratedWidget):
         ipc.rpc(Def.Process.Controller, modules.Controller.set_compression_opts, self.get_compression_opts())
 
     def open_base_folder(self):
-        output_path = abspath(Config.Recording[Def.RecCfg.output_folder])
+        output_path = abspath(config.Recording[Def.RecCfg.output_folder])
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def show_lab_notebook(self):
@@ -355,7 +355,7 @@ class RecordingWidget(IntegratedWidget):
         if bool(ipc.Control.Protocol[Def.ProtocolCtrl.name]):
             self.btn_stop.setEnabled(False)
 
-        self.base_dir.setText(Config.Recording[Def.RecCfg.output_folder])
+        self.base_dir.setText(config.Recording[Def.RecCfg.output_folder])
 
 
 class LoggingWidget(IntegratedWidget):

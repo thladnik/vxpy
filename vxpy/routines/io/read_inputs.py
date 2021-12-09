@@ -19,7 +19,7 @@ import time
 from typing import Any, Dict
 import numpy as np
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.api.attribute import ArrayAttribute, ArrayType, write_attribute
 from vxpy.core import routine, ipc
@@ -33,7 +33,7 @@ class ReadAll(routine.IoRoutine):
 
         # Read all pins
         self.pin_configs: Dict[str, Dict] = {}
-        for did, pins in Config.Io[Def.IoCfg.pins].items():
+        for did, pins in config.Io[Def.IoCfg.pins].items():
             for pid, pconf in pins.items():
                 pconf.update(dev=did)
                 self.pin_configs[pid] = pconf

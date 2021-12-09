@@ -19,7 +19,7 @@ from configparser import ConfigParser
 import os
 from PySide6 import QtCore, QtWidgets
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.Def import *
 from vxpy import Logging
@@ -183,7 +183,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         acc.cur_conf.read(self._configfile)
 
         # Set display config for visual compat.
-        Config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
+        config.Display = acc.cur_conf.getParsedSection(Def.DisplayCfg.name)
 
         # Update module selection
         for module_name, checkbox in self.module_checkboxes.items():

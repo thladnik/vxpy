@@ -28,7 +28,7 @@ from typing import Any, Callable, Dict, List, Union
 
 from vxpy import api
 from vxpy.api import event
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.core.ipc import build_pipes, set_process
 from vxpy import Logging
@@ -97,7 +97,7 @@ class AbstractProcess:
 
         # Set configurations
         if _configurations is not None:
-            Config.__dict__.update(_configurations)
+            config.__dict__.update(_configurations)
 
         # Set controls
         if _controls is not None:
@@ -514,7 +514,7 @@ class AbstractProcess:
         self.file_container.append(path, value)
 
     def _routine_on_record(self, routine_name):
-        return f'{self.name}/{routine_name}' in Config.Recording[Def.RecCfg.routines]
+        return f'{self.name}/{routine_name}' in config.Recording[Def.RecCfg.routines]
 
     def set_record_group_attrs(self, group_attributes: Dict = None):
         if self.file_container is None:

@@ -24,7 +24,7 @@ import os
 import time
 from typing import List, Dict, Tuple
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import Logging
 from vxpy import modules
@@ -77,7 +77,7 @@ class Controller(process.AbstractProcess):
             configuration = misc.ConfigParser()
             configuration.read(config_file)
             for section in configuration.sections():
-                setattr(Config, section.capitalize(), configuration.getParsedSection(section))
+                setattr(config, section.capitalize(), configuration.getParsedSection(section))
             config_loaded = True
 
         except Exception:
@@ -156,14 +156,14 @@ class Controller(process.AbstractProcess):
         # Load routine modules
         _routines = dict()
         _routines_to_load = dict()
-        if Config.Camera[Def.CameraCfg.use]:
-            _routines_to_load[Def.Process.Camera] = Config.Camera[Def.CameraCfg.routines]
-        if Config.Display[Def.DisplayCfg.use]:
-            _routines_to_load[Def.Process.Display] = Config.Display[Def.DisplayCfg.routines]
-        if Config.Io[Def.IoCfg.use]:
-            _routines_to_load[Def.Process.Io] = Config.Io[Def.IoCfg.routines]
-        if Config.Worker[Def.WorkerCfg.use]:
-            _routines_to_load[Def.Process.Worker] = Config.Worker[Def.WorkerCfg.routines]
+        if config.Camera[Def.CameraCfg.use]:
+            _routines_to_load[Def.Process.Camera] = config.Camera[Def.CameraCfg.routines]
+        if config.Display[Def.DisplayCfg.use]:
+            _routines_to_load[Def.Process.Display] = config.Display[Def.DisplayCfg.routines]
+        if config.Io[Def.IoCfg.use]:
+            _routines_to_load[Def.Process.Io] = config.Io[Def.IoCfg.routines]
+        if config.Worker[Def.WorkerCfg.use]:
+            _routines_to_load[Def.Process.Worker] = config.Worker[Def.WorkerCfg.routines]
 
         for process_name, routine_list in _routines_to_load.items():
             _routines[process_name] = dict()
@@ -183,11 +183,11 @@ class Controller(process.AbstractProcess):
                 _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
 
         # Set configured cameras
-        for device in Config.Camera[Def.CameraCfg.devices]:
+        for device in config.Camera[Def.CameraCfg.devices]:
             register_camera_device(device['id'])
 
         # Set configured io devices
-        for dev_name in Config.Io[Def.IoCfg.device]:
+        for dev_name in config.Io[Def.IoCfg.device]:
             register_io_device(dev_name)
 
         # Compare required vs registered devices
@@ -205,16 +205,16 @@ class Controller(process.AbstractProcess):
         # Worker
         self._register_process(modules.Worker)
         # GUI
-        if Config.Gui[Def.GuiCfg.use]:
+        if config.Gui[Def.GuiCfg.use]:
             self._register_process(modules.Gui)
         # Camera
-        if Config.Camera[Def.CameraCfg.use]:
+        if config.Camera[Def.CameraCfg.use]:
             self._register_process(modules.Camera)
         # Display
-        if Config.Display[Def.DisplayCfg.use]:
+        if config.Display[Def.DisplayCfg.use]:
             self._register_process(modules.Display)
         # IO
-        if Config.Io[Def.IoCfg.use]:
+        if config.Io[Def.IoCfg.use]:
             self._register_process(modules.Io)
 
         # Select subset of registered processes which should implement
@@ -229,7 +229,7 @@ class Controller(process.AbstractProcess):
         self._init_params = dict(
             _program_start_time=self.program_start_time,
             _pipes=ipc.Pipes,
-            _configurations={k: v for k, v in Config.__dict__.items() if not (k.startswith('_'))},
+            _configurations={k: v for k, v in config.__dict__.items() if not (k.startswith('_'))},
             _states={k: v for k, v
                      in ipc.State.__dict__.items()
                      if not (k.startswith('_'))},
@@ -363,7 +363,7 @@ class Controller(process.AbstractProcess):
 
         # Set current folder if none is given
         if not (bool(ipc.Control.Recording[Def.RecCtrl.folder])):
-            output_folder = Config.Recording[Def.RecCfg.output_folder]
+            output_folder = config.Recording[Def.RecCfg.output_folder]
             ipc.Control.Recording[Def.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
 
             # Reset record group perf_counter

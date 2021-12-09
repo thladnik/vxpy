@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from typing import Dict
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import Logging
 from vxpy.core import process, ipc
@@ -36,9 +36,9 @@ class Camera(process.AbstractProcess):
         self.cameras: Dict[str, AbstractCameraDevice] = dict()
 
         # Set up cameras
-        for config in Config.Camera[Def.CameraCfg.devices]:
-            device_id = config['id']
-            device = open_device(config)
+        for cfg in config.Camera[Def.CameraCfg.devices]:
+            device_id = cfg['id']
+            device = open_device(cfg)
             if device.open():
                 Logging.write(Logging.INFO, f'Use {device} as \"{device_id}\"')
             else:

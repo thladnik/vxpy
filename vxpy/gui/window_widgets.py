@@ -5,7 +5,7 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.Def import *
 from vxpy import Logging
@@ -22,7 +22,7 @@ class CameraWindow(WindowTabWidget):
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
         self.stream_fps = 20
-        if bool(Config.Camera[Def.CameraCfg.routines]):
+        if bool(config.Camera[Def.CameraCfg.routines]):
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
             self.timer_frame_update.setInterval(1000 // self.stream_fps)

@@ -1,5 +1,5 @@
 """
-MappApp ./Config.py
+MappApp ./config.py
 all stimulus implementations in ./stimulus/.
 Copyright (C) 2020 Tim Hladnik
 

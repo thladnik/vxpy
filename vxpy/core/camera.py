@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 from dataclasses import dataclass
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 
 _use_apis = []
@@ -28,9 +28,9 @@ _devices = {}
 
 
 def find_config_for_camera_id(_id):
-    for config in Config.Camera[Def.CameraCfg.devices]:
-        if config['id'] == _id:
-            return config
+    for cfg in config.Camera[Def.CameraCfg.devices]:
+        if cfg['id'] == _id:
+            return cfg
     return None
 
 

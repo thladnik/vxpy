@@ -21,7 +21,7 @@ from vispy import gloo
 import time
 
 from vxpy.api import get_time
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import Logging
 from vxpy.core import process, ipc
@@ -46,13 +46,13 @@ class Display(process.AbstractProcess):
         self.times = []
 
         # Create canvas
-        _interval = 1. / Config.Display[Def.DisplayCfg.fps]
+        _interval = 1. / config.Display[Def.DisplayCfg.fps]
 
-        _size = (Config.Display[Def.DisplayCfg.window_width],
-                 Config.Display[Def.DisplayCfg.window_height])
+        _size = (config.Display[Def.DisplayCfg.window_width],
+                 config.Display[Def.DisplayCfg.window_height])
 
-        _position = (Config.Display[Def.DisplayCfg.window_pos_x],
-                     Config.Display[Def.DisplayCfg.window_pos_y])
+        _position = (config.Display[Def.DisplayCfg.window_pos_x],
+                     config.Display[Def.DisplayCfg.window_pos_y])
 
         self.canvas = Canvas(_interval,
                              title='Stimulus display',

@@ -19,7 +19,7 @@ import traceback
 
 import pyfirmata
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import Logging
 

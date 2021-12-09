@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtCore, QtGui, QtWidgets
 import sys
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import modules
 from vxpy.core import process, ipc
@@ -122,9 +122,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Display
         self.display = None
-        if Config.Display[Def.DisplayCfg.use] \
-                and Def.Process.Display in Config.Gui[Def.GuiCfg.addons] \
-                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
+        if config.Display[Def.DisplayCfg.use] \
+                and Def.Process.Display in config.Gui[Def.GuiCfg.addons] \
+                and bool(config.Gui[Def.GuiCfg.addons][Def.Process.Display]):
             self.display = DisplayWindow(self)
             self.display.create_hooks()
             self.display.move(x + row2_xoffset, self.controls.size().height() + row2_yoffset)
@@ -133,9 +133,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Camera
         self.camera = None
-        if Config.Camera[Def.CameraCfg.use] \
-                and Def.Process.Camera in Config.Gui[Def.GuiCfg.addons] \
-                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
+        if config.Camera[Def.CameraCfg.use] \
+                and Def.Process.Camera in config.Gui[Def.GuiCfg.addons] \
+                and bool(config.Gui[Def.GuiCfg.addons][Def.Process.Camera]):
             self.camera = CameraWindow(self)
             self.camera.create_hooks()
             self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset, self.controls.size().height() + row2_yoffset)
@@ -144,9 +144,9 @@ class Window(QtWidgets.QMainWindow):
 
         # Io
         self.io = None
-        if Config.Io[Def.IoCfg.use] \
-                and Def.Process.Io in Config.Gui[Def.GuiCfg.addons] \
-                and bool(Config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
+        if config.Io[Def.IoCfg.use] \
+                and Def.Process.Io in config.Gui[Def.GuiCfg.addons] \
+                and bool(config.Gui[Def.GuiCfg.addons][Def.Process.Io]):
             self.io = IoWindow(self)
             self.io.create_hooks()
             self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset, self.controls.size().height() + row2_yoffset)
@@ -193,7 +193,7 @@ class Window(QtWidgets.QMainWindow):
         self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
         self.menu_process.restart_display.setAutoRepeat(False)
         # Restart camera modules
-        if Config.Camera[Def.CameraCfg.use]:
+        if config.Camera[Def.CameraCfg.use]:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 

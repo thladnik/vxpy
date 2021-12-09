@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 from typing import List, Dict, Tuple
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy.api.routine import CameraRoutine
 from vxpy.api.attribute import ArrayAttribute, ArrayType
@@ -32,7 +32,7 @@ class Frames(CameraRoutine):
 
     def setup(self):
         self.device_list: List[Tuple[str, int, int]] = []
-        for dev in Config.Camera[Def.CameraCfg.devices]:
+        for dev in config.Camera[Def.CameraCfg.devices]:
             fmt = Format.from_str(dev['format'])
             self.device_list.append((dev['id'], fmt.width, fmt.height))
 

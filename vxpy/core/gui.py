@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import importlib
 from PySide6 import QtCore, QtWidgets
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import Logging
 from vxpy.core import ipc
@@ -97,7 +97,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
 
     def create_addon_tabs(self, process_name):
 
-        used_addons = Config.Gui[Def.GuiCfg.addons][process_name]
+        used_addons = config.Gui[Def.GuiCfg.addons][process_name]
 
         for path in used_addons:
             Logging.info(f'Load UI addon "{path}"')

@@ -26,7 +26,7 @@ from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
 
-from vxpy import Config
+from vxpy import config
 from vxpy import Def
 from vxpy import Logging
 from vxpy.api import controller_rpc
@@ -75,8 +75,8 @@ class AbstractVisual(ABC):
         self.custom_programs: Dict[str, gloo.Program] = dict()
         self.transform_uniforms = dict()
 
-        self._buffer_shape = Config.Display[Def.DisplayCfg.window_height], \
-                             Config.Display[Def.DisplayCfg.window_width] #self.canvas.physical_size[1], self.canvas.physical_size[0]
+        self._buffer_shape = config.Display[Def.DisplayCfg.window_height], \
+                             config.Display[Def.DisplayCfg.window_width] #self.canvas.physical_size[1], self.canvas.physical_size[0]
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
         self.frame = self._out_fb
@@ -384,8 +384,8 @@ class SphericalVisual(AbstractVisual, ABC):
 
         self.frame_time = dt
 
-        win_width = Config.Display[Def.DisplayCfg.window_width]
-        win_height = Config.Display[Def.DisplayCfg.window_height]
+        win_width = config.Display[Def.DisplayCfg.window_width]
+        win_height = config.Display[Def.DisplayCfg.window_height]
         # Set 2D scaling for aspect 1
         if win_height > win_width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
@@ -413,16 +413,16 @@ class SphericalVisual(AbstractVisual, ABC):
 
         for i in range(4):
 
-            azim_orientation = Config.Display[Def.DisplayCfg.sph_view_azim_orient]
-            azim_angle = Config.Display[Def.DisplayCfg.sph_view_azim_angle][i]
+            azim_orientation = config.Display[Def.DisplayCfg.sph_view_azim_orient]
+            azim_angle = config.Display[Def.DisplayCfg.sph_view_azim_angle][i]
 
             # Set 3D transform
-            distance = Config.Display[Def.DisplayCfg.sph_view_distance][i]
-            fov = Config.Display[Def.DisplayCfg.sph_view_fov][i]
-            view_scale = Config.Display[Def.DisplayCfg.sph_view_scale][i]
-            elev_angle = Config.Display[Def.DisplayCfg.sph_view_elev_angle][i]
-            radial_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset][i]
-            lateral_offset_scalar = Config.Display[Def.DisplayCfg.sph_pos_glob_lateral_offset][i]
+            distance = config.Display[Def.DisplayCfg.sph_view_distance][i]
+            fov = config.Display[Def.DisplayCfg.sph_view_fov][i]
+            view_scale = config.Display[Def.DisplayCfg.sph_view_scale][i]
+            elev_angle = config.Display[Def.DisplayCfg.sph_view_elev_angle][i]
+            radial_offset_scalar = config.Display[Def.DisplayCfg.sph_pos_glob_radial_offset][i]
+            lateral_offset_scalar = config.Display[Def.DisplayCfg.sph_pos_glob_lateral_offset][i]
 
             # Set relative size
             self.transform_uniforms['u_mapcalib_scale'] = view_scale * np.array([1, 1])
@@ -433,8 +433,8 @@ class SphericalVisual(AbstractVisual, ABC):
             # 3D projection
             self.transform_uniforms['u_mapcalib_projection'] = transforms.perspective(fov, 1., 0.1, 400.0)
 
-            xy_offset = np.array([Config.Display[Def.DisplayCfg.glob_x_pos] * win_width / win_height,
-                                  Config.Display[Def.DisplayCfg.glob_y_pos]])
+            xy_offset = np.array([config.Display[Def.DisplayCfg.glob_x_pos] * win_width / win_height,
+                                  config.Display[Def.DisplayCfg.glob_y_pos]])
 
             self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
@@ -531,8 +531,8 @@ class PlanarVisual(AbstractVisual, ABC):
             return
 
         # Construct vertices
-        height = Config.Display[Def.DisplayCfg.window_height]
-        width = Config.Display[Def.DisplayCfg.window_width]
+        height = config.Display[Def.DisplayCfg.window_height]
+        width = config.Display[Def.DisplayCfg.window_width]
 
         # Set aspect scale to square
         if width > height:
@@ -543,16 +543,16 @@ class PlanarVisual(AbstractVisual, ABC):
             self.u_mapcalib_yscale = width/height
 
         # Set 2d translation
-        self.u_mapcalib_glob_x_position = Config.Display[Def.DisplayCfg.glob_x_pos]
-        self.u_mapcalib_glob_y_position = Config.Display[Def.DisplayCfg.glob_y_pos]
+        self.u_mapcalib_glob_x_position = config.Display[Def.DisplayCfg.glob_x_pos]
+        self.u_mapcalib_glob_y_position = config.Display[Def.DisplayCfg.glob_y_pos]
 
         # Extents
-        self.u_mapcalib_xextent = Config.Display[Def.DisplayCfg.pla_xextent]
-        self.u_mapcalib_yextent = Config.Display[Def.DisplayCfg.pla_yextent]
+        self.u_mapcalib_xextent = config.Display[Def.DisplayCfg.pla_xextent]
+        self.u_mapcalib_yextent = config.Display[Def.DisplayCfg.pla_yextent]
 
         # Set real world size multiplier [mm]
         # (PlanarVisual's positions are normalized to the smaller side of the screen)
-        self.u_mapcalib_small_side_size = Config.Display[Def.DisplayCfg.pla_small_side]
+        self.u_mapcalib_small_side_size = config.Display[Def.DisplayCfg.pla_small_side]
 
         # Set uniforms
         self.transform_uniforms['u_mapcalib_xscale'] = self.u_mapcalib_xscale
