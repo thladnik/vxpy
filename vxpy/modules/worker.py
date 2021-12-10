@@ -19,11 +19,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from time import time
 import importlib
 
-from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import Logging
-from vxpy.core import process
+from vxpy.core import process, logging
 
 
 class Worker(process.AbstractProcess):
@@ -46,10 +44,10 @@ class Worker(process.AbstractProcess):
         if not(task_name in self._tasks):
             module = '.'.join([PATH_TASKS,task_name])
             try:
-                Logging.write(Logging.DEBUG,'Import task {}'.format(module))
+                logging.write(logging.DEBUG, 'Import task {}'.format(module))
                 self._tasks[task_name] = importlib.import_module(module)
             except:
-                Logging.write(Logging.WARNING,'Failed to import task {}'.format(module))
+                logging.write(logging.WARNING, 'Failed to import task {}'.format(module))
 
         return self._tasks[task_name]
 

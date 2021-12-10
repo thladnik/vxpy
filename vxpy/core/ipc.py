@@ -15,12 +15,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import multiprocessing as mp
-from enum import Enum
 from multiprocessing.managers import SyncManager
 
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy import Logging
+from vxpy.core import logging
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -127,7 +126,7 @@ def send(process_name: str, signal: int, *args, _send_verbosely=True, **kwargs) 
 
     """
     if _send_verbosely:
-        Logging.write(Logging.DEBUG,
+        logging.write(logging.DEBUG,
                       f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
 
     kwargs.update(_send_verbosely=_send_verbosely)

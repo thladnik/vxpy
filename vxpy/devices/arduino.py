@@ -19,15 +19,12 @@ import traceback
 
 import pyfirmata
 
-from vxpy import config
-from vxpy.definitions import *
-from vxpy import definitions
-from vxpy import Logging
+from vxpy.core import logging
 
 # Type hinting
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Dict, AnyStr, Union
+    from typing import Dict, Union
 
 
 class Pin:
@@ -39,9 +36,9 @@ class Pin:
             self.config = config
             self.data = None
             self.is_out = self.config['type'] in ('do', 'ao')
-            Logging.write(Logging.INFO, f"Configure pin {pid} with {config}")
+            logging.write(logging.INFO, f"Configure pin {pid} with {config}")
         except:
-            Logging.write(Logging.WARNING, f"Failed to configure pin {pid} with {config}")
+            logging.write(logging.WARNING, f"Failed to configure pin {pid} with {config}")
             import traceback
             traceback.print_exc()
 
@@ -56,7 +53,7 @@ class Pin:
             self.value = value
             self._pin.write(value)
         else:
-            Logging.write(Logging.WARNING, f'Trying to write to input pin {self.pid}')
+            logging.write(logging.WARNING, f'Trying to write to input pin {self.pid}')
 
 
 class ArduinoBoard:
@@ -73,9 +70,9 @@ class ArduinoBoard:
             # Try lower board setup time
             # pyfirmata.pyfirmata.BOARD_SETUP_WAIT_TIME = .1
             self._board = getattr(pyfirmata, self.model)(config['com'])
-            Logging.write(Logging.INFO, f'Using {_devstr}')
+            logging.write(logging.INFO, f'Using {_devstr}')
         except:
-            Logging.write(Logging.WARNING, f'Failed to set up {_devstr}')
+            logging.write(logging.WARNING, f'Failed to set up {_devstr}')
             import trace
             print(traceback.print_exc())
 

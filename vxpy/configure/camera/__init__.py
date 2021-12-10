@@ -16,20 +16,17 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from inspect import isclass
-import os
-from PySide6 import QtCore, QtWidgets
-import pyqtgraph as pg
 from typing import Union
 
-from vxpy.definitions import *
+import pyqtgraph as pg
+from PySide6 import QtCore, QtWidgets
+
 from vxpy import definitions
-from vxpy.definitions import *
-from vxpy import Default
-from vxpy.devices import camera as camdev
 from vxpy.configure import acc
 from vxpy.configure.utils import ModuleWidget
 from vxpy.core.routine import Routine
-import vxpy.core.camera
+from vxpy.definitions import *
+from vxpy.devices import camera as camdev
 
 
 class CameraWidget(ModuleWidget):

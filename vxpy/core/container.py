@@ -18,12 +18,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import h5py
 import numpy as np
-import os
 
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import ipc
-from vxpy import Logging
+from vxpy.core import ipc, logging
 from vxpy import modules
 
 # Type hinting
@@ -183,7 +181,7 @@ class NpBuffer:
         try:
             self._memmap = np.memmap(self.temp_filepath, dtype=self.dtype, mode='w+', shape=(_length, *self.shape[1:]))
         except Exception:
-            Logging.write(Logging.ERROR, f'Unable to open temporary file {self.temp_filepath} for numpy buffered recording. '
+            logging.write(logging.ERROR, f'Unable to open temporary file {self.temp_filepath} for numpy buffered recording. '
                                          f'This is most likely because there is insufficient storage space to create temporary files. '
                                          f'Either make room on partition, use different partition or switch to standard H5.')
             ipc.Controller.rpc(modules.Controller.stop_recording)

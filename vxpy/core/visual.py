@@ -15,22 +15,19 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import logging
 from abc import ABC, abstractmethod
 import inspect
 import numpy as np
-import os
-from typing import Any, Dict
+from typing import Any
 from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
 
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import Logging
+from vxpy.core import logging
 from vxpy.api import controller_rpc
 from vxpy.api.protocol import end_protocol_phase
 from vxpy.utils import geometry
@@ -153,9 +150,9 @@ class AbstractVisual(ABC):
 
         if _update_verbosely:
             # (optional) Logging
-            Logging.info(msg)
+            logging.info(msg)
         else:
-            Logging.debug(msg)
+            logging.debug(msg)
 
         # Write new value to parameters dictionary
         for key, value in params.items():

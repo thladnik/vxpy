@@ -15,15 +15,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import Dict
 
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import Logging
-from vxpy.core import process, ipc
-from vxpy.core.camera import AbstractCameraDevice, open_device, _use_apis
+from vxpy.core import process, ipc, logging, camera
 from vxpy.devices.camera.virtual import virtual_camera
 
 
@@ -33,19 +29,19 @@ class Camera(process.AbstractProcess):
     def __init__(self, **kwargs):
         process.AbstractProcess.__init__(self, **kwargs)
         global _use_apis
-        _use_apis.append(virtual_camera)
+        camera._use_apis.append(virtual_camera)
 
-        self.cameras: Dict[str, AbstractCameraDevice] = dict()
+        self.cameras: Dict[str, camera.AbstractCameraDevice] = dict()
 
         # Set up cameras
         for cfg in config.Camera[definitions.CameraCfg.devices]:
             device_id = cfg['id']
-            device = open_device(cfg)
+            device = camera.open_device(cfg)
             if device.open():
-                Logging.write(Logging.INFO, f'Use {device} as \"{device_id}\"')
+                logging.write(logging.INFO, f'Use {device} as \"{device_id}\"')
             else:
                 # TODO: add more info for user
-                Logging.write(Logging.WARNING, f'Unable to use {device} as \"{device_id}\"')
+                logging.write(logging.WARNING, f'Unable to use {device} as \"{device_id}\"')
                 continue
 
             # Save to dictionary and start
@@ -56,7 +52,7 @@ class Camera(process.AbstractProcess):
         base_target_fps = 150.
 
         if ipc.Control.General[definitions.GenCtrl.min_sleep_time] > 1./base_target_fps:
-            Logging.write(Logging.WARNING,
+            logging.write(logging.WARNING,
                           'Mininum sleep period is ABOVE '
                           'average target frametime of 1/{}s.'
                           'This will cause increased CPU usage.'

@@ -19,13 +19,11 @@ import importlib
 import time
 import numpy as np
 
-from vxpy.api.attribute import ArrayAttribute, ArrayType, read_attribute
+from vxpy.api.attribute import read_attribute
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import Logging
-from vxpy.core import process, ipc
+from vxpy.core import process, ipc, logging
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
 
@@ -43,23 +41,23 @@ class Io(process.AbstractProcess):
         # Configure devices
         for did, dev_config in config.Io[definitions.IoCfg.device].items():
             if not(all(k in dev_config for k in ("type", "model"))):
-                Logging.write(Logging.WARNING, f'Insufficient information to configure device {did}')
+                logging.write(logging.WARNING, f'Insufficient information to configure device {did}')
                 continue
 
             try:
-                Logging.write(Logging.INFO, f'Set up device {did}')
+                logging.write(logging.INFO, f'Set up device {did}')
                 device_type_module = importlib.import_module(f'{PATH_PACKAGE}.{PATH_DEVICE}.{dev_config["type"]}')
                 device_cls = getattr(device_type_module, dev_config["model"])
 
                 self._devices[did] = device_cls(dev_config)
 
             except Exception as exc:
-                Logging.write(Logging.WARNING, f'Failed to set up device {did} // Exc: {exc}')
+                logging.write(logging.WARNING, f'Failed to set up device {did} // Exc: {exc}')
                 continue
 
             # Configure pins on device
             if did in config.Io[definitions.IoCfg.pins]:
-                Logging.write(Logging.INFO, f'Set up pin configuration for device {did}')
+                logging.write(logging.INFO, f'Set up pin configuration for device {did}')
 
                 pin_config = config.Io[definitions.IoCfg.pins][did]
                 self._devices[did].configure_pins(**pin_config)
@@ -68,7 +66,7 @@ class Io(process.AbstractProcess):
                 for pid, pin in self._devices[did].pins.items():
                     self._pid_pin_map[pid] = pin
             else:
-                Logging.write(Logging.WARNING, f'No pin configuration found for device {did}')
+                logging.write(logging.WARNING, f'No pin configuration found for device {did}')
 
         # Set timeout during idle
         self.enable_idle_timeout = True
@@ -103,11 +101,11 @@ class Io(process.AbstractProcess):
     def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
 
-        Logging.write(Logging.INFO, f'Set attribute "{attr_name}" to write to pin {pid}')
+        logging.write(logging.INFO, f'Set attribute "{attr_name}" to write to pin {pid}')
 
         # Check of pid is actually configured
         if pid not in self._pid_pin_map:
-            Logging.write(Logging.WARNING, f'Output "{pid}" is not configured. Cannot connect to attribute {attr_name}')
+            logging.write(logging.WARNING, f'Output "{pid}" is not configured. Cannot connect to attribute {attr_name}')
             return
 
         # Select pin
@@ -115,21 +113,21 @@ class Io(process.AbstractProcess):
 
         # Check if pin is configured as output
         if pin.config['type'] not in ('do', 'ao'):
-            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} cannot be configured as output.' 
+            logging.write(logging.WARNING, f'{pin.config["type"].upper()}/{pid} cannot be configured as output.' 
                                            'It is not an output channel.')
             return
 
         # Check if attribute exists
         if not attr_name in Attribute.all:
-            Logging.write(Logging.WARNING, f'Pin "{pid}" cannot be set to attribute {attr_name}.'
+            logging.write(logging.WARNING, f'Pin "{pid}" cannot be set to attribute {attr_name}.'
                                            f'Attribute does not exist.')
 
         if pid not in self._pid_attr_map:
 
-            Logging.write(Logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
+            logging.write(logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
             self._pid_attr_map[pid] = attr_name
         else:
-            Logging.write(Logging.WARNING, f'{pin.config["type"].upper()}/{pid} is already set.')
+            logging.write(logging.WARNING, f'{pin.config["type"].upper()}/{pid} is already set.')
 
     def main(self):
 

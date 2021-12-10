@@ -19,10 +19,8 @@ import importlib
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
-from vxpy import Logging
-from vxpy.core import ipc
+from vxpy.core import ipc, logging
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -101,7 +99,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
         used_addons = config.Gui[definitions.GuiCfg.addons][process_name]
 
         for path in used_addons:
-            Logging.info(f'Load UI addon "{path}"')
+            logging.info(f'Load UI addon "{path}"')
 
             # TODO: search different paths for package structure redo
             # Load routine
@@ -110,7 +108,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
             addon_cls = getattr(module, parts[-1])
 
             if addon_cls is None:
-                Logging.error(f'UI addon "{path}" not found.')
+                logging.error(f'UI addon "{path}" not found.')
                 continue
 
             wdgt = addon_cls(self.main)

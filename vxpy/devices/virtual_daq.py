@@ -17,9 +17,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import time
 import numpy as np
-from scipy.signal import sawtooth
 
-from vxpy import Logging
+from vxpy.core import logging
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -53,7 +52,7 @@ class Pin:
             self.value = value
             # print(f'Write to pin {self.pid}:{value}')
         else:
-            Logging.write(Logging.WARNING, f'Trying to write to input pin {self.pid}')
+            logging.write(logging.WARNING, f'Trying to write to input pin {self.pid}')
 
 
 class VirtualDaqDevice:
@@ -65,7 +64,7 @@ class VirtualDaqDevice:
 
     def configure_pins(self, **pins):
         for pid, config in pins.items():
-            Logging.write(Logging.INFO, f"Configure pin {pid} for {config}")
+            logging.write(logging.INFO, f"Configure pin {pid} for {config}")
             self.pins[pid] = Pin(pid, config)
 
     def write(self, pid, data):

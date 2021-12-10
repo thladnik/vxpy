@@ -304,7 +304,7 @@ class VisualInteractor(gui.AddonWidget):
 
         # TODO: this causes ValueError if visual_cls.paramters.values() contains a numpy.ndarray
         # if None in visual_cls.parameters.values():
-        #     Logging.write(Logging.WARNING, 'Starting visual with some unset parameters.')
+        #     logging.write(logging.WARNING, 'Starting visual with some unset parameters.')
 
         ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, **defaults) #**visual_cls.parameters)
 

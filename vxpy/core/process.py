@@ -20,11 +20,10 @@ from __future__ import annotations
 import h5py
 import multiprocessing as mp
 import numpy as np
-import os
 import signal
 import sys
 import time
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, List, Union
 
 from vxpy import api
 from vxpy.api import event
@@ -32,9 +31,8 @@ from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.core.ipc import build_pipes, set_process
-from vxpy import Logging
-from vxpy.Logging import setup_log_queue
-from vxpy.core import routine, ipc
+from vxpy.core.logging import setup_log_queue
+from vxpy.core import routine, ipc, logging
 from vxpy.core import container
 from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
@@ -155,7 +153,7 @@ class AbstractProcess:
 
     def run(self, interval):
         self.interval = interval
-        Logging.info(f'Process started')
+        logging.info(f'Process started')
 
         # Set state to running
         self._running = True
@@ -308,7 +306,7 @@ class AbstractProcess:
             while self.in_state(definitions.State.RUNNING, PROCESS_CONTROLLER):
                 t = time.time()
                 if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] <= t:
-                    Logging.debug('Start at {:.4f}'.format(t))
+                    logging.debug('Start at {:.4f}'.format(t))
                     self.set_state(definitions.State.RUNNING)
                     self.phase_start_time = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
                     break
@@ -380,7 +378,7 @@ class AbstractProcess:
         if fun_str not in self._registered_callbacks:
             self._registered_callbacks[fun_str] = (instance, fun)
         else:
-            Logging.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
+            logging.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
 
     ################################
     # Private functions
@@ -404,7 +402,7 @@ class AbstractProcess:
             try:
 
                 if _send_verbosely:
-                    Logging.debug(f'RPC call to modules <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                    logging.debug(f'RPC call to modules <{fun_str}> with Args {args} and Kwargs {kwargs}')
 
                 getattr(self, fun_str)(*args, **kwargs)
 
@@ -412,7 +410,7 @@ class AbstractProcess:
                 import traceback
                 print(traceback.print_exc())
 
-                Logging.warning(f'RPC call to modules <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
+                logging.warning(f'RPC call to modules <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                                 f' // Exception: {exc}')
 
         # RPC on registered callback
@@ -420,7 +418,7 @@ class AbstractProcess:
             try:
 
                 if _send_verbosely:
-                    Logging.debug(f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                    logging.debug(f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
 
                 instance, fun = self._registered_callbacks[fun_str]
                 fun(instance, *args, **kwargs)
@@ -429,11 +427,11 @@ class AbstractProcess:
                 import traceback
                 traceback.print_exc()
 
-                Logging.warning(f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
+                logging.warning(f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
                                 f' // Exception: {exc}')
 
         else:
-            Logging.warning('Function for RPC of method \"{}\" not found'.format(fun_str))
+            logging.warning('Function for RPC of method \"{}\" not found'.format(fun_str))
 
     def _handle_inbox(self, *args):
 
@@ -449,7 +447,7 @@ class AbstractProcess:
 
         # Log
         if kwargs.get('_send_verbosely'):
-            Logging.debug(f'Received message: {msg}')
+            logging.debug(f'Received message: {msg}')
 
         # If shutdown signal
         if signal == definitions.Signal.shutdown:
@@ -463,7 +461,7 @@ class AbstractProcess:
 
         # Skip if dataset exists already
         if path in self.file_container:
-            Logging.warning(f'Tried to create existing attribute {path}')
+            logging.warning(f'Tried to create existing attribute {path}')
             return
 
         try:
@@ -473,11 +471,11 @@ class AbstractProcess:
                                                maxshape=(None, *attr_shape,),
                                                chunks=(1, *attr_shape,),
                                                **self.compression_args)
-            Logging.debug(f'Create record dataset "{path}"')
+            logging.debug(f'Create record dataset "{path}"')
 
         except Exception as exc:
             import traceback
-            Logging.warning(f'Failed to create record dataset "{path}"'
+            logging.warning(f'Failed to create record dataset "{path}"'
                           f' // Exception: {exc}')
             traceback.print_exc()
 
@@ -539,7 +537,7 @@ class AbstractProcess:
 
         # Set group
         self.file_container.require_group(self.record_group)
-        Logging.info(f'Set record group "{self.record_group}"')
+        logging.info(f'Set record group "{self.record_group}"')
 
         # Create attributes in group
         for attr in get_permanent_attributes():
@@ -563,7 +561,7 @@ class AbstractProcess:
             return True
 
         if not(bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
-            Logging.warning('Recording has been started but output folder is not set.')
+            logging.warning('Recording has been started but output folder is not set.')
             return False
 
         # If output folder is set: open file
@@ -571,7 +569,7 @@ class AbstractProcess:
         filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
         # Open new file
-        Logging.debug(f'Open new file {filepath}')
+        logging.debug(f'Open new file {filepath}')
         self.file_container = container.NpBufferedH5File(filepath, 'w')
         # self.file_container = container.H5File(filepath, 'a')
 
@@ -598,7 +596,7 @@ class AbstractProcess:
         if self.file_container is None:
             return True
 
-        Logging.debug(f'Close file {self.file_container}')
+        logging.debug(f'Close file {self.file_container}')
         self.file_container.close()
         self.file_container = None
         return True

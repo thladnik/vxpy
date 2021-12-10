@@ -17,11 +17,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import importlib
-import os
 from typing import List, Union
 
 from vxpy.definitions import *
-from vxpy import Logging
+from vxpy.core import logging
 
 _available_protocols: List[str] = []
 
@@ -42,7 +41,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
         try:
             mod = importlib.import_module(path)
         except Exception as exc:
-            Logging.write(Logging.WARNING, f'Unable to load protocol {path}')
+            logging.write(logging.WARNING, f'Unable to load protocol {path}')
             import traceback
             print(traceback.print_exc())
             continue
@@ -66,7 +65,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
 
 def get_protocol(path) -> Union[StaticPhasicProtocol, None]:
     if path not in get_available_protocol_paths():
-        Logging.write(Logging.write, f'Cannot get protocol {path}')
+        logging.write(logging.write, f'Cannot get protocol {path}')
         return
 
     # Return protocol class object

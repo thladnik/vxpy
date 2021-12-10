@@ -1,6 +1,3 @@
-
-import os
-from enum import Enum
 from os.path import abspath
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QLabel
@@ -9,7 +6,6 @@ from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.core import ipc
-from vxpy import Logging
 from vxpy import modules
 from vxpy.core.gui import IntegratedWidget
 

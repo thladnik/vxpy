@@ -27,9 +27,8 @@ from typing import Tuple, List
 import numpy as np
 
 from vxpy import definitions
-from vxpy import Logging
 from vxpy import config
-from vxpy.core import ipc
+from vxpy.core import ipc, logging
 
 
 def read_attribute(attr_name, *args, **kwargs):
@@ -100,7 +99,7 @@ def write_to_file(instance, attr_name):
     else:
         matchcode, included = match_to_record_attributes(attr_name)
         if included:
-            Logging.info(f'Set attribute "{attr_name}" to be written to file. ')
+            logging.info(f'Set attribute "{attr_name}" to be written to file. ')
             Attribute.to_file[process_name].append(Attribute.all[attr_name])
             return
         if matchcode == -1:
@@ -108,7 +107,7 @@ def write_to_file(instance, attr_name):
         else:
             msg = 'Not in template list.'
 
-    Logging.warning(f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
+    logging.warning(f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
 
 
 def get_attribute_names() -> List[str]:
@@ -204,7 +203,7 @@ class Attribute(ABC):
 
     def write(self, value):
         if np.isclose(self._last_time, ipc.Process.global_t, rtol=0., atol=ipc.Process.interval / 4.):
-            Logging.warning(
+            logging.warning(
                 f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name} during same iteration. '
                 f'Last={self._last_time} / Current={ipc.Process.global_t}')
 

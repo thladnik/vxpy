@@ -6,10 +6,9 @@ from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import Logging
+from vxpy.core import logging
 from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import WindowWidget, WindowTabWidget
 
@@ -269,7 +268,7 @@ class PlottingWindow(WindowWidget):
 
 
             except Exception as exc:
-                Logging.write(Logging.WARNING,
+                logging.write(logging.WARNING,
                               f'Problem trying to read attribute "{attr_name}" from_idx={data["last_idx"]}'
                               f'If this warning persists, DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE is possibly set too low.'
                               f'// Exception: {exc}')

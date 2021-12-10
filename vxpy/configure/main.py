@@ -16,25 +16,23 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from configparser import ConfigParser
-import os
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import Logging
+from vxpy.core import logging
 from vxpy.configure import acc
 from vxpy.configure.utils import ModuleWidget
 from vxpy.configure.camera.__init__ import CameraWidget
 from vxpy.configure.display import Main as Display
 from vxpy.utils import misc
 
-Logging.write = lambda *args,**kwargs: None
-Logging.debug = lambda *args,**kwargs: None
-Logging.info = lambda *args,**kwargs: None
-Logging.warning = lambda *args,**kwargs: None
-Logging.error = lambda *args,**kwargs: None
+logging.write = lambda *args, **kwargs: None
+logging.debug = lambda *args, **kwargs: None
+logging.info = lambda *args, **kwargs: None
+logging.warning = lambda *args, **kwargs: None
+logging.error = lambda *args, **kwargs: None
 
 
 class ModuleCheckbox(QtWidgets.QCheckBox):

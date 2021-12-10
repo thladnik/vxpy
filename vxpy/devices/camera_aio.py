@@ -188,7 +188,7 @@
 #         self._device.GetPropertyAbsoluteValue('Exposure', 'Value', curr_exposure)
 #
 #         if not(np.isclose(value, curr_exposure[0] * 1000, atol=0.001)):
-#             Logging.write(logging.DEBUG,'Set exposure from {} to {} ms'.format(curr_exposure[0] * 1000,value))
+#             logging.write(logging.DEBUG,'Set exposure from {} to {} ms'.format(curr_exposure[0] * 1000,value))
 #             self._device.SetPropertyAbsoluteValue('Exposure', 'Value', float(value) / 1000)
 #
 #     def set_gain(self, value: float):
@@ -196,7 +196,7 @@
 #         self._device.GetPropertyAbsoluteValue('Gain', 'Value', curr_gain)
 #
 #         if not(np.isclose(value, curr_gain[0], atol=0.001)):
-#             Logging.write(logging.DEBUG,'Set gain from {} to {}'.format(curr_gain[0],value))
+#             logging.write(logging.DEBUG,'Set gain from {} to {}'.format(curr_gain[0],value))
 #             self._device.SetPropertyAbsoluteValue('Gain', 'Value', float(value))
 #
 #     @staticmethod
