@@ -66,7 +66,7 @@ def setup_log_to_file(filename):
 
     # Set file handler
     h = logging.handlers.TimedRotatingFileHandler(os.path.join(PATH_LOG, filename), 'd')
-    h.setFormatter(logging.Formatter('%(levelname)-8s %(asctime)s %(name)-30s  %(message)s'))
+    h.setFormatter(logging.Formatter('%(levelname)-7s %(asctime)s %(name)-40s %(message)s'))
     _file_logger.addHandler(h)
 
 

@@ -36,7 +36,6 @@ from vxpy.core import container
 from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
 
-
 log = logging.getLogger(__name__)
 
 
@@ -155,7 +154,7 @@ class AbstractProcess:
 
     def run(self, interval):
         self.interval = interval
-        log.info(f'Process started')
+        log.info(f'Process {self.name} started')
 
         # Set state to running
         self._running = True
@@ -181,7 +180,8 @@ class AbstractProcess:
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
                 # print(f'{self.name} says {self.t}')
-                api.gui_rpc(ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt, _send_verbosely=False)
+                api.gui_rpc(ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
+                            _send_verbosely=False)
 
             # Wait until interval time is up
             dt = (self.local_t + interval) - time.perf_counter()
@@ -249,7 +249,6 @@ class AbstractProcess:
             # If phase stoptime is exceeded: end phase
             phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
-
                 self.end_phase()
 
                 self.set_state(definitions.State.PHASE_END)
@@ -401,10 +400,10 @@ class AbstractProcess:
         if fun_path[0] == self.__class__.__name__:
             fun_str = fun_path[1]
 
+            msg = f'Callback to {self.name}/{fun_str} with args {args} and kwargs {kwargs}'
             try:
-
                 if _send_verbosely:
-                    log.debug(f'RPC call to modules <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                    log.debug(msg)
 
                 getattr(self, fun_str)(*args, **kwargs)
 
@@ -412,15 +411,15 @@ class AbstractProcess:
                 import traceback
                 print(traceback.print_exc())
 
-                log.warning(f'RPC call to modules <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
-                                f' // Exception: {exc}')
+                log.warning(f'{msg} failed // Exception: {exc}')
 
         # RPC on registered callback
         elif fun_str in self._registered_callbacks:
-            try:
 
+            msg = f'Registered callback {self.name}/{fun_str} with args {args} and kwargs {kwargs}'
+            try:
                 if _send_verbosely:
-                    log.debug(f'RPC call to callback <{fun_str}> with Args {args} and Kwargs {kwargs}')
+                    log.debug(msg)
 
                 instance, fun = self._registered_callbacks[fun_str]
                 fun(instance, *args, **kwargs)
@@ -429,11 +428,10 @@ class AbstractProcess:
                 import traceback
                 traceback.print_exc()
 
-                log.warning(f'RPC call to callback <{fun_str}> failed with Args {args} and Kwargs {kwargs}'
-                                f' // Exception: {exc}')
+                log.warning(f'{msg} failed // Exception: {exc}')
 
         else:
-            log.warning('Function for RPC of method \"{}\" not found'.format(fun_str))
+            log.warning(f'Callback {self.name}/{fun_str} not found')
 
     def _handle_inbox(self, *args):
 
@@ -449,7 +447,7 @@ class AbstractProcess:
 
         # Log
         if kwargs.get('_send_verbosely'):
-            log.debug(f'Received message: {msg}')
+            log.debug(f'{self.name} received message. Signal: {signal}, args: {args}, kwargs: {kwargs}')
 
         # If shutdown signal
         if signal == definitions.Signal.shutdown:
@@ -463,22 +461,22 @@ class AbstractProcess:
 
         # Skip if dataset exists already
         if path in self.file_container:
-            log.warning(f'Tried to create existing attribute {path}')
+            log.warning(f'Tried to create existing attribute {self.name}/{path}')
             return
 
         try:
             self.file_container.require_dataset(path,
-                                               shape=(0, *attr_shape,),
-                                               dtype=attr_dtype,
-                                               maxshape=(None, *attr_shape,),
-                                               chunks=(1, *attr_shape,),
-                                               **self.compression_args)
-            log.debug(f'Create record dataset "{path}"')
+                                                shape=(0, *attr_shape,),
+                                                dtype=attr_dtype,
+                                                maxshape=(None, *attr_shape,),
+                                                chunks=(1, *attr_shape,),
+                                                **self.compression_args)
+            log.debug(f'Create record dataset {self.name}/{path}')
 
         except Exception as exc:
             import traceback
-            log.warning(f'Failed to create record dataset "{path}"'
-                          f' // Exception: {exc}')
+            log.warning(f'Failed to create record dataset {self.name}/{path}'
+                        f' // Exception: {exc}')
             traceback.print_exc()
 
     def _append_to_dataset(self, path: str, value: Any):
@@ -534,7 +532,7 @@ class AbstractProcess:
 
         self.record_group = group_name
 
-        if not(bool(self.record_group)):
+        if not (bool(self.record_group)):
             return
 
         # Set group
@@ -556,13 +554,13 @@ class AbstractProcess:
         :return:
         """
 
-        if not(ipc.Control.Recording[definitions.RecCtrl.active]):
+        if not (ipc.Control.Recording[definitions.RecCtrl.active]):
             return True
 
         if self.file_container is not None:
             return True
 
-        if not(bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
+        if not (bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
             log.warning('Recording has been started but output folder is not set.')
             return False
 
@@ -610,7 +608,7 @@ class AbstractProcess:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
 
-        if not(ipc.Control.Recording[definitions.RecCtrl.active]) or self.file_container is None:
+        if not (ipc.Control.Recording[definitions.RecCtrl.active]) or self.file_container is None:
             return
 
         # Write attributes to file

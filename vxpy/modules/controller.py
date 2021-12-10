@@ -538,6 +538,9 @@ class Controller(process.AbstractProcess):
         # PHASE_END
         elif self.in_state(definitions.State.PHASE_END):
 
+            # Reset phase start time
+            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
+
             # If there are no further phases, end protocol
             phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
             if (phase_id + 1) >= self.protocol.phase_count():
