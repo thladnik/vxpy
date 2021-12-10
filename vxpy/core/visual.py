@@ -34,6 +34,8 @@ from vxpy.utils import geometry
 from vxpy.utils import sphere
 
 
+log = logging.getLogger(__name__)
+
 ################################
 # Abstract visual class
 
@@ -150,9 +152,9 @@ class AbstractVisual(ABC):
 
         if _update_verbosely:
             # (optional) Logging
-            logging.info(msg)
+            log.info(msg)
         else:
-            logging.debug(msg)
+            log.debug(msg)
 
         # Write new value to parameters dictionary
         for key, value in params.items():

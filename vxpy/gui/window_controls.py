@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QLabel
 from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import ipc
+from vxpy.core import ipc, logging
 from vxpy import modules
 from vxpy.core.gui import IntegratedWidget
 
@@ -365,12 +365,21 @@ class LoggingWidget(IntegratedWidget):
         self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
 
         self.txe_log = QtWidgets.QTextEdit()
+        self.font = QtGui.QFont()
+        self.font.setPointSize(10)
+        self.font.setFamily('Courier')
+        self.txe_log.setFont(self.font)
         self.txe_log.setReadOnly(True)
-        self.txe_log.setFontFamily('Courier')
+        # self.format = QtGui.QTextBlockFormat()
+        # self.format.setIndent(10)
+        # self.txe_log.textCursor().setBlockFormat(self.format)
+        self.txe_log.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.layout().addWidget(self.txe_log)
 
         # Set initial log line count
         self.logccount = 0
+
+        self.loglevelname_limit = 30
 
         # Set timer for updating of log
         self.timer_logging = QtCore.QTimer()
@@ -378,28 +387,26 @@ class LoggingWidget(IntegratedWidget):
         self.timer_logging.start(50)
 
     def print_log(self):
-        if ipc.Log.File is None:
-            return
 
-        if len(ipc.Log.History) > self.logccount:
-            for rec in ipc.Log.History[self.logccount:]:
+        if len(logging.get_history()) > self.logccount:
+            for rec in logging.get_history()[self.logccount:]:
 
                 self.logccount += 1
 
                 # Skip for debug and unset
-                if rec['levelno'] < 20:
+                if rec.levelno < 20:
                     continue
 
                 # Info
-                if rec['levelno'] == 20:
+                if rec.levelno == 20:
                     self.txe_log.setTextColor(QtGui.QColor('black'))
                     self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
                 # Warning
-                elif rec['levelno'] == 30:
+                elif rec.levelno == 30:
                     self.txe_log.setTextColor(QtGui.QColor('orange'))
                     self.txe_log.setFontWeight(QtGui.QFont.Weight.Bold)
                 # Error and critical
-                elif rec['levelno'] > 30:
+                elif rec.levelno > 30:
                     self.txe_log.setTextColor(QtGui.QColor('red'))
                     self.txe_log.setFontWeight(QtGui.QFont.Weight.Bold)
                 # Fallback
@@ -408,5 +415,11 @@ class LoggingWidget(IntegratedWidget):
                     self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
 
                 # Add
-                line = '{}  {:10}  {:10}  {}'.format(rec['asctime'], rec['name'], rec['levelname'], rec['msg'])
+                name = rec.name
+                if len(name) > self.loglevelname_limit:
+                    name = '..' + name[-(self.loglevelname_limit-2):]
+
+                str_format = '{:8}  {}  {:' + str(self.loglevelname_limit) + '}  {}'
+                line = str_format.format(rec.levelname, rec.asctime, name, rec.msg)
+
                 self.txe_log.append(line)

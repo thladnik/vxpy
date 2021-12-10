@@ -82,6 +82,9 @@ class AbstractProcess:
         if _program_start_time is not None:
             self.program_start_time = _program_start_time
 
+        # Add handlers to modules that were imported before process class initialization
+        logging.add_handlers()
+
         # Set modules instance
         set_process(self)
 
@@ -90,9 +93,6 @@ class AbstractProcess:
 
         # Build attributes
         build_attributes(_attrs)
-
-        # Set logger
-        setup_log_queue(_log)
 
         # Set configurations
         if _configurations is not None:

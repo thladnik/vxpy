@@ -31,10 +31,13 @@ from vxpy.api import gui_rpc
 from vxpy.api.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import process, ipc, logging
 from vxpy.core import routine
+from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
 from vxpy.gui.window_controls import RecordingWidget
 from vxpy.utils import misc
+
+log = None
 
 
 class Controller(process.AbstractProcess):
@@ -53,26 +56,17 @@ class Controller(process.AbstractProcess):
         # Set up manager
         ipc.Manager = mp.Manager()
 
-        # Set up logging
-        ipc.Log.Queue = mp.Queue()
-        ipc.Log.History = ipc.Manager.list()
-        ipc.Log.File = ipc.Manager.Value(ctypes.c_char_p, '')
-
         # Set file to log to
-        if ipc.Log.File.value == '':
-            ipc.Log.File.value = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log'
+        logging.setup_log_queue(ipc.Manager.Queue())
+        logging.setup_log_history(ipc.Manager.list())
+        logging.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
 
-        # Set up logger, formatter and handler
-        self.logger = logging.setup_log()
-
-        # (only in Controller) Set up logging queue
-        logging.setup_log_queue({k: v for k, v
-                                 in ipc.Log.__dict__.items()
-                                 if not (k.startswith('_'))})
+        global log
+        log = logging.getLogger(self.name)
 
         # Set program configuration
         try:
-            logging.info(f'Using configuration from file {config_file}')
+            log.info(f'Using configuration from file {config_file}')
             configuration = misc.ConfigParser()
             configuration.read(config_file)
             for section in configuration.sections():
@@ -122,7 +116,7 @@ class Controller(process.AbstractProcess):
             time.sleep(10 ** -10)
             times.append(time.perf_counter() - t)
         ipc.Control.General.update({definitions.GenCtrl.min_sleep_time: max(times)})
-        logging.info('Minimum sleep period is {0:.3f}ms'.format(1000 * max(times)))
+        log.info('Minimum sleep period is {0:.3f}ms'.format(1000 * max(times)))
         # ipc.Control.General.update({definitions.GenCtrl.process_null_time: time.time() + 100.})
 
         # Check time precision on system
@@ -135,9 +129,9 @@ class Controller(process.AbstractProcess):
         avg_dt = sum(dt) / len(dt)
         msg = 'Timing precision on system {0:3f}ms'.format(1000 * avg_dt)
         if avg_dt > 0.001:
-            logging.warning(msg)
+            log.warning(msg)
         else:
-            logging.info(msg)
+            log.info(msg)
 
         # Recording
         ipc.Control.Recording = ipc.Manager.dict()
@@ -167,7 +161,7 @@ class Controller(process.AbstractProcess):
         for process_name, routine_list in _routines_to_load.items():
             _routines[process_name] = dict()
             for path in routine_list:
-                logging.info(f'Load routine "{path}"')
+                log.info(f'Load routine "{path}"')
 
                 # TODO: search different paths for package structure redo
                 # Load routine
@@ -175,7 +169,7 @@ class Controller(process.AbstractProcess):
                 module = importlib.import_module('.'.join(parts[:-1]))
                 routine_cls = getattr(module, parts[-1])
                 if routine_cls is None:
-                    logging.error(f'Routine "{path}" not found.')
+                    log.error(f'Routine "{path}" not found.')
                     continue
 
                 # Instantiate
@@ -220,7 +214,7 @@ class Controller(process.AbstractProcess):
         # the _run_protocol method
         _active_process_list = [p[0].__name__ for p in self._registered_processes]
         self._active_protocols = list(set(_active_process_list) & set(self._protocolized))
-        logging.info(f'Protocolized processes: {self._active_protocols}')
+        log.info(f'Protocolized processes: {self._active_protocols}')
 
         # Set up protocol
         self.current_protocol = None
@@ -237,9 +231,8 @@ class Controller(process.AbstractProcess):
             _controls={k: v for k, v
                        in ipc.Control.__dict__.items()
                        if not (k.startswith('_'))},
-            _log={k: v for k, v
-                  in ipc.Log.__dict__.items()
-                  if not (k.startswith('_'))},
+            _log_queue=logging._log_queue,
+            _log_history=logging.get_history(),
             _attrs=Attribute.all
         )
 
@@ -274,7 +267,7 @@ class Controller(process.AbstractProcess):
 
         if process_name in self._processes:
             # Terminate modules
-            logging.info('Restart modules {}'.format(process_name))
+            log.info('Restart modules {}'.format(process_name))
             self._processes[process_name].terminate()
 
             # Set modules state
@@ -288,7 +281,7 @@ class Controller(process.AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
-        self._processes[process_name] = mp.Process(target=target, name=process_name, kwargs=kwargs)
+        self._processes[process_name] = mp.Process(target=run_process, name=process_name, args=(target,), kwargs=kwargs)
 
         # Start subprocess
         self._processes[process_name].start()
@@ -302,7 +295,7 @@ class Controller(process.AbstractProcess):
         self.run(interval=0.001)
 
         # Shutdown procedure
-        logging.debug('Wait for processes to terminate')
+        log.debug('Wait for processes to terminate')
         while True:
             # Complete shutdown if all processes are deleted
             if not (bool(self._processes)):
@@ -337,7 +330,7 @@ class Controller(process.AbstractProcess):
         ipc.Control.Recording[definitions.RecCtrl.compression_method] = method
         if method is None:
             ipc.Control.Recording[definitions.RecCtrl.compression_opts] = None
-        logging.info(f'Set compression method to {method}')
+        log.info(f'Set compression method to {method}')
 
     @staticmethod
     def set_compression_opts(opts):
@@ -345,7 +338,7 @@ class Controller(process.AbstractProcess):
             ipc.Control.Recording[definitions.RecCtrl.compression_opts] = None
             return
         ipc.Control.Recording[definitions.RecCtrl.compression_opts] = opts
-        logging.info(f'Set compression options to {opts}')
+        log.info(f'Set compression options to {opts}')
 
     @staticmethod
     def set_enable_recording(newstate):
@@ -353,11 +346,11 @@ class Controller(process.AbstractProcess):
 
     def start_recording(self):
         if ipc.Control.Recording[definitions.RecCtrl.active]:
-            logging.warning('Tried to start new recording while active')
+            log.warning('Tried to start new recording while active')
             return False
 
         if not ipc.Control.Recording[definitions.RecCtrl.enabled]:
-            logging.warning('Recording not enabled. Session will not be saved to disk.')
+            log.warning('Recording not enabled. Session will not be saved to disk.')
             return True
 
         # Set current folder if none is given
@@ -370,13 +363,13 @@ class Controller(process.AbstractProcess):
 
         # Create output folder
         rec_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
-        logging.debug('Set output folder {}'.format(rec_folder))
+        log.debug('Set output folder {}'.format(rec_folder))
         if not (os.path.exists(rec_folder)):
-            logging.debug('Create output folder {}'.format(rec_folder))
+            log.debug('Create output folder {}'.format(rec_folder))
             os.mkdir(rec_folder)
 
         # Set state to recording
-        logging.info('Start recording')
+        log.info('Start recording')
         ipc.Control.Recording[definitions.RecCtrl.active] = True
 
         gui_rpc(RecordingWidget.show_lab_notebook)
@@ -385,10 +378,10 @@ class Controller(process.AbstractProcess):
 
     def pause_recording(self):
         if not (ipc.Control.Recording[definitions.RecCtrl.active]):
-            logging.warning('Tried to pause inactive recording.')
+            log.warning('Tried to pause inactive recording.')
             return
 
-        logging.info('Pause recording')
+        log.info('Pause recording')
         ipc.Control.Recording[definitions.RecCtrl.active] = False
 
     def stop_recording(self, sessiondata=None):
@@ -400,7 +393,7 @@ class Controller(process.AbstractProcess):
 
         gui_rpc(RecordingWidget.close_lab_notebook)
 
-        logging.info('Stop recording')
+        log.info('Stop recording')
         self.set_state(definitions.State.IDLE)
         ipc.Control.Recording[definitions.RecCtrl.folder] = ''
 
@@ -413,7 +406,7 @@ class Controller(process.AbstractProcess):
             if not (self.in_state(definitions.State.IDLE, PROCESS_IO)):
                 processes.append(PROCESS_IO)
 
-            logging.warning(
+            log.warning(
                           'One or more processes currently busy. Can not start new protocol.'
                           '(Processes: {})'.format(','.join(processes)))
             return
@@ -441,7 +434,7 @@ class Controller(process.AbstractProcess):
         if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] is None:
             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = time.time()
 
-        logging.info(f'End phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}.')
+        log.info(f'End phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}.')
         self.set_state(definitions.State.PHASE_END)
 
     def start_protocol_phase(self):
@@ -465,19 +458,16 @@ class Controller(process.AbstractProcess):
     def main(self):
 
         ########
-        # First: handle logging
-        while not (ipc.Log.Queue.empty()):
+        # First: handle log
+        while not (logging.get_queue().empty()):
 
             # Fetch next record
-            record = ipc.Log.Queue.get()
+            record = logging.get_queue().get()
 
             try:
-                self.logger.handle(record)
-                ipc.Log.History.append(dict(levelno=record.levelno,
-                                            asctime=record.asctime,
-                                            name=record.name,
-                                            levelname=record.levelname,
-                                            msg=record.msg))
+                logging.add_to_file(record)
+                logging.add_to_history(record)
+                # print(logging._log_history[-1])
             except Exception:
                 import sys, traceback
                 print('Exception in Logger:', file=sys.stderr)
@@ -490,7 +480,7 @@ class Controller(process.AbstractProcess):
             protocol_path = ipc.Control.Protocol[definitions.ProtocolCtrl.name]
             _protocol = get_protocol(protocol_path)
             if _protocol is None:
-                logging.error(f'Cannot get protocol {protocol_path}. Aborting ')
+                log.error(f'Cannot get protocol {protocol_path}. Aborting ')
                 self.set_state(definitions.State.PROTOCOL_ABORT)
                 return
 
@@ -529,9 +519,8 @@ class Controller(process.AbstractProcess):
             phase_stop = now + duration + fixed_delay if duration is not None else None
             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = phase_stop
 
-            logging.info(
-                          f'Run protocol phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}. '
-                          f'Set start time to {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]}')
+            log.info(f'Run protocol phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}. '
+                     f'Set start time to {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]}')
 
             # Set to running
             self.set_state(definitions.State.RUNNING)
@@ -582,7 +571,7 @@ class Controller(process.AbstractProcess):
             time.sleep(0.05)
 
     def _start_shutdown(self):
-        logging.debug('Shutdown requested. Checking.')
+        log.debug('Shutdown requested. Checking.')
 
         # Check if any processes are still busy
         shutdown_state = True
@@ -593,14 +582,14 @@ class Controller(process.AbstractProcess):
         shutdown_state &= not (ipc.Control.Recording[definitions.RecCtrl.active])
 
         if not shutdown_state:
-            logging.debug('Not ready for shutdown. Confirming.')
+            log.debug('Not ready for shutdown. Confirming.')
             ipc.rpc(modules.Gui.name, modules.Gui.prompt_shutdown_confirmation)
             return
 
         self._force_shutdown()
 
     def _force_shutdown(self):
-        logging.debug('Shut down processes')
+        log.debug('Shut down processes')
         self._shutdown = True
         for process_name in self._processes:
             ipc.send(process_name, definitions.Signal.shutdown)

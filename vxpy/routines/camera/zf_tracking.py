@@ -20,16 +20,17 @@ import cv2
 import numpy as np
 from scipy.spatial import distance
 
-from vxpy import config
-from vxpy.definitions import *
-from vxpy import definitions
 from vxpy.api import get_time
 from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute
 from vxpy.api.routine import CameraRoutine
 from vxpy.api.ui import register_with_plotter
 from vxpy.api.io import set_digital_output
 from vxpy.api.dependency import require_camera_device
+from vxpy.core import logging
 from vxpy.core.camera import find_config_for_camera_id, Format
+
+
+log = logging.getLogger(__name__)
 
 
 class EyePositionDetection(CameraRoutine):
@@ -134,6 +135,7 @@ class EyePositionDetection(CameraRoutine):
 
     def set_roi(self, id, params):
         if id not in self.rois:
+            log.info(f'Create new ROI at {params}')
             # Send buffer attributes to plotter
             # Position
             register_with_plotter(f'{self.ang_le_pos_prefix}{id}', name=f'eye_pos(LE {id})', axis='eye_pos')

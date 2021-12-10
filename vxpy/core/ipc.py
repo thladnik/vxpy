@@ -28,6 +28,9 @@ if TYPE_CHECKING:
     from typing import Callable, Dict, Tuple
     from vxpy.core.process import AbstractProcess, ProcessProxy
 
+
+log = logging.getLogger(__name__)
+
 # Manager for shared objects
 Manager: SyncManager
 
@@ -113,7 +116,7 @@ def build_pipes(pipes):
     Pipes.update(pipes)
 
 
-def send(process_name: str, signal: int, *args, _send_verbosely=True, **kwargs) -> None:
+def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs) -> None:
     """Send a message to another modules via pipe.
 
     Convenience function for sending messages to modules with process_name.
@@ -126,8 +129,7 @@ def send(process_name: str, signal: int, *args, _send_verbosely=True, **kwargs) 
 
     """
     if _send_verbosely:
-        logging.write(logging.DEBUG,
-                      f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
+        log.debug(f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
 
     kwargs.update(_send_verbosely=_send_verbosely)
 
