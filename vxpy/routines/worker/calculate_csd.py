@@ -5,6 +5,8 @@ from vxpy.api.attribute import ArrayAttribute, ArrayType, get_attribute
 from vxpy.api.routine import WorkerRoutine
 from vxpy.core import logging
 
+log = logging.getLogger(__name__)
+
 
 class CalculatePSD(WorkerRoutine):
 
@@ -25,16 +27,14 @@ class CalculatePSD(WorkerRoutine):
             if self.input_signal is None:
                 warn_context = 'Undefined attribute.'
             else:
-                logging.write(logging.INFO,
-                              f'Set input signal in {self.__class__.__name__} to {attr_name}.')
+                log.info(f'Set input signal in {self.__class__.__name__} to {attr_name}.')
                 return
 
-        logging.write(logging.WARNING, f'Failed to set input signal in {self.__class__.__name__} to {attr_name}. {warn_context}')
+        log.warning(f'Failed to set input signal in {self.__class__.__name__} to {attr_name}. {warn_context}')
 
     def set_integration_window_width(self, width):
         if width < self.nperseg:
-            logging.write(logging.WARNING,
-                          f'Failed to set integration window width in {self.__class__.__name__}. '
+            log.warning(f'Failed to set integration window width in {self.__class__.__name__}. '
                           f'New value {width} < nperseg ({self.nperseg}). '
                           f'Keeping current ({self.integration_window_width})')
             return

@@ -33,8 +33,8 @@ from vxpy.api.protocol import end_protocol_phase
 from vxpy.utils import geometry
 from vxpy.utils import sphere
 
-
 log = logging.getLogger(__name__)
+
 
 ################################
 # Abstract visual class

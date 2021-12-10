@@ -30,6 +30,8 @@ from vxpy import definitions
 from vxpy import config
 from vxpy.core import ipc, logging
 
+log = logging.getLogger(__name__)
+
 
 def read_attribute(attr_name, *args, **kwargs):
     if attr_name in Attribute.all:
@@ -99,7 +101,7 @@ def write_to_file(instance, attr_name):
     else:
         matchcode, included = match_to_record_attributes(attr_name)
         if included:
-            logging.info(f'Set attribute "{attr_name}" to be written to file. ')
+            log.info(f'Set attribute "{attr_name}" to be written to file. ')
             Attribute.to_file[process_name].append(Attribute.all[attr_name])
             return
         if matchcode == -1:
@@ -107,7 +109,7 @@ def write_to_file(instance, attr_name):
         else:
             msg = 'Not in template list.'
 
-    logging.warning(f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
+    log.warning(f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
 
 
 def get_attribute_names() -> List[str]:
@@ -115,7 +117,7 @@ def get_attribute_names() -> List[str]:
 
 
 def get_attribute_list() -> List[Tuple[str, Attribute]]:
-    return [(k, v) for k,v in Attribute.all.items()]
+    return [(k, v) for k, v in Attribute.all.items()]
 
 
 def get_attribute(attr_name):
@@ -141,7 +143,6 @@ def get_permanent_data(process_name=None):
 
 
 class Attribute(ABC):
-
     all: typing.Dict[str, Attribute] = {}
     to_file: typing.Dict[str, typing.List[Attribute]] = {}
 
@@ -203,7 +204,7 @@ class Attribute(ABC):
 
     def write(self, value):
         if np.isclose(self._last_time, ipc.Process.global_t, rtol=0., atol=ipc.Process.interval / 4.):
-            logging.warning(
+            log.warning(
                 f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name} during same iteration. '
                 f'Last={self._last_time} / Current={ipc.Process.global_t}')
 
@@ -289,9 +290,10 @@ class ArrayAttribute(Attribute):
         itemsize = np.dtype(self.dtype[1]).itemsize
         attr_el_size = np.product(self.shape)
         # Significantly reduce max attribute buffer size in case element size is < 1KB
-        if (itemsize * attr_el_size) < 10**3:
+        if (itemsize * attr_el_size) < 10 ** 3:
             max_multiplier = 0.01
-        self._length = int((max_multiplier * definitions.DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
+        self._length = int(
+            (max_multiplier * definitions.DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
 
         if self._chunked and self._chunk_size is not None:
             assert self._length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'
@@ -338,7 +340,7 @@ class ArrayAttribute(Attribute):
         return np_array.reshape((length,) + self.shape)
 
     def _get_lock(self, chunk_idx, use_lock):
-        if not(use_lock):
+        if not (use_lock):
             return DummyLockContext()
 
         if chunk_idx is None:
@@ -371,7 +373,7 @@ class ArrayAttribute(Attribute):
             np_arrays = list()
             with self._get_lock(start_chunk, use_lock):
                 np_arrays.append(self._data[start_chunk][chunk_start_idx:])
-            for ci in range(start_chunk+1, end_chunk):
+            for ci in range(start_chunk + 1, end_chunk):
                 with self._get_lock(ci, use_lock):
                     np_arrays.append(self._data[ci][:])
             with self._get_lock(end_chunk, use_lock):
@@ -413,7 +415,7 @@ class ObjectAttribute(Attribute):
         self._length = 1000
 
         # Set default shape to 1
-        self.shape = (None, )
+        self.shape = (None,)
 
         # Create shared list
         self._data = ipc.Manager.list([None] * self._length)

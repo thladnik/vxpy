@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Dict, Union
 
+log = logging.getLogger(__name__)
+
 
 class Pin:
     def __init__(self, board, pid, config):
@@ -36,9 +38,9 @@ class Pin:
             self.config = config
             self.data = None
             self.is_out = self.config['type'] in ('do', 'ao')
-            logging.write(logging.INFO, f"Configure pin {pid} with {config}")
+            log.info(f"Configure pin {pid} with {config}")
         except:
-            logging.write(logging.WARNING, f"Failed to configure pin {pid} with {config}")
+            log.warning(f"Failed to configure pin {pid} with {config}")
             import traceback
             traceback.print_exc()
 
@@ -53,7 +55,7 @@ class Pin:
             self.value = value
             self._pin.write(value)
         else:
-            logging.write(logging.WARNING, f'Trying to write to input pin {self.pid}')
+            log.warning(f'Trying to write to input pin {self.pid}')
 
 
 class ArduinoBoard:
@@ -70,9 +72,9 @@ class ArduinoBoard:
             # Try lower board setup time
             # pyfirmata.pyfirmata.BOARD_SETUP_WAIT_TIME = .1
             self._board = getattr(pyfirmata, self.model)(config['com'])
-            logging.write(logging.INFO, f'Using {_devstr}')
+            log.info(f'Using {_devstr}')
         except:
-            logging.write(logging.WARNING, f'Failed to set up {_devstr}')
+            log.warning(f'Failed to set up {_devstr}')
             import trace
             print(traceback.print_exc())
 

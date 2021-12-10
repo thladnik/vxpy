@@ -23,6 +23,8 @@ from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import process, logging
 
+log = logging.getLogger(__name__)
+
 
 class Worker(process.AbstractProcess):
     name = PROCESS_WORKER
@@ -35,8 +37,6 @@ class Worker(process.AbstractProcess):
         self._scheduled_tasks = list()
         self._tasks = dict()
 
-        #self.schedule_task('readFrames', 1/100)
-
         # Run event loop
         self.run(interval=1./10)
 
@@ -44,10 +44,10 @@ class Worker(process.AbstractProcess):
         if not(task_name in self._tasks):
             module = '.'.join([PATH_TASKS,task_name])
             try:
-                logging.write(logging.DEBUG, 'Import task {}'.format(module))
+                log.debug('Import task {}'.format(module))
                 self._tasks[task_name] = importlib.import_module(module)
             except:
-                logging.write(logging.WARNING, 'Failed to import task {}'.format(module))
+                log.warning('Failed to import task {}'.format(module))
 
         return self._tasks[task_name]
 

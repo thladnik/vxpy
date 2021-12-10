@@ -414,12 +414,14 @@ class LoggingWidget(IntegratedWidget):
                     self.txe_log.setTextColor(QtGui.QColor('black'))
                     self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
 
-                # Add
+                # Crop name if necessary
                 name = rec.name
                 if len(name) > self.loglevelname_limit:
-                    name = '..' + name[-(self.loglevelname_limit-2):]
+                    name = name[:5] + '..' + name[-(self.loglevelname_limit-7):]
 
-                str_format = '{:8}  {}  {:' + str(self.loglevelname_limit) + '}  {}'
-                line = str_format.format(rec.levelname, rec.asctime, name, rec.msg)
+                # Format line
+                str_format = '{:7} {} {:' + str(self.loglevelname_limit) + '} {}'
+                line = str_format.format(rec.levelname, rec.asctime[-12:], name, rec.msg)
 
+                # Add line
                 self.txe_log.append(line)

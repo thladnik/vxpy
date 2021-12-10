@@ -15,12 +15,15 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import logging
 
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import process, ipc, logging, camera
 from vxpy.devices.camera.virtual import virtual_camera
+
+log = logging.getLogger(__name__)
 
 
 class Camera(process.AbstractProcess):
@@ -38,29 +41,27 @@ class Camera(process.AbstractProcess):
             device_id = cfg['id']
             device = camera.open_device(cfg)
             if device.open():
-                logging.write(logging.INFO, f'Use {device} as \"{device_id}\"')
+                log.info(f'Use {device} as \"{device_id}\"')
             else:
                 # TODO: add more info for user
-                logging.write(logging.WARNING, f'Unable to use {device} as \"{device_id}\"')
+                log.warning(f'Unable to use {device} as \"{device_id}\"')
                 continue
 
             # Save to dictionary and start
             self.cameras[device_id] = device
             self.cameras[device_id].start_stream()
 
-
         base_target_fps = 150.
 
-        if ipc.Control.General[definitions.GenCtrl.min_sleep_time] > 1./base_target_fps:
-            logging.write(logging.WARNING,
-                          'Mininum sleep period is ABOVE '
-                          'average target frametime of 1/{}s.'
-                          'This will cause increased CPU usage.'
-                          .format(base_target_fps))
+        if ipc.Control.General[definitions.GenCtrl.min_sleep_time] > 1. / base_target_fps:
+            log.warning('Mininum sleep period is ABOVE '
+                        'average target frametime of 1/{}s.'
+                        'This will cause increased CPU usage.'
+                        .format(base_target_fps))
 
         # Run event loop
         self.enable_idle_timeout = False
-        self.run(interval=1/base_target_fps)
+        self.run(interval=1 / base_target_fps)
 
     def start_protocol(self):
         pass

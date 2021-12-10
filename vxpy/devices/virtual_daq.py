@@ -25,6 +25,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Dict, AnyStr, Union
 
+log = logging.getLogger(__name__)
+
 
 class Pin:
 
@@ -52,7 +54,7 @@ class Pin:
             self.value = value
             # print(f'Write to pin {self.pid}:{value}')
         else:
-            logging.write(logging.WARNING, f'Trying to write to input pin {self.pid}')
+            log.warning(f'Trying to write to input pin {self.pid}')
 
 
 class VirtualDaqDevice:
@@ -64,7 +66,7 @@ class VirtualDaqDevice:
 
     def configure_pins(self, **pins):
         for pid, config in pins.items():
-            logging.write(logging.INFO, f"Configure pin {pid} for {config}")
+            log.info(f"Configure pin {pid} for {config}")
             self.pins[pid] = Pin(pid, config)
 
     def write(self, pid, data):

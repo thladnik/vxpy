@@ -21,24 +21,9 @@ import multiprocessing as mp
 
 from vxpy.definitions import *
 
-logger = None
-write = None
-debug = None
-info = None
-warning = None
-error = None
-critical = None
-
-DEBUG = logging.DEBUG
-INFO = logging.INFO
-WARN = logging.WARN
-WARNING = logging.WARNING
-ERROR = logging.ERROR
-CRITICAL = logging.CRITICAL
-
-_log_queue = None
-_log_history = None
-_file_logger = None
+_log_queue: mp.Queue = None
+_log_history: list = None
+_file_logger: logging.Logger = None
 
 
 def setup_log_queue(log_queue):
@@ -89,11 +74,6 @@ def getLogger(name) -> logging.Logger:
     global _log_queue
     log = logging.getLogger(name)
 
-    if not log.handlers and _log_queue is not None:
-        h = logging.handlers.QueueHandler(_log_queue)
-        log.addHandler(h)
-        log.setLevel(logging.DEBUG)
-
     return log
 
 
@@ -101,37 +81,15 @@ def add_handlers():
     global _log_queue
     for name in logging.root.manager.loggerDict:
         log = logging.getLogger(name)
+
         # If handler is already set, skip
         if log.handlers:
             continue
 
+        # Important: avoids repeated handling through hierarchy
         log.propagate = False
+
         if not log.handlers and _log_queue is not None:
             h = logging.handlers.QueueHandler(_log_queue)
             log.addHandler(h)
             log.setLevel(logging.DEBUG)
-
-
-# def setup_log_queue123(log):
-#     global logger, write, debug, info, warning, error, critical
-#
-#     if logger is not None:
-#         return
-#
-#     # Set shared attributes required for logging
-#     if log is not None:
-#         for lkey, log in log.items():
-#             setattr(ipc.Log, lkey, log)
-#
-#     # Set up logger
-#     logger = logging.getLogger(ipc.Process.name)
-#     if not logger.handlers:
-#         h = logging.handlers.QueueHandler(ipc.Log.Queue)
-#         logger.addHandler(h)
-#         logger.setLevel(logging.DEBUG)
-#         write = logging.getLogger(ipc.Process.name).log
-#         debug = logging.getLogger(ipc.Process.name).debug
-#         info = logging.getLogger(ipc.Process.name).info
-#         warning = logging.getLogger(ipc.Process.name).warning
-#         error = logging.getLogger(ipc.Process.name).error
-#         critical = logging.getLogger(ipc.Process.name).critical

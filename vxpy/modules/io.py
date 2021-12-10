@@ -27,6 +27,8 @@ from vxpy.core import process, ipc, logging
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
 
+log = logging.getLogger(__name__)
+
 
 class Io(process.AbstractProcess):
     name = PROCESS_IO
@@ -41,23 +43,23 @@ class Io(process.AbstractProcess):
         # Configure devices
         for did, dev_config in config.Io[definitions.IoCfg.device].items():
             if not(all(k in dev_config for k in ("type", "model"))):
-                logging.write(logging.WARNING, f'Insufficient information to configure device {did}')
+                log.warning(f'Insufficient information to configure device {did}')
                 continue
 
             try:
-                logging.write(logging.INFO, f'Set up device {did}')
+                log.info(f'Set up device {did}')
                 device_type_module = importlib.import_module(f'{PATH_PACKAGE}.{PATH_DEVICE}.{dev_config["type"]}')
                 device_cls = getattr(device_type_module, dev_config["model"])
 
                 self._devices[did] = device_cls(dev_config)
 
             except Exception as exc:
-                logging.write(logging.WARNING, f'Failed to set up device {did} // Exc: {exc}')
+                log.warning(f'Failed to set up device {did} // Exc: {exc}')
                 continue
 
             # Configure pins on device
             if did in config.Io[definitions.IoCfg.pins]:
-                logging.write(logging.INFO, f'Set up pin configuration for device {did}')
+                log.info(f'Set up pin configuration for device {did}')
 
                 pin_config = config.Io[definitions.IoCfg.pins][did]
                 self._devices[did].configure_pins(**pin_config)
@@ -66,7 +68,7 @@ class Io(process.AbstractProcess):
                 for pid, pin in self._devices[did].pins.items():
                     self._pid_pin_map[pid] = pin
             else:
-                logging.write(logging.WARNING, f'No pin configuration found for device {did}')
+                log.warning(f'No pin configuration found for device {did}')
 
         # Set timeout during idle
         self.enable_idle_timeout = True
@@ -101,11 +103,11 @@ class Io(process.AbstractProcess):
     def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
 
-        logging.write(logging.INFO, f'Set attribute "{attr_name}" to write to pin {pid}')
+        log.info(f'Set attribute "{attr_name}" to write to pin {pid}')
 
         # Check of pid is actually configured
         if pid not in self._pid_pin_map:
-            logging.write(logging.WARNING, f'Output "{pid}" is not configured. Cannot connect to attribute {attr_name}')
+            log.warning(f'Output "{pid}" is not configured. Cannot connect to attribute {attr_name}')
             return
 
         # Select pin
@@ -124,10 +126,10 @@ class Io(process.AbstractProcess):
 
         if pid not in self._pid_attr_map:
 
-            logging.write(logging.INFO, f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
+            log.info(f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
             self._pid_attr_map[pid] = attr_name
         else:
-            logging.write(logging.WARNING, f'{pin.config["type"].upper()}/{pid} is already set.')
+            log.warning(f'{pin.config["type"].upper()}/{pid} is already set.')
 
     def main(self):
 

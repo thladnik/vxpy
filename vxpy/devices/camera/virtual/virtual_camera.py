@@ -1,9 +1,10 @@
 import h5py
-import os
-from typing import Dict
 
 from vxpy.core.camera import AbstractCameraDevice, Format
 from vxpy.definitions import *
+from vxpy.core import logging
+
+log = logging.getLogger(__name__)
 
 _models = ['Multi_Fish_Eyes_Cam@20fps',
            'Single_Fish_Eyes_Cam@20fps',

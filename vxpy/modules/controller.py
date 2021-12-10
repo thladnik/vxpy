@@ -37,7 +37,7 @@ from vxpy.core.protocol import get_protocol
 from vxpy.gui.window_controls import RecordingWidget
 from vxpy.utils import misc
 
-log = None
+log = logging.getLogger(__name__)
 
 
 class Controller(process.AbstractProcess):
@@ -61,8 +61,7 @@ class Controller(process.AbstractProcess):
         logging.setup_log_history(ipc.Manager.list())
         logging.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
 
-        global log
-        log = logging.getLogger(self.name)
+        logging.add_handlers()
 
         # Set program configuration
         try:

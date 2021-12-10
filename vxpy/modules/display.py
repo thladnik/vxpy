@@ -28,6 +28,8 @@ from vxpy.core import process, ipc, logging
 from vxpy.core.protocol import AbstractProtocol, get_protocol
 from vxpy.core import visual
 
+log = logging.getLogger(__name__)
+
 
 class Display(process.AbstractProcess):
     name = PROCESS_DISPLAY
@@ -71,10 +73,9 @@ class Display(process.AbstractProcess):
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
         if uniform_name not in self._uniform_maps:
             self._uniform_maps[uniform_name] = (routine_cls, attr_name)
-            logging.write(logging.INFO,
-                          f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
+            log.info(f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
         else:
-            logging.write(logging.WARNING, f'Uniform "{uniform_name}" is already set.')
+            log.warning(f'Uniform "{uniform_name}" is already set.')
 
     def start_protocol(self):
         _protocol = get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])

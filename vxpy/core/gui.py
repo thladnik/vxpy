@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from vxpy.modules.gui import Gui
 
+log = logging.getLogger(__name__)
+
 
 class AddonWidget(QtWidgets.QWidget):
 
@@ -99,7 +101,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
         used_addons = config.Gui[definitions.GuiCfg.addons][process_name]
 
         for path in used_addons:
-            logging.info(f'Load UI addon "{path}"')
+            log.info(f'Load UI addon "{path}"')
 
             # TODO: search different paths for package structure redo
             # Load routine
@@ -108,7 +110,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
             addon_cls = getattr(module, parts[-1])
 
             if addon_cls is None:
-                logging.error(f'UI addon "{path}" not found.')
+                log.error(f'UI addon "{path}" not found.')
                 continue
 
             wdgt = addon_cls(self.main)

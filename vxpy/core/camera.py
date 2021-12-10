@@ -16,13 +16,17 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Union
 from dataclasses import dataclass
 
 from vxpy import config
-from vxpy.definitions import *
 from vxpy import definitions
+from vxpy.core import logging
+from vxpy.definitions import *
+
+log = logging.getLogger(__name__)
 
 _use_apis = []
 _devices = {}
