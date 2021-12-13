@@ -22,6 +22,8 @@ from typing import List, Union
 from vxpy.definitions import *
 from vxpy.core import logging
 
+log = logging.getLogger(__name__)
+
 _available_protocols: List[str] = []
 
 
@@ -41,7 +43,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
         try:
             mod = importlib.import_module(path)
         except Exception as exc:
-            logging.write(logging.WARNING, f'Unable to load protocol {path}')
+            log.warning(f'Unable to load protocol {path}')
             import traceback
             print(traceback.print_exc())
             continue
@@ -65,7 +67,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
 
 def get_protocol(path) -> Union[StaticPhasicProtocol, None]:
     if path not in get_available_protocol_paths():
-        logging.write(logging.write, f'Cannot get protocol {path}')
+        log.warning(f'Cannot get protocol {path}')
         return
 
     # Return protocol class object

@@ -28,11 +28,11 @@ from vxpy.configure.camera.__init__ import CameraWidget
 from vxpy.configure.display import Main as Display
 from vxpy.utils import misc
 
-logging.write = lambda *args, **kwargs: None
-logging.debug = lambda *args, **kwargs: None
-logging.info = lambda *args, **kwargs: None
-logging.warning = lambda *args, **kwargs: None
-logging.error = lambda *args, **kwargs: None
+# logging.write = lambda *args, **kwargs: None
+# logging.debug = lambda *args, **kwargs: None
+# logging.info = lambda *args, **kwargs: None
+# logging.warning = lambda *args, **kwargs: None
+# logging.error = lambda *args, **kwargs: None
 
 
 class ModuleCheckbox(QtWidgets.QCheckBox):

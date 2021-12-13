@@ -236,11 +236,14 @@ class SphericalVisual(AbstractVisual, ABC):
         uniform mat4 u_mapcalib_translation;
         uniform mat4 u_mapcalib_projection;
         uniform mat4 u_mapcalib_rotate_elev;
-        uniform mat4 u_mapcalib_inv_rotate_elev;
         uniform mat4 u_mapcalib_rotate_z;
         uniform mat4 u_mapcalib_rotate_x;
         uniform vec2 u_mapcalib_translate2d;
         uniform mat2 u_mapcalib_rotate2d;
+        uniform float u_mapcalib_lateral_luminance_offset;
+        uniform float u_mapcalib_lateral_luminance_gradient;
+        uniform float u_mapcalib_elevation_angle;
+        uniform float u_mapcalib_azimuth_angle;
 
 
         vec4 transform_position(vec3 position) {
@@ -277,27 +280,58 @@ class SphericalVisual(AbstractVisual, ABC):
          
         varying vec3 v_position;
         varying vec4 v_map_position;
+        //varying float v_dist_from_optical_axis;
         
         void main() {
             v_map_position = transform_position(a_position);
             gl_Position = v_map_position;
             v_position = a_position;
+            
+            // Calculate distance between original position 
+            // and position after azimuth/elevation rotation
+            //vec4 pos = u_mapcalib_rotate_z * vec4(a_position, 1.);
+            //pos = u_mapcalib_rotate_elev * pos;
+            //v_dist_from_optical_axis = distance(a_position, pos.xyz);
+            
         }
     """
 
     # Mask fragment shader
     _mask_frag = """
+        const float PI = 3.141592653589793;
+        
         uniform int u_part;
+        uniform float u_mapcalib_lateral_luminance_offset;
+        uniform float u_mapcalib_lateral_luminance_gradient;
+        uniform float u_mapcalib_elevation_angle;
+        uniform float u_mapcalib_azimuth_angle;
         
         varying vec3 v_position;
         varying vec4 v_map_position;
+        //varying float v_dist_from_optical_axis;
+        
+        
+        vec3 sph2cart(in float azimuth, float elevation){
+            return vec3(sin(azimuth) * cos(elevation),
+                        cos(azimuth) * cos(elevation),
+                        sin(elevation));
+        }
+        
         void main() {
         
-            gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+            float offset = u_mapcalib_lateral_luminance_offset;
+            float gradient = u_mapcalib_lateral_luminance_gradient;
+            float azim = u_mapcalib_azimuth_angle / 180. * PI;
+            float elev = u_mapcalib_elevation_angle / 180. * PI;
+            vec3 optical_axis = sph2cart(azim, elev);        
+            
+            float dist_from_optical_axis = distance(v_position, optical_axis);
+            
+            gl_FragColor = vec4(1.0, 
+                    offset + gradient * dist_from_optical_axis / 2., 
+                    0.0, 
+                    1.0);
 
-            //gl_FragColor = vec4(1.0-abs(v_position.z), abs(v_position.z)/2.0, 0.0, 1.0); 
-            //gl_FragColor = vec4((-v_position.z+1.0)/2.0, (v_position.z+1.0)/2.0, 0.0, 1.0);
-            //gl_FragColor = vec4(v_position.x, v_position.y, v_position.z, 1.0);
         }
     """
 
@@ -324,10 +358,10 @@ class SphericalVisual(AbstractVisual, ABC):
                     
             vec3 out_tex = texture2D(u_out_texture, v_texcoord).xyz;
             vec3 raw = texture2D(u_raw_texture, v_texcoord).xyz;
-            float mask = texture2D(u_mask_texture, v_texcoord).x;
+            vec2 mask = texture2D(u_mask_texture, v_texcoord).xy;
             
-            if(mask > 0.0) {
-                gl_FragColor = vec4(raw * mask, 1.0);
+            if(mask.x > 0.0) {
+                gl_FragColor = vec4(raw * mask.y, 1.0);
             } else {
                 gl_FragColor = vec4(out_tex, 1.0);
             }
@@ -393,6 +427,8 @@ class SphericalVisual(AbstractVisual, ABC):
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
+        self.transform_uniforms['u_mapcalib_lateral_luminance_offset'] = config.Display[definitions.DisplayCfg.sph_lat_lum_offset]
+        self.transform_uniforms['u_mapcalib_lateral_luminance_gradient'] = config.Display[definitions.DisplayCfg.sph_lat_lum_gradient]
 
         # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
@@ -415,15 +451,19 @@ class SphericalVisual(AbstractVisual, ABC):
         for i in range(4):
 
             azim_orientation = config.Display[definitions.DisplayCfg.sph_view_azim_orient]
-            azim_angle = config.Display[definitions.DisplayCfg.sph_view_azim_angle][i]
 
             # Set 3D transform
             distance = config.Display[definitions.DisplayCfg.sph_view_distance][i]
             fov = config.Display[definitions.DisplayCfg.sph_view_fov][i]
             view_scale = config.Display[definitions.DisplayCfg.sph_view_scale][i]
+            azim_angle = config.Display[definitions.DisplayCfg.sph_view_azim_angle][i]
             elev_angle = config.Display[definitions.DisplayCfg.sph_view_elev_angle][i]
             radial_offset_scalar = config.Display[definitions.DisplayCfg.sph_pos_glob_radial_offset][i]
             lateral_offset_scalar = config.Display[definitions.DisplayCfg.sph_pos_glob_lateral_offset][i]
+
+            # Set angles
+            self.transform_uniforms['u_mapcalib_azimuth_angle'] = azim_angle + 45.
+            self.transform_uniforms['u_mapcalib_elevation_angle'] = elev_angle
 
             # Set relative size
             self.transform_uniforms['u_mapcalib_scale'] = view_scale * np.array([1, 1])
@@ -450,7 +490,6 @@ class SphericalVisual(AbstractVisual, ABC):
             sign = -1 if i % 2 == 0 else +1
             lateral_offset = np.array([sign * np.real(1.j ** (.5 + i)), sign * -1 * np.imag(1.j ** (.5 + i))]) * lateral_offset_scalar
             self.transform_uniforms['u_mapcalib_translate2d'] = radial_offset + xy_offset + lateral_offset
-
 
             # Render 90 degree mask to mask buffer
             # (BEFORE further 90deg rotation)

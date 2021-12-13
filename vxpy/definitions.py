@@ -151,6 +151,8 @@ class DisplayCfg(Cfg):
     sph_view_distance = 'json_sph_view_origin_distance'
     sph_view_fov = 'json_sph_view_fov'
     sph_view_scale = 'json_sph_view_scale'
+    sph_lat_lum_offset = 'json_sph_lat_lum_offset'
+    sph_lat_lum_gradient = 'json_sph_lat_lum_gradient'
 
     # Planar
     pla_xextent = 'float_pla_xextent'

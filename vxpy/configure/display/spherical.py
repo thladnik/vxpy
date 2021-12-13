@@ -143,6 +143,16 @@ class Settings(QtWidgets.QWidget):
         self.azimuth_orient.connect_to_result(self.update_azimuth_orient)
         self.layout().addWidget(self.azimuth_orient)
 
+        self.lat_lum_offset = DoubleSliderWidget('Lateral luminance offset', 0., 1., 0., step_size=.01, decimals=2,
+                                                 label_width=200)
+        self.lat_lum_offset.connect_to_result(self.update_lat_lum_offset)
+        self.layout().addWidget(self.lat_lum_offset)
+
+        self.lat_lum_gradient = DoubleSliderWidget('Lateral luminance gradient', 0., 10., 1., step_size=.05, decimals=2,
+                                                 label_width=200)
+        self.lat_lum_gradient.connect_to_result(self.update_lat_lum_gradient)
+        self.layout().addWidget(self.lat_lum_gradient)
+
         self.global_overwrite = Checkbox('Global overwrite', False, label_width=200)
         self.global_overwrite.checkbox.stateChanged.connect(self.toggle_overwrite)
         self.layout().addWidget(self.global_overwrite)
@@ -160,6 +170,10 @@ class Settings(QtWidgets.QWidget):
 
     def reload_config(self):
         section = definitions.DisplayCfg.name
+
+        self.azimuth_orient.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.sph_view_azim_orient))
+        self.lat_lum_offset.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.sph_lat_lum_offset))
+        self.lat_lum_gradient.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.sph_lat_lum_gradient))
 
         parameters = [definitions.DisplayCfg.sph_pos_glob_radial_offset,
                       definitions.DisplayCfg.sph_view_elev_angle,
@@ -181,6 +195,14 @@ class Settings(QtWidgets.QWidget):
 
     def update_azimuth_orient(self, value):
         acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_view_azim_orient, value)
+        acc.display.update_canvas()
+
+    def update_lat_lum_offset(self, value):
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_lat_lum_offset, value)
+        acc.display.update_canvas()
+
+    def update_lat_lum_gradient(self, value):
+        acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_lat_lum_gradient, value)
         acc.display.update_canvas()
 
     def update_config(self, channel_num, key, value):
