@@ -233,6 +233,7 @@ class Checkbox(QtWidgets.QWidget):
         self.checkbox = QtWidgets.QCheckBox()
         self.layout().addWidget(self.checkbox)
         self.checkbox.setChecked(default_val)
+        self.checkbox.stateChanged.connect(self._exc_callback)
 
     def get_value(self):
         return self.checkbox.isChecked()
