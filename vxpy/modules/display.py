@@ -132,6 +132,10 @@ class Display(process.AbstractProcess):
 
     def start_visual(self):
         self.stimulus_visual.initialize()
+
+        for name, data in self.stimulus_visual.data_appendix.items():
+            self._append_to_dataset(name, data)
+
         self.stimulus_visual.start()
 
     def update_visual(self, **parameters):

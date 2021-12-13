@@ -74,6 +74,7 @@ class AbstractVisual(ABC):
         self.canvas: app.Canvas = canvas
         self.parameters: Dict[str, Any] = dict()
         self.custom_programs: Dict[str, gloo.Program] = dict()
+        self.data_appendix: Dict[str, Any] = dict()
         self.transform_uniforms = dict()
 
         self._buffer_shape = config.Display[definitions.DisplayCfg.window_height], \
@@ -99,6 +100,9 @@ class AbstractVisual(ABC):
             self.__dict__['custom_programs'][key] = value
         else:
             self.__dict__[key] = value
+
+    def _add_data_appendix(self, name, data):
+        self.data_appendix[name] = data
 
     def apply_transform(self, program):
         """Set uniforms in transform_uniforms on program"""
