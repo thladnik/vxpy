@@ -33,6 +33,7 @@ from vxpy.core import process, ipc, logging
 from vxpy.core import routine
 from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
+from vxpy.core.calibration import load_calibration
 from vxpy.core.protocol import get_protocol
 from vxpy.gui.window_controls import RecordingWidget
 from vxpy.utils import misc
@@ -63,6 +64,9 @@ class Controller(process.AbstractProcess):
 
         logging.add_handlers()
 
+
+        _calibration_path = 'calibrations/default_calib.yaml'
+        load_calibration(_calibration_path)
         # Set program configuration
         try:
             log.info(f'Using configuration from file {config_file}')
@@ -191,7 +195,7 @@ class Controller(process.AbstractProcess):
                 r.setup()
 
         # Initialize AbstractProcess
-        process.AbstractProcess.__init__(self, _program_start_time=time.time(), _routines=_routines, proxies=_proxies)
+        process.AbstractProcess.__init__(self, _program_start_time=time.time(), _routines=_routines, proxies=_proxies, _calibration_path=_calibration_path)
 
         # Set up processes
         # Worker
@@ -222,6 +226,7 @@ class Controller(process.AbstractProcess):
             _program_start_time=self.program_start_time,
             _pipes=ipc.Pipes,
             _configurations={k: v for k, v in config.__dict__.items() if not (k.startswith('_'))},
+            _calibration_path=_calibration_path,
             _states={k: v for k, v
                      in ipc.State.__dict__.items()
                      if not (k.startswith('_'))},

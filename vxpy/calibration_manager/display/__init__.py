@@ -20,12 +20,12 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtGui import QPainter, QColor, QFont
 from vispy import app, gloo
 
-from vxpy import config
-from vxpy.definitions import *
+from vxpy import calib
 from vxpy import definitions
-from vxpy.configure import acc
-from vxpy.configure.display import planar, spherical
-from vxpy.configure.utils import ModuleWidget
+from vxpy.definitions import *
+from vxpy.calibration_manager.display import planar
+from vxpy.calibration_manager.display import spherical
+from vxpy.calibration_manager import access
 from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget
 
 
@@ -50,24 +50,16 @@ class Canvas(app.Canvas):
         gloo.set_viewport(0, 0, *event.physical_size)
 
 
-class Main(ModuleWidget):
+class DisplayCalibration(QtWidgets.QWidget):
 
     visual = None
 
     def __init__(self, parent):
-        ModuleWidget.__init__(self, definitions.DisplayCfg.name, parent=parent)
-
-        # app.use_app('glfw')
-        acc.display = self
+        QtWidgets.QWidget.__init__(self, parent=parent)
 
         # Create canvas
         self.canvas = Canvas(1/5)
 
-        # Set timer for window updates
-        self.tmr_glwindow = QtCore.QTimer()
-        self.tmr_glwindow.setInterval(100)
-        self.tmr_glwindow.timeout.connect(self.trigger_on_draw)
-        self.tmr_glwindow.start()
 
         # Set layout
         self.setLayout(QtWidgets.QGridLayout())
@@ -75,8 +67,6 @@ class Main(ModuleWidget):
         self.fullscreen_select = QtWidgets.QGroupBox('Fullscreen selection')
         self.layout().addWidget(self.fullscreen_select, 0, 0)
         self.fullscreen_select.setLayout(QtWidgets.QGridLayout())
-        #self.fullscreen_select.btn_reset_normal = button_reset()
-        #self.fullscreen_select.layout().addWidget(self.fullscreen_select.btn_reset_normal, 0, 1)
         self.screen_settings = ScreenSelection(self)
         self.fullscreen_select.layout().addWidget(self.screen_settings)
 
@@ -88,33 +78,22 @@ class Main(ModuleWidget):
         self.visuals = VisualSettings()
         self.layout().addWidget(self.visuals, 1, 0, 1, 2)
 
-        acc.main.sig_reload_config.connect(self.update_canvas)
+        access.window.sig_window_closed.connect(self.canvas.close)
 
     def trigger_on_draw(self):
         app.process_events()
 
     def update_canvas(self):
-        section = definitions.DisplayCfg.name
-
-        config.Display = acc.cur_conf.getParsedSection(definitions.DisplayCfg.name)
-
         # Update size
-        w, h = acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_width), \
-               acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_height),
-        self.canvas.size = (w, h)
+        self.canvas.size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
 
         # Update position
-        x, y = acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_x), \
-               acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_y)
-        self.canvas.position = (x, y)
-
-    def closed_main_window(self):
-        self.canvas.close()
+        self.canvas.position = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
 
 
 class ScreenSelection(QtWidgets.QGroupBox):
 
-    def __init__(self, parent: Main):
+    def __init__(self, parent: DisplayCalibration):
         QtWidgets.QGroupBox.__init__(self, 'Fullscreen selection (double click)')
         self.main = parent
 
@@ -122,7 +101,7 @@ class ScreenSelection(QtWidgets.QGroupBox):
 
         self.screens = list()
         self.screen_frames = list()
-        for screen in acc.app.screens():
+        for screen in access.application.screens():
             geo = screen.geometry()
             self.screens.append((geo.x(), geo.y(), geo.width(), geo.height()))
 
@@ -141,15 +120,12 @@ class ScreenSelection(QtWidgets.QGroupBox):
                 self.main.global_settings.win_width.set_value(screen[2])
                 self.main.global_settings.win_height.set_value(screen[3])
 
-                acc.app.processEvents()
+                access.application.processEvents()
 
                 # Set fullscreen
                 self.main.canvas.fullscreen = True
-                #scr_handle = self.main.canvas.screens()[i]
-                #self.main.canvas._native_window.windowHandle().setScreen(scr_handle)
-                #self.main.canvas._native_window.showFullScreen()
 
-                acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.window_fullscreen, True)
+                calib.CALIB_DISP_WIN_FULLSCREEN = True
 
 
     def paintEvent(self, QPaintEvent):
@@ -245,64 +221,56 @@ class GlobalSettings(QtWidgets.QGroupBox):
         spacer = QtWidgets.QSpacerItem(1,1,QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(spacer)
 
-        acc.main.sig_reload_config.connect(self.load_config)
+        access.window.sig_reload_calibration.connect(self.update_ui)
 
-    def update_window_x_pos(self, win_x_pos):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
-                               definitions.DisplayCfg.window_pos_x,
-                               win_x_pos)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_window_x_pos(value):
+        calib.CALIB_DISP_WIN_POS_X = value
+        access.window.display.update_canvas()
 
-    def update_window_y_pos(self, win_y_pos):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
-                               definitions.DisplayCfg.window_pos_y,
-                               win_y_pos)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_window_y_pos(value):
+        calib.CALIB_DISP_WIN_POS_Y = value
+        access.window.display.update_canvas()
 
-    def update_window_width(self, width):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
-                               definitions.DisplayCfg.window_width,
-                               width)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_window_width(value):
+        calib.CALIB_DISP_WIN_SIZE_WIDTH = value
+        access.window.display.update_canvas()
 
-    def update_window_height(self, height):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
-                               definitions.DisplayCfg.window_height,
-                               height)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_window_height(value):
+        calib.CALIB_DISP_WIN_SIZE_HEIGHT = value
+        access.window.display.update_canvas()
 
-    def update_x_pos(self, x_pos):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
-                               definitions.DisplayCfg.glob_x_pos,
-                               x_pos)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_x_pos(value):
+        calib.CALIB_DISP_GLOB_POS_X = value
+        access.window.display.update_canvas()
 
-    def update_y_pos(self, y_pos):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name,
-                               definitions.DisplayCfg.glob_y_pos,
-                               y_pos)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_y_pos(value):
+        calib.CALIB_DISP_GLOB_POS_Y = value
+        access.window.display.update_canvas()
 
     def use_current_window_settings(self):
-
         geo = self.main.canvas._native_window.geometry()
         fgeo = self.main.canvas._native_window.frameGeometry()
 
-        self.win_width.setValue(geo.width())
-        self.win_height.setValue(geo.height())
+        self.win_width.set_value(geo.width())
+        self.win_height.set_value(geo.height())
 
-        self.win_x_pos.setValue(fgeo.x())
-        self.win_y_pos.setValue(fgeo.y())
+        self.win_x_pos.set_value(fgeo.x())
+        self.win_y_pos.set_value(fgeo.y())
 
-    def load_config(self):
-        section = definitions.DisplayCfg.name
+    def update_ui(self):
+        self.win_x_pos.set_value(calib.CALIB_DISP_WIN_POS_X)
+        self.win_y_pos.set_value(calib.CALIB_DISP_WIN_POS_Y)
+        self.win_width.set_value(calib.CALIB_DISP_WIN_SIZE_WIDTH)
+        self.win_height.set_value(calib.CALIB_DISP_WIN_SIZE_HEIGHT)
+        self.x_pos.set_value(calib.CALIB_DISP_GLOB_POS_X)
+        self.y_pos.set_value(calib.CALIB_DISP_GLOB_POS_Y)
 
-        self.win_x_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_x))
-        self.win_y_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_pos_y))
-        self.win_width.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_width))
-        self.win_height.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.window_height))
-        self.x_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.glob_x_pos))
-        self.y_pos.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.glob_y_pos))
 
 
 class VisualSettings(QtWidgets.QTabWidget):
@@ -310,8 +278,8 @@ class VisualSettings(QtWidgets.QTabWidget):
     def __init__(self):
         QtWidgets.QTabWidget.__init__(self)
 
-        self.planar = planar.Main()
-        self.spherical = spherical.Main()
+        self.planar = planar.PlanarCalibrationWidget()
+        self.spherical = spherical.SphericalCalibrationWidget()
 
         self.addTab(self.planar, 'Planar')
         self.addTab(self.spherical, 'Spherical')

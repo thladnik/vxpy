@@ -21,18 +21,11 @@ from PySide6 import QtCore, QtWidgets
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import logging
 from vxpy.configure import acc
 from vxpy.configure.utils import ModuleWidget
 from vxpy.configure.camera.__init__ import CameraWidget
-from vxpy.configure.display import Main as Display
+from vxpy.calibration_manager.display import DisplayCalibration as Display
 from vxpy.utils import misc
-
-# logging.write = lambda *args, **kwargs: None
-# logging.debug = lambda *args, **kwargs: None
-# logging.info = lambda *args, **kwargs: None
-# logging.warning = lambda *args, **kwargs: None
-# logging.error = lambda *args, **kwargs: None
 
 
 class ModuleCheckbox(QtWidgets.QCheckBox):

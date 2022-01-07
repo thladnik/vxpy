@@ -30,9 +30,10 @@ from vxpy.api import event
 from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core.ipc import build_pipes, set_process
 from vxpy.core import routine, ipc, logging
 from vxpy.core import container
+from vxpy.core.calibration import load_calibration
+from vxpy.core.ipc import build_pipes, set_process
 from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
 
@@ -71,6 +72,7 @@ class AbstractProcess:
     def __init__(self,
                  _program_start_time=None,
                  _configurations=None,
+                 _calibration_path: str = None,
                  _controls=None,
                  _log=None,
                  _proxies=None,
@@ -82,6 +84,10 @@ class AbstractProcess:
 
         if _program_start_time is not None:
             self.program_start_time = _program_start_time
+        else:
+            log.error('No program start time provided')
+
+        load_calibration(_calibration_path)
 
         # Add handlers to modules that were imported before process class initialization
         logging.add_handlers()

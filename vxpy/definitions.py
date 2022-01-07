@@ -121,13 +121,16 @@ class CameraCfg(Cfg):
 class DisplayCfg(Cfg):
     name = PROCESS_DISPLAY.lower()
 
-    # General
+    # Configuration settings
     type = 'str_type'
     fps = 'int_fps'
     window_backend = 'str_window_backend'
     gl_version_major = 'int_gl_version_major'
     gl_version_minor = 'int_gl_version_minor'
     gl_profile = 'str_gl_profile'
+    routines = 'json_routines'
+
+    # Calibration settings
 
     # Window settings
     window_screen_id = 'int_window_screen_id'
@@ -144,13 +147,13 @@ class DisplayCfg(Cfg):
 
     # Spherical
     sph_view_azim_orient = 'float_sph_view_azim_orient'
-    sph_pos_glob_radial_offset = 'json_sph_pos_glob_radial_offset'
-    sph_pos_glob_lateral_offset = 'json_sph_pos_glob_lateral_offset'
     sph_view_elev_angle = 'json_sph_view_elev_angle'
     sph_view_azim_angle = 'json_sph_view_azim_angle'
     sph_view_distance = 'json_sph_view_origin_distance'
     sph_view_fov = 'json_sph_view_fov'
     sph_view_scale = 'json_sph_view_scale'
+    sph_pos_glob_radial_offset = 'json_sph_pos_glob_radial_offset'
+    sph_pos_glob_lateral_offset = 'json_sph_pos_glob_lateral_offset'
     sph_lat_lum_offset = 'json_sph_lat_lum_offset'
     sph_lat_lum_gradient = 'json_sph_lat_lum_gradient'
 
@@ -158,8 +161,6 @@ class DisplayCfg(Cfg):
     pla_xextent = 'float_pla_xextent'
     pla_yextent = 'float_pla_yextent'
     pla_small_side = 'float_pla_small_side'
-
-    routines = 'json_routines'
 
 
 # GUI

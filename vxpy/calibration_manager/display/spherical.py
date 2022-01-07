@@ -15,38 +15,48 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from typing import Any
 
 from PySide6 import QtWidgets
 
-from vxpy.configure import acc
+from vxpy.calibration_manager import access
 from vxpy.definitions import *
-from vxpy import definitions
+from vxpy import definitions, calib
 from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget, Checkbox
 
 
-class Main(QtWidgets.QWidget):
+class SphericalCalibrationWidget(QtWidgets.QWidget):
 
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
 
-        self.setLayout(QtWidgets.QGridLayout())
+        self.setLayout(QtWidgets.QHBoxLayout())
         self.settings = Settings(self)
-        self.layout().addWidget(self.settings, 0, 0, 2, 1)
+        self.layout().addWidget(self.settings)
+
+        self.test_visuals = QtWidgets.QWidget()
+        self.test_visuals.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self.test_visuals)
 
         self.mesh = Mesh(self)
-        self.layout().addWidget(self.mesh, 0, 1)
+        self.test_visuals.layout().addWidget(self.mesh)
 
         self.checker = Checker(self)
-        self.layout().addWidget(self.checker, 1, 1)
+        self.test_visuals.layout().addWidget(self.checker)
+
+        spacer = QtWidgets.QSpacerItem(1, 1,
+                                       QtWidgets.QSizePolicy.Policy.Minimum,
+                                       QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        self.test_visuals.layout().addItem(spacer)
 
 
-class Parameters(QtWidgets.QWidget):
+class ChannelParameters(QtWidgets.QWidget):
 
-    def __init__(self, channel_num, settings_wdgt):
+    def __init__(self, channel_num, settings_widget):
         QtWidgets.QWidget.__init__(self)
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        self.settings_wdgt = settings_wdgt
+        self.settings_widget = settings_widget
         self.channel_num = channel_num
 
         self.edits = dict()
@@ -56,84 +66,86 @@ class Parameters(QtWidgets.QWidget):
         # Radial offset
         wdgt = DoubleSliderWidget('Radial offset', 0., 1., 0.,
                                   step_size=.001, decimals=3, label_width=label_width)
-        wdgt.connect_to_result(self.update_radial_offset)
-        self.edits[definitions.DisplayCfg.sph_pos_glob_radial_offset] = wdgt
+        wdgt.connect_to_result(self.radial_offset_updated)
+        self.edits['CALIB_DISP_SPH_POS_RADIAL_OFFSET'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Lateral offset
         wdgt = DoubleSliderWidget('Lateral offset', -1., 1., 0.,
                                   step_size=.001, decimals=3, label_width=label_width)
-        wdgt.connect_to_result(self.update_lateral_offset)
-        self.edits[definitions.DisplayCfg.sph_pos_glob_lateral_offset] = wdgt
+        wdgt.connect_to_result(self.lateral_offset_updated)
+        self.edits['CALIB_DISP_SPH_POS_LATERAL_OFFSET'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Elevation
         wdgt = DoubleSliderWidget('Elevation [deg]', -45., 45., 0.,
                                   step_size=.1, decimals=1, label_width=label_width)
-        wdgt.connect_to_result(self.update_elevation)
-        self.edits[definitions.DisplayCfg.sph_view_elev_angle] = wdgt
+        wdgt.connect_to_result(self.elevation_updated)
+        self.edits['CALIB_DISP_SPH_VIEW_ELEV_ANGLE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Azimuth
         wdgt = DoubleSliderWidget('Azimuth [deg]', -20., 20., 0.,
                                   step_size=.1, decimals=1, label_width=label_width)
-        wdgt.connect_to_result(self.update_azimuth)
-        self.edits[definitions.DisplayCfg.sph_view_azim_angle] = wdgt
+        wdgt.connect_to_result(self.azimuth_updated)
+        self.edits['CALIB_DISP_SPH_VIEW_AZIM_ANGLE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # View distance
         wdgt = DoubleSliderWidget('Distance [norm]', 1., 50., 5.,
                                   step_size=.05, decimals=2, label_width=label_width)
-        wdgt.connect_to_result(self.update_view_distance)
-        self.edits[definitions.DisplayCfg.sph_view_distance] = wdgt
+        wdgt.connect_to_result(self.view_distance_updated)
+        self.edits['CALIB_DISP_SPH_VIEW_DISTANCE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # FOV
         wdgt = DoubleSliderWidget('FOV [deg]', .1, 179., 70.,
                                   step_size=.05, decimals=2, label_width=label_width)
-        wdgt.connect_to_result(self.update_view_fov)
-        self.edits[definitions.DisplayCfg.sph_view_fov] = wdgt
+        wdgt.connect_to_result(self.view_fov_updated)
+        self.edits['CALIB_DISP_SPH_VIEW_FOV'] = wdgt
         self.layout().addWidget(wdgt)
 
         # View scale
         wdgt = DoubleSliderWidget('Scale [norm]', .001, 10., 1.,
                                   step_size=.001, decimals=3, label_width=label_width)
-        wdgt.connect_to_result(self.update_view_scale)
-        self.edits[definitions.DisplayCfg.sph_view_scale] = wdgt
+        wdgt.connect_to_result(self.view_scale_updated)
+        self.edits['CALIB_DISP_SPH_VIEW_SCALE'] = wdgt
         self.layout().addWidget(wdgt)
 
-        spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
+        spacer = QtWidgets.QSpacerItem(1, 1,
+                                       QtWidgets.QSizePolicy.Policy.Minimum,
+                                       QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addItem(spacer)
 
-    def update_edit(self, key, value):
+    def update_ui_edit(self, key, value):
         self.edits[key].set_value(value)
 
-    def update_radial_offset(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_pos_glob_radial_offset, value)
+    def radial_offset_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_POS_RADIAL_OFFSET', value)
 
-    def update_lateral_offset(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_pos_glob_lateral_offset, value)
+    def lateral_offset_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_POS_LATERAL_OFFSET', value)
 
-    def update_elevation(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_elev_angle, value)
+    def elevation_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_VIEW_ELEV_ANGLE', value)
 
-    def update_azimuth(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_azim_angle, value)
+    def azimuth_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_VIEW_AZIM_ANGLE', value)
 
-    def update_view_distance(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_distance, value)
+    def view_distance_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_VIEW_DISTANCE', value)
 
-    def update_view_fov(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_fov, value)
+    def view_fov_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_VIEW_FOV', value)
 
-    def update_view_scale(self, value):
-        self.settings_wdgt.update_config(self.channel_num, definitions.DisplayCfg.sph_view_scale, value)
+    def view_scale_updated(self, value):
+        self.settings_widget.update_calibration(self.channel_num, 'CALIB_DISP_SPH_VIEW_SCALE', value)
 
 
 class Settings(QtWidgets.QWidget):
 
     def __init__(self, parent):
-        QtWidgets.QWidget.__init__(self)
+        QtWidgets.QWidget.__init__(self, parent=parent)
         self.main = parent
 
         self.setLayout(QtWidgets.QVBoxLayout())
@@ -149,7 +161,7 @@ class Settings(QtWidgets.QWidget):
         self.layout().addWidget(self.lat_lum_offset)
 
         self.lat_lum_gradient = DoubleSliderWidget('Lateral luminance gradient', 0., 10., 1., step_size=.05, decimals=2,
-                                                 label_width=200)
+                                                   label_width=200)
         self.lat_lum_gradient.connect_to_result(self.update_lat_lum_gradient)
         self.layout().addWidget(self.lat_lum_gradient)
 
@@ -160,69 +172,71 @@ class Settings(QtWidgets.QWidget):
         # Set channels
         self.tabs = QtWidgets.QTabWidget()
         self.layout().addWidget(self.tabs)
-        self.channels = {i - 1: Parameters(i - 1, self) for i in range(5)}
+        self.channels = {i - 1: ChannelParameters(i - 1, self) for i in range(5)}
         for channel_num, channel_wdgt in self.channels.items():
             self.tabs.addTab(channel_wdgt, str(channel_num) if channel_num >= 0 else 'Global')
         self.tabs.setTabEnabled(0, False)
 
         # Connect reload config signal
-        acc.main.sig_reload_config.connect(self.reload_config)
+        access.window.sig_reload_calibration.connect(self.reload_calibration)
 
-    def reload_config(self):
-        section = definitions.DisplayCfg.name
+    def reload_calibration(self):
+        self.azimuth_orient.set_value(calib.CALIB_DISP_SPH_VIEW_AZIM_ORIENT)
+        self.lat_lum_offset.set_value(calib.CALIB_DISP_SPH_LAT_LUM_OFFSET)
+        self.lat_lum_gradient.set_value(calib.CALIB_DISP_SPH_LAT_LUM_GRADIENT)
 
-        self.azimuth_orient.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.sph_view_azim_orient))
-        self.lat_lum_offset.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.sph_lat_lum_offset))
-        self.lat_lum_gradient.set_value(acc.cur_conf.getParsed(section, definitions.DisplayCfg.sph_lat_lum_gradient))
+        parameters = ['CALIB_DISP_SPH_POS_RADIAL_OFFSET',
+                      'CALIB_DISP_SPH_VIEW_ELEV_ANGLE',
+                      'CALIB_DISP_SPH_VIEW_AZIM_ANGLE',
+                      'CALIB_DISP_SPH_VIEW_DISTANCE',
+                      'CALIB_DISP_SPH_VIEW_FOV',
+                      'CALIB_DISP_SPH_VIEW_SCALE']
 
-        parameters = [definitions.DisplayCfg.sph_pos_glob_radial_offset,
-                      definitions.DisplayCfg.sph_view_elev_angle,
-                      definitions.DisplayCfg.sph_view_azim_angle,
-                      definitions.DisplayCfg.sph_view_distance,
-                      definitions.DisplayCfg.sph_view_fov,
-                      definitions.DisplayCfg.sph_view_scale]
-
-        for key, value in zip(parameters, [acc.cur_conf.getParsed(section, key) for key in parameters]):
+        for key, value in zip(parameters, [getattr(calib, key) for key in parameters]):
             # By default set "global overwrite" channel to 0 channel parameters
-            self.channels[-1].update_edit(key, value[0])
+            self.channels[-1].update_ui_edit(key, value[0])
 
             # Update all channels
             for i, v in enumerate(value):
-                self.channels[i].update_edit(key, v)
+                self.channels[i].update_ui_edit(key, v)
 
     def toggle_overwrite(self, newstate):
         self.tabs.setTabEnabled(0, newstate)
 
-    def update_azimuth_orient(self, value):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_view_azim_orient, value)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_azimuth_orient(value):
+        calib.CALIB_DISP_SPH_VIEW_AZIM_ORIENT = value
+        access.window.display.update_canvas()
 
-    def update_lat_lum_offset(self, value):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_lat_lum_offset, value)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_lat_lum_offset(value):
+        calib.CALIB_DISP_SPH_LAT_LUM_OFFSET = value
+        access.window.display.update_canvas()
 
-    def update_lat_lum_gradient(self, value):
-        acc.cur_conf.setParsed(definitions.DisplayCfg.name, definitions.DisplayCfg.sph_lat_lum_gradient, value)
-        acc.display.update_canvas()
+    @staticmethod
+    def update_lat_lum_gradient(value):
+        calib.CALIB_DISP_SPH_LAT_LUM_GRADIENT = value
+        access.window.display.update_canvas()
 
-    def update_config(self, channel_num, key, value):
+    @staticmethod
+    def update_calibration(channel_num: int, key: str, value: Any):
         section = definitions.DisplayCfg.name
 
         # Fetch current config
-        conf = acc.cur_conf.getParsed(section, key)
+        _calib = getattr(calib, key)
         # Alter
         if channel_num >= 0:
-            conf[channel_num] = value
+            _calib[channel_num] = value
         else:
-            conf = [value for _ in conf]
+            _calib = [value] * len(_calib)
 
         # Update config
-        acc.cur_conf.setParsed(section, key, conf)
+        setattr(calib, key, _calib)
 
         # Trigger reload on other channels
-        acc.main.sig_reload_config.emit()
+        access.window.sig_reload_calibration.emit()
 
-        acc.display.update_canvas()
+        access.window.display.update_canvas()
 
 
 class Mesh(QtWidgets.QGroupBox):
@@ -235,12 +249,12 @@ class Mesh(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Vertical SP
-        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1, 180, 22.5,
+        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1., 180., 22.5,
                                                step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.elevation_sp)
 
         # Horizontal SP
-        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1, 360, 22.5,
+        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1., 360., 15.,
                                              step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
 
@@ -253,9 +267,9 @@ class Mesh(QtWidgets.QGroupBox):
         from vxpy.visuals.spherical_calibration import RegularMesh
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
-        acc.display.canvas.visual = RegularMesh(acc.display.canvas)
-        acc.display.canvas.visual.update(**{RegularMesh.u_elevation_sp: elevation_sp,
-                                            RegularMesh.u_azimuth_sp: azimuth_sp})
+        access.window.display.canvas.visual = RegularMesh(access.window.display.canvas)
+        access.window.display.canvas.visual.update(**{RegularMesh.u_elevation_sp: elevation_sp,
+                                                      RegularMesh.u_azimuth_sp: azimuth_sp})
 
 
 class Checker(QtWidgets.QGroupBox):
@@ -268,12 +282,12 @@ class Checker(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Vertical SP
-        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1, 180, 22.5,
+        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1., 180., 22.5,
                                                step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.elevation_sp)
 
         # Horizontal SP
-        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1, 360, 22.5,
+        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1., 360., 15.,
                                              step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
 
@@ -284,8 +298,11 @@ class Checker(QtWidgets.QGroupBox):
 
     def show_visual(self):
         from vxpy.visuals.spherical_calibration import BlackWhiteCheckerboard
+        print('Show?')
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
-        acc.display.canvas.visual = BlackWhiteCheckerboard(acc.display.canvas)
-        acc.display.canvas.visual.update(**{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
-                                            BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})
+        access.window.display.canvas.visual = BlackWhiteCheckerboard(access.window.display.canvas)
+        access.window.display.canvas.visual.update(**{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
+                                                      BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})
+        print({BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
+                                                      BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})

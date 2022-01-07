@@ -25,11 +25,11 @@ from vispy.gloo import gl
 from vispy.util import transforms
 
 from vxpy import config
+from vxpy import calib
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import logging
 from vxpy.api import controller_rpc
-from vxpy.api.protocol import end_protocol_phase
 from vxpy.utils import geometry
 from vxpy.utils import sphere
 
@@ -77,8 +77,9 @@ class AbstractVisual(ABC):
         self.data_appendix: Dict[str, Any] = dict()
         self.transform_uniforms = dict()
 
-        self._buffer_shape = config.Display[definitions.DisplayCfg.window_height], \
-                             config.Display[definitions.DisplayCfg.window_width] #self.canvas.physical_size[1], self.canvas.physical_size[0]
+        # self._buffer_shape = config.Display[definitions.DisplayCfg.window_height], \
+        #                      config.Display[definitions.DisplayCfg.window_width] #self.canvas.physical_size[1], self.canvas.physical_size[0]
+        self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT, calib.CALIB_DISP_WIN_SIZE_WIDTH)
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
         self.frame = self._out_fb
@@ -423,16 +424,16 @@ class SphericalVisual(AbstractVisual, ABC):
 
         self.frame_time = dt
 
-        win_width = config.Display[definitions.DisplayCfg.window_width]
-        win_height = config.Display[definitions.DisplayCfg.window_height]
+        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH
+        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
         # Set 2D scaling for aspect 1
         if win_height > win_width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
         else:
             u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
-        self.transform_uniforms['u_mapcalib_lateral_luminance_offset'] = config.Display[definitions.DisplayCfg.sph_lat_lum_offset]
-        self.transform_uniforms['u_mapcalib_lateral_luminance_gradient'] = config.Display[definitions.DisplayCfg.sph_lat_lum_gradient]
+        self.transform_uniforms['u_mapcalib_lateral_luminance_offset'] = calib.CALIB_DISP_SPH_LAT_LUM_OFFSET
+        self.transform_uniforms['u_mapcalib_lateral_luminance_gradient'] = calib.CALIB_DISP_SPH_LAT_LUM_GRADIENT
 
         # Make sure stencil testing is disabled and depth testing is enabled
         #gl.glDisable(gl.GL_STENCIL_TEST)
@@ -452,18 +453,17 @@ class SphericalVisual(AbstractVisual, ABC):
         with self._display_fb:
             gloo.clear()
 
+        azim_orientation = calib.CALIB_DISP_SPH_VIEW_AZIM_ORIENT
         for i in range(4):
 
-            azim_orientation = config.Display[definitions.DisplayCfg.sph_view_azim_orient]
-
             # Set 3D transform
-            distance = config.Display[definitions.DisplayCfg.sph_view_distance][i]
-            fov = config.Display[definitions.DisplayCfg.sph_view_fov][i]
-            view_scale = config.Display[definitions.DisplayCfg.sph_view_scale][i]
-            azim_angle = config.Display[definitions.DisplayCfg.sph_view_azim_angle][i]
-            elev_angle = config.Display[definitions.DisplayCfg.sph_view_elev_angle][i]
-            radial_offset_scalar = config.Display[definitions.DisplayCfg.sph_pos_glob_radial_offset][i]
-            lateral_offset_scalar = config.Display[definitions.DisplayCfg.sph_pos_glob_lateral_offset][i]
+            distance = calib.CALIB_DISP_SPH_VIEW_DISTANCE[i]
+            fov = calib.CALIB_DISP_SPH_VIEW_FOV[i]
+            view_scale = calib.CALIB_DISP_SPH_VIEW_SCALE[i]
+            azim_angle = calib.CALIB_DISP_SPH_VIEW_AZIM_ANGLE[i]
+            elev_angle = calib.CALIB_DISP_SPH_VIEW_ELEV_ANGLE[i]
+            radial_offset_scalar = calib.CALIB_DISP_SPH_POS_RADIAL_OFFSET[i]
+            lateral_offset_scalar = calib.CALIB_DISP_SPH_POS_LATERAL_OFFSET[i]
 
             # Set angles
             self.transform_uniforms['u_mapcalib_azimuth_angle'] = azim_angle + 45.
@@ -478,8 +478,8 @@ class SphericalVisual(AbstractVisual, ABC):
             # 3D projection
             self.transform_uniforms['u_mapcalib_projection'] = transforms.perspective(fov, 1., 0.1, 400.0)
 
-            xy_offset = np.array([config.Display[definitions.DisplayCfg.glob_x_pos] * win_width / win_height,
-                                  config.Display[definitions.DisplayCfg.glob_y_pos]])
+            xy_offset = np.array([calib.CALIB_DISP_GLOB_POS_X * win_width / win_height,
+                                  calib.CALIB_DISP_WIN_POS_Y])
 
             self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
@@ -575,8 +575,8 @@ class PlanarVisual(AbstractVisual, ABC):
             return
 
         # Construct vertices
-        height = config.Display[definitions.DisplayCfg.window_height]
-        width = config.Display[definitions.DisplayCfg.window_width]
+        height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
+        width = calib.CALIB_DISP_WIN_SIZE_WIDTH
 
         # Set aspect scale to square
         if width > height:
@@ -587,16 +587,16 @@ class PlanarVisual(AbstractVisual, ABC):
             self.u_mapcalib_yscale = width/height
 
         # Set 2d translation
-        self.u_mapcalib_glob_x_position = config.Display[definitions.DisplayCfg.glob_x_pos]
-        self.u_mapcalib_glob_y_position = config.Display[definitions.DisplayCfg.glob_y_pos]
+        self.u_mapcalib_glob_x_position = calib.CALIB_DISP_GLOB_POS_X
+        self.u_mapcalib_glob_y_position = calib.CALIB_DISP_GLOB_POS_Y
 
         # Extents
-        self.u_mapcalib_xextent = config.Display[definitions.DisplayCfg.pla_xextent]
-        self.u_mapcalib_yextent = config.Display[definitions.DisplayCfg.pla_yextent]
+        self.u_mapcalib_xextent = calib.CALIB_DISP_PLA_EXTENT_X
+        self.u_mapcalib_yextent = calib.CALIB_DISP_PLA_EXTENT_Y
 
         # Set real world size multiplier [mm]
         # (PlanarVisual's positions are normalized to the smaller side of the screen)
-        self.u_mapcalib_small_side_size = config.Display[definitions.DisplayCfg.pla_small_side]
+        self.u_mapcalib_small_side_size = calib.CALIB_DISP_PLA_SMALL_SIDE
 
         # Set uniforms
         self.transform_uniforms['u_mapcalib_xscale'] = self.u_mapcalib_xscale

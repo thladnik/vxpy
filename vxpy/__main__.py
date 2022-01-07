@@ -35,6 +35,10 @@ if __name__ == '__main__':
         from vxpy.configure import main
         main()
 
+    elif 'calibrate' in sys.argv:
+        from vxpy.calibration_manager import run_calibration
+        run_calibration()
+
     elif 'migrate':
         pass
         # TODO: migrate current application folder to more recent version (mainly setup resource files?)
