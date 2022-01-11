@@ -21,29 +21,6 @@ from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
 
-def detect_fish_particle(im):
-    return
-
-
-def get_camera_properties(device_id):
-    idx = config.Camera[definitions.CameraCfg.device_id].index(device_id)
-    props = {
-        definitions.CameraCfg.device_id: device_id,
-        definitions.CameraCfg.manufacturer: config.Camera[definitions.CameraCfg.manufacturer][idx],
-        definitions.CameraCfg.model: config.Camera[definitions.CameraCfg.model][idx],
-        definitions.CameraCfg.format: config.Camera[definitions.CameraCfg.format][idx],
-        definitions.CameraCfg.res_x: config.Camera[definitions.CameraCfg.res_x][idx],
-        definitions.CameraCfg.res_y: config.Camera[definitions.CameraCfg.res_y][idx],
-        definitions.CameraCfg.exposure: config.Camera[definitions.CameraCfg.exposure][idx],
-        definitions.CameraCfg.gain: config.Camera[definitions.CameraCfg.gain][idx],
-    }
-    return props
-
-
-def get_camera_resolution(device_id):
-    idx = config.Camera[definitions.CameraCfg.device_id].index(device_id)
-    return config.Camera[definitions.CameraCfg.res_x][idx], config.Camera[definitions.CameraCfg.res_y][idx]
-
 
 def calculate_background_mog2(frames):
 

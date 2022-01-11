@@ -27,7 +27,7 @@ from vxpy.api.ui import register_with_plotter
 from vxpy.api.io import set_digital_output
 from vxpy.api.dependency import require_camera_device
 from vxpy.core import logging
-from vxpy.core.camera import find_config_for_camera_id, Format
+from vxpy.core.camera import get_config_for_camera, Format
 
 
 log = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class EyePositionDetection(CameraRoutine):
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
         # Get camera specs
-        config = find_config_for_camera_id(self.camera_device_id)
+        config = get_config_for_camera(self.camera_device_id)
         fmt = Format.from_str(config['format'])
         self.res_x = fmt.width
         self.res_y = fmt.height

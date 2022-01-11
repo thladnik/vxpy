@@ -1,1 +1,1 @@
-from vxpy.core.camera import find_config_for_camera_id, Format
+from vxpy.core.camera import get_config_for_camera, Format

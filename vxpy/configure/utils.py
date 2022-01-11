@@ -25,13 +25,13 @@ class ModuleWidget(QtWidgets.QWidget):
 
         self.module_name = module_name
 
-    def get_setting(self, option_name):
-        global current_config
-        return current_config.getParsed(self.module_name, option_name)
-
-    def update_setting(self, option, value):
-        global current_config
-        current_config.setParsed(self.module_name, option, value)
+    # def get_setting(self, option_name):
+    #     global current_config
+    #     return current_config.getParsed(self.module_name, option_name)
+    #
+    # def update_setting(self, option, value):
+    #     global current_config
+    #     current_config.setParsed(self.module_name, option, value)
 
     def closed_main_window(self):
         """Method called by default in MainWindow on closeEvent"""

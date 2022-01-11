@@ -126,9 +126,7 @@ class Window(QtWidgets.QMainWindow):
 
         # Display
         self.display = None
-        if config.Display[definitions.DisplayCfg.use] \
-                and PROCESS_DISPLAY in config.Gui[definitions.GuiCfg.addons] \
-                and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_DISPLAY]):
+        if config.CONF_DISPLAY_USE and PROCESS_DISPLAY in config.CONF_GUI_ADDONS:
             self.display = DisplayWindow(self)
             self.display.create_hooks()
             self.display.move(x + row2_xoffset,
@@ -138,9 +136,7 @@ class Window(QtWidgets.QMainWindow):
 
         # Camera
         self.camera = None
-        if config.Camera[definitions.CameraCfg.use] \
-                and PROCESS_CAMERA in config.Gui[definitions.GuiCfg.addons] \
-                and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_CAMERA]):
+        if config.CONF_CAMERA_USE and PROCESS_CAMERA in config.CONF_GUI_ADDONS:
             self.camera = CameraWindow(self)
             self.camera.create_hooks()
             self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset,
@@ -150,9 +146,7 @@ class Window(QtWidgets.QMainWindow):
 
         # Io
         self.io = None
-        if config.Io[definitions.IoCfg.use] \
-                and PROCESS_IO in config.Gui[definitions.GuiCfg.addons] \
-                and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_IO]):
+        if config.CONF_IO_USE and PROCESS_IO in config.CONF_GUI_ADDONS:
             self.io = IoWindow(self)
             self.io.create_hooks()
             self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset,
@@ -198,10 +192,11 @@ class Window(QtWidgets.QMainWindow):
 
         # Bind shortcuts
         # Restart display modules
-        self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
-        self.menu_process.restart_display.setAutoRepeat(False)
+        if config.CONF_DISPLAY_USE:
+            self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
+            self.menu_process.restart_display.setAutoRepeat(False)
         # Restart camera modules
-        if config.Camera[definitions.CameraCfg.use]:
+        if config.CONF_CAMERA_USE:
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 

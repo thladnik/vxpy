@@ -36,7 +36,7 @@ class EnvTypes(Enum):
 Env = EnvTypes.DEV
 
 PATH_PACKAGE = 'vxpy'
-PATH_CONFIG = 'configs'
+PATH_CONFIG = 'configurations'
 PATH_GUI = 'gui'
 PATH_DLL = os.path.join('lib', 'dll')
 PATH_LOG = 'logs'

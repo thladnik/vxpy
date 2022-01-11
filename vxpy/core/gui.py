@@ -98,7 +98,7 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
 
     def create_addon_tabs(self, process_name):
 
-        used_addons = config.Gui[definitions.GuiCfg.addons][process_name]
+        used_addons = config.CONF_GUI_ADDONS[process_name]
 
         for path in used_addons:
             log.info(f'Load UI addon "{path}"')

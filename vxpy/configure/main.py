@@ -100,7 +100,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         self.gb_edit.gb_select_mod.setLayout(QtWidgets.QVBoxLayout())
         self.gb_edit.layout().addWidget(self.gb_edit.gb_select_mod, 0, 0)
 
-        # Set configs widget
+        # Set configurations widget
         self.gb_edit.tab_modules = QtWidgets.QTabWidget(self)
         self.gb_edit.tab_modules.setLayout(QtWidgets.QGridLayout())
         self.gb_edit.layout().addWidget(self.gb_edit.tab_modules, 0, 1, 1, 2)
@@ -148,7 +148,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
             self.gb_select.cb_select.addItem(fname)
 
     def _add_configfile(self):
-        name, confirmed = QtWidgets.QInputDialog.getText(self, 'Create new configs file', 'Config name', QtWidgets.QLineEdit.Normal, '')
+        name, confirmed = QtWidgets.QInputDialog.getText(self, 'Create new configurations file', 'Config name', QtWidgets.QLineEdit.Normal, '')
 
         if confirmed and name != '':
             if name[-4:] != '.ini':

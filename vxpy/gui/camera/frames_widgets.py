@@ -43,8 +43,7 @@ class FrameStream(AddonWidget):
 
         # Add one view per camera device
         self.view_wdgts = dict()
-        for device in config.Camera[definitions.CameraCfg.devices]:
-            device_id = device['id']
+        for device_id in config.CONF_CAMERA_DEVICES:
             self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
 

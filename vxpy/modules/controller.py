@@ -29,14 +29,13 @@ from vxpy.definitions import *
 from vxpy import modules
 from vxpy.api import gui_rpc
 from vxpy.api.dependency import register_camera_device, register_io_device, assert_device_requirements
-from vxpy.core import process, ipc, logging
+from vxpy.core import process, ipc, logging, configuration
 from vxpy.core import routine
 from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
 from vxpy.core.calibration import load_calibration
 from vxpy.core.protocol import get_protocol
 from vxpy.gui.window_controls import RecordingWidget
-from vxpy.utils import misc
 
 log = logging.getLogger(__name__)
 
@@ -51,40 +50,14 @@ class Controller(process.AbstractProcess):
 
     _active_protocols: List[str] = list()
 
-    def __init__(self, config_file):
-        ipc.set_process(self)
-
+    def __init__(self, _configuration_path):
         # Set up manager
         ipc.Manager = mp.Manager()
 
-        # Set file to log to
+        # Set up logging
         logging.setup_log_queue(ipc.Manager.Queue())
         logging.setup_log_history(ipc.Manager.list())
         logging.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
-
-        logging.add_handlers()
-
-        _calibration_path = 'calibrations/default_spherical.yaml'
-        load_calibration(_calibration_path)
-        # Set program configuration
-        try:
-            log.info(f'Using configuration from file {config_file}')
-            configuration = misc.ConfigParser()
-            configuration.read(config_file)
-            for section in configuration.sections():
-                setattr(config, section.capitalize(), configuration.getParsedSection(section))
-            config_loaded = True
-
-        except Exception:
-            config_loaded = False
-            import traceback
-            traceback.print_exc()
-
-        assert config_loaded, f'Loading of configuration file {config_file} failed.'
-
-        # TODO: check if recording routines contains any entries
-        #  for inactive processes or inactive routines on active processes
-        #  print warning or just shut down completely in-case?
 
         # Manually set up pipe for controller
         ipc.Pipes[self.name] = mp.Pipe()
@@ -106,6 +79,41 @@ class Controller(process.AbstractProcess):
         ipc.State.Io = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
         ipc.State.Worker = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
 
+        # Initialize process
+        process.AbstractProcess.__init__(self, _program_start_time=time.time(), _configuration_path=_configuration_path)
+
+        # Set up processes
+        _routines_to_load = dict()
+        # Camera
+        if config.CONF_CAMERA_USE:
+            self._register_process(modules.Camera)
+            _routines_to_load[PROCESS_CAMERA] = config.CONF_CAMERA_ROUTINES
+        # Display
+        if config.CONF_DISPLAY_USE:
+            self._register_process(modules.Display)
+            _routines_to_load[PROCESS_DISPLAY] = config.CONF_DISPLAY_ROUTINES
+        # GUI
+        if config.CONF_GUI_USE:
+            self._register_process(modules.Gui)
+        # IO
+        if config.CONF_IO_USE:
+            self._register_process(modules.Io)
+            _routines_to_load[PROCESS_IO] = config.CONF_IO_ROUTINES
+        # Worker
+        if config.CONF_WORKER_USE:
+            self._register_process(modules.Worker)
+            _routines_to_load[PROCESS_WORKER] = config.CONF_WORKER_ROUTINES
+
+        # Select subset of registered processes which should implement
+        # the _run_protocol method
+        _active_process_list = [p[0].__name__ for p in self._registered_processes]
+        self._active_protocols = list(set(_active_process_list) & set(self._protocolized))
+        log.info(f'Protocolized processes: {self._active_protocols}')
+
+        # TODO: check if recording routines contains any entries
+        #  for inactive processes or inactive routines on active processes
+        #  print warning or just shut down completely in-case?
+
         ################################
         # Set up CONTROLS
 
@@ -118,8 +126,7 @@ class Controller(process.AbstractProcess):
             time.sleep(10 ** -10)
             times.append(time.perf_counter() - t)
         ipc.Control.General.update({definitions.GenCtrl.min_sleep_time: max(times)})
-        log.info('Minimum sleep period is {0:.3f}ms'.format(1000 * max(times)))
-        # ipc.Control.General.update({definitions.GenCtrl.process_null_time: time.time() + 100.})
+        log.info(f'Minimum sleep period is {(1000 * max(times)):.3f}ms')
 
         # Check time precision on system
         dt = list()
@@ -149,19 +156,9 @@ class Controller(process.AbstractProcess):
                                                  definitions.ProtocolCtrl.phase_stop: None})
 
         # Load routine modules
-        _routines = dict()
-        _routines_to_load = dict()
-        if config.Camera[definitions.CameraCfg.use]:
-            _routines_to_load[PROCESS_CAMERA] = config.Camera[definitions.CameraCfg.routines]
-        if config.Display[definitions.DisplayCfg.use]:
-            _routines_to_load[PROCESS_DISPLAY] = config.Display[definitions.DisplayCfg.routines]
-        if config.Io[definitions.IoCfg.use]:
-            _routines_to_load[PROCESS_IO] = config.Io[definitions.IoCfg.routines]
-        if config.Worker[definitions.WorkerCfg.use]:
-            _routines_to_load[PROCESS_WORKER] = config.Worker[definitions.WorkerCfg.routines]
-
+        self._routines = dict()
         for process_name, routine_list in _routines_to_load.items():
-            _routines[process_name] = dict()
+            self._routines[process_name] = dict()
             for path in routine_list:
                 log.info(f'Load routine "{path}"')
 
@@ -175,57 +172,31 @@ class Controller(process.AbstractProcess):
                     continue
 
                 # Instantiate
-                _routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
+                self._routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
 
         # Set configured cameras
-        for device in config.Camera[definitions.CameraCfg.devices]:
-            register_camera_device(device['id'])
+        for device_id in config.CONF_CAMERA_DEVICES:
+            register_camera_device(device_id)
 
         # Set configured io devices
-        for dev_name in config.Io[definitions.IoCfg.device]:
-            register_io_device(dev_name)
+        for device_id in config.CONF_IO_DEVICES:
+            register_io_device(device_id)
 
         # Compare required vs registered devices
         assert_device_requirements()
 
         # Set up routines
-        for rs in _routines.values():
+        for rs in self._routines.values():
             for r in rs.values():
                 r.setup()
-
-        # Initialize AbstractProcess
-        process.AbstractProcess.__init__(self, _program_start_time=time.time(), _routines=_routines, proxies=_proxies, _calibration_path=_calibration_path)
-
-        # Set up processes
-        # Worker
-        self._register_process(modules.Worker)
-        # GUI
-        if config.Gui[definitions.GuiCfg.use]:
-            self._register_process(modules.Gui)
-        # Camera
-        if config.Camera[definitions.CameraCfg.use]:
-            self._register_process(modules.Camera)
-        # Display
-        if config.Display[definitions.DisplayCfg.use]:
-            self._register_process(modules.Display)
-        # IO
-        if config.Io[definitions.IoCfg.use]:
-            self._register_process(modules.Io)
-
-        # Select subset of registered processes which should implement
-        # the _run_protocol method
-        _active_process_list = [p[0].__name__ for p in self._registered_processes]
-        self._active_protocols = list(set(_active_process_list) & set(self._protocolized))
-        log.info(f'Protocolized processes: {self._active_protocols}')
 
         # Set up protocol
         self.current_protocol = None
 
         self._init_params = dict(
             _program_start_time=self.program_start_time,
+            _configuration_path=_configuration_path,
             _pipes=ipc.Pipes,
-            _configurations={k: v for k, v in config.__dict__.items() if not (k.startswith('_'))},
-            _calibration_path=_calibration_path,
             _states={k: v for k, v
                      in ipc.State.__dict__.items()
                      if not (k.startswith('_'))},
@@ -238,10 +209,6 @@ class Controller(process.AbstractProcess):
             _log_history=logging.get_history(),
             _attrs=Attribute.all
         )
-
-        # Initialize all pipes
-        for target, kwargs in self._registered_processes:
-            ipc.Pipes[target.name] = mp.Pipe()
 
         # Initialize all processes
         for target, kwargs in self._registered_processes:
@@ -263,6 +230,7 @@ class Controller(process.AbstractProcess):
         :param kwargs: optional keyword arguments for initalization of modules class
         """
         self._registered_processes.append((target, kwargs))
+        ipc.Pipes[target.name] = mp.Pipe()
 
     def initialize_process(self, target, **kwargs):
 
@@ -358,7 +326,7 @@ class Controller(process.AbstractProcess):
 
         # Set current folder if none is given
         if not (bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
-            output_folder = config.Recording[definitions.RecCfg.output_folder]
+            output_folder = config.CONF_REC_OUTPUT_FOLDER
             ipc.Control.Recording[definitions.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
 
             # Reset record group perf_counter
@@ -380,7 +348,7 @@ class Controller(process.AbstractProcess):
         return True
 
     def pause_recording(self):
-        if not (ipc.Control.Recording[definitions.RecCtrl.active]):
+        if not ipc.Control.Recording[definitions.RecCtrl.active]:
             log.warning('Tried to pause inactive recording.')
             return
 

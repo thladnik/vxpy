@@ -53,7 +53,7 @@ def build_attributes(attrs):
 
 
 def match_to_record_attributes(attr_name: str):
-    attribute_filters = config.Recording[definitions.RecCfg.attributes]
+    attribute_filters = config.CONF_REC_ATTRIBUTES
 
     matched = False
     for filt_string in attribute_filters:

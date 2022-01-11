@@ -22,7 +22,7 @@ class CameraWindow(WindowTabWidget):
         # Select routine for FPS estimation (if any available)
         # If no routines are set, don't even start frame update timer
         self.stream_fps = 20
-        if bool(config.Camera[definitions.CameraCfg.routines]):
+        if bool(config.CONF_CAMERA_ROUTINES):
             # Set frame update timer
             self.timer_frame_update = QtCore.QTimer()
             self.timer_frame_update.setInterval(1000 // self.stream_fps)

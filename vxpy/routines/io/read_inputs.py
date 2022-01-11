@@ -34,7 +34,7 @@ class ReadAll(routine.IoRoutine):
 
         # Read all pins
         self.pin_configs: Dict[str, Dict] = {}
-        for did, pins in config.Io[definitions.IoCfg.pins].items():
+        for did, pins in config.CONF_IO_PINS.items():
             for pid, pconf in pins.items():
                 pconf.update(dev=did)
                 self.pin_configs[pid] = pconf

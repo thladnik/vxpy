@@ -213,7 +213,7 @@ class RecordingWidget(IntegratedWidget):
 
         self.rec_routines.layout().addWidget(self.rec_attribute_list)
         # Update recorded attributes
-        for match_string in config.Recording[definitions.RecCfg.attributes]:
+        for match_string in config.CONF_REC_ATTRIBUTES:
             self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
         # self.rec_routines.layout().addItem(vSpacer)
         self.controls.layout().addWidget(self.rec_routines, 5, 1)
@@ -231,7 +231,7 @@ class RecordingWidget(IntegratedWidget):
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.set_compression_opts, self.get_compression_opts())
 
     def open_base_folder(self):
-        output_path = abspath(config.Recording[definitions.RecCfg.output_folder])
+        output_path = abspath(config.CONF_REC_OUTPUT_FOLDER)
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def show_lab_notebook(self):
@@ -353,7 +353,7 @@ class RecordingWidget(IntegratedWidget):
         if bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name]):
             self.btn_stop.setEnabled(False)
 
-        self.base_dir.setText(config.Recording[definitions.RecCfg.output_folder])
+        self.base_dir.setText(config.CONF_REC_OUTPUT_FOLDER)
 
 
 class LoggingWidget(IntegratedWidget):

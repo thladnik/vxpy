@@ -33,9 +33,9 @@ class Frames(CameraRoutine):
 
     def setup(self):
         self.device_list: List[Tuple[str, int, int]] = []
-        for dev in config.Camera[definitions.CameraCfg.devices]:
-            fmt = Format.from_str(dev['format'])
-            self.device_list.append((dev['id'], fmt.width, fmt.height))
+        for device_id, device in config.CONF_CAMERA_DEVICES.items():
+            fmt = Format.from_str(device['format'])
+            self.device_list.append((device['id'], fmt.width, fmt.height))
 
         # Set one array attribute per camera device
         self.frames: Dict[str, ArrayAttribute] = {}

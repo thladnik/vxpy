@@ -37,8 +37,7 @@ class Camera(process.AbstractProcess):
         self.cameras: Dict[str, camera.AbstractCameraDevice] = dict()
 
         # Set up cameras
-        for cfg in config.Camera[definitions.CameraCfg.devices]:
-            device_id = cfg['id']
+        for device_id, cfg in config.CONF_CAMERA_DEVICES.items():
             device = camera.open_device(cfg)
             if device.open():
                 log.info(f'Use {device} as \"{device_id}\"')

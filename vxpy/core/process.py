@@ -30,9 +30,8 @@ from vxpy.api import event
 from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import routine, ipc, logging
+from vxpy.core import routine, ipc, logging, configuration, calibration
 from vxpy.core import container
-from vxpy.core.calibration import load_calibration
 from vxpy.core.ipc import build_pipes, set_process
 from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
@@ -71,8 +70,7 @@ class AbstractProcess:
 
     def __init__(self,
                  _program_start_time=None,
-                 _configurations=None,
-                 _calibration_path: str = None,
+                 _configuration_path=None,
                  _controls=None,
                  _log=None,
                  _proxies=None,
@@ -85,9 +83,7 @@ class AbstractProcess:
         if _program_start_time is not None:
             self.program_start_time = _program_start_time
         else:
-            log.error('No program start time provided')
-
-        load_calibration(_calibration_path)
+            log.error(f'No program start time provided to {self.name}')
 
         # Add handlers to modules that were imported before process class initialization
         logging.add_handlers()
@@ -101,9 +97,12 @@ class AbstractProcess:
         # Build attributes
         build_attributes(_attrs)
 
-        # Set configurations
-        if _configurations is not None:
-            config.__dict__.update(_configurations)
+        # Load configuration
+        config_loaded = configuration.load_configuration(_configuration_path)
+        assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
+
+        # Load calibration
+        calibration.load_calibration(config.CONF_CALIBRATION_PATH)
 
         # Set controls
         if _controls is not None:
@@ -115,7 +114,7 @@ class AbstractProcess:
                 setattr(ipc, pkey, proxy)
 
         # Set states
-        if not (_states is None):
+        if _states is not None:
             for skey, state in _states.items():
                 setattr(ipc.State, skey, state)
 
@@ -124,7 +123,7 @@ class AbstractProcess:
             setattr(self, key, value)
 
         # Set routines and let routine wrapper create hooks in modules instance and initialize buffers
-        if isinstance(_routines, dict):
+        if _routines is not None and isinstance(_routines, dict):
             self._routines = _routines
             if self.name in self._routines:
                 process_routines = self._routines[self.name]
@@ -147,7 +146,7 @@ class AbstractProcess:
                     _routine.initialize()
 
         # Set modules state
-        if not (getattr(ipc.State, self.name) is None):
+        if getattr(ipc.State, self.name) is not None:
             ipc.set_state(State.STARTING)
 
         # Bind signals
@@ -383,6 +382,7 @@ class AbstractProcess:
 
     def register_rpc_callback(self, instance, fun_str, fun):
         if fun_str not in self._registered_callbacks:
+            log.debug(f'Register callback {instance.__class__.__qualname__}:{fun_str}')
             self._registered_callbacks[fun_str] = (instance, fun)
         else:
             log.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
@@ -518,8 +518,8 @@ class AbstractProcess:
         # Append to dataset
         self.file_container.append(path, value)
 
-    def _routine_on_record(self, routine_name):
-        return f'{self.name}/{routine_name}' in config.Recording[definitions.RecCfg.routines]
+    # def _routine_on_record(self, routine_name):
+    #     return f'{self.name}/{routine_name}' in config.Recording[definitions.RecCfg.routines]
 
     def set_record_group_attrs(self, group_attributes: Dict = None):
         if self.file_container is None:

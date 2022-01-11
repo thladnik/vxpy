@@ -41,7 +41,7 @@ class Io(process.AbstractProcess):
         process.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
-        for did, dev_config in config.Io[definitions.IoCfg.device].items():
+        for did, dev_config in config.CONF_IO_DEVICES.items():
             if not(all(k in dev_config for k in ("type", "model"))):
                 log.warning(f'Insufficient information to configure device {did}')
                 continue
@@ -58,10 +58,10 @@ class Io(process.AbstractProcess):
                 continue
 
             # Configure pins on device
-            if did in config.Io[definitions.IoCfg.pins]:
+            if did in config.CONF_IO_PINS:
                 log.info(f'Set up pin configuration for device {did}')
 
-                pin_config = config.Io[definitions.IoCfg.pins][did]
+                pin_config = config.CONF_IO_PINS[did]
                 self._devices[did].configure_pins(**pin_config)
 
                 # Map pins to flat dictionary
@@ -77,7 +77,7 @@ class Io(process.AbstractProcess):
 
         self.timetrack = []
         # Run event loop
-        self.run(interval=1. / config.Io[definitions.IoCfg.max_sr])
+        self.run(interval=1. / config.CONF_IO_MAX_SR)
 
     def start_protocol(self):
         _protocol = get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
@@ -115,14 +115,12 @@ class Io(process.AbstractProcess):
 
         # Check if pin is configured as output
         if pin.config['type'] not in ('do', 'ao'):
-            logging.write(logging.WARNING, f'{pin.config["type"].upper()}/{pid} cannot be configured as output.' 
-                                           'It is not an output channel.')
+            log.warning(f'{pin.config["type"].upper()}/{pid} cannot be configured as output. Not an output channel.')
             return
 
         # Check if attribute exists
         if not attr_name in Attribute.all:
-            logging.write(logging.WARNING, f'Pin "{pid}" cannot be set to attribute {attr_name}.'
-                                           f'Attribute does not exist.')
+            log.warning(f'Pin "{pid}" cannot be set to attribute {attr_name}. Attribute does not exist.')
 
         if pid not in self._pid_attr_map:
 

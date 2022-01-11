@@ -48,7 +48,7 @@ class Display(process.AbstractProcess):
         self.times = []
 
         # Create canvas
-        _interval = 1. / config.Display[definitions.DisplayCfg.fps]
+        _interval = 1. / config.CONF_DISPLAY_FPS
 
         self.canvas = Canvas(_interval,
                              title='Stimulus display',

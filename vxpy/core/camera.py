@@ -32,10 +32,9 @@ _use_apis = []
 _devices = {}
 
 
-def find_config_for_camera_id(_id):
-    for cfg in config.Camera[definitions.CameraCfg.devices]:
-        if cfg['id'] == _id:
-            return cfg
+def get_config_for_camera(_id: str):
+    if _id in config.CONF_CAMERA_DEVICES:
+        return config.CONF_CAMERA_DEVICES[_id]
     return None
 
 
