@@ -53,27 +53,27 @@ def get_devices(reload=False) -> Dict[str, AbstractCameraDevice]:
     return _devices
 
 
-def open_device(config):
+def open_device(device_id, device_config):
     global _use_apis
     _use_apis_str = [a.__name__ for a in _use_apis]
 
-    if config['api'] not in _use_apis_str:
-        raise Exception(f'Camera API {config["api"]} not available')
+    if device_config['api'] not in _use_apis_str:
+        raise Exception(f'Camera API {device_config["api"]} not available')
 
-    api = _use_apis[_use_apis_str.index(config['api'])]
+    api = _use_apis[_use_apis_str.index(device_config['api'])]
 
-    camera = api.CameraDevice(**config)
+    camera = api.CameraDevice(**device_config)
 
     if camera.open():
         camera.set_api(api)
-        camera.set_format(Format.from_str(config['format']))
-        camera.set_id(config['id'])
-        camera.set_exposure(config['exposure'])
-        camera.set_gain(config['gain'])
+        camera.set_format(Format.from_str(device_config['format']))
+        camera.set_id(device_id)
+        camera.set_exposure(device_config['exposure'])
+        camera.set_gain(device_config['gain'])
 
         return camera
     else:
-        raise Exception(f'Camera {config["serial"]} could not be opened')
+        raise Exception(f'Camera {device_config["serial"]} could not be opened')
 
 
 class AbstractCameraDevice(ABC):

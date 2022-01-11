@@ -38,7 +38,7 @@ class Camera(process.AbstractProcess):
 
         # Set up cameras
         for device_id, cfg in config.CONF_CAMERA_DEVICES.items():
-            device = camera.open_device(cfg)
+            device = camera.open_device(device_id, cfg)
             if device.open():
                 log.info(f'Use {device} as \"{device_id}\"')
             else:
