@@ -1,5 +1,5 @@
 """
-MappApp ./api/__init__.py
+MappApp ./api/display_calibration.py
 Controller spawns all sub processes.
 Copyright (C) 2020 Tim Hladnik
 

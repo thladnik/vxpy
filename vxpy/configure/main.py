@@ -24,7 +24,6 @@ from vxpy.definitions import *
 from vxpy.configure import acc
 from vxpy.configure.utils import ModuleWidget
 from vxpy.configure.camera.__init__ import CameraWidget
-from vxpy.calibration_manager.display import DisplayCalibration as Display
 from vxpy.utils import misc
 
 
@@ -44,7 +43,7 @@ class ModuleCheckbox(QtWidgets.QCheckBox):
 class StartupConfiguration(QtWidgets.QMainWindow):
 
     _availModules = {definitions.CameraCfg.name: CameraWidget,
-                     definitions.DisplayCfg.name: Display,
+                     # definitions.DisplayCfg.name: Display,
                      definitions.GuiCfg.name: ModuleWidget,
                      definitions.IoCfg.name: ModuleWidget,
                      definitions.RecCfg.name: ModuleWidget}

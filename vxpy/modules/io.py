@@ -1,5 +1,5 @@
 """
-MappApp ./modules/__init__.py - General purpose digital/analog input/output modules.
+MappApp ./modules/display_calibration.py - General purpose digital/analog input/output modules.
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

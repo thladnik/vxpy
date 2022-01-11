@@ -1,5 +1,5 @@
 """
-MappApp ./setup/spherical.py
+MappApp ./setup/spherical_calibration.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -143,6 +143,17 @@ class ChannelParameters(QtWidgets.QWidget):
 
 
 class Settings(QtWidgets.QWidget):
+    # TODO: there is a bug here that causes multiple recursions/stack overflow
+    #  and ultimately results in a crash when values in channel -1 or 0
+    #  are changed in quick succession. It doesn't affect normal everyday operation.
+
+    channel_params = ['CALIB_DISP_SPH_POS_RADIAL_OFFSET',
+                  'CALIB_DISP_SPH_POS_LATERAL_OFFSET',
+                  'CALIB_DISP_SPH_VIEW_ELEV_ANGLE',
+                  'CALIB_DISP_SPH_VIEW_AZIM_ANGLE',
+                  'CALIB_DISP_SPH_VIEW_DISTANCE',
+                  'CALIB_DISP_SPH_VIEW_FOV',
+                  'CALIB_DISP_SPH_VIEW_SCALE']
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent=parent)
@@ -172,9 +183,9 @@ class Settings(QtWidgets.QWidget):
         # Set channels
         self.tabs = QtWidgets.QTabWidget()
         self.layout().addWidget(self.tabs)
-        self.channels = {i - 1: ChannelParameters(i - 1, self) for i in range(5)}
+        self.channels = {str(i - 1): ChannelParameters(i - 1, self) for i in range(5)}
         for channel_num, channel_wdgt in self.channels.items():
-            self.tabs.addTab(channel_wdgt, str(channel_num) if channel_num >= 0 else 'Global')
+            self.tabs.addTab(channel_wdgt, str(channel_num) if int(channel_num) >= 0 else 'Global')
         self.tabs.setTabEnabled(0, False)
 
         # Connect reload config signal
@@ -185,23 +196,25 @@ class Settings(QtWidgets.QWidget):
         self.lat_lum_offset.set_value(calib.CALIB_DISP_SPH_LAT_LUM_OFFSET)
         self.lat_lum_gradient.set_value(calib.CALIB_DISP_SPH_LAT_LUM_GRADIENT)
 
-        parameters = ['CALIB_DISP_SPH_POS_RADIAL_OFFSET',
-                      'CALIB_DISP_SPH_VIEW_ELEV_ANGLE',
-                      'CALIB_DISP_SPH_VIEW_AZIM_ANGLE',
-                      'CALIB_DISP_SPH_VIEW_DISTANCE',
-                      'CALIB_DISP_SPH_VIEW_FOV',
-                      'CALIB_DISP_SPH_VIEW_SCALE']
-
-        for key, value in zip(parameters, [getattr(calib, key) for key in parameters]):
+        # Update UI for individual channels
+        for key, values in zip(self.channel_params, [getattr(calib, key) for key in self.channel_params]):
             # By default set "global overwrite" channel to 0 channel parameters
-            self.channels[-1].update_ui_edit(key, value[0])
+            self.channels['-1'].update_ui_edit(key, values[0])
 
             # Update all channels
-            for i, v in enumerate(value):
-                self.channels[i].update_ui_edit(key, v)
+            for i, v in enumerate(values):
+                self.channels[str(i)].update_ui_edit(key, v)
 
     def toggle_overwrite(self, newstate):
         self.tabs.setTabEnabled(0, newstate)
+
+        # if not newstate:
+        #     return
+        #
+        # # Write channel 0 to global overwrite channel in UI
+        # for key, values in zip(self.channel_params, [getattr(calib, key) for key in self.channel_params]):
+        #     print(f'Write {key=} to {values[0]=}')
+        #     self.channels['-1'].update_ui_edit(key, values[0])
 
     @staticmethod
     def update_azimuth_orient(value):
@@ -220,7 +233,6 @@ class Settings(QtWidgets.QWidget):
 
     @staticmethod
     def update_calibration(channel_num: int, key: str, value: Any):
-        section = definitions.DisplayCfg.name
 
         # Fetch current config
         _calib = getattr(calib, key)
@@ -267,8 +279,8 @@ class Mesh(QtWidgets.QGroupBox):
         from vxpy.visuals.spherical_calibration import RegularMesh
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
-        access.window.display.canvas.visual = RegularMesh(access.window.display.canvas)
-        access.window.display.canvas.visual.update(**{RegularMesh.u_elevation_sp: elevation_sp,
+        access.window.display.canvas.set_visual(RegularMesh(access.window.display.canvas))
+        access.window.display.canvas.stimulus_visual.update(**{RegularMesh.u_elevation_sp: elevation_sp,
                                                       RegularMesh.u_azimuth_sp: azimuth_sp})
 
 
@@ -301,8 +313,6 @@ class Checker(QtWidgets.QGroupBox):
         print('Show?')
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
-        access.window.display.canvas.visual = BlackWhiteCheckerboard(access.window.display.canvas)
-        access.window.display.canvas.visual.update(**{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
-                                                      BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})
-        print({BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
+        access.window.display.canvas.set_visual(BlackWhiteCheckerboard(access.window.display.canvas))
+        access.window.display.canvas.stimulus_visual.update(**{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
                                                       BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})

@@ -1,5 +1,5 @@
 """
-MappApp ./gui/io/__init__.py
+MappApp ./gui/io/display_calibration.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify

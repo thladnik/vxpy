@@ -64,8 +64,7 @@ class Controller(process.AbstractProcess):
 
         logging.add_handlers()
 
-
-        _calibration_path = 'calibrations/default_calib.yaml'
+        _calibration_path = 'calibrations/default_spherical.yaml'
         load_calibration(_calibration_path)
         # Set program configuration
         try:

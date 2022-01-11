@@ -5,7 +5,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import yaml
 
 from vxpy.calibration_manager import access
-from vxpy.calibration_manager.display import DisplayCalibration
+from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
 from vxpy.core import calibration
 
 

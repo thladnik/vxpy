@@ -131,7 +131,8 @@ class Window(QtWidgets.QMainWindow):
                 and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_DISPLAY]):
             self.display = DisplayWindow(self)
             self.display.create_hooks()
-            self.display.move(x + row2_xoffset, self.controls.size().height() + row2_yoffset)
+            self.display.move(x + row2_xoffset,
+                              y + self.controls.size().height() + row2_yoffset)
             self.display.resize(*display_default_dims)
             self.subwindows.append(self.display)
 
@@ -142,7 +143,8 @@ class Window(QtWidgets.QMainWindow):
                 and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_CAMERA]):
             self.camera = CameraWindow(self)
             self.camera.create_hooks()
-            self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset, self.controls.size().height() + row2_yoffset)
+            self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset,
+                             y + self.controls.size().height() + row2_yoffset)
             self.camera.resize(*camera_default_dims)
             self.subwindows.append(self.camera)
 
@@ -153,7 +155,8 @@ class Window(QtWidgets.QMainWindow):
                 and bool(config.Gui[definitions.GuiCfg.addons][PROCESS_IO]):
             self.io = IoWindow(self)
             self.io.create_hooks()
-            self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset, self.controls.size().height() + row2_yoffset)
+            self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset,
+                         y + self.controls.size().height() + row2_yoffset)
             self.io.resize(*io_default_dims)
             self.subwindows.append(self.io)
 
@@ -161,10 +164,11 @@ class Window(QtWidgets.QMainWindow):
         self.plotter = PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
         if sys.platform == 'linux':
-            self.plotter.move(x, h-plotter_default_height)
+            self.plotter.move(x, y + h-plotter_default_height)
             self.plotter.resize(w, plotter_default_height)
         else:
-            self.plotter.move(x, 0.9 * h - plotter_default_height)
+            self.plotter.move(x,
+                              y + 0.9 * h - plotter_default_height)
             self.plotter.resize(w, plotter_default_height + int(0.05 * h))
         self.plotter.create_hooks()
         self.subwindows.append(self.plotter)

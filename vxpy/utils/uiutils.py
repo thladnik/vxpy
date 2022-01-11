@@ -21,6 +21,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 
+
 class DoubleSliderWidget(QtWidgets.QWidget):
 
     def __init__(self,slider_name,min_val,max_val,default_val,*args,
@@ -29,8 +30,9 @@ class DoubleSliderWidget(QtWidgets.QWidget):
 
         self._callbacks = []
 
-        if step_size is None:
-            step_size = (max_val - min_val) / 10
+        self.step_size = step_size
+        if self.step_size is None:
+            self.step_size = (max_val - min_val) / 10
 
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout().setContentsMargins(0,0,0,0)
@@ -55,10 +57,10 @@ class DoubleSliderWidget(QtWidgets.QWidget):
         # Slider
         self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.slider.setMaximumHeight(20)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum((max_val-min_val)//step_size + 1)
-        self.slider.setSingleStep(step_size)
-        self.slider.setTickInterval(self.slider.maximum()//10)
+        self.slider.setMinimum(min_val // step_size)
+        self.slider.setMaximum(max_val // step_size)
+        # self.slider.setSingleStep(step_size)
+        self.slider.setTickInterval((max_val - min_val) // step_size)
         self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
         self.slider.valueChanged.connect(self.slider_value_changed)
         self.layout().addWidget(self.slider)
@@ -69,7 +71,8 @@ class DoubleSliderWidget(QtWidgets.QWidget):
     def slider_value_changed(self, value):
         """Update spinner widget"""
         self.spinner.blockSignals(True)
-        self.spinner.setValue(self.spinner.minimum()+self.spinner.singleStep()*value)
+        # self.spinner.setValue(self.spinner.minimum()+self.spinner.singleStep()*value)
+        self.spinner.setValue(self.slider.value() * self.step_size)
         self.spinner.blockSignals(False)
 
         self._exc_callback()

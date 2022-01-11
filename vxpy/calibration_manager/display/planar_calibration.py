@@ -1,5 +1,5 @@
 """
-MappApp ./setup/planar.py
+MappApp ./setup/planar_calibration.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -43,6 +43,7 @@ class PlanarCalibrationWidget(QtWidgets.QWidget):
                                        QtWidgets.QSizePolicy.Policy.Minimum,
                                        QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         self.test_visuals.layout().addItem(spacer)
+
 
 class Settings(QtWidgets.QGroupBox):
 
@@ -126,7 +127,7 @@ class Checker(QtWidgets.QGroupBox):
         from vxpy.visuals.planar_calibration import Sinusoid2d
         vertical_sf = self.vertical_sp.get_value(),
         horizontal_sf = self.horizontal_sp.get_value()
-        access.window.display.canvas.visual = Sinusoid2d(access.window.display.canvas)
-        access.window.display.canvas.visual.update(**{Sinusoid2d.u_sp_vertical: vertical_sf,
+        access.window.display.canvas.set_visual(Sinusoid2d(access.window.display.canvas))
+        access.window.display.canvas.stimulus_visual.update(**{Sinusoid2d.u_sp_vertical: vertical_sf,
                                                       Sinusoid2d.u_sp_horizontal: horizontal_sf,
                                                       Sinusoid2d.u_checker_pattern: True})

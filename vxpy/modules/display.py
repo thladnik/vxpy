@@ -50,19 +50,18 @@ class Display(process.AbstractProcess):
         # Create canvas
         _interval = 1. / config.Display[definitions.DisplayCfg.fps]
 
-        _size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
-
-        _position = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
-
         self.canvas = Canvas(_interval,
                              title='Stimulus display',
-                             size=_size,
                              resizable=False,
-                             position=_position,
                              always_on_top=True,
                              app=self.app,
                              vsync=False,
                              decorate=False)
+
+        self.canvas.position = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
+        self.canvas.size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
+        self.canvas.fullscreen = calib.CALIB_DISP_WIN_FULLSCREEN
+        app.process_events()
 
         # Run event loop
         self.enable_idle_timeout = False
@@ -130,6 +129,7 @@ class Display(process.AbstractProcess):
 
     def start_visual(self):
         self.stimulus_visual.initialize()
+        self.canvas.set_visual(self.stimulus_visual)
 
         for name, data in self.stimulus_visual.data_appendix.items():
             self._append_to_dataset(name, data)
@@ -145,14 +145,15 @@ class Display(process.AbstractProcess):
     def stop_visual(self):
         self.stimulus_visual.end()
         self.stimulus_visual = None
+        self.canvas.set_visual(self.stimulus_visual)
 
     def trigger_visual(self, trigger_fun):
         self.stimulus_visual.trigger(trigger_fun)
 
     def main(self):
 
+        self.app.process_events()
         if self.stimulus_visual is not None and self.stimulus_visual.is_active:
-            self.app.process_events()
             self.canvas.update()
             self.update_routines(self.stimulus_visual)
 
@@ -176,6 +177,13 @@ class Canvas(app.Canvas):
 
         self.show()
 
+    def set_visual(self, visual):
+        self.stimulus_visual = visual
+
+    def draw(self):
+        self.update()
+        app.process_events()
+
     def on_draw(self, event):
         if event is None:
             return
@@ -185,8 +193,8 @@ class Canvas(app.Canvas):
         # Leave catch in here for now.
         # This makes debugging new stimuli much easier.
         try:
-            if ipc.Process.stimulus_visual is not None:
-                ipc.Process.stimulus_visual.draw(self.newt - self.t)
+            if self.stimulus_visual is not None:
+                self.stimulus_visual.draw(self.newt - self.t)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())

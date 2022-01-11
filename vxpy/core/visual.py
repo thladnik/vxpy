@@ -138,7 +138,7 @@ class AbstractVisual(ABC):
         self.is_active = True
 
     def end(self):
-        controller_rpc(end_protocol_phase)
+        # controller_rpc(end_protocol_phase)
         self.is_active = False
 
     def update(self, _update_verbosely=True, **params):
