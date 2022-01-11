@@ -1,8 +1,8 @@
-import logging
 import os
 import yaml
 
 from vxpy import calib
+from vxpy.core import logging
 
 log = logging.getLogger(__name__)
 
