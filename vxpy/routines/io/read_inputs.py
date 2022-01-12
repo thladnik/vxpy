@@ -34,21 +34,19 @@ class ReadAll(routine.IoRoutine):
 
         # Read all pins
         self.pin_configs: Dict[str, Dict] = {}
-        for did, pins in config.CONF_IO_PINS.items():
-            for pid, pconf in pins.items():
-                pconf.update(dev=did)
-                self.pin_configs[pid] = pconf
+        for pin_id, pin_config in config.CONF_IO_PINS.items():
+            self.pin_configs[pin_id] = pin_config
 
         # Set up buffer attributes
         self.attributes: Dict[str, ArrayAttribute] = {}
-        for pid, pconf in self.pin_configs.items():
-            if pconf['type'] in ('do', 'ao'):
+        for pin_id, pin_config in self.pin_configs.items():
+            if pin_config['type'] in ('do', 'ao'):
                 continue
-            if pconf['type'] == 'di':
-                attr = ArrayAttribute(pid, (1,), ArrayType.uint8)
+            if pin_config['type'] == 'di':
+                attr = ArrayAttribute(pin_id, (1,), ArrayType.uint8)
             else:
-                attr = ArrayAttribute(pid, (1,), ArrayType.float64)
-            self.attributes[pid] = attr
+                attr = ArrayAttribute(pin_id, (1,), ArrayType.float64)
+            self.attributes[pin_id] = attr
 
     def initialize(self):
         for pid, attr in self.attributes.items():

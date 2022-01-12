@@ -109,7 +109,7 @@ def write_to_file(instance, attr_name):
         else:
             msg = 'Not in template list.'
 
-    log.warning(f'Failed to set attribute "{attr_name}" to be written to file. {msg}')
+    log.warning(f'Attribute "{attr_name}" is not written to file. {msg}')
 
 
 def get_attribute_names() -> List[str]:

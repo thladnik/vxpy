@@ -64,10 +64,8 @@ class VirtualDaqDevice:
         self.pins: Dict[AnyStr, Pin] = dict()
         self.pin_data: Dict[AnyStr, Union[int,float]] = dict()
 
-    def configure_pins(self, **pins):
-        for pid, config in pins.items():
-            log.info(f"Configure pin {pid} for {config}")
-            self.pins[pid] = Pin(pid, config)
+    def configure_pin(self, pin_id, pin_config):
+        self.pins[pin_id] = Pin(pin_id, pin_config)
 
     def write(self, pid, data):
         """Write data to output pin"""

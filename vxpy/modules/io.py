@@ -42,12 +42,12 @@ class Io(process.AbstractProcess):
 
         # Configure devices
         for did, dev_config in config.CONF_IO_DEVICES.items():
-            if not(all(k in dev_config for k in ("type", "model"))):
+            if not(all(k in dev_config for k in ("type", "model", "port"))):
                 log.warning(f'Insufficient information to configure device {did}')
                 continue
 
             try:
-                log.info(f'Set up device {did}')
+                log.info(f'Set up device {did}: {dev_config["model"]} on port {dev_config["port"]}')
                 device_type_module = importlib.import_module(f'{PATH_PACKAGE}.{PATH_DEVICE}.{dev_config["type"]}')
                 device_cls = getattr(device_type_module, dev_config["model"])
 
@@ -57,18 +57,21 @@ class Io(process.AbstractProcess):
                 log.warning(f'Failed to set up device {did} // Exc: {exc}')
                 continue
 
-            # Configure pins on device
-            if did in config.CONF_IO_PINS:
-                log.info(f'Set up pin configuration for device {did}')
+        # Configure pins
+        for pin_id, pin_config in config.CONF_IO_PINS.items():
+            device_id = pin_config['device']
 
-                pin_config = config.CONF_IO_PINS[did]
-                self._devices[did].configure_pins(**pin_config)
+            if device_id not in self._devices:
+                log.warning(f'Pin {pin_id} could not be mapped to device {device_id}. Device not configured.')
+                continue
 
-                # Map pins to flat dictionary
-                for pid, pin in self._devices[did].pins.items():
-                    self._pid_pin_map[pid] = pin
-            else:
-                log.warning(f'No pin configuration found for device {did}')
+            log.info(f'Set up pin {pin_id}: {pin_config["map"]} on device {pin_config["device"]}')
+
+            self._devices[device_id].configure_pin(pin_id, pin_config)
+
+            # Map pins to flat dictionary
+            for pid, pin in self._devices[device_id].pins.items():
+                self._pid_pin_map[pid] = pin
 
         # Set timeout during idle
         self.enable_idle_timeout = True
