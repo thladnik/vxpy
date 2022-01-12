@@ -1,5 +1,5 @@
 """
-vxPy ./calibration.py
+vxPy ./calib.py
 Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from typing import List
+
+PRESERVED_ORDER: List[str] = []
 
 CALIB_DISP_WIN_SCREEN_ID: int = 0
 CALIB_DISP_WIN_FULLSCREEN: bool = False

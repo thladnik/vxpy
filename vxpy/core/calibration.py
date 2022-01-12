@@ -15,6 +15,7 @@ def load_calibration(filepath: str):
 
     with open(filepath, 'r') as f:
         _calibration = yaml.safe_load(f)
+        calib.PRESERVED_ORDER = list(_calibration.keys())
         calib.__dict__.update(_calibration)
 
 
@@ -25,5 +26,5 @@ def save_calibration(filepath: str):
         return
 
     with open(filepath, 'w') as f:
-        _calibration = {k: d for k, d in calib.__dict__.items() if k.startswith('CALIB_')}
-        yaml.safe_dump(_calibration, f)
+        _calibration = {k: getattr(calib, k) for k in calib.PRESERVED_ORDER}
+        yaml.safe_dump(_calibration, f, sort_keys=False)
