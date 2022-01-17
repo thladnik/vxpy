@@ -485,6 +485,9 @@ class AbstractProcess:
             traceback.print_exc()
 
     def _append_to_dataset(self, path: str, value: Any):
+        # May need to be uncommented:
+        # if self.file_container is None:
+        #     return
 
         # Create dataset (if necessary)
         if path not in self.file_container:
