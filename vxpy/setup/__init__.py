@@ -7,7 +7,7 @@ import vxpy
 from vxpy.definitions import *
 
 
-def setup_resources():
+def patch_dir():
     # Create empty default folders
     if not os.path.exists(PATH_LOG):
         os.mkdir(PATH_LOG)
@@ -18,15 +18,9 @@ def setup_resources():
     if not os.path.exists(PATH_RECORDING_OUTPUT):
         os.mkdir(PATH_RECORDING_OUTPUT)
 
-    # Copy all default resources
-    # src_dir = res.__path__[0]
-    # dst_dir = os.path.join(os.getcwd(), '.')
-    # shutil.copytree(src_dir, dst_dir,
-    #                 symlinks=False,
-    #                 ignore=None,
-    #                 copy_function=shutil.copy2,
-    #                 ignore_dangling_symlinks=False,
-    #                 dirs_exist_ok=True)
+
+def setup_resources():
+    patch_dir()
 
     print('Get app files')
     src_addrs = [f'https://github.com/thladnik/vxPy_app/archive/refs/tags/v{vxpy.__version__}.zip', 'https://github.com/thladnik/vxPy_app/archive/refs/heads/main.zip']

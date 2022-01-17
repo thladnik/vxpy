@@ -19,6 +19,10 @@ import sys
 
 if __name__ == '__main__':
 
+    if 'patchdir' in sys.argv:
+        from vxpy import setup
+        setup.patch_dir()
+
     if 'setup' in sys.argv:
         from vxpy import setup
         setup.setup_resources()
