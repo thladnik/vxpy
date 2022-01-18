@@ -58,7 +58,7 @@ def get_history():
 
 def setup_log_to_file(filename):
     global _file_logger
-    _file_logger = logging.getLogger('mylog')
+    _file_logger = logging.getLogger('filelogger')
 
     # Create logs folder if necessary
     if not os.path.exists(PATH_LOG):

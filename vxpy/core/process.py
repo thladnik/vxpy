@@ -381,7 +381,7 @@ class AbstractProcess:
 
     def register_rpc_callback(self, instance, fun_str, fun):
         if fun_str not in self._registered_callbacks:
-            log.debug(f'Register callback {instance.__class__.__qualname__}:{fun_str}')
+            log.debug(f'Register callback {instance.__class__.__qualname__}:{fun_str} in module {self.name}')
             self._registered_callbacks[fun_str] = (instance, fun)
         else:
             log.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
@@ -405,7 +405,7 @@ class AbstractProcess:
         if fun_path[0] == self.__class__.__name__:
             fun_str = fun_path[1]
 
-            msg = f'Callback to {self.name}/{fun_str} with args {args} and kwargs {kwargs}'
+            msg = f'Callback to {self.name}:{fun_str} with args {args} and kwargs {kwargs}'
             try:
                 if _send_verbosely:
                     log.debug(msg)
@@ -421,7 +421,7 @@ class AbstractProcess:
         # RPC on registered callback
         elif fun_str in self._registered_callbacks:
 
-            msg = f'Registered callback {self.name}/{fun_str} with args {args} and kwargs {kwargs}'
+            msg = f'Call registered callback {self.name}:{fun_str} with args {args} and kwargs {kwargs}'
             try:
                 if _send_verbosely:
                     log.debug(msg)
@@ -436,7 +436,7 @@ class AbstractProcess:
                 log.warning(f'{msg} failed // Exception: {exc}')
 
         else:
-            log.warning(f'Callback {self.name}/{fun_str} not found')
+            log.warning(f'Callback {self.name}:{fun_str} not found')
 
     def _handle_inbox(self, *args):
 

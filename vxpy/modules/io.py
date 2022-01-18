@@ -65,7 +65,7 @@ class Io(process.AbstractProcess):
                 log.warning(f'Pin {pin_id} could not be mapped to device {device_id}. Device not configured.')
                 continue
 
-            log.info(f'Set up pin {pin_id}: {pin_config["map"]} on device {pin_config["device"]}')
+            log.info(f'Set up pin {pin_id}:{pin_config["device"]}.{pin_config["map"]}')
 
             self._devices[device_id].configure_pin(pin_id, pin_config)
 

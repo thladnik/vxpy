@@ -160,7 +160,7 @@ class Controller(process.AbstractProcess):
         for process_name, routine_list in _routines_to_load.items():
             self._routines[process_name] = dict()
             for path in routine_list:
-                log.info(f'Load routine "{path}"')
+                log.info(f'Load routine {path}')
 
                 # TODO: search different paths for package structure redo
                 # Load routine
