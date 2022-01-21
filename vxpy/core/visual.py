@@ -77,8 +77,6 @@ class AbstractVisual(ABC):
         self.data_appendix: Dict[str, Any] = dict()
         self.transform_uniforms = dict()
 
-        # self._buffer_shape = config.Display[definitions.DisplayCfg.window_height], \
-        #                      config.Display[definitions.DisplayCfg.window_width] #self.canvas.physical_size[1], self.canvas.physical_size[0]
         self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT, calib.CALIB_DISP_WIN_SIZE_WIDTH)
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
@@ -176,7 +174,7 @@ class AbstractVisual(ABC):
                     program[key] = value
 
     @abstractmethod
-    def initialize(self, *args, **kwargs):
+    def initialize(self, **kwargs):
         """Method to initialize and reset all parameters."""
 
     @abstractmethod
@@ -204,8 +202,8 @@ class BaseVisual(AbstractVisual, ABC):
     }
     """
 
-    def __init__(self, *args, **kargs):
-        AbstractVisual.__init__(self, *args, **kargs)
+    def __init__(self, *args, **kwargs):
+        AbstractVisual.__init__(self, *args, **kwargs)
 
     def draw(self, dt):
         gloo.clear()
@@ -619,3 +617,12 @@ class PlanarVisual(AbstractVisual, ABC):
         except Exception as exc:
             import traceback
             print(traceback.print_exc())
+
+
+class PlainVisual(AbstractVisual, ABC):
+
+    def __init__(self, *args, **kwargs):
+        AbstractVisual.__init__(self, *args, **kwargs)
+
+    def draw(self, dt):
+        self.render(dt)

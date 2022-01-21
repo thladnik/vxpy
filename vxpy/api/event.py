@@ -1,19 +1,21 @@
-subscribers = {}
+from typing import Callable, List, Dict
+
+subscribers: Dict[str, List[Callable]] = {}
 
 
-def subscribe(event_type: str, callback):
+def subscribe(event_name: str, callback: Callable):
     global subscribers
 
-    if event_type not in subscribers:
-        subscribers[event_type] = []
+    if event_name not in subscribers:
+        subscribers[event_name] = []
 
-    subscribers[event_type].append(callback)
+    subscribers[event_name].append(callback)
 
 
-def post_event(event_type: str, *args, **kwargs):
+def emit(event_name: str, *args, **kwargs):
     global subscribers
-    if event_type not in subscribers:
+    if event_name not in subscribers:
         return False
 
-    for sub in subscribers[event_type]:
+    for sub in subscribers[event_name]:
         sub(*args, **kwargs)

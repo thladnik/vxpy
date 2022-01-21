@@ -190,9 +190,6 @@ class Controller(process.AbstractProcess):
             for r in rs.values():
                 r.setup()
 
-        # Set up protocol
-        self.current_protocol = None
-
         self._init_params = dict(
             _program_start_time=self.program_start_time,
             _configuration_path=_configuration_path,
@@ -485,13 +482,13 @@ class Controller(process.AbstractProcess):
 
             # Set phase times
             now = time.time()
-            fixed_delay = 0.1
-            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = now + fixed_delay
+            fixed_delay = 0.01
+            phase_start = now + fixed_delay
+            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = phase_start
             phase_stop = now + duration + fixed_delay if duration is not None else None
             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = phase_stop
 
-            log.info(f'Run protocol phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}. '
-                     f'Set start time to {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]}')
+            log.info(f'Run protocol phase {phase_id} at {(phase_start-self.program_start_time):.4f}')
 
             # Set to running
             self.set_state(definitions.State.RUNNING)
@@ -515,7 +512,7 @@ class Controller(process.AbstractProcess):
 
             # If there are no further phases, end protocol
             phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-            if (phase_id + 1) >= self.protocol.phase_count():
+            if (phase_id + 1) >= self.protocol.phase_count:
                 self.set_state(definitions.State.PROTOCOL_END)
                 return
 

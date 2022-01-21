@@ -34,7 +34,6 @@ log = logging.getLogger(__name__)
 class Display(process.AbstractProcess):
     name = PROCESS_DISPLAY
 
-    stimulus_protocol: AbstractProtocol = None
     stimulus_visual: visual.AbstractVisual = None
 
     _uniform_maps = dict()
@@ -80,25 +79,24 @@ class Display(process.AbstractProcess):
             # Controller should abort this
             return
 
-        self.stimulus_protocol = _protocol()
+        self.protocol = _protocol()
         try:
-            self.stimulus_protocol.initialize_visuals(self.canvas)
+            self.protocol.initialize_visuals(self.canvas)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())
 
     # Phase controls
 
-    def prepare_phase(self, visual=None, **parameters):
-        # Get visual info from protocol if not provided
-        if visual is None:
+    def prepare_phase(self, phase=None, **parameters):
+        # Get new_visual info from protocol if not provided
+        if phase is None:
             phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-            # self.stimulus_visual = self.stimulus_protocol.fetch_phase_visual(phase_id)
             self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
-            visual, parameters = self.stimulus_protocol.fetch_phase_visual(phase_id)
+            phase = self.protocol.get_phase(phase_id)
 
-        # Prepare visual
-        self.prepare_visual(visual, **parameters)
+        # Prepare new_visual
+        self.prepare_visual(phase.visual)
 
     def start_phase(self):
         self.start_visual()
@@ -114,16 +112,16 @@ class Display(process.AbstractProcess):
 
     # Visual controls
 
-    def run_visual(self, visual, **parameters):
-        self.prepare_visual(visual, **parameters)
+    def run_visual(self, new_visual, **parameters):
+        self.prepare_visual(new_visual, **parameters)
         self.start_visual()
 
-    def prepare_visual(self, stimulus_visual, **parameters):
-        # If visual hasn't been instantiated yet, do it now
-        if isclass(stimulus_visual):
-            self.stimulus_visual = stimulus_visual(self.canvas)
+    def prepare_visual(self, new_visual, **parameters):
+        # If new_visual hasn't been instantiated yet, do it now
+        if isclass(new_visual):
+            self.stimulus_visual = new_visual(self.canvas)
         else:
-            self.stimulus_visual = stimulus_visual
+            self.stimulus_visual = new_visual
 
         self.stimulus_visual.update(**parameters)
 
@@ -173,7 +171,8 @@ class Canvas(app.Canvas):
 
         self.debug = False
         self.times = []
-        self.t = time.perf_counter()
+        self.t: float = time.perf_counter()
+        self.new_t: float = time.perf_counter()
 
         self.show()
 
@@ -188,18 +187,18 @@ class Canvas(app.Canvas):
         if event is None:
             return
 
-        self.newt = time.perf_counter()
+        self.new_t = time.perf_counter()
 
         # Leave catch in here for now.
         # This makes debugging new stimuli much easier.
         try:
             if self.stimulus_visual is not None:
-                self.stimulus_visual.draw(self.newt - self.t)
+                self.stimulus_visual.draw(self.new_t - self.t)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())
 
-        self.t = self.newt
+        self.t = self.new_t
 
     def show_fps(self, fps):
         if self.debug:

@@ -81,6 +81,7 @@ class Signal(Enum):
     update_property = 10
     rpc = 20
     query = 30
+    post_event = 40
     shutdown = 99
     confirm_shutdown = 100
 
@@ -89,117 +90,6 @@ class Signal(Enum):
 class DeviceType(Enum):
     Camera = 1
     Io = 2
-
-
-class Cfg:
-    name = None
-
-    use = 'bool_use'
-
-
-# Camera
-class CameraCfg(Cfg):
-    name = PROCESS_CAMERA.lower()
-
-    # Camera configuration
-    device_id = 'json_device_id'
-    manufacturer = 'json_manufacturer'
-    model = 'json_model'
-    format = 'json_format'
-    res_x = 'json_resolution_x'
-    res_y = 'json_resolution_y'
-    fps = 'int_fps'
-    exposure = 'json_exposure'
-    gain = 'json_gain'
-    devices = 'json_devices'
-
-    # Buffers
-    routines = 'json_routines'
-
-
-# Display
-class DisplayCfg(Cfg):
-    name = PROCESS_DISPLAY.lower()
-
-    # Configuration settings
-    type = 'str_type'
-    fps = 'int_fps'
-    window_backend = 'str_window_backend'
-    gl_version_major = 'int_gl_version_major'
-    gl_version_minor = 'int_gl_version_minor'
-    gl_profile = 'str_gl_profile'
-    routines = 'json_routines'
-
-    # Calibration settings
-
-    # Window settings
-    window_screen_id = 'int_window_screen_id'
-    window_fullscreen = 'bool_window_fullscreen'
-    window_width = 'int_window_width'
-    window_height = 'int_window_height'
-    window_pos_x = 'int_window_pos_x'
-    window_pos_y = 'int_window_pos_y'
-
-    # Calibration settings
-    # General
-    glob_x_pos = 'float_glob_x_pos'
-    glob_y_pos = 'float_glob_y_pos'
-
-    # Spherical
-    sph_view_azim_orient = 'float_sph_view_azim_orient'
-    sph_view_elev_angle = 'json_sph_view_elev_angle'
-    sph_view_azim_angle = 'json_sph_view_azim_angle'
-    sph_view_distance = 'json_sph_view_origin_distance'
-    sph_view_fov = 'json_sph_view_fov'
-    sph_view_scale = 'json_sph_view_scale'
-    sph_pos_glob_radial_offset = 'json_sph_pos_glob_radial_offset'
-    sph_pos_glob_lateral_offset = 'json_sph_pos_glob_lateral_offset'
-    sph_lat_lum_offset = 'json_sph_lat_lum_offset'
-    sph_lat_lum_gradient = 'json_sph_lat_lum_gradient'
-
-    # Planar
-    pla_xextent = 'float_pla_xextent'
-    pla_yextent = 'float_pla_yextent'
-    pla_small_side = 'float_pla_small_side'
-
-
-# GUI
-class GuiCfg(Cfg):
-    name = PROCESS_GUI.lower()
-
-    # Addons
-    addons = 'json_addons'
-
-
-# IO
-class IoCfg(Cfg):
-    name = PROCESS_IO.lower()
-
-    device = 'json_device'
-    max_sr = 'int_max_sr'
-    pins = 'json_pins'
-
-    routines = 'json_routines'
-
-
-# Worker
-class WorkerCfg(Cfg):
-    name = PROCESS_WORKER.lower()
-
-    routines = 'json_routines'
-
-
-# Recording
-class RecCfg(Cfg):
-    name = 'recording'
-
-    enabled = 'bool_enabled'
-
-    output_folder = 'str_output_folder'
-
-    # Active routines
-    attributes = 'json_attributes'
-    routines = 'json_routines'
 
 
 # Controls

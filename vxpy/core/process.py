@@ -27,6 +27,7 @@ from typing import Any, Callable, List, Union
 from vxpy import api
 from vxpy.api import event
 from vxpy import config
+from vxpy.core.protocol import StaticPhasicProtocol
 from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.core import routine, ipc, logging, configuration, calibration
@@ -54,6 +55,7 @@ class AbstractProcess:
     _shutdown: bool
 
     # Protocol related
+    protocol: Union[StaticPhasicProtocol] = None
     phase_start_time: float = None
     phase_time: float = None
     program_start_time: float = None
@@ -153,8 +155,6 @@ class AbstractProcess:
 
         self.local_t: float = time.perf_counter()
         self.global_t: float = 0.
-
-        event.post_event('register_rpc')
 
     def run(self, interval):
         self.interval = interval
@@ -308,10 +308,11 @@ class AbstractProcess:
                 return False
 
             # Wait for go-time
+            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
             while self.in_state(definitions.State.RUNNING, PROCESS_CONTROLLER):
-                t = time.time()
-                if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] <= t:
-                    log.debug('Start at {:.4f}'.format(t))
+                now = time.time()
+                if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] <= now:
+                    log.debug(f'Start phase {phase_id} in module {self.name} at {(now-self.program_start_time):.3f}')
                     self.set_state(definitions.State.RUNNING)
                     self.phase_start_time = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
                     break

@@ -17,8 +17,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import importlib
-from typing import List, Union
+from inspect import isclass
+from typing import List, Union, Callable
 
+from vxpy.core.visual import AbstractVisual
 from vxpy.definitions import *
 from vxpy.core import logging
 
@@ -65,10 +67,10 @@ def get_available_protocol_paths(reload=False) -> List[str]:
     return _available_protocols
 
 
-def get_protocol(path) -> Union[StaticPhasicProtocol, None]:
+def get_protocol(path) -> Union[type[StaticPhasicProtocol], None]:
     if path not in get_available_protocol_paths():
         log.warning(f'Cannot get protocol {path}')
-        return
+        return None
 
     # Return protocol class object
     parts = path.split('.')
@@ -76,12 +78,65 @@ def get_protocol(path) -> Union[StaticPhasicProtocol, None]:
     return getattr(mod, parts[-1])
 
 
+class Phase:
+
+    def __init__(self, duration=None,
+                 action=None, action_args=None, action_kwargs=None,
+                 visual=None, visual_args=None, visual_kwargs=None):
+        self._action = action
+        self._action_kwargs: Dict = action_kwargs
+        self.duration: Union[float, int] = duration
+        self.action = None
+
+        self._visual: Union[AbstractVisual, type[AbstractVisual], None] = visual
+        self._visual_kwargs: Dict = visual_kwargs
+
+    def set_duration(self, duration: float):
+        self.duration = duration
+
+    @property
+    def visual(self):
+        return self._visual
+
+    def set_visual(self, visual_cls: Callable, **kwargs):
+        self._visual = visual_cls
+        self._visual_kwargs = kwargs
+
+    def set_action(self, action_cls: Callable, **kwargs):
+        self._action = action_cls
+        self._action_kwargs = kwargs
+
+    def initialize_action(self):
+        if self._action is None:
+            return False
+
+        kwargs = {} if self._action_kwargs is None else self._action_kwargs
+        self.action = self._action(**kwargs)
+
+        return True
+
+    def initialize_visual(self, canvas):
+        if self._visual is None:
+            return False
+
+        if isclass(self._visual):
+            self._visual = self._visual(canvas)
+        else:
+            self._visual = self._visual.__class__(canvas)
+
+        kwargs = {} if self._visual_kwargs is None else self._visual_kwargs
+        self._visual.update(**kwargs)
+
+        return True
+
+
 class AbstractProtocol:
-    pass
 
+    def __init__(self):
+        self._phases: List[Phase] = []
 
-# class StaticProtocol(AbstractProtocol):
-#
+    def add_phase(self, phase: Phase) -> None:
+        self._phases.append(phase)
 
 
 class StaticPhasicProtocol(AbstractProtocol):
@@ -89,34 +144,29 @@ class StaticPhasicProtocol(AbstractProtocol):
     """
 
     def __init__(self):
-        self._phases = list()
-        self._visuals = dict()
+        AbstractProtocol.__init__(self)
 
-    def initialize_io(self):
-        pass
+    def initialize_actions(self):
+        for phase in self._phases:
+            phase.initialize_action()
 
     def initialize_visuals(self, canvas):
-        for visual_name, visual_cls in self._visuals.items():
-            self._visuals[visual_name] = visual_cls(canvas)
+        for phase in self._phases:
+            phase.initialize_visual(canvas)
 
-    def add_visual(self, visual_cls: type):
-        if visual_cls.__qualname__ not in self._visuals:
-            self._visuals[visual_cls.__qualname__] = visual_cls
-
-    def add_phase(self, visual_cls, duration, parameters):
-        self.add_visual(visual_cls)
-        self._phases.append((visual_cls.__qualname__, duration, parameters))
-
+    @property
     def phase_count(self):
         return len(self._phases)
 
+    @property
+    def duration(self):
+        return sum([phase.duration for phase in self._phases if phase is not None])
+
     def fetch_phase_duration(self, phase_id):
-        visual_name, duration, parameters = self._phases[phase_id]
-        return duration
+        return self._phases[phase_id].duration
 
-    def fetch_phase_visual(self, phase_id):
-        visual_name, duration, parameters = self._phases[phase_id]
-        visual = self._visuals[visual_name]
-
-        return visual, parameters
+    def get_phase(self, phase_id: int) -> Union[Phase, None]:
+        if phase_id < self.phase_count:
+            return self._phases[phase_id]
+        return None
 

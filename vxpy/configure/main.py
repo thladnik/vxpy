@@ -42,11 +42,10 @@ class ModuleCheckbox(QtWidgets.QCheckBox):
 
 class StartupConfiguration(QtWidgets.QMainWindow):
 
-    _availModules = {definitions.CameraCfg.name: CameraWidget,
+    _availModules = {PROCESS_CAMERA: CameraWidget,
                      # definitions.DisplayCfg.name: Display,
-                     definitions.GuiCfg.name: ModuleWidget,
-                     definitions.IoCfg.name: ModuleWidget,
-                     definitions.RecCfg.name: ModuleWidget}
+                     PROCESS_GUI: ModuleWidget,
+                     PROCESS_IO: ModuleWidget}
 
     sig_reload_config = QtCore.Signal()
 
@@ -177,7 +176,7 @@ class StartupConfiguration(QtWidgets.QMainWindow):
         acc.cur_conf = misc.ConfigParser()
         acc.cur_conf.read(self._configfile)
 
-        # Set display config for visual compat.
+        # Set display config for new_visual compat.
         config.Display = acc.cur_conf.getParsedSection(definitions.DisplayCfg.name)
 
         # Update module selection

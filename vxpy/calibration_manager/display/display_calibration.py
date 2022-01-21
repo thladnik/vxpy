@@ -30,27 +30,6 @@ from vxpy.modules.display import Canvas
 from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget
 
 
-# class Canvas(app.Canvas):
-#
-#     def __init__(self, _interval, *args, **kwargs):
-#         app.Canvas.__init__(self, *args, **kwargs)
-#         self.tick = 0
-#         self.visual = None
-#         gloo.set_viewport(0, 0, *self.physical_size)
-#         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
-#
-#         self.show()
-#
-#     def on_draw(self, event):
-#         gloo.clear()
-#         if self.visual is not None:
-#             self.visual.draw(0.0)
-#         self.update()
-#
-#     def on_resize(self, event):
-#         gloo.set_viewport(0, 0, *event.physical_size)
-
-
 class DisplayCalibration(QtWidgets.QWidget):
 
     visual = None

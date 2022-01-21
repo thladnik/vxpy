@@ -90,7 +90,7 @@ class Io(process.AbstractProcess):
 
         self.stimulus_protocol = _protocol()
         try:
-            self.stimulus_protocol.initialize_io()
+            self.stimulus_protocol.initialize_actions()
         except Exception as exc:
             import traceback
             print(traceback.print_exc())

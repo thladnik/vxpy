@@ -158,7 +158,7 @@ class Attribute(ABC):
         self._last_time = np.inf
 
     def _make_time(self):
-        self._time = ipc.Manager.list([None] * self._length)
+        self._time: List[float, None] = ipc.Manager.list([None] * self._length)
 
     def _next(self):
         self._index.value += 1
