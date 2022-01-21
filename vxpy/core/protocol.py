@@ -67,7 +67,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
     return _available_protocols
 
 
-def get_protocol(path) -> Union[type[StaticPhasicProtocol], None]:
+def get_protocol(path: str) -> Union[type[StaticPhasicProtocol], None]:
     if path not in get_available_protocol_paths():
         log.warning(f'Cannot get protocol {path}')
         return None
@@ -81,36 +81,64 @@ def get_protocol(path) -> Union[type[StaticPhasicProtocol], None]:
 class Phase:
 
     def __init__(self, duration=None,
-                 action=None, action_args=None, action_kwargs=None,
-                 visual=None, visual_args=None, visual_kwargs=None):
-        self._action = action
-        self._action_kwargs: Dict = action_kwargs
+                 action=None, action_params=None,
+                 visual=None, visual_params=None):
         self.duration: Union[float, int] = duration
-        self.action = None
 
-        self._visual: Union[AbstractVisual, type[AbstractVisual], None] = visual
-        self._visual_kwargs: Dict = visual_kwargs
+        self.action_parameters: Dict = action_params
+        self.action = action
+
+        self.visual: Union[AbstractVisual, type[AbstractVisual], None] = visual
+        self.visual_parameters: Dict = visual_params
 
     def set_duration(self, duration: float):
         self.duration = duration
 
     @property
+    def action(self):
+        return self._action
+
+    @action.setter
+    def action(self, value):
+        self._action = value
+
+    @property
     def visual(self):
         return self._visual
 
+    @visual.setter
+    def visual(self, value):
+        self._visual = value
+
+    @property
+    def action_parameters(self):
+        return {} if self._action_parameters is None else self._action_parameters
+
+    @action_parameters.setter
+    def action_parameters(self, value):
+        self._action_parameters = value
+
+    @property
+    def visual_parameters(self):
+        return {} if self._visual_parameters is None else self._visual_parameters
+
+    @visual_parameters.setter
+    def visual_parameters(self, value):
+        self._visual_parameters = value
+
     def set_visual(self, visual_cls: Callable, **kwargs):
         self._visual = visual_cls
-        self._visual_kwargs = kwargs
+        self._visual_parameters = kwargs
 
     def set_action(self, action_cls: Callable, **kwargs):
         self._action = action_cls
-        self._action_kwargs = kwargs
+        self._action_parameters = kwargs
 
     def initialize_action(self):
         if self._action is None:
             return False
 
-        kwargs = {} if self._action_kwargs is None else self._action_kwargs
+        kwargs = {} if self._action_parameters is None else self._action_parameters
         self.action = self._action(**kwargs)
 
         return True
@@ -124,7 +152,7 @@ class Phase:
         else:
             self._visual = self._visual.__class__(canvas)
 
-        kwargs = {} if self._visual_kwargs is None else self._visual_kwargs
+        kwargs = self.visual_parameters
         self._visual.update(**kwargs)
 
         return True

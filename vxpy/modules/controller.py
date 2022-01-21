@@ -533,7 +533,10 @@ class Controller(process.AbstractProcess):
             if all(check):
                 self.stop_recording()
 
-                ipc.Control.Protocol[definitions.ProtocolCtrl.name] = ''
+                ipc.Control.Protocol[definitions.ProtocolCtrl.name] = None
+                ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = None
+                ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
+                ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = None
 
                 self.set_state(definitions.State.IDLE)
 

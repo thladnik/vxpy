@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import inspect
-import os
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 import time
@@ -28,11 +27,10 @@ from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy import modules
-import vxpy.visuals
 from vxpy.core import gui, ipc
 from vxpy.core import visual
 from vxpy.utils import uiutils
-from vxpy.core.protocol import get_available_protocol_paths
+from vxpy.core.protocol import get_available_protocol_paths, get_protocol
 
 
 class Protocols(gui.AddonWidget):
@@ -40,92 +38,169 @@ class Protocols(gui.AddonWidget):
     def __init__(self, *args, **kwargs):
         gui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
+        
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_widget)
 
-        # Left
-        self.left_widget = QtWidgets.QWidget()
-        self.left_widget.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self.left_widget)
+        # Create selection widget
+        self.selection = QtWidgets.QWidget()
+        self.selection.setLayout(QtWidgets.QVBoxLayout())
+        self.tab_widget.addTab(self.selection, 'Selection')
 
-        # Protocol list
-        self.protocols = QtWidgets.QListWidget()
-        self.left_widget.layout().addWidget(QLabel('Files'))
-        self.left_widget.layout().addWidget(self.protocols)
-
-        # Right
-        self.right_widget = QtWidgets.QWidget()
-        self.right_widget.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self.right_widget)
-
-        # Protocol (phase) progress
-        self.progress = QtWidgets.QProgressBar()
-        self.progress.setMinimum(0)
-        self.progress.setTextVisible(False)
-        self.right_widget.layout().addWidget(self.progress)
+        self.protocol_list = QtWidgets.QListWidget()
+        self.selection.layout().addWidget(self.protocol_list)
 
         # Start button
-        self.setLayout(QtWidgets.QVBoxLayout())
-        self.btn_start = QtWidgets.QPushButton('Start protocol')
-        self.btn_start.clicked.connect(self.start_protocol)
-        self.right_widget.layout().addWidget(self.btn_start)
-        # Abort protocol button
-        self.btn_abort = QtWidgets.QPushButton('Abort protocol')
-        self.btn_abort.clicked.connect(self.abort_protocol)
-        self.right_widget.layout().addWidget(self.btn_abort)
+        self.start_btn = QtWidgets.QPushButton('Start protocol')
+        self.start_btn.clicked.connect(self.start_protocol)
+        self.selection.layout().addWidget(self.start_btn)
+
+        # Create progress widget
+        self.progress = QtWidgets.QWidget()
+        self.progress.setLayout(QtWidgets.QVBoxLayout())
+        self.tab_widget.addTab(self.progress, 'Progress')
+        self.tab_widget.setTabEnabled(1, False)
+
+        # Overall protocol progress
+        self.protocol_progress_bar = QtWidgets.QProgressBar()
+        self.protocol_progress_bar.setMinimum(0)
+        self.protocol_progress_bar.setTextVisible(True)
+        self.progress.layout().addWidget(self.protocol_progress_bar)
+
+        # Phase progress
+        self.phase_progress_bar = QtWidgets.QProgressBar()
+        self.phase_progress_bar.setMinimum(0)
+        self.phase_progress_bar.setTextVisible(True)
+        self.progress.layout().addWidget(self.phase_progress_bar)
+
+        # Show current visual information
+        self.progress.layout().addWidget(QtWidgets.QLabel('Visual properties'))
+        self.current_visual_name = QtWidgets.QLineEdit('')
+        self.current_visual_name.setDisabled(True)
+        self.progress.layout().addWidget(self.current_visual_name)
+
+        self.visual_properties = QtWidgets.QTableWidget()
+        self.visual_properties.setColumnCount(2)
+        self.visual_properties.setHorizontalHeaderLabels(['Parameter', 'Value'])
+        self.progress.layout().addWidget(self.visual_properties)
+
+        # Abort button
+        self.abort_btn = QtWidgets.QPushButton('Abort protocol')
+        self.abort_btn.clicked.connect(self.abort_protocol)
+        self.progress.layout().addWidget(self.abort_btn)
 
         # Spacer
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.right_widget.layout().addItem(vSpacer)
+        # vspacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
+        # self.progress.layout().addItem(vspacer)
 
         # Set update timer
         self._tmr_update = QtCore.QTimer()
         self._tmr_update.setInterval(50)
         self._tmr_update.timeout.connect(self.update_ui)
+        self._tmr_update.timeout.connect(self.check_status)
         self._tmr_update.start()
+
+        self.current_protocol = None
+        self.last_protocol = None
+        self.current_phase = None
+        self.last_phase = None
 
         # Once set up: compile file list for first time
         self.load_protocol_list()
 
     def load_protocol_list(self):
-        self.protocols.clear()
-        self.btn_start.setEnabled(False)
+        self.protocol_list.clear()
+        self.start_btn.setEnabled(False)
 
         protocol_paths = get_available_protocol_paths()
         for path in protocol_paths:
-            item = QtWidgets.QListWidgetItem(self.protocols)
+            item = QtWidgets.QListWidgetItem(self.protocol_list)
             item.setData(QtCore.Qt.ItemDataRole.UserRole, path)
             # Shorten display path
             parts = path.split('.')
-            # shown_path = [''] * len(parts[:-2]) + parts[-2:]
-            item.setText('.'.join(parts[-2:]))
+            new_parts = [parts[0], *parts[-2:]]
+            if len(parts) > 3:
+                new_parts.insert(1, '..')
+            item.setText('.'.join(new_parts))
             item.setToolTip(path)
-            self.protocols.addItem(item)
+            self.protocol_list.addItem(item)
+
+    def check_status(self):
+
+        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+
+        if self.current_protocol is None or phase_id is None:
+            return
+
+        if self.current_phase == self.current_protocol.get_phase(phase_id):
+            return
+
+        self.current_phase = self.current_protocol.get_phase(phase_id)
+
+        if self.current_phase is None:
+            return
+
+        self.current_visual_name.setText(self.current_phase.visual.__qualname__)
+
+        # Update current visual properties in table
+        self.visual_properties.clearContents()
+        self.visual_properties.setRowCount(len(self.current_phase.visual_parameters))
+        for i, (name, value) in enumerate(self.current_phase.visual_parameters.items()):
+            self.visual_properties.setItem(i, 0, QtWidgets.QTableWidgetItem(str(name)))
+            self.visual_properties.setItem(i, 1, QtWidgets.QTableWidgetItem(str(value)))
+        self.visual_properties.resizeColumnToContents(0)
+        self.visual_properties.resizeColumnToContents(1)
 
     def update_ui(self):
         # Enable/Disable control elements
         ctrl_is_idle = ipc.in_state(definitions.State.IDLE, PROCESS_CONTROLLER)
-        self.btn_start.setEnabled(ctrl_is_idle)
-        self.protocols.setEnabled(ctrl_is_idle)
+        self.start_btn.setEnabled(ctrl_is_idle)
+        self.protocol_list.setEnabled(ctrl_is_idle)
         protocol_is_running = bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
-        self.btn_abort.setEnabled(protocol_is_running)
+        self.abort_btn.setEnabled(protocol_is_running)
+
+        if ipc.Control.Protocol[definitions.ProtocolCtrl.name] is None:
+            self.phase_progress_bar.setEnabled(False)
+            self.protocol_progress_bar.setEnabled(False)
+            self.protocol_progress_bar.setTextVisible(False)
+            self.phase_progress_bar.setTextVisible(False)
+            self.protocol_progress_bar.setValue(0)
+        else:
+            self.phase_progress_bar.setEnabled(True)
+            self.protocol_progress_bar.setEnabled(True)
+            self.protocol_progress_bar.setTextVisible(True)
+            self.phase_progress_bar.setTextVisible(True)
+
+        start_phase = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
+        if start_phase is None:
+            self.phase_progress_bar.setValue(0)
+            return
 
         # Update progress
-        start_phase = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
-        if start_phase is not None:
-            self.progress.setEnabled(True)
-            phase_diff = time.time() - start_phase
-            phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
-            if phase_stop is not None:
-                self.progress.setMaximum(int((phase_stop - start_phase) * 1000))
-                if phase_diff > 0.:
-                    self.progress.setValue(int(phase_diff * 1000))
-        else:
-            self.progress.setValue(0)
+        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+        phase_diff = time.time() - start_phase
+        phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
+        phase_duration = phase_stop - start_phase
 
-        if not(bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name])):
-            self.progress.setEnabled(False)
+        if phase_stop is not None:
+            # Update phase progress
+            self.phase_progress_bar.setMaximum(int(phase_duration * 1000))
+            if phase_diff > 0.:
+                self.phase_progress_bar.setValue(int(phase_diff * 1000))
+                self.phase_progress_bar.setFormat(f'{phase_diff:.1f}/{phase_duration:.1f}s')
+
+            # Update protocol progress
+            self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count * 100)
+            self.protocol_progress_bar.setValue(100 * phase_id + int(phase_diff/phase_duration * 100))
+            self.protocol_progress_bar.setFormat(f'Phase {phase_id+1}/{self.current_protocol.phase_count}')
 
     def start_protocol(self):
-        protocol_path = self.protocols.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
+        protocol_path = self.protocol_list.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
+        self.current_protocol = get_protocol(protocol_path)()
+        self.tab_widget.setCurrentWidget(self.progress)
+        self.tab_widget.setTabEnabled(1, True)
+        self.protocol_progress_bar.setFormat('Preparing...')
+        self.phase_progress_bar.setFormat('Preparing...')
 
         # Start recording
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.start_recording)
@@ -134,8 +209,10 @@ class Protocols(gui.AddonWidget):
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.start_protocol, protocol_path)
 
     def abort_protocol(self):
-        self.progress.setValue(0)
-        self.progress.setEnabled(False)
+        self.phase_progress_bar.setValue(0)
+        self.phase_progress_bar.setEnabled(False)
+        self.tab_widget.setCurrentWidget(self.selection)
+        self.tab_widget.setTabEnabled(1, False)
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.abort_protocol)
 
 

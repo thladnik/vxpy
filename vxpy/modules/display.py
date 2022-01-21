@@ -1,5 +1,5 @@
 """
-MappApp ./modules/display.py
+vxpy ./modules/display.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -50,16 +50,21 @@ class Display(process.AbstractProcess):
         _interval = 1. / config.CONF_DISPLAY_FPS
 
         self.canvas = Canvas(_interval,
-                             title='Stimulus display',
+                             title='vxPy visual stimulus display',
+                             position=(calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y),
+                             size=(calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT),
                              resizable=False,
                              always_on_top=True,
                              app=self.app,
                              vsync=False,
                              decorate=False)
 
-        self.canvas.position = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
-        self.canvas.size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
-        self.canvas.fullscreen = calib.CALIB_DISP_WIN_FULLSCREEN
+        # Set screen position and size
+        # self.canvas.position = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
+        # self.canvas.size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
+        # self.canvas.fullscreen = calib.CALIB_DISP_WIN_FULLSCREEN
+
+        # Process vispy events once too avoid frozen screen at start
         app.process_events()
 
         # Run event loop

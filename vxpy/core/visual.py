@@ -231,6 +231,10 @@ class BaseVisual(AbstractVisual, ABC):
 # Spherical stimulus class
 
 class SphericalVisual(AbstractVisual, ABC):
+    # TODO:
+    #  There is currently a bug when using GLFW, that causes all spherical visuals to disappear
+    #  This always happens when the window's y-position is increased over 0
+    #  At y-pos = 1, only the lower two quadrants are visible and over 1 it disappears completely
 
     # Standard transforms of sphere for 4-way display configuration
     _vertex_map = """
