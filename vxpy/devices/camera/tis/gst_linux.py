@@ -104,13 +104,13 @@ class CameraDevice(camera.AbstractCameraDevice):
         p = 'tcambin name=source ! capsfilter name=caps ! appsink name=sink'
         try:
             self.pipeline = Gst.parse_launch(p)
-        except GLib.Error as error:
-            print(f'Error creating pipeline: {error}')
+        except GLib.Error as code:
+            print(f'Error creating pipeline: {code}')
             raise
 
         self.samplelocked = False
 
-        # Quere the source module.
+        # Query the source module.
         self.source = self.pipeline.get_by_name('source')
 
         # Query a pointer to the appsink, so we can assign the callback function.
@@ -136,9 +136,10 @@ class CameraDevice(camera.AbstractCameraDevice):
 
         try:
             self.pipeline.set_state(Gst.State.PLAYING)
-            error = self.pipeline.get_state(5000000000)
-            if error[1] != Gst.State.PLAYING:
-                print("Error starting pipeline. {0}".format(""))
+            # code = self.pipeline.get_state(5000000000)
+            code = self.pipeline.get_state(1000000000)
+            if code[1] != Gst.State.PLAYING:
+                print(f"Error starting pipeline. {code}")
                 return False
 
         except:  # GError as error:
@@ -207,12 +208,7 @@ class CameraDevice(camera.AbstractCameraDevice):
 
                     dtype, rate, w, h, bpp = get_image_props(self._fmt)
 
-                    self.img_mat = np.ndarray(
-                        (h,
-                         w,
-                         bpp),
-                        buffer=data,
-                        dtype=dtype)
+                    self.img_mat = np.ndarray((h, w, bpp), buffer=data, dtype=dtype)
 
                     self.newsample = False
                     self.samplelocked = False

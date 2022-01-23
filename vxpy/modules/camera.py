@@ -22,6 +22,7 @@ from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import process, ipc, logging, camera
 from vxpy.devices.camera.virtual import virtual_camera
+from vxpy.devices.camera.tis import gst_linux
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class Camera(process.AbstractProcess):
         process.AbstractProcess.__init__(self, **kwargs)
         global _use_apis
         camera._use_apis.append(virtual_camera)
+        camera._use_apis.append(gst_linux)
 
         self.cameras: Dict[str, camera.AbstractCameraDevice] = dict()
 
