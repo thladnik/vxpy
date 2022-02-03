@@ -26,10 +26,9 @@ from vispy.util import transforms
 
 from vxpy import config
 from vxpy import calib
-from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import logging
-from vxpy.api import controller_rpc
+from vxpy.core import protocol
 from vxpy.utils import geometry
 from vxpy.utils import sphere
 
@@ -70,12 +69,13 @@ class AbstractVisual(ABC):
 
     _parse_fun_prefix = 'parse_'
 
-    def __init__(self, canvas):
+    def __init__(self, canvas, _protocol=None):
         self.canvas: app.Canvas = canvas
         self.parameters: Dict[str, Any] = dict()
         self.custom_programs: Dict[str, gloo.Program] = dict()
         self.data_appendix: Dict[str, Any] = dict()
         self.transform_uniforms = dict()
+        self.protocol: protocol.AbstractProtocol = _protocol
 
         self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT, calib.CALIB_DISP_WIN_SIZE_WIDTH)
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')

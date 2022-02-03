@@ -143,17 +143,19 @@ class Phase:
 
         return True
 
-    def initialize_visual(self, canvas):
+    def initialize_visual(self, canvas, _protocol):
         if self._visual is None:
             return False
 
+        args = (canvas, )
+        kwargs = dict(_protocol=_protocol)
         if isclass(self._visual):
-            self._visual = self._visual(canvas)
+            self._visual = self._visual(*args, **kwargs)
         else:
-            self._visual = self._visual.__class__(canvas)
+            self._visual = self._visual.__class__(*args, **kwargs)
 
-        kwargs = self.visual_parameters
-        self._visual.update(**kwargs)
+        params = self.visual_parameters
+        self._visual.update(**params)
 
         return True
 
@@ -180,7 +182,7 @@ class StaticPhasicProtocol(AbstractProtocol):
 
     def initialize_visuals(self, canvas):
         for phase in self._phases:
-            phase.initialize_visual(canvas)
+            phase.initialize_visual(canvas, self)
 
     @property
     def phase_count(self):

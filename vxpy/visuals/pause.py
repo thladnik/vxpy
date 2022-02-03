@@ -24,8 +24,8 @@ from vxpy.utils import plane
 
 class KeepLast(visual.PlainVisual):
 
-    def __init__(self, *args):
-        visual.PlainVisual.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        visual.PlainVisual.__init__(self, *args, **kwargs)
 
     def initialize(self, *args, **kwargs):
         pass
@@ -36,8 +36,8 @@ class KeepLast(visual.PlainVisual):
 
 class ClearBlack(visual.PlainVisual):
 
-    def __init__(self, *args):
-        visual.PlainVisual.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        visual.PlainVisual.__init__(self, *args, **kwargs)
 
     def initialize(self, *args, **kwargs):
         gloo.clear('black')

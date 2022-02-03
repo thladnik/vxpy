@@ -59,10 +59,6 @@ class Display(process.AbstractProcess):
                              vsync=False,
                              decorate=False)
 
-        # Set screen position and size
-        # self.canvas.position = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
-        # self.canvas.size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
-        # self.canvas.fullscreen = calib.CALIB_DISP_WIN_FULLSCREEN
 
         # Process vispy events once too avoid frozen screen at start
         app.process_events()
@@ -155,9 +151,9 @@ class Display(process.AbstractProcess):
 
     def main(self):
 
+        self.canvas.update()
         self.app.process_events()
         if self.stimulus_visual is not None and self.stimulus_visual.is_active:
-            self.canvas.update()
             self.update_routines(self.stimulus_visual)
 
     def _start_shutdown(self):
@@ -189,8 +185,8 @@ class Canvas(app.Canvas):
         app.process_events()
 
     def on_draw(self, event):
-        if event is None:
-            return
+        # if event is None:
+        #     return
 
         self.new_t = time.perf_counter()
 
