@@ -82,9 +82,12 @@ class ArduinoBoard:
         self.it = pyfirmata.util.Iterator(self._board)
         self.it.start()
 
-    def configure_pins(self, **pins):
-        for pid, config in pins.items():
-            self.pins[pid] = Pin(self._board, pid, config)
+    # def configure_pins(self, **pins):
+    #     for pid, config in pins.items():
+    #         self.pins[pid] = Pin(self._board, pid, config)
+
+    def configure_pin(self, pin_id, pin_config):
+        self.pins[pin_id] = Pin(self._board, pin_id, pin_config)
 
     def write(self, **data):
         for pin_id, pin_data in data.items():

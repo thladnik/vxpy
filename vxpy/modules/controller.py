@@ -175,12 +175,14 @@ class Controller(process.AbstractProcess):
                 self._routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
 
         # Set configured cameras
-        for device_id in config.CONF_CAMERA_DEVICES:
-            register_camera_device(device_id)
+        if config.CONF_CAMERA_USE:
+            for device_id in config.CONF_CAMERA_DEVICES:
+                register_camera_device(device_id)
 
         # Set configured io devices
-        for device_id in config.CONF_IO_DEVICES:
-            register_io_device(device_id)
+        if config.CONF_IO_USE:
+            for device_id in config.CONF_IO_DEVICES:
+                register_io_device(device_id)
 
         # Compare required vs registered devices
         assert_device_requirements()
