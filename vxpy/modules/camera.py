@@ -76,6 +76,11 @@ class Camera(process.AbstractProcess):
     def end_protocol(self):
         pass
 
+    def _start_shutdown(self):
+        for device_id, cam in self.cameras.items():
+            cam.end_stream()
+        process.AbstractProcess._start_shutdown(self)
+
     def main(self):
 
         # Snap image

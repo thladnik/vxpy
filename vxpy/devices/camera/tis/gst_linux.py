@@ -19,9 +19,12 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import re
+import time
+
 import gi
 
 from vxpy.core.camera import AbstractCameraDevice
+from vxpy.core import logging
 
 gi.require_version("Gst", "1.0")
 gi.require_version("Tcam", "0.1")
@@ -30,6 +33,9 @@ import numpy as np
 from typing import Dict, List, Union
 
 from vxpy.core import camera
+
+log = logging.getLogger(__name__)
+
 
 Gst.init([])
 
@@ -136,8 +142,8 @@ class CameraDevice(camera.AbstractCameraDevice):
 
         try:
             self.pipeline.set_state(Gst.State.PLAYING)
-            # code = self.pipeline.get_state(5000000000)
-            code = self.pipeline.get_state(1000000000)
+            code = self.pipeline.get_state(5000000000)
+            # code = self.pipeline.get_state(1000000000)
             if code[1] != Gst.State.PLAYING:
                 print(f"Error starting pipeline. {code}")
                 return False
@@ -146,6 +152,40 @@ class CameraDevice(camera.AbstractCameraDevice):
             print("Error starting pipeline: {0}".format("unknown too"))
             raise
         return True
+
+    def end_stream(self):
+        pass
+        # print(f'End stream from camera device {self.id}')
+        # self.pipeline.set_state(Gst.State.PAUSED)
+        # self.pipeline.set_state(Gst.State.READY)
+        # self.pipeline.set_state(Gst.State.NULL)
+        #
+        # while True:
+        #     code = self.pipeline.get_state(5000000000)
+        #     if code[1] == Gst.State.NULL:
+        #         self.source.set_state(Gst.State.PAUSED)
+        #         self.source.set_state(Gst.State.READY)
+        #         self.source.set_state(Gst.State.NULL)
+        #         while True:
+        #             code = self.source.get_state(5000000000)
+        #             if code[1] == Gst.State.NULL:
+        #                 break
+        #             print('Source', code)
+        #             time.sleep(0.1)
+        #
+        #             self.appsink.set_state(Gst.State.PAUSED)
+        #             self.appsink.set_state(Gst.State.READY)
+        #             self.appsink.set_state(Gst.State.NULL)
+        #             while True:
+        #                 code = self.appsink.get_state(5000000000)
+        #                 if code[1] == Gst.State.NULL:
+        #                     break
+        #                 print('Appsink', code)
+        #                 time.sleep(0.1)
+        #
+        #         break
+        #     print('Pipe', code)
+        #     time.sleep(0.1)
 
     def get_formats(self) -> List[camera.Format]:
         """Return formats for given device

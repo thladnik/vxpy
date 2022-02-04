@@ -124,6 +124,10 @@ class AbstractCameraDevice(ABC):
         pass
 
     @abstractmethod
+    def end_stream(self):
+        pass
+
+    @abstractmethod
     def snap_image(self, *args, **kwargs):
         pass
 
