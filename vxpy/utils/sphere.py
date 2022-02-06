@@ -110,6 +110,7 @@ class IcosahedronSphere:
 
         # Calculate initial vertices
         self._vertices = [self._vertex(*v) for v in self.corners]
+        self._vertex_lvls = [0] * len(self.corners)
 
         # Subdivide faces
         self._cache = None
@@ -122,6 +123,9 @@ class IcosahedronSphere:
     def get_vertices(self):
         return np.ascontiguousarray(np.array(self._vertices, dtype=np.float32))
 
+    def get_vertex_levels(self):
+        return np.ascontiguousarray(np.array(self._vertex_lvls, dtype=np.int32))
+
     def get_spherical_coordinates(self):
         _vertices = self.get_vertices()
         az, el = np.array(geometry.cart2sph1(_vertices[0, :], _vertices[1, :], _vertices[2, :]))
@@ -131,7 +135,7 @@ class IcosahedronSphere:
         vlen = np.sqrt(x ** 2 + y ** 2 + z ** 2)
         return [i/vlen for i in (x, y, z)]
 
-    def _midpoint(self, p1, p2):
+    def _midpoint(self, p1, p2, v_lvl):
         key = '%i/%i' % (min(p1, p2), max(p1, p2))
 
         if key in self._cache:
@@ -142,6 +146,7 @@ class IcosahedronSphere:
         middle = [sum(i)/2 for i in zip(v1, v2)]
 
         self._vertices.append(self._vertex(*middle))
+        self._vertex_lvls.append(v_lvl)
         index = len(self._vertices) - 1
 
         self._cache[key] = index
@@ -153,9 +158,9 @@ class IcosahedronSphere:
         for i in range(self.subdiv_lvl):
             new_faces = []
             for face in self._faces:
-                v = [self._midpoint(face[0], face[1]),
-                     self._midpoint(face[1], face[2]),
-                     self._midpoint(face[2], face[0])]
+                v = [self._midpoint(face[0], face[1], i+1),
+                     self._midpoint(face[1], face[2], i+1),
+                     self._midpoint(face[2], face[0], i+1)]
 
                 new_faces.append([face[0], v[0], v[2]])
                 new_faces.append([face[1], v[1], v[0]])

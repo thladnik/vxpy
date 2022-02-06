@@ -102,7 +102,8 @@ class Display(process.AbstractProcess):
     def start_phase(self):
         self.start_visual()
         self.set_record_group_attrs(self.stimulus_visual.parameters)
-        self.set_record_group_attrs({'start_time': get_time()})
+        self.set_record_group_attrs({'start_time': get_time(),
+                                     'visual_name': str(self.stimulus_visual.__class__.__qualname__)})
 
     def end_phase(self):
         self.stop_visual()

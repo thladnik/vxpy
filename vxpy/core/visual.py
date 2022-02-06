@@ -630,3 +630,28 @@ class PlainVisual(AbstractVisual, ABC):
 
     def draw(self, dt):
         self.render(dt)
+
+
+class Uniform:
+
+    def __init__(self, _dtype):
+        self._dtype = _dtype
+
+
+class FloatUniform(Uniform):
+
+    def __init__(self, name):
+        Uniform.__init__(self, np.float32)
+
+
+class IntUniform(Uniform):
+
+    def __init__(self, name):
+        Uniform.__init__(self, np.int32)
+
+
+class Vec3Uniform(Uniform):
+
+    def __init__(self, name):
+        Uniform.__init__(self, np.ndarray)
+

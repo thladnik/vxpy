@@ -1,3 +1,6 @@
+import time
+from typing import Union
+
 import h5py
 
 from vxpy.core.camera import AbstractCameraDevice, Format
@@ -27,7 +30,7 @@ _formats = {'Multi_Fish_Eyes_Cam@20fps': ['RGB8(752x480)@20', 'Y800(752x480)@20'
             'Single_Fish_Spontaneous_1@30fps': ['RGB8(640x480)', 'Y800 (600x380)', ],
             'Single_Fish_Free_Swim_Dot_Chased@50fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
             'Single_Fish_Free_Swim_On_random_motion@100fps': ['RGB8 (640x480)', 'Y800 (600x380)', ],
-            'Single_Fish_OKR_embedded@30fps': ['RGB8 (640x480)', 'Y800 (600x380)', ]}
+            'Single_Fish_OKR_embedded@30fps': ['RGB8(640x480)@30', 'Y800(600x380)@30']}
 
 _sample_files = {'Multi_Fish_Eyes_Cam@20fps': 'Fish_eyes_multiple_fish_30s.avi',
                'Single_Fish_Eyes_Cam@20fps': 'Fish_eyes_spontaneous_saccades_40s.avi',
@@ -66,7 +69,7 @@ class CameraDevice(AbstractCameraDevice):
         self._cap = None
         self._fps = None
         self.index = None
-        self._h5 = None
+        self._h5: Union[h5py.File, None] = None
 
     def __repr__(self):
         return f'VirtualCameraDevice("{self.serial}", "{self.info["model"]}")'
@@ -89,6 +92,10 @@ class CameraDevice(AbstractCameraDevice):
             self._data = self._cap[:]
         self.index = 0
         self.res_x, self.res_y = self._fmt.width, self._fmt.height
+
+    def end_stream(self):
+        if self._h5 is not None:
+            self._h5.close()
 
     def snap_image(self, *args, **kwargs):
         pass
