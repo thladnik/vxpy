@@ -132,7 +132,10 @@ class Display(process.AbstractProcess):
         self.canvas.set_visual(self.stimulus_visual)
 
         for name, data in self.stimulus_visual.data_appendix.items():
-            self._append_to_dataset(name, data)
+            grp_name = self.record_group
+            if grp_name is None:
+                grp_name = ''
+            self._append_to_dataset(f'{grp_name}/{name}', data)
 
         self.stimulus_visual.start()
 

@@ -30,13 +30,13 @@ class SphereUniformBackground(visual.SphericalVisual):
         self.sphere = sphere.UVSphere(azim_lvls=50, elev_lvls=25)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
-        self.checker = gloo.Program(self.load_vertex_shader('./static_background.vert'),
+        self.bg = gloo.Program(self.load_vertex_shader('./static_background.vert'),
                                     self.load_shader('./static_background.frag'))
-        self.checker['a_position'] = self.position_buffer
+        self.bg['a_position'] = self.position_buffer
 
     def initialize(self, *args, **kwargs):
         pass
 
     def render(self, frame_time):
-        self.apply_transform(self.checker)
-        self.checker.draw('triangles', self.index_buffer)
+        self.apply_transform(self.bg)
+        self.bg.draw('triangles', self.index_buffer)
