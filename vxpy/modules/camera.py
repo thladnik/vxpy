@@ -17,6 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import threading
 from typing import Tuple, Union, List
+import sys
 
 import numpy as np
 import time
@@ -26,8 +27,13 @@ from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import process, ipc, logging, camera
+
+if sys.platform == 'linux':
+    from vxpy.devices.camera.tis import gst_linux
+    camera._use_apis.append(gst_linux)
+
 from vxpy.devices.camera.virtual import virtual_camera
-from vxpy.devices.camera.tis import gst_linux
+camera._use_apis.append(virtual_camera)
 
 log = logging.getLogger(__name__)
 
