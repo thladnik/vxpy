@@ -21,9 +21,9 @@ import importlib
 
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import process, logging
+from vxpy.core import process, logger
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Worker(process.AbstractProcess):

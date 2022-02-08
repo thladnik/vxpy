@@ -27,12 +27,12 @@ from vispy.util import transforms
 from vxpy import config
 from vxpy import calib
 from vxpy.definitions import *
-from vxpy.core import logging
+from vxpy.core import logger
 from vxpy.core import protocol
 from vxpy.utils import geometry
 from vxpy.utils import sphere
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 ################################

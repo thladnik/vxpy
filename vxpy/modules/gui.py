@@ -23,11 +23,11 @@ from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy import modules
-from vxpy.core import process, ipc, logging
+from vxpy.core import process, ipc, logger
 from vxpy.gui.window_controls import LoggingWidget, ProcessMonitorWidget, RecordingWidget
 from vxpy.gui.window_widgets import CameraWindow, DisplayWindow, IoWindow, PlottingWindow
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Gui(process.AbstractProcess):

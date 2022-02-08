@@ -1,24 +1,47 @@
+"""
+vxPy ./core/camera_device.py
+Copyright (C) 2020 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
 from __future__ import annotations
 from abc import ABC, abstractmethod
 import importlib
 import numpy as np
 from typing import Any, Dict, Tuple, Type, Union, List
 
-# from vxpy.core import logging
+from vxpy.core import logger
 
-# log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
-def get_camera(device_config: dict) -> AbstractCameraDevice:
+def get_camera(device_config: Dict[str, Any]) -> Union[AbstractCameraDevice, None]:
 
-    # Import api
-    _module = importlib.import_module({device_config['api']})
-    camera_class = getattr(_module, 'CameraDevice')
+    try:
+        # Import api
+        _module = importlib.import_module(device_config['api'])
+        camera_class = getattr(_module, 'CameraDevice')
 
-    #  Set up camera using configuration
-    camera = camera_class(**device_config)
+    except Exception as exc:
+        log.error(f'Failed to load camera API {device_config["api"]}')
+        return
 
-    return camera
+    else:
+        #  Set up camera using configuration
+        camera = camera_class(**device_config)
+
+        return camera
 
 
 class AbstractCameraDevice(ABC):
@@ -90,9 +113,37 @@ class AbstractCameraDevice(ABC):
     def get_format_list(self) -> List[CameraFormat]:
         pass
 
+    @abstractmethod
+    def _framerate_range(self, _format: CameraFormat) -> Tuple[float, float]:
+        pass
+
+    def get_framerate_range(self, _format: Union[CameraFormat, None] = None) -> Tuple[float, float]:
+        if _format is None:
+            if self.format is None:
+                raise AttributeError('Camera format is needed to determine framerate range')
+            _format = self.format
+
+        return self._framerate_range(_format)
+
     @classmethod
     @abstractmethod
     def get_camera_list(cls) -> List[Type[AbstractCameraDevice]]:
+        pass
+
+    @abstractmethod
+    def start_stream(self):
+        pass
+
+    @abstractmethod
+    def snap_image(self):
+        pass
+
+    @abstractmethod
+    def get_image(self):
+        pass
+
+    @abstractmethod
+    def end_stream(self):
         pass
 
 

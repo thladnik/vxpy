@@ -26,22 +26,22 @@ import time
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import process, ipc, logging, camera
+from vxpy.core import process, ipc, logger, camera_device
 
-if sys.platform == 'linux':
-    from vxpy.devices.camera.tis import gst_linux
-    camera._use_apis.append(gst_linux)
+# if sys.platform == 'linux':
+#     from vxpy.devices.camera.tis import gst_linux
+#     camera._use_apis.append(gst_linux)
+#
+# from vxpy.devices.camera.virtual import virtual_camera
+# camera._use_apis.append(virtual_camera)
 
-from vxpy.devices.camera.virtual import virtual_camera
-camera._use_apis.append(virtual_camera)
-
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Camera(process.AbstractProcess):
     name = PROCESS_CAMERA
     _camera_threads: Dict[str, threading.Thread] = {}
-    cameras: Dict[str, camera.AbstractCameraDevice] = {}
+    cameras: Dict[str, camera_device.AbstractCameraDevice] = {}
     _current_frame_index: Dict[str, Union[int, bool]] = {}
     _frames: Dict[str, List[Union[np.ndarray, None]]] = {}
 
@@ -70,18 +70,15 @@ class Camera(process.AbstractProcess):
         self.run(interval=1 / base_target_fps)
 
     def _open_camera(self, device_id, device_config):
-        device = camera.open_device(device_id, device_config)
+        device = camera_device.get_camera(device_config)
 
-        if device.open():
+        if device.start_stream():
             log.info(f'Use {device} as \"{device_id}\"')
+            self.cameras[device_id] = device
         else:
             # TODO: add more info for user
             log.warning(f'Unable to use {device} as \"{device_id}\"')
             return
-
-        # Save to dictionary and start
-        self.cameras[device_id] = device
-        device.start_stream()
 
     def _run_camera_thread(self, device_id, device_config):
         camera_device = camera.open_device(device_id, device_config)

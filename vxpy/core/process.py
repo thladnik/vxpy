@@ -30,13 +30,13 @@ from vxpy import config
 from vxpy.core.protocol import StaticPhasicProtocol
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import routine, ipc, logging, configuration, calibration
+from vxpy.core import routine, ipc, logger, configuration, calibration
 from vxpy.core import container
 from vxpy.core.ipc import build_pipes, set_process
 from vxpy.gui.window_controls import ProcessMonitorWidget
 from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 ##################################
@@ -87,7 +87,7 @@ class AbstractProcess:
             log.error(f'No program start time provided to {self.name}')
 
         # Add handlers to modules that were imported before process class initialization
-        logging.add_handlers()
+        logger.add_handlers()
 
         # Set modules instance
         set_process(self)

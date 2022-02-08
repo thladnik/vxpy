@@ -24,11 +24,11 @@ from vxpy.api import get_time
 from vxpy import config, calib
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import process, ipc, logging
+from vxpy.core import process, ipc, logger
 from vxpy.core.protocol import AbstractProtocol, get_protocol
 from vxpy.core import visual
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Display(process.AbstractProcess):

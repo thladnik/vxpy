@@ -5,9 +5,9 @@ import h5py
 
 from vxpy.core.camera import AbstractCameraDevice, Format
 from vxpy.definitions import *
-from vxpy.core import logging
+from vxpy.core import logger
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 _models = ['Multi_Fish_Eyes_Cam@20fps',
            'Single_Fish_Eyes_Cam@20fps',

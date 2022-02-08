@@ -18,14 +18,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import time
 import numpy as np
 
-from vxpy.core import logging
+from vxpy.core import logger
 
 # Type hinting
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Dict, AnyStr, Union
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Pin:

@@ -8,7 +8,7 @@ import pyqtgraph as pg
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import logging
+from vxpy.core import logger
 from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import WindowWidget, WindowTabWidget
 
@@ -268,7 +268,7 @@ class PlottingWindow(WindowWidget):
 
 
             except Exception as exc:
-                logging.write(logging.WARNING,
+                logger.write(logger.WARNING,
                               f'Problem trying to read attribute "{attr_name}" from_idx={data["last_idx"]}'
                               f'If this warning persists, DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE is possibly set too low.'
                               f'// Exception: {exc}')

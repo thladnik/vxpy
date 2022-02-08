@@ -19,8 +19,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from vxpy.definitions import *
-from vxpy.core import ipc, logging
+from vxpy.core import ipc, logger
 from vxpy.api.attribute import read_attribute
+
+log = logger.getLogger(__name__)
 
 
 class Routine(ABC):
@@ -66,7 +68,7 @@ class Routine(ABC):
         if trigger_name in self._triggers:
             self._triggers[trigger_name].emit()
         else:
-            logging.write(logging.WARNING, f'Cannot emit trigger "{trigger_name}". Does not exist.')
+            log.warning(f'Cannot emit trigger "{trigger_name}". Does not exist.')
 
     def connect_to_trigger(self, trigger_name, routine, callback):
         self.exposed.append(callback)

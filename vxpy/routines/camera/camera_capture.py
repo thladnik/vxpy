@@ -20,10 +20,8 @@ from typing import List, Dict, Tuple
 
 from vxpy import config
 from vxpy.definitions import *
-from vxpy import definitions
 from vxpy.api.routine import CameraRoutine
 from vxpy.api.attribute import ArrayAttribute, ArrayType
-from vxpy.core.camera import Format
 
 
 class Frames(CameraRoutine):
@@ -33,9 +31,8 @@ class Frames(CameraRoutine):
 
     def setup(self):
         self.device_list: List[Tuple[str, int, int]] = []
-        for device_id, device in config.CONF_CAMERA_DEVICES.items():
-            fmt = Format.from_str(device['format'])
-            self.device_list.append((device_id, fmt.width, fmt.height))
+        for device_id, device_config in config.CONF_CAMERA_DEVICES.items():
+            self.device_list.append((device_id, device_config['width'], device_config['height']))
 
         # Set one array attribute per camera device
         self.frames: Dict[str, ArrayAttribute] = {}

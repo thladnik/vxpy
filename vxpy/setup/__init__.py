@@ -1,4 +1,4 @@
-import shutil
+import h5py
 import sys
 import requests
 import zipfile
@@ -74,7 +74,7 @@ def setup_resources():
 
 def download_samples():
     source_url = f'https://github.com/thladnik/vxPy/releases/download/v{vxpy.__version__}/samples_compr.h5'
-    local_path = os.path.join(PATH_SAMPLE, 'samples_compr.h5')
+    local_path = os.path.join(PATH_SAMPLE, 'samples_compr.hdf5')
 
     # Connect
     response = requests.get(source_url, stream=True)
@@ -102,6 +102,17 @@ def download_samples():
                 fobj.write(data)
                 print_download_progress(cur_length, content_length)
                 sys.stdout.flush()
+
+
+def unpack_samples():
+    in_path = os.path.join(PATH_SAMPLE, 'samples_compr.hdf5')
+    out_path = os.path.join(PATH_SAMPLE, 'samples.hdf5')
+
+    with h5py.File(in_path, 'r') as fin:
+        with h5py.File(out_path, 'w') as fout:
+            for key in fin.keys():
+                fout.create_dataset(key, data=fin[key][:])
+
 
 
 def print_download_progress(cur_length, total_length, unit=None):

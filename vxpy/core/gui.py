@@ -20,14 +20,14 @@ from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
 from vxpy import definitions
-from vxpy.core import ipc, logging
+from vxpy.core import ipc, logger
 
 # Type hinting
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from vxpy.modules.gui import Gui
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class AddonWidget(QtWidgets.QWidget):

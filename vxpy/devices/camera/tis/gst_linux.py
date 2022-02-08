@@ -24,7 +24,7 @@ import time
 import gi
 
 from vxpy.core.camera import AbstractCameraDevice
-from vxpy.core import logging
+from vxpy.core import logger
 
 gi.require_version("Gst", "1.0")
 gi.require_version("Tcam", "0.1")
@@ -34,7 +34,7 @@ from typing import Dict, List, Union
 
 from vxpy.core import camera
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 Gst.init([])

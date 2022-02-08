@@ -21,7 +21,7 @@ import numpy as np
 
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import ipc, logging
+from vxpy.core import ipc, logger
 from vxpy import modules
 
 # Type hinting
@@ -29,6 +29,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
+
+log = logger.getLogger(__name__)
 
 
 class H5File(h5py.File):
@@ -181,9 +183,9 @@ class NpBuffer:
         try:
             self._memmap = np.memmap(self.temp_filepath, dtype=self.dtype, mode='w+', shape=(_length, *self.shape[1:]))
         except Exception:
-            logging.write(logging.ERROR, f'Unable to open temporary file {self.temp_filepath} for numpy buffered recording. '
-                                         f'This is most likely because there is insufficient storage space to create temporary files. '
-                                         f'Either make room on partition, use different partition or switch to standard H5.')
+            log.error(f'Unable to open temporary file {self.temp_filepath} for numpy buffered recording. '
+                         f'This is most likely because there is insufficient storage space to create temporary files. '
+                         f'Either make room on partition, use different partition or switch to standard H5.')
             ipc.Controller.rpc(modules.Controller.stop_recording)
 
         self.idx = 0

@@ -29,7 +29,7 @@ from vxpy.definitions import *
 from vxpy import modules
 from vxpy.api import gui_rpc
 from vxpy.api.dependency import register_camera_device, register_io_device, assert_device_requirements
-from vxpy.core import process, ipc, logging, configuration
+from vxpy.core import process, ipc, logger, configuration
 from vxpy.core import routine
 from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
@@ -37,7 +37,7 @@ from vxpy.core.calibration import load_calibration
 from vxpy.core.protocol import get_protocol
 from vxpy.gui.window_controls import RecordingWidget
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Controller(process.AbstractProcess):
@@ -55,9 +55,9 @@ class Controller(process.AbstractProcess):
         ipc.Manager = mp.Manager()
 
         # Set up logging
-        logging.setup_log_queue(ipc.Manager.Queue())
-        logging.setup_log_history(ipc.Manager.list())
-        logging.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
+        logger.setup_log_queue(ipc.Manager.Queue())
+        logger.setup_log_history(ipc.Manager.list())
+        logger.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
 
         # Manually set up pipe for controller
         ipc.Pipes[self.name] = mp.Pipe()
@@ -204,8 +204,8 @@ class Controller(process.AbstractProcess):
             _controls={k: v for k, v
                        in ipc.Control.__dict__.items()
                        if not (k.startswith('_'))},
-            _log_queue=logging._log_queue,
-            _log_history=logging.get_history(),
+            _log_queue=logger._log_queue,
+            _log_history=logger.get_history(),
             _attrs=Attribute.all
         )
 
@@ -429,15 +429,14 @@ class Controller(process.AbstractProcess):
 
         ########
         # First: handle log
-        while not (logging.get_queue().empty()):
+        while not (logger.get_queue().empty()):
 
             # Fetch next record
-            record = logging.get_queue().get()
+            record = logger.get_queue().get()
 
             try:
-                logging.add_to_file(record)
-                logging.add_to_history(record)
-                # print(logging._log_history[-1])
+                logger.add_to_file(record)
+                logger.add_to_history(record)
             except Exception:
                 import sys, traceback
                 print('Exception in Logger:', file=sys.stderr)

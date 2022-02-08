@@ -19,7 +19,7 @@ from multiprocessing.managers import SyncManager
 
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import logging
+from vxpy.core import logger
 
 # Type hinting
 from typing import TYPE_CHECKING
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from vxpy.core.process import AbstractProcess, ProcessProxy
 
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 # Manager for shared objects
 Manager: SyncManager

@@ -20,17 +20,17 @@ import cv2
 import numpy as np
 from scipy.spatial import distance
 
+from vxpy import config
 from vxpy.api import get_time
 from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute
 from vxpy.api.routine import CameraRoutine
 from vxpy.api.ui import register_with_plotter
 from vxpy.api.io import set_digital_output
 from vxpy.api.dependency import require_camera_device
-from vxpy.core import logging
-from vxpy.core.camera import get_config_for_camera, Format
+from vxpy.core import logger
 
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class EyePositionDetection(CameraRoutine):
@@ -64,10 +64,9 @@ class EyePositionDetection(CameraRoutine):
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
         # Get camera specs
-        config = get_config_for_camera(self.camera_device_id)
-        fmt = Format.from_str(config['format'])
-        self.res_x = fmt.width
-        self.res_y = fmt.height
+        camera_config = config.CONF_CAMERA_DEVICES.get(self.camera_device_id)
+        self.res_x = camera_config['width']
+        self.res_y = camera_config['height']
 
         # Set up parameter variables (accessible externally)
         self.rois = dict()

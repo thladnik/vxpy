@@ -22,9 +22,9 @@ from typing import List, Union, Callable
 
 from vxpy.core.visual import AbstractVisual
 from vxpy.definitions import *
-from vxpy.core import logging
+from vxpy.core import logger
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 _available_protocols: List[str] = []
 

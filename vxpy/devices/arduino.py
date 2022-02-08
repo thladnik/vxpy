@@ -19,14 +19,14 @@ import traceback
 
 import pyfirmata
 
-from vxpy.core import logging
+from vxpy.core import logger
 
 # Type hinting
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import Dict, Union
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Pin:

@@ -23,11 +23,11 @@ from vxpy.api.attribute import read_attribute
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import process, ipc, logging
+from vxpy.core import process, ipc, logger
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class Io(process.AbstractProcess):

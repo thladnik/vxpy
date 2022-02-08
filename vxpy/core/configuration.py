@@ -19,9 +19,9 @@ import os
 import yaml
 
 from vxpy import config
-from vxpy.core import logging
+from vxpy.core import logger
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 def load_configuration(filepath: str):

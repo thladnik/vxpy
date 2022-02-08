@@ -5,7 +5,7 @@ from PySide6.QtWidgets import QLabel
 from vxpy import config
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import ipc, logging
+from vxpy.core import ipc, logger
 from vxpy import modules
 from vxpy.core.gui import IntegratedWidget
 
@@ -388,8 +388,8 @@ class LoggingWidget(IntegratedWidget):
 
     def print_log(self):
 
-        if len(logging.get_history()) > self.logccount:
-            for rec in logging.get_history()[self.logccount:]:
+        if len(logger.get_history()) > self.logccount:
+            for rec in logger.get_history()[self.logccount:]:
 
                 self.logccount += 1
 

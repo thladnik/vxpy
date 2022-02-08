@@ -1,7 +1,6 @@
 """
-MappApp ./core/attribute.py
-Custom file container formats to facilitate save builtin save-to-disk operations.
-Copyright (C) 2020 Tim Hladnik
+vxPy ./core/attribute.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -28,9 +27,9 @@ import numpy as np
 
 from vxpy import definitions
 from vxpy import config
-from vxpy.core import ipc, logging
+from vxpy.core import ipc, logger
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 def read_attribute(attr_name, *args, **kwargs):

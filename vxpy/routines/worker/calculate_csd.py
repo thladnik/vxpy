@@ -3,9 +3,9 @@ from scipy import signal
 
 from vxpy.api.attribute import ArrayAttribute, ArrayType, get_attribute
 from vxpy.api.routine import WorkerRoutine
-from vxpy.core import logging
+from vxpy.core import logger
 
-log = logging.getLogger(__name__)
+log = logger.getLogger(__name__)
 
 
 class CalculatePSD(WorkerRoutine):
