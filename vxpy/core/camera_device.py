@@ -18,8 +18,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 import importlib
-import numpy as np
 from typing import Any, Dict, Tuple, Type, Union, List
+import numpy as np
 
 from vxpy.core import logger
 
@@ -34,7 +34,7 @@ def get_camera(device_config: Dict[str, Any]) -> Union[AbstractCameraDevice, Non
         camera_class = getattr(_module, 'CameraDevice')
 
     except Exception as exc:
-        log.error(f'Failed to load camera API {device_config["api"]}')
+        log.error(f'Failed to load camera API {device_config["api"]} // {exc}')
         return
 
     else:
@@ -131,8 +131,23 @@ class AbstractCameraDevice(ABC):
         pass
 
     @abstractmethod
-    def start_stream(self):
+    def _start_stream(self):
         pass
+
+    def start_stream(self):
+        if self.format is None:
+            log.error(f'Tried starting camera stream of {self} without format set.')
+            return False
+
+        try:
+            self._start_stream()
+
+        except Exception as exc:
+            log.error(f'Failed to set up virtual camera. // {exc}')
+            return False
+
+        else:
+            return True
 
     @abstractmethod
     def snap_image(self):

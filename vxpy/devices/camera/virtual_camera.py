@@ -1,5 +1,21 @@
-from typing import Any, List, Tuple, Union
+"""
+vxPy ./devices/camera/virtual_camera.py
+Copyright (C) 2022 Tim Hladnik
 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
+from typing import Any, List, Tuple, Union
 import h5py
 import numpy as np
 
@@ -103,33 +119,21 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self.index = None
         self._h5: Union[h5py.File, None] = None
 
-    def start_stream(self):
+    def _start_stream(self):
 
-        if self.format is None:
-            log.error(f'Tried starting camera stream of {self} without format set.')
+        log.debug(f'Open {_get_filepath()}')
+        self._h5 = h5py.File(_get_filepath(), 'r')
+
+        if self.model not in self._h5:
             return False
 
-        try:
-            log.debug(f'Open {_get_filepath()}')
-            self._h5 = h5py.File(_get_filepath(), 'r')
-
-            if self.model not in self._h5:
-                return False
-
-            self._cap = self._h5[self.model]
-            if self.info['preload_file']:
-                log.debug('Preload frame data')
-                _format = self.format.dtype
-                self._data = self._cap[:]
-            self.index = 0
-            self.res_x, self.res_y = self.format.width, self.format.height
-
-        except Exception as exc:
-            log.error(f'Failed to set up virtual camera. // {exc}')
-            return False
-
-        else:
-            return True
+        self._cap = self._h5[self.model]
+        if self.info['preload_file']:
+            log.debug('Preload frame data')
+            _format = self.format.dtype
+            self._data = self._cap[:]
+        self.index = 0
+        self.res_x, self.res_y = self.format.width, self.format.height
 
     def end_stream(self):
         if self._h5 is not None:

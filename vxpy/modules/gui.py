@@ -1,6 +1,6 @@
 """
-MappApp ./modules/uiutils.py
-Copyright (C) 2020 Tim Hladnik
+vxPy ./modules/gui.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ class Gui(process.AbstractProcess):
         self.window = Window()
 
         # Run event loop
-        self.run(interval=1/40)
+        self.run(interval=1/30)
 
     def main(self):
         self.app.processEvents()

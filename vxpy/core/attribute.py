@@ -138,7 +138,12 @@ def get_permanent_attributes(process_name=None):
 
 def get_permanent_data(process_name=None):
     for attribute in get_permanent_attributes(process_name):
-        yield attribute.name, *[v[0] for v in attribute.read()]
+        if attribute.has_new_entry():
+            # Yield attribute data and time
+            yield attribute.name, *[v[0] for v in attribute.read()]
+
+            # Reset "new" flag
+            attribute.set_new(False)
 
 
 class Attribute(ABC):
@@ -155,6 +160,7 @@ class Attribute(ABC):
         self._data = None
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
+        self._new = False
 
     def _make_time(self):
         self._time: List[float, None] = ipc.Manager.list([None] * self._length)
@@ -177,6 +183,12 @@ class Attribute(ABC):
 
     def get_times(self, last):
         return self._get_times(*self._get_range(last))
+
+    def has_new_entry(self):
+        return self._new
+
+    def set_new(self, state):
+        self._new = state
 
     def add_to_file(self):
         write_to_file(ipc.Process, self.name)
@@ -215,6 +227,10 @@ class Attribute(ABC):
         # Write data
         self._write(internal_idx, value)
 
+        # Set "new" flag
+        self.set_new(True)
+
+        # Update last time
         self._last_time = ipc.Process.global_t
 
         # Advance buffer
