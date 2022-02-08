@@ -18,7 +18,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import os
 from typing import List, Tuple, Type
 import ctypes
 import numpy as np
@@ -42,6 +41,8 @@ class CallbackUserdata(ctypes.Structure):
 
 
 class CameraDevice(camera_device.AbstractCameraDevice):
+
+    manufacturer = 'TIS'
 
     # NOTE: TIS MAY only support 8-bit images for now?
     sink_formats = {'Y800': (1, np.uint8),  # (Y8) 8-bit monochrome
@@ -84,6 +85,42 @@ class CameraDevice(camera_device.AbstractCameraDevice):
                                      dtype=_dtype,
                                      shape=_shape)
 
+    def _get_property_value_range(self, property_name):
+        value_min = ctypes.c_float()
+        value_max = ctypes.c_float()
+        ic.IC_GetPropertyAbsoluteValueRange(self.h_grabber, tis.T(property_name), tis.T('Value'), value_min, value_max)
+
+        return value_min.value, value_max.value
+
+    def _set_property_value(self, property_name, value):
+        limits = self._get_property_value_range(property_name)
+        if not limits[0] <= value <= limits[1]:
+            log.warning(f'Cannot set value of property {property_name} to {value} '
+                        f'on camera device {self}. Out of range {limits}')
+            return
+
+        # Set
+        log.debug(f'Set property value of property {property_name} to {value} on camera device {self}')
+        ic.IC_SetPropertyAbsoluteValue(self.h_grabber, tis.T(property_name), tis.T('Value'), ctypes.c_float(value))
+
+        # Verify
+        new_value = ctypes.c_float()
+        ic.IC_GetPropertyAbsoluteValue(self.h_grabber, tis.T(property_name), tis.T('Value'), new_value)
+        value_min, value_max = self._get_property_value_range(property_name)
+        log.debug(f'New property value for {property_name} is {new_value.value:.5f} '
+                  f'({value_min:.5f} - {value_max:.5f}) on camera device {self}')
+
+    def _set_property_switch(self, property_name, switch_name, value):
+        # Set
+        ic.IC_SetPropertySwitch(self.h_grabber, tis.T(property_name), tis.T(switch_name), value)
+        log.debug(f'Set property switch {switch_name} of property {property_name} to {value} on camera device {self}')
+
+        # Verify
+        value = ctypes.c_long()
+        ic.IC_GetPropertySwitch(self.h_grabber, tis.T(property_name), tis.T(switch_name), value)
+        log.debug(f'New property switch value {property_name}:{switch_name} '
+                  f'is {value.value} on camera device {self}')
+
     def get_format_list(self) -> List[CameraFormat]:
         pass
 
@@ -106,9 +143,14 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         # Set to continuous mode
         ic.IC_SetContinuousMode(self.h_grabber, 0)
 
-        # Set trigger
+        # Set trigger enable
         ic.IC_SetPropertySwitch(self.h_grabber, tis.T("Trigger"), tis.T("Enable"), 1)
-        ic.IC_SetPropertySwitch(self.h_grabber, tis.T("Exposure Auto"), tis.T("Disable"), 1)
+
+        # Set properties
+        self._set_property_switch('Gain', 'Auto', 0)
+        self._set_property_switch('Exposure', 'Auto', 0)
+        self._set_property_value('Exposure', self.exposure/1000)
+        self._set_property_value('Gain', self.gain)
 
         # Start
         ic.IC_StartLive(self.h_grabber, 0)
