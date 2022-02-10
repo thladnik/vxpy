@@ -157,7 +157,14 @@ class Protocols(gui.AddonWidget):
         self.start_btn.setEnabled(ctrl_is_idle)
         self.protocol_list.setEnabled(ctrl_is_idle)
         protocol_is_running = bool(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
-        self.abort_btn.setEnabled(protocol_is_running)
+        start_phase = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
+        phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
+        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+
+        if protocol_is_running:
+            self.abort_btn.setEnabled(phase_stop is not None and time.time() <= phase_stop - .2)
+        else:
+            self.abort_btn.setEnabled(False)
 
         if ipc.Control.Protocol[definitions.ProtocolCtrl.name] is None:
             self.phase_progress_bar.setEnabled(False)
@@ -171,17 +178,16 @@ class Protocols(gui.AddonWidget):
             self.protocol_progress_bar.setTextVisible(True)
             self.phase_progress_bar.setTextVisible(True)
 
-        start_phase = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
         if start_phase is None:
             self.phase_progress_bar.setValue(0)
             return
 
-        # Update progress
-        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-        phase_diff = time.time() - start_phase
-        phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
-        phase_duration = phase_stop - start_phase
+        if phase_stop is None:
+            return
 
+        # Update progress
+        phase_diff = time.time() - start_phase
+        phase_duration = phase_stop - start_phase
         if phase_stop is not None:
             # Update phase progress
             self.phase_progress_bar.setMaximum(int(phase_duration * 1000))
@@ -193,6 +199,7 @@ class Protocols(gui.AddonWidget):
             self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count * 100)
             self.protocol_progress_bar.setValue(100 * phase_id + int(phase_diff/phase_duration * 100))
             self.protocol_progress_bar.setFormat(f'Phase {phase_id+1}/{self.current_protocol.phase_count}')
+
 
     def start_protocol(self):
         protocol_path = self.protocol_list.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
