@@ -126,11 +126,11 @@ class CameraDevice(camera_device.AbstractCameraDevice):
     def get_format_list(self) -> List[CameraFormat]:
         pass
 
-    def _framerate_range(self, _format: CameraFormat) -> Tuple[float, float]:
+    def _framerate_list(self, _format: CameraFormat) -> Tuple[float, float]:
         pass
 
     @classmethod
-    def get_camera_list(cls) -> List[Type[AbstractCameraDevice]]:
+    def get_camera_list(cls) -> List[AbstractCameraDevice]:
         pass
 
     def _start_stream(self) -> bool:

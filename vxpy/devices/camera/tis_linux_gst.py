@@ -2,8 +2,8 @@
 vxPy ./devices/camera/tis_linux_gst.py
 Copyright (C) 2022 Tim Hladnik
 
-Based on TIS' tisgrabber usage examples for Python
-at https://github.com/TheImagingSource/IC-Imaging-Control-Samples/
+Based on TIS' tiscamera usage examples for Python
+at https://github.com/TheImagingSource/Linux-tiscamera-Programming-Samples
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,9 +18,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from contextlib import contextmanager
+
 import gi
-gi.require_version("Gst", "1.0")
-gi.require_version("Tcam", "0.1")
+gi.require_version('Gst', '1.0')
+gi.require_version('Tcam', '0.1')
 from gi.repository import GLib, GObject, Gst, Tcam
 import re
 import time
@@ -34,6 +36,8 @@ log = logger.getLogger(__name__)
 
 
 class CameraDevice(camera_device.AbstractCameraDevice):
+    # TODO: fix bug where some randomly occurring problem during the closing of the gstreamer pipeline
+    #  results in an inaccessible TIS camera (until re-plugging the cammera)
 
     manufacturer = 'TIS'
 
@@ -90,91 +94,91 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         for name in self.source.get_tcam_property_names():
             print(name)
 
-    def get_format_list(self) -> List[CameraFormat]:
+    @contextmanager
+    def _capture_from_source(self):
+        # Open device
+        source = Gst.ElementFactory.make('tcambin')
+        source.set_property('serial', self.serial)
+        source.set_state(Gst.State.READY)
+        caps = source.get_static_pad('src').query_caps()
 
-        """Return formats for given device
-        """
+        try:
+            yield caps
+
+        finally:
+            # Close device
+            source.set_state(Gst.State.NULL)
+            source.set_property('serial', '')
+            source = None
+
+    def get_format_list(self) -> List[CameraFormat]:
 
         if bool(self._available_formats):
             return self._available_formats
 
+        with self._capture_from_source() as caps:
+
+            # Read all available formats
+            for x in range(caps.get_size()):
+                structure = caps.get_structure(x)
+                f = structure.get_value('format')
+                width = structure.get_value('width')
+                height = structure.get_value('height')
+
+                self._available_formats.append(camera_device.CameraFormat(f, width, height, ))
+
+        return self._available_formats
+
+    def _framerate_list(self, _format: CameraFormat) -> List[float]:
+
+        log.debug(f'Read framerates for format {_format} on device {self}')
+        framerates = []
+        with self._capture_from_source() as caps:
+
+            # Go through all available formats until we find _format
+            for x in range(caps.get_size()):
+                structure = caps.get_structure(x)
+                f = structure.get_value('format')
+                width = structure.get_value('width')
+                height = structure.get_value('height')
+
+                if _format != camera_device.CameraFormat(f, width, height):
+                    continue
+
+                # Get framerates
+                try:
+                    rates = structure.get_value('framerate')
+                except TypeError:
+                    # Workaround for missing GstValueList support in GI
+                    substr = structure.to_string()[structure.to_string().find('framerate='):]
+                    # try for frame rate lists
+                    field, values, remain = re.split('{|}', substr, maxsplit=3)
+                    rates = [x.strip() for x in values.split(',')]
+
+                framerates = [int(rate.split('/')[0]) for rate in rates]
+
+        if not bool(framerates):
+            log.warning(f'No framerates available for format {_format} on device {self}')
+
+        framerates = list(set(framerates))
+        framerates.sort()
+
+        return framerates
+
+    def _reset_source(self):
         # Open device
-        source = Gst.ElementFactory.make("tcambin")
-        source.set_property("serial", self.serial)
+        source = Gst.ElementFactory.make('tcambin')
+        source.set_property('serial', self.serial)
         source.set_state(Gst.State.READY)
-        caps = source.get_static_pad("src").query_caps()
-
-        # Read all available formats
-        for x in range(caps.get_size()):
-            structure = caps.get_structure(x)
-            f = structure.get_value("format")
-            # name = structure.get_name()
-
-            width = structure.get_value("width")
-            height = structure.get_value("height")
-
-            self._available_formats.append(camera_device.CameraFormat(f, width, height, ))
-
-            try:
-                rates = structure.get_value("framerate")
-            except TypeError:
-                # Workaround for missing GstValueList support in GI
-                substr = structure.to_string()[structure.to_string().find("framerate="):]
-                # try for frame rate lists
-                field, values, remain = re.split("{|}", substr, maxsplit=3)
-                rates = [x.strip() for x in values.split(",")]
-
-            for rate in rates:
-                framerate = int(rate.split('/')[0])
 
         # Close device
         source.set_state(Gst.State.NULL)
         source.set_property('serial', '')
         source = None
 
-        return self._available_formats
-
-    def _framerate_range(self, _format: CameraFormat) -> Tuple[float, float]:
-
-        # Open device
-        source = Gst.ElementFactory.make("tcambin")
-        source.set_property("serial", self.serial)
-        source.set_state(Gst.State.READY)
-        caps = source.get_static_pad("src").query_caps()
-
-        # Read all available formats
-        for x in range(caps.get_size()):
-            structure = caps.get_structure(x)
-            f = structure.get_value("format")
-            # name = structure.get_name()
-
-            width = structure.get_value("width")
-            height = structure.get_value("height")
-
-            if _format != camera_device.CameraFormat(f, width, height):
-                continue
-
-            try:
-                rates = structure.get_value("framerate")
-            except TypeError:
-                # Workaround for missing GstValueList support in GI
-                substr = structure.to_string()[structure.to_string().find("framerate="):]
-                # try for frame rate lists
-                field, values, remain = re.split("{|}", substr, maxsplit=3)
-                rates = [x.strip() for x in values.split(",")]
-
-            framerates = [int(rate.split('/')[0]) for rate in rates]
-
-            # Close device
-            source.set_state(Gst.State.NULL)
-            source.set_property('serial', '')
-            source = None
-
-            return min(framerates), max(framerates)
-
     @classmethod
-    def get_camera_list(cls) -> List[Type[AbstractCameraDevice]]:
-        source = Gst.ElementFactory.make("tcamsrc")
+    def get_camera_list(cls) -> List[AbstractCameraDevice]:
+        source = Gst.ElementFactory.make('tcamsrc')
         serials = source.get_device_serials()
 
         devices = []
@@ -224,10 +228,9 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         log.debug(f'Start pipeline for device {self}')
         try:
             self.pipeline.set_state(Gst.State.PLAYING)
-            code = self.pipeline.get_state(1000000000)
+            code = self.pipeline.get_state(5000000000)
             if code[1] != Gst.State.PLAYING:
                 log.error(f'Unable to start pipeline for device {self}: {code}')
-                self.pipeline.set_state(Gst.State.PLAYING)
                 return False
 
         except Exception as error:  # GError as error:
@@ -280,7 +283,36 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         return self.frame
 
     def end_stream(self) -> bool:
-        state = self.source.set_state(Gst.State.NULL)
-        log.debug(f'End stream with camera {self} in state {state}')
-        self.source.set_property('serial', '')
+
+        # Close device
+        # state = self.source.set_state(Gst.State.NULL)
+        log.debug(f'Close pipeline for camera {self}')
+        self.pipeline.set_state(Gst.State.PAUSED)
+        self.pipeline.set_state(Gst.State.NULL)
+        # self.source.set_property('serial', '')
+        # self.source = None
+
         return True
+
+
+if __name__ == '__main__':
+    import yaml
+    from vxpy.core import camera_device
+
+    data = yaml.safe_load(
+        '''
+        api: vxpy.devices.camera.tis_linux_gst
+        serial: 49410244
+        model: DMK 23U618
+        dtype: GRAY8
+        width: 640
+        height: 480
+        framerate: 100
+        exposure: 1.5
+        gain: 64
+        '''
+    )
+    c1 = camera_device.get_camera(data)
+    fmts = c1.get_format_list()
+    framerates = c1._framerate_list(fmts[0])
+    print(fmts[0], framerates)

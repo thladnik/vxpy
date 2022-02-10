@@ -28,7 +28,6 @@ log = logger.getLogger(__name__)
 
 
 def get_camera(device_config: Dict[str, Any]) -> Union[AbstractCameraDevice, None]:
-
     try:
         # Import api
         _module = importlib.import_module(device_config['api'])
@@ -121,20 +120,20 @@ class AbstractCameraDevice(ABC):
         pass
 
     @abstractmethod
-    def _framerate_range(self, _format: CameraFormat) -> Tuple[float, float]:
+    def _framerate_list(self, _format: CameraFormat) -> List[float]:
         pass
 
-    def get_framerate_range(self, _format: Union[CameraFormat, None] = None) -> Tuple[float, float]:
+    def get_framerate_list(self, _format: Union[CameraFormat, None] = None) -> List[float]:
         if _format is None:
             if self.format is None:
                 raise AttributeError('Camera format is needed to determine framerate range')
             _format = self.format
 
-        return self._framerate_range(_format)
+        return self._framerate_list(_format)
 
     @classmethod
     @abstractmethod
-    def get_camera_list(cls) -> List[Type[AbstractCameraDevice]]:
+    def get_camera_list(cls) -> List[AbstractCameraDevice]:
         pass
 
     @abstractmethod
@@ -183,6 +182,13 @@ class CameraFormat:
 
     def __repr__(self) -> str:
         return f'{self.dtype}({self.width}x{self.height})'
+
+    def __eq__(self, other):
+        if not isinstance(other, CameraFormat):
+            raise NotImplemented
+        return self.dtype == other.dtype \
+               and self.height == other.height \
+               and self.width == other.width
 
     @staticmethod
     def from_str(fmt_str: str) -> CameraFormat:

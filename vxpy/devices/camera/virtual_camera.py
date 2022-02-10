@@ -162,7 +162,7 @@ class CameraDevice(camera_device.AbstractCameraDevice):
     def get_format_list(self) -> List[CameraFormat]:
         return _models[self.model][FORMAT_STR]
 
-    def _framerate_range(self, _format: CameraFormat) -> Tuple[float, float]:
+    def _framerate_list(self, _format: CameraFormat) -> Tuple[float, float]:
         """Format not necessary for virtual camera framerate range"""
         return _models[self.model][FRAMERATE_RANGE_STR]
 
