@@ -65,7 +65,7 @@ class Camera(process.AbstractProcess):
             self._next_snap[camera_id] = -np.inf
         else:
             # TODO: add more info for user
-            log.warning(f'Unable to use {device} as \"{camera_id}\"')
+            log.error(f'Unable to use {device} as \"{camera_id}\"')
             return
 
     # def _run_camera_thread(self, device_id, device_config):

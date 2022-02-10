@@ -44,6 +44,8 @@ class CameraDevice(camera_device.AbstractCameraDevice):
 
     manufacturer = 'TIS'
 
+    _exposure_unit = camera_device.ExposureUnit.seconds
+
     # NOTE: TIS MAY only support 8-bit images for now?
     sink_formats = {'Y800': (1, np.uint8),  # (Y8) 8-bit monochrome
                     'RGB24': (3, np.uint8),  # 8-bit RGB
@@ -92,7 +94,7 @@ class CameraDevice(camera_device.AbstractCameraDevice):
 
         return value_min.value, value_max.value
 
-    def _set_property_value(self, property_name, value):
+    def _set_property(self, property_name, value):
         limits = self._get_property_value_range(property_name)
         if not limits[0] <= value <= limits[1]:
             log.warning(f'Cannot set value of property {property_name} to {value} '
@@ -100,7 +102,7 @@ class CameraDevice(camera_device.AbstractCameraDevice):
             return
 
         # Set
-        log.debug(f'Set property value of property {property_name} to {value} on camera device {self}')
+        log.debug(f'Set property value of property {property_name} to {value} on device {self}')
         ic.IC_SetPropertyAbsoluteValue(self.h_grabber, tis.T(property_name), tis.T('Value'), ctypes.c_float(value))
 
         # Verify
@@ -108,18 +110,18 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         ic.IC_GetPropertyAbsoluteValue(self.h_grabber, tis.T(property_name), tis.T('Value'), new_value)
         value_min, value_max = self._get_property_value_range(property_name)
         log.debug(f'New property value for {property_name} is {new_value.value:.5f} '
-                  f'({value_min:.5f} - {value_max:.5f}) on camera device {self}')
+                  f'({value_min:.5f} - {value_max:.5f}) on device {self}')
 
     def _set_property_switch(self, property_name, switch_name, value):
         # Set
         ic.IC_SetPropertySwitch(self.h_grabber, tis.T(property_name), tis.T(switch_name), value)
-        log.debug(f'Set property switch {switch_name} of property {property_name} to {value} on camera device {self}')
+        log.debug(f'Set property switch {switch_name} of property {property_name} to {value} on device {self}')
 
         # Verify
-        value = ctypes.c_long()
-        ic.IC_GetPropertySwitch(self.h_grabber, tis.T(property_name), tis.T(switch_name), value)
+        new_value = ctypes.c_long()
+        ic.IC_GetPropertySwitch(self.h_grabber, tis.T(property_name), tis.T(switch_name), new_value)
         log.debug(f'New property switch value {property_name}:{switch_name} '
-                  f'is {value.value} on camera device {self}')
+                  f'is {new_value.value} on device {self}')
 
     def get_format_list(self) -> List[CameraFormat]:
         pass
@@ -131,7 +133,7 @@ class CameraDevice(camera_device.AbstractCameraDevice):
     def get_camera_list(cls) -> List[Type[AbstractCameraDevice]]:
         pass
 
-    def _start_stream(self):
+    def _start_stream(self) -> bool:
         # Open device by model and serial
         ic.IC_OpenDevByUniqueName(self.h_grabber, tis.T(f'{self.model} {self.serial}'))
 
@@ -149,20 +151,23 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         # Set properties
         self._set_property_switch('Gain', 'Auto', 0)
         self._set_property_switch('Exposure', 'Auto', 0)
-        self._set_property_value('Exposure', self.exposure/1000)
-        self._set_property_value('Gain', self.gain)
+        self._set_property('Exposure', self.exposure)
+        self._set_property('Gain', self.gain)
 
         # Start
         ic.IC_StartLive(self.h_grabber, 0)
 
-    def snap_image(self):
+        return True
+
+    def snap_image(self) -> None:
         ic.IC_PropertyOnePush(self.h_grabber, tis.T("Trigger"), tis.T("Software Trigger"))
 
-    def get_image(self):
+    def get_image(self) -> np.ndarray:
         return self._frame
 
-    def end_stream(self):
+    def end_stream(self) -> bool:
         ic.IC_StopLive(self.h_grabber)
+        return True
 
 
 if __name__ == '__main__':

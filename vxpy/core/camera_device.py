@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 from abc import ABC, abstractmethod
 import importlib
+from enum import Enum
 from typing import Any, Dict, Tuple, Type, Union, List
 import numpy as np
 
@@ -46,6 +47,8 @@ def get_camera(device_config: Dict[str, Any]) -> Union[AbstractCameraDevice, Non
 
 class AbstractCameraDevice(ABC):
     manufacturer: str = None
+
+    _exposure_unit: ExposureUnit = None
 
     sink_formats: Dict[str, Tuple[int, Type[np.dtype]]] = None
 
@@ -76,7 +79,11 @@ class AbstractCameraDevice(ABC):
 
     @property
     def exposure(self) -> float:
-        return self._exposure
+        scale = 1
+        if self._exposure_unit is not None:
+            scale = 10 ** self._exposure_unit.value
+
+        return self._exposure * scale
 
     @exposure.setter
     def exposure(self, value) -> None:
@@ -131,35 +138,40 @@ class AbstractCameraDevice(ABC):
         pass
 
     @abstractmethod
-    def _start_stream(self):
+    def _start_stream(self) -> bool:
         pass
 
-    def start_stream(self):
+    def start_stream(self) -> bool:
         if self.format is None:
             log.error(f'Tried starting camera stream of {self} without format set.')
             return False
 
+        # Try connecting
         try:
-            self._start_stream()
+            return self._start_stream()
 
         except Exception as exc:
-            log.error(f'Failed to set up virtual camera. // {exc}')
+            log.error(f'Failed to set up virtual camera {self}: {exc}')
             return False
 
-        else:
-            return True
-
     @abstractmethod
-    def snap_image(self):
+    def snap_image(self) -> bool:
         pass
 
     @abstractmethod
-    def get_image(self):
+    def get_image(self) -> np.ndarray:
         pass
 
     @abstractmethod
-    def end_stream(self):
+    def end_stream(self) -> bool:
         pass
+
+
+class ExposureUnit(Enum):
+    seconds = -3
+    milliseconds = 0
+    microseconds = 3
+    nanoseconds = 6
 
 
 class CameraFormat:
@@ -169,7 +181,7 @@ class CameraFormat:
         self.width = width
         self.height = height
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.dtype}({self.width}x{self.height})'
 
     @staticmethod
@@ -182,4 +194,4 @@ class CameraFormat:
 
 
 if __name__ == '__main__':
-    print()
+    pass

@@ -29,11 +29,10 @@ from vxpy.definitions import *
 from vxpy import modules
 from vxpy.api import gui_rpc
 from vxpy.api.dependency import register_camera_device, register_io_device, assert_device_requirements
-from vxpy.core import process, ipc, logger, configuration
+from vxpy.core import process, ipc, logger
 from vxpy.core import routine
 from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
-from vxpy.core.calibration import load_calibration
 from vxpy.core.protocol import get_protocol
 from vxpy.gui.window_controls import RecordingWidget
 

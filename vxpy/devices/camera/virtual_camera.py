@@ -99,6 +99,8 @@ class CameraDevice(camera_device.AbstractCameraDevice):
 
     manufacturer = 'Virtual'
 
+    _exposure_unit = 'ms'
+
     sink_formats = {'RGB8': (3, np.uint8),
                     'Y800': (3, np.uint8),
                     'GRAY8': (1, np.uint8),
@@ -124,9 +126,6 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         log.debug(f'Open {_get_filepath()}')
         self._h5 = h5py.File(_get_filepath(), 'r')
 
-        if self.model not in self._h5:
-            return False
-
         self._cap = self._h5[self.model]
         if self.info['preload_file']:
             log.debug('Preload frame data')
@@ -135,9 +134,11 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self.index = 0
         self.res_x, self.res_y = self.format.width, self.format.height
 
-    def end_stream(self):
+    def end_stream(self) -> bool:
         if self._h5 is not None:
             self._h5.close()
+
+        return True
 
     def snap_image(self, *args, **kwargs):
         pass
