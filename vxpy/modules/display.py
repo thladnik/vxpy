@@ -97,8 +97,12 @@ class Display(process.AbstractProcess):
         # Prepare visual associated with phase
         self.prepare_visual()
 
-    def prepare_visual(self):
-        new_visual = self.current_phase.visual
+    def prepare_visual(self, new_visual=None):
+        if new_visual is None:
+            if self.current_phase is None:
+                log.error('No visual set to prepare')
+                return
+            new_visual = self.current_phase.visual
 
         # If new_visual hasn't been instantiated yet, do it now
         if isclass(new_visual):
@@ -121,6 +125,7 @@ class Display(process.AbstractProcess):
         #     if grp_name is None:
         #         grp_name = ''
         #     self._append_to_dataset(f'{grp_name}/{name}', data)
+
         if self.current_phase is not None:
             parameters = self.current_phase.visual_parameters
 
@@ -134,11 +139,9 @@ class Display(process.AbstractProcess):
         self.current_visual = None
         self.canvas.stimulus_visual = self.current_visual
 
-    # Visual controls
-
     def run_visual(self, new_visual, parameters):
         self.current_visual = new_visual
-        self.prepare_visual()
+        self.prepare_visual(new_visual)
         self.start_visual(parameters)
 
     def update_visual(self, parameters: Dict):

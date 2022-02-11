@@ -27,7 +27,7 @@ from vxpy.calibration_manager.display import planar_calibration
 from vxpy.calibration_manager.display import spherical_calibration
 from vxpy.calibration_manager import access
 from vxpy.modules.display import Canvas
-from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget
+from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget
 
 
 class DisplayCalibration(QtWidgets.QWidget):

@@ -27,7 +27,7 @@ from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import AddonWidget
 from vxpy.routines.camera import zf_tracking
 from vxpy.utils import geometry
-from vxpy.utils.uiutils import IntSliderWidget
+from vxpy.utils.widgets import IntSliderWidget
 
 
 class EyePositionDetector(AddonWidget):
@@ -257,7 +257,7 @@ class FishPosDirDetector(AddonWidget):
         AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
-        from vxpy.utils.uiutils import IntSliderWidget
+        from vxpy.utils.widgets import IntSliderWidget
 
         self.lpanel = QtWidgets.QWidget(self)
         self.lpanel.setLayout(QtWidgets.QVBoxLayout())

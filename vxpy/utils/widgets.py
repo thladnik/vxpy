@@ -1,5 +1,5 @@
 """
-MappApp ./utils/uiutils.py
+MappApp ./utils/widgets.py
 Copyright (C) 2020 Tim Hladnik
 
 * The "qn" class was originally created by Yue Zhang and is also available
@@ -22,9 +22,134 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 
 
+class DoubleSlider(QtWidgets.QWidget):
+
+    def __init__(self, parent):
+        QtWidgets.QWidget.__init__(self, parent=parent)
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+        self.setMaximumHeight(30)
+
+        # Double spinner
+        self.spinner = QtWidgets.QDoubleSpinBox()
+        self.spinner.valueChanged.connect(self.spinner_value_changed)
+        self.layout().addWidget(self.spinner)
+
+        # Slider
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
+        self.slider.setRange(0, 100)
+        self.slider.valueChanged.connect(self.slider_value_changed)
+        self.layout().addWidget(self.slider)
+
+    def slider_value_changed(self, value):
+        """Update spinner widget"""
+        self.spinner.setValue(self.spinner.maximum() * value / 100 - self.spinner.minimum())
+
+    def spinner_value_changed(self, value):
+        """Update slider widget"""
+        self.slider.blockSignals(True)
+        self.slider.setValue(100 * value / (self.spinner.maximum() - self.spinner.minimum()))
+        self.slider.blockSignals(False)
+
+    def set_range(self, min_val, max_val):
+        self.spinner.setRange(min_val, max_val)
+
+    def set_step(self, step_size):
+        self.spinner.setSingleStep(step_size)
+
+    def get_value(self):
+        return self.spinner.value()
+
+    def set_value(self, value):
+        self.spinner.setValue(value)
+
+    def connect_callback(self, callback):
+        self.spinner.valueChanged.connect(callback)
+
+
+class IntSlider(QtWidgets.QWidget):
+
+    def __init__(self, parent):
+        QtWidgets.QWidget.__init__(self, parent=parent)
+
+        self._callbacks = []
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+        self.setMaximumHeight(30)
+
+        # Double spinner
+        self.spinner = QtWidgets.QSpinBox()
+        self.spinner.valueChanged.connect(self.spinner_value_changed)
+        self.layout().addWidget(self.spinner)
+
+        # Slider
+        self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
+        self.slider.valueChanged.connect(self.slider_value_changed)
+        self.layout().addWidget(self.slider)
+
+        # Force slider update
+        self.spinner.valueChanged.emit(self.spinner.value())
+
+    def slider_value_changed(self, value):
+        """Update spinner widget"""
+        self.spinner.setValue(value)
+
+    def spinner_value_changed(self, value):
+        """Update slider widget"""
+        self.slider.blockSignals(True)
+        self.slider.setValue(value)
+        self.slider.blockSignals(False)
+
+    def set_range(self, min_val, max_val):
+        self.spinner.setRange(min_val, max_val)
+        self.slider.setRange(min_val, max_val)
+
+    def set_step(self, step_size):
+        self.spinner.setSingleStep(step_size)
+        self.slider.setSingleStep(step_size)
+
+    def get_value(self):
+        return self.spinner.value()
+
+    def set_value(self, value):
+        self.spinner.setValue(value)
+
+    def connect_callback(self, callback):
+        self.spinner.valueChanged.connect(callback)
+
+
+class ComboBox(QtWidgets.QWidget):
+    def __init__(self, parent):
+        QtWidgets.QWidget.__init__(self, parent=parent)
+
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0,0,0,0)
+        self.setMaximumHeight(30)
+
+        self.cb = QtWidgets.QComboBox(self)
+        self.cb.setContentsMargins(0,0,0,0)
+        self.layout().addWidget(self.cb)
+
+    def add_items(self, items):
+        self.cb.addItems(items)
+
+    def connect_callback(self, callback):
+        self.cb.currentTextChanged.connect(callback)
+
+    def get_value(self):
+        return self.cb.currentText()
+
+    def set_value(self, value):
+        self.cb.setCurrentText(value)
+
+
 class DoubleSliderWidget(QtWidgets.QWidget):
 
-    def __init__(self,slider_name,min_val,max_val,default_val,*args,
+    def __init__(self, slider_name, min_val, max_val, default_val,*args,
                  label_width=None,step_size=None,decimals=1,**kwargs):
         QtWidgets.QWidget.__init__(self, *args, **kwargs)
 

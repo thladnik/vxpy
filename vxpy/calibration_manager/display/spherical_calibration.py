@@ -22,7 +22,7 @@ from PySide6 import QtWidgets
 from vxpy.calibration_manager import access
 from vxpy.definitions import *
 from vxpy import definitions, calib
-from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget, Checkbox
+from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget, Checkbox
 
 
 class SphericalCalibrationWidget(QtWidgets.QWidget):

@@ -22,7 +22,7 @@ from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.core import ipc
 from vxpy.core.gui import AddonWidget
-from vxpy.utils.uiutils import IntSliderWidget
+from vxpy.utils.widgets import IntSliderWidget
 from vxpy.api.attribute import get_attribute_list, get_attribute, read_attribute
 from vxpy.api import worker_rpc
 from vxpy.routines.worker.calculate_csd import CalculatePSD

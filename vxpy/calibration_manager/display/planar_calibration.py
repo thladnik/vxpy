@@ -20,7 +20,7 @@ from PySide6 import QtWidgets
 from vxpy.configure import acc
 from vxpy import calib
 from vxpy.calibration_manager import access
-from vxpy.utils.uiutils import DoubleSliderWidget, IntSliderWidget
+from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget
 
 
 class PlanarCalibrationWidget(QtWidgets.QWidget):

@@ -31,7 +31,7 @@ from vxpy.definitions import *
 from vxpy import modules
 from vxpy.core import gui, ipc
 from vxpy.core import visual
-from vxpy.utils import uiutils
+from vxpy.utils import widgets
 from vxpy.core.protocol import get_available_protocol_paths, get_protocol
 
 
@@ -283,6 +283,8 @@ class VisualInteractor(gui.AddonWidget):
         self.btn_stop.clicked.connect(self.stop_visual)
         self.parameter_tab.layout().addWidget(self.btn_stop, 0, 1)
 
+        self._parameter_widgets = {}
+
     def append_directory_to_tree(self, path: Union[str, object]):
         # Add application visuals
         if isinstance(path, str):
@@ -332,7 +334,7 @@ class VisualInteractor(gui.AddonWidget):
         for name, *args in visual_cls.interface:
             vdef = None
             if isinstance(args[0], str):
-                wdgt = uiutils.ComboBoxWidget(name, args)
+                wdgt = widgets.ComboBoxWidget(name, args)
                 vdef = args[0]
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
@@ -350,7 +352,7 @@ class VisualInteractor(gui.AddonWidget):
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef = args[0]
-                wdgt = uiutils.Checkbox(name, vdef)
+                wdgt = widgets.Checkbox(name, vdef)
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], int):
@@ -358,7 +360,7 @@ class VisualInteractor(gui.AddonWidget):
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef, vmin, vmax = args
-                wdgt = uiutils.IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt = widgets.IntSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif isinstance(args[0], float):
@@ -366,7 +368,7 @@ class VisualInteractor(gui.AddonWidget):
                 if len(args) > 3:
                     kwargs = args.pop(-1)
                 vdef, vmin, vmax = args
-                wdgt = uiutils.DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
+                wdgt = widgets.DoubleSliderWidget(name, vmin, vmax, vdef, **kwargs)
                 wdgt.setParent(self.tuner)
                 wdgt.connect_to_result(self.update_parameter(name))
             elif callable(args[0]):
@@ -412,7 +414,8 @@ class VisualInteractor(gui.AddonWidget):
         self.tuner.layout().addItem(spacer)
 
         # Run visual
-        # ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, defaults)
+        defaults = {name: wdgt.get_value() for name, wdgt in self._parameter_widgets.items()}
+        ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, defaults)
         self.tab_widget.setTabEnabled(1, True)
         self.tab_widget.setCurrentWidget(self.parameter_tab)
 
@@ -420,43 +423,51 @@ class VisualInteractor(gui.AddonWidget):
 
         row_id = self.tuner.layout().count() // 2
 
+        # If parameter is marked as internal, skip it (e.g. time parameters)
+        if parameter.internal:
+            return
+
         # Add label with parameter name
         self.tuner.layout().addWidget(QLabel(parameter.name), row_id, 0)
 
         # Combobox for mapped values
         value_map = parameter.value_map
         if bool(value_map):
-            wdgt = QtWidgets.QComboBox(self.tuner)
-            wdgt.addItems([str(key) for key in value_map.keys()])
+            # wdgt = QtWidgets.QComboBox(self.tuner)
+            # wdgt.addItems([str(key) for key in value_map.keys()])
+            wdgt = widgets.ComboBox(self.tuner)
+            wdgt.add_items([str(key) for key in value_map.keys()])
+            if parameter.default is not None:
+                wdgt.set_value(parameter.default)
 
         else:
             # Number types
-            if parameter.dtype in (np.uint32, np.int32, np.float32, np.float64):
+            dtype = parameter.dtype
+            if dtype in (np.uint32, np.int32, np.float32, np.float64):
                 # Floats
-                if parameter.dtype in (np.float32, np.float64):
-                    wdgt = QtWidgets.QDoubleSpinBox(self.tuner)
+                if dtype in (np.float32, np.float64):
+                    wdgt = widgets.DoubleSlider(self.tuner)
                 else:
-                    wdgt = QtWidgets.QSpinBox(self.tuner)
-
+                    wdgt = widgets.IntSlider(self.tuner)
 
                 # (optional) Set range
                 limits = parameter.limits
                 if limits is not None:
-                    wdgt.setRange(*limits)
+                    wdgt.set_range(*limits)
 
                 # (optional) Set step size
                 step_size = parameter.step_size
                 if step_size is not None:
-                    wdgt.setSingleStep(step_size)
+                    wdgt.set_step(step_size)
 
                 # Set default value
                 _default = parameter.default
                 if _default is None:
                     if limits is not None:
-                        _default = parameter.dtype(sum(limits) / 2)
+                        _default = dtype(sum(limits) / 2)
                     else:
-                        _default = parameter.dtype(1)
-                wdgt.setValue(_default)
+                        _default = dtype(1)
+                wdgt.set_value(_default)
 
             # Assume it is bool otherwise -> Checkbox
             else:
@@ -464,12 +475,22 @@ class VisualInteractor(gui.AddonWidget):
                 wdgt.setTristate(False)
                 state = False if parameter.default is None or parameter.default else True
                 wdgt.setCheckState(QtCore.Qt.CheckState(state))
+                wdgt.get_value(wdgt.checkState)
 
+        if hasattr(wdgt, 'connect_callback'):
+            # Get update callback
+            callback = self.update_parameter(parameter.name)
+
+            # Set widget callback to delay timer
+            wdgt.connect_callback(callback)
+
+        self._parameter_widgets[parameter.name] = wdgt
         self.tuner.layout().addWidget(wdgt, row_id, 1)
 
     @staticmethod
     def update_parameter(name):
         def _update(value):
+            print(name, value)
             ipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, {name: value})
         return _update
 
@@ -477,9 +498,10 @@ class VisualInteractor(gui.AddonWidget):
         self.clear_layout(self.tuner.layout())
         self.tab_widget.setCurrentWidget(self.overview_tab)
         self.tab_widget.setTabEnabled(1, False)
-        # ipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
+        ipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
+        self._parameter_widgets = {}
         while layout.count():
             child = layout.itemAt(0)
             if isinstance(child, QtWidgets.QSpacerItem):
