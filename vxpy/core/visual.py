@@ -753,10 +753,6 @@ class Parameter:
             if callable(data):
                 data = data()
 
-        if not isinstance(data, (Number, bool)):
-            log.error(f'Tried to set parameter {self} with incompatible type: {type(data)}')
-            return
-
         self._data[:] = data
         self.update()
 
