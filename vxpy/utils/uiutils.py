@@ -273,7 +273,7 @@ class ComboBoxWidget(QtWidgets.QWidget):
         self.cb.currentTextChanged.connect(callback)
 
     def get_value(self):
-        return self.spinner.value()
+        return self.spinner.data()
 
     def set_value(self,value):
         self.spinner.setValue(value)

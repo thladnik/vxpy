@@ -27,7 +27,7 @@ from typing import Any, Callable, List, Union
 from vxpy import api
 from vxpy.api import event
 from vxpy import config
-from vxpy.core.protocol import StaticPhasicProtocol
+from vxpy.core import protocol
 from vxpy.definitions import *
 from vxpy import definitions
 from vxpy.core import routine, ipc, logger, configuration, calibration
@@ -55,7 +55,8 @@ class AbstractProcess:
     _shutdown: bool
 
     # Protocol related
-    protocol: Union[StaticPhasicProtocol] = None
+    current_protocol: protocol.AbstractProtocol = None
+    current_phase: protocol.Phase = None
     phase_start_time: float = None
     phase_time: float = None
     program_start_time: float = None

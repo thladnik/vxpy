@@ -25,7 +25,7 @@ from vxpy import config, calib
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.core import process, ipc, logger
-from vxpy.core.protocol import AbstractProtocol, get_protocol
+from vxpy.core import protocol
 from vxpy.core import visual
 
 log = logger.getLogger(__name__)
@@ -34,7 +34,7 @@ log = logger.getLogger(__name__)
 class Display(process.AbstractProcess):
     name = PROCESS_DISPLAY
 
-    stimulus_visual: visual.AbstractVisual = None
+    current_visual: visual.AbstractVisual = None
 
     _uniform_maps = dict()
 
@@ -59,7 +59,6 @@ class Display(process.AbstractProcess):
                              vsync=False,
                              decorate=False)
 
-
         # Process vispy events once too avoid frozen screen at start
         app.process_events()
 
@@ -75,90 +74,94 @@ class Display(process.AbstractProcess):
             log.warning(f'Uniform "{uniform_name}" is already set.')
 
     def start_protocol(self):
-        _protocol = get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
+        # Fetch protocol class
+        _protocol = protocol.get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
         if _protocol is None:
             # Controller should abort this
             return
 
-        self.protocol = _protocol()
+        # Instantiate protocol
+        self.current_protocol = _protocol()
         try:
-            self.protocol.initialize_visuals(self.canvas)
+            self.current_protocol.initialize_visuals(self.canvas)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())
 
-    # Phase controls
+    def prepare_phase(self):
+        # Get current phase from protocol
+        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+        self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
+        self.current_phase = self.current_protocol.get_phase(phase_id)
 
-    def prepare_phase(self, phase=None, **parameters):
-        # Get new_visual info from protocol if not provided
-        if phase is None:
-            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-            self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
-            phase = self.protocol.get_phase(phase_id)
+        # Prepare visual associated with phase
+        self.prepare_visual()
 
-        # Prepare new_visual
-        self.prepare_visual(phase.visual)
+    def prepare_visual(self):
+        new_visual = self.current_phase.visual
+
+        # If new_visual hasn't been instantiated yet, do it now
+        if isclass(new_visual):
+            self.current_visual = new_visual(self.canvas)
+        else:
+            self.current_visual = new_visual
 
     def start_phase(self):
         self.start_visual()
-        self.set_record_group_attrs(self.stimulus_visual.parameters)
+        self.set_record_group_attrs(self.current_visual.parameters)
         self.set_record_group_attrs({'start_time': get_time(),
-                                     'visual_name': str(self.stimulus_visual.__class__.__qualname__)})
+                                     'visual_name': str(self.current_visual.__class__.__qualname__)})
+
+    def start_visual(self, parameters=None):
+        self.current_visual.initialize()
+        self.canvas.set_visual(self.current_visual)
+
+        # for name, data in self.current_visual.data_appendix.items():
+        #     grp_name = self.record_group
+        #     if grp_name is None:
+        #         grp_name = ''
+        #     self._append_to_dataset(f'{grp_name}/{name}', data)
+        if self.current_phase is not None:
+            parameters = self.current_phase.visual_parameters
+
+        self.update_visual(parameters)
+        self.current_visual.start()
 
     def end_phase(self):
         self.stop_visual()
 
     def end_protocol(self):
-        self.stimulus_visual = None
-        self.canvas.stimulus_visual = self.stimulus_visual
+        self.current_visual = None
+        self.canvas.stimulus_visual = self.current_visual
 
     # Visual controls
 
-    def run_visual(self, new_visual, **parameters):
-        self.prepare_visual(new_visual, **parameters)
-        self.start_visual()
+    def run_visual(self, new_visual, parameters):
+        self.current_visual = new_visual
+        self.prepare_visual()
+        self.start_visual(parameters)
 
-    def prepare_visual(self, new_visual, **parameters):
-        # If new_visual hasn't been instantiated yet, do it now
-        if isclass(new_visual):
-            self.stimulus_visual = new_visual(self.canvas)
-        else:
-            self.stimulus_visual = new_visual
-
-        self.stimulus_visual.update(**parameters)
-
-    def start_visual(self):
-        self.stimulus_visual.initialize()
-        self.canvas.set_visual(self.stimulus_visual)
-
-        for name, data in self.stimulus_visual.data_appendix.items():
-            grp_name = self.record_group
-            if grp_name is None:
-                grp_name = ''
-            self._append_to_dataset(f'{grp_name}/{name}', data)
-
-        self.stimulus_visual.start()
-
-    def update_visual(self, **parameters):
-        if self.stimulus_visual is None:
+    def update_visual(self, parameters: Dict):
+        if self.current_visual is None:
+            log.warning(f'Tried updating visual while none is set. Parameters: {parameters}')
             return
 
-        self.stimulus_visual.update(**parameters)
+        self.current_visual.update(parameters)
 
     def stop_visual(self):
-        self.stimulus_visual.end()
-        self.stimulus_visual = None
-        self.canvas.set_visual(self.stimulus_visual)
+        self.current_visual.end()
+        self.current_visual = None
+        self.canvas.set_visual(self.current_visual)
 
     def trigger_visual(self, trigger_fun):
-        self.stimulus_visual.trigger(trigger_fun)
+        self.current_visual.trigger(trigger_fun)
 
     def main(self):
 
         self.canvas.update()
         self.app.process_events()
-        if self.stimulus_visual is not None and self.stimulus_visual.is_active:
-            self.update_routines(self.stimulus_visual)
+        if self.current_visual is not None and self.current_visual.is_active:
+            self.update_routines(self.current_visual)
 
     def _start_shutdown(self):
         process.AbstractProcess._start_shutdown(self)
@@ -170,7 +173,7 @@ class Canvas(app.Canvas):
         app.Canvas.__init__(self, *args, **kwargs)
         self.tick = 0
         self.measure_fps(.5, self.show_fps)
-        self.stimulus_visual = None
+        self.current_visual = None
         gloo.set_viewport(0, 0, *self.physical_size)
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
 
@@ -182,7 +185,7 @@ class Canvas(app.Canvas):
         self.show()
 
     def set_visual(self, visual):
-        self.stimulus_visual = visual
+        self.current_visual = visual
 
     def draw(self):
         self.update()
@@ -197,8 +200,8 @@ class Canvas(app.Canvas):
         # Leave catch in here for now.
         # This makes debugging new stimuli much easier.
         try:
-            if self.stimulus_visual is not None:
-                self.stimulus_visual.draw(self.new_t - self.t)
+            if self.current_visual is not None:
+                self.current_visual.draw(self.new_t - self.t)
         except Exception as exc:
             import traceback
             print(traceback.print_exc())

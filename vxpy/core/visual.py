@@ -15,16 +15,19 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import inspect
+from numbers import Number
+
 import numpy as np
-from typing import Any
+from numpy.typing import DTypeLike
+from typing import List, Tuple, Any, Union, Callable
 from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
 from vispy.util import transforms
 
-from vxpy import config
 from vxpy import calib
 from vxpy.definitions import *
 from vxpy.core import logger
@@ -69,7 +72,9 @@ class AbstractVisual(ABC):
 
     _parse_fun_prefix = 'parse_'
 
-    def __init__(self, canvas, _protocol=None):
+    def __init__(self, canvas=None, _protocol=None):
+        if canvas is None:
+            canvas = gloo.context.FakeCanvas()
         self.canvas: app.Canvas = canvas
         self.parameters: Dict[str, Any] = dict()
         self.custom_programs: Dict[str, gloo.Program] = dict()
@@ -88,6 +93,11 @@ class AbstractVisual(ABC):
         self._display_prog['a_position'] = self.square
         self._display_prog['u_texture'] = self._out_texture
 
+        # Get all visual parameters
+        self.static_parameters: List[Parameter] = []
+        self.variable_parameters: List[Parameter] = []
+        self._collect_parameters()
+
         self.is_active = True
 
         gloo.set_state(depth_test=True)
@@ -100,7 +110,26 @@ class AbstractVisual(ABC):
         else:
             self.__dict__[key] = value
 
+    def _collect_parameters(self):
+        """Function goes through all attributes within visual and collects anything derived from Parameter"""
+
+        # Iterate through instance attributes
+        for name in dir(self):
+
+            param = getattr(self, name)
+
+            # Skip anything that is not a parameter
+            if not isinstance(param, Parameter):
+                continue
+
+            # Add to static or variable list
+            if param.static:
+                self.static_parameters.append(param)
+            else:
+                self.variable_parameters.append(param)
+
     def _add_data_appendix(self, name, data):
+        """Deprecated?"""
         self.data_appendix[name] = data
 
     def apply_transform(self, program):
@@ -139,7 +168,7 @@ class AbstractVisual(ABC):
         # controller_rpc(end_protocol_phase)
         self.is_active = False
 
-    def update(self, _update_verbosely=True, **params):
+    def update(self, params, _update_verbosely=True):
         """
         Method to update stimulus parameters.
 
@@ -150,8 +179,23 @@ class AbstractVisual(ABC):
         if not(bool(params)):
             return
 
-        msg = f'Update visual {self.__class__.__name__}. ' \
-              'Set ' + ' '.join([f'{key}: {value}' for key, value in params.items()])
+        msg_params = []
+        for key, value in params.items():
+            if hasattr(value, '__iter__'):
+                if isinstance(value, np.ndarray):
+                    msg_val = f'Array{value.shape}'
+                elif isinstance(value, list):
+                    msg_val = f'List({len(value)})'
+                elif isinstance(value, tuple):
+                    msg_val = f'Tuple({len(value)})'
+                else:
+                    msg_val = value
+            else:
+                msg_val = value
+
+            msg_params.append(f'{key}: {msg_val}')
+
+        msg = f'Update parameters for visual {self.__class__.__name__}: {", ".join(msg_params)}'
 
         if _update_verbosely:
             # (optional) Logging
@@ -159,19 +203,22 @@ class AbstractVisual(ABC):
         else:
             log.debug(msg)
 
-        # Write new value to parameters dictionary
-        for key, value in params.items():
-            # (Optional) parsing through custom function
-            if hasattr(self, f'{self._parse_fun_prefix}{key}'):
-                value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
-            # Save to parameters
-            self.parameters[key] = value
+        # # Write new value to parameters dictionary
+        # for key, value in params.items():
+        #     # (Optional) parsing through custom function
+        #     if hasattr(self, f'{self._parse_fun_prefix}{key}'):
+        #         value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
+        #     # Save to parameters
+        #     self.parameters[key] = value
+        #
+        # # Update program uniforms from parameters
+        # for program_name, program in self.custom_programs.items():
+        #     for key, value in self.parameters.items():
+        #         if key in program:
+        #             program[key] = value
 
-        # Update program uniforms from parameters
-        for program_name, program in self.custom_programs.items():
-            for key, value in self.parameters.items():
-                if key in program:
-                    program[key] = value
+        for key, value in params.items():
+            getattr(self, str(key)).data = value
 
     @abstractmethod
     def initialize(self, **kwargs):
@@ -632,26 +679,331 @@ class PlainVisual(AbstractVisual, ABC):
         self.render(dt)
 
 
-class Uniform:
+class Parameter:
+    dtype: DTypeLike = None
+    limits: Tuple[Number, Number] = None
+    default: Any = None
+    step_size: Number = None
 
-    def __init__(self, _dtype):
-        self._dtype = _dtype
+    def __init__(self, name: str,
+                 shape: Tuple[int, ...] = None,
+                 static: bool = False,
+                 value_map: Union[dict, Callable] = None,
+                 internal: bool = False,
+                 default: Any = None,
+                 limits: Tuple[Number, Number] = None,
+                 step_size: Number = None):
+
+        self._name: str = name
+        self._programs: List[gloo.Program] = []
+        self._linked_parameters: List[Parameter] = []
+
+        if shape is not None:
+            self._data: np.ndarray = np.zeros(shape, dtype=self.dtype)
+
+        self._static = static
+
+        if value_map is None:
+            value_map = {}
+        self.value_map = value_map
+
+        self.internal = internal
+        self.default = default
+        self.limits = limits
+        self.step_size = step_size
+
+    def __repr__(self):
+        return self.name
+
+    def __add__(self, other):
+        self.data = self.data + other
+
+    @property
+    def static(self):
+        return self._static
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        pass
+
+    @property
+    def data(self):
+        return self._data[:]
+
+    @data.setter
+    def data(self, data):
+
+        # If value_map is a callable, use it to transform data
+        if callable(self.value_map):
+            data = self.value_map(data)
+
+        # If a value_map is a dictionary and contains "data" as key, use the mapped value from dictionary
+        if bool(self.value_map) and data.__hash__ is not None:
+            value = self.value_map.get(data)
+
+            # Set data to value
+            if value is not None:
+                data = value
+
+            # If the mapped value is a callable, call it and use return value instead
+            if callable(data):
+                data = data()
+
+        if not isinstance(data, (Number, bool)):
+            log.error(f'Tried to set parameter {self} with incompatible type: {type(data)}')
+            return
+
+        self._data[:] = data
+        self.update()
+
+    def link(self, parameter: Parameter):
+        if parameter.name not in self._linked_parameters:
+            self._linked_parameters.append(parameter)
+
+    def connect(self, program: gloo.Program):
+        if program not in self._programs:
+            self._programs.append(program)
+            self.update()
+
+    def update(self):
+        for program in self._programs:
+            if self.name in program:
+                program[self.name] = self.data
 
 
-class FloatUniform(Uniform):
+# Bool types
 
-    def __init__(self, name):
-        Uniform.__init__(self, np.float32)
+class BoolParameter(Parameter):
+    dtype = bool
 
-
-class IntUniform(Uniform):
-
-    def __init__(self, name):
-        Uniform.__init__(self, np.int32)
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(1,), **kwargs)
 
 
-class Vec3Uniform(Uniform):
+class BoolVec2Parameter(Parameter):
+    dtype = bool
 
-    def __init__(self, name):
-        Uniform.__init__(self, np.ndarray)
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(2,), **kwargs)
 
+
+class BoolVec3Parameter(Parameter):
+    dtype = bool
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(3,), **kwargs)
+
+
+class BoolVec4Parameter(Parameter):
+    dtype = bool
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(4,), **kwargs)
+
+
+# Int types
+
+class IntParameter(Parameter):
+    dtype = np.int32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(1,), **kwargs)
+
+
+class IntVec2Parameter(Parameter):
+    dtype = np.int32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(2,), **kwargs)
+
+
+class IntVec3Parameter(Parameter):
+    dtype = np.int32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(3,), **kwargs)
+
+
+class IntVec4Parameter(Parameter):
+    dtype = np.int32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(4,), **kwargs)
+
+
+# UInt types
+
+class UIntParameter(Parameter):
+    dtype = np.uint32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(1,), **kwargs)
+
+
+class UIntVec2Parameter(Parameter):
+    dtype = np.uint32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(2,), **kwargs)
+
+
+class UIntVec3Parameter(Parameter):
+    dtype = np.uint32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(3,), **kwargs)
+
+
+class UIntVec4Parameter(Parameter):
+    dtype = np.uint32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(4,), **kwargs)
+
+
+# Float types
+
+class FloatParameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(1,), **kwargs)
+
+
+class Vec2Parameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(2,), **kwargs)
+
+
+class Vec3Parameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(3,), **kwargs)
+
+
+class Vec4Parameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(4,), **kwargs)
+
+
+# Double types
+
+class DoubleParameter(Parameter):
+    dtype = np.float64
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, **kwargs)
+
+
+class DoubleVec2Parameter(Parameter):
+    dtype = np.float64
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(2,), **kwargs)
+
+
+class DoubleVec3Parameter(Parameter):
+    dtype = np.float64
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(3,), **kwargs)
+
+
+class DoubleVec4Parameter(Parameter):
+    dtype = np.float64
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(4,), **kwargs)
+
+
+# Matrix types
+
+class MatNxMParameter(Parameter):
+    """Requires shape = (N, M) keyword argument."""
+
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, **kwargs)
+
+
+class Mat2Parameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(2, 2), **kwargs)
+
+
+class Mat3Parameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(3, 3), **kwargs)
+
+
+class Mat4Parameter(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, shape=(4, 4), **kwargs)
+
+
+# Textures
+
+class Texture(Parameter):
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, **kwargs)
+
+    def set_start_data(self, data):
+        self._data = np.array(data, dtype=self.dtype)
+
+
+class Texture1D(Texture):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Texture.__init__(self, *args, **kwargs)
+
+
+class TextureInt1D(Texture):
+    dtype = np.int32
+
+    def __init__(self, *args, **kwargs):
+        Texture.__init__(self, *args, **kwargs)
+
+
+class TextureUInt1D(Texture):
+    dtype = np.uint32
+
+    def __init__(self, *args, **kwargs):
+        Texture.__init__(self, *args, **kwargs)
+
+
+class Texture2D(Texture):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Texture.__init__(self, *args, **kwargs)
+
+
+class TextureInt2D(Texture):
+    dtype = np.int32
+
+    def __init__(self, *args, **kwargs):
+        Texture.__init__(self, *args, **kwargs)
+
+
+class TextureUInt2D(Texture):
+    dtype = np.uint32
+
+    def __init__(self, *args, **kwargs):
+        Texture.__init__(self, *args, **kwargs)

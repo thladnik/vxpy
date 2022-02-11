@@ -17,10 +17,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import inspect
+
+import numpy as np
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 import time
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union, Type
 
 from vxpy import api
 from vxpy.definitions import *
@@ -229,47 +231,57 @@ class VisualInteractor(gui.AddonWidget):
         gui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
-        self.left_widget = QtWidgets.QWidget(self)
-        self.left_widget.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self.left_widget)
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.layout().addWidget(self.tab_widget)
 
-        self.right_widget = QtWidgets.QWidget(self)
-        self.right_widget.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self.right_widget)
-
-        # Set stretch
-        self.layout().setStretchFactor(self.left_widget, 1)
-        self.layout().setStretchFactor(self.right_widget, 1)
+        # Available visuals widget
+        self.overview_tab = QtWidgets.QWidget(self)
+        self.overview_tab.setLayout(QtWidgets.QGridLayout())
+        self.tab_widget.addTab(self.overview_tab, 'Available visuals')
 
         # Tree widget
-        self.tree = QtWidgets.QTreeWidget(self.left_widget)
+        self.tree = QtWidgets.QTreeWidget(self.overview_tab)
         self.tree.setColumnCount(2)
         self.tree.setHeaderLabels(['', 'Description'])
         self.tree.itemChanged.connect(self.resize_columns)
         self.tree.itemCollapsed.connect(self.resize_columns)
         self.tree.itemExpanded.connect(self.resize_columns)
-        self.left_widget.layout().addWidget(self.tree)
         self.tree.itemDoubleClicked.connect(self.start_visual)
+        self.overview_tab.layout().addWidget(self.tree, 0, 0, 2, 1)
 
         self.toplevel_tree_items: List[QtWidgets.QTreeWidgetItem] = []
         self.tree_items: List[Tuple[object, QtWidgets.QTreeWidgetItem]] = []
         self.append_directory_to_tree(PATH_VISUALS)
         # self.append_directory_to_tree(vxpy.visuals)
 
+        # Visual parameters widget
+        self.parameter_tab = QtWidgets.QWidget(self)
+        self.parameter_tab.setLayout(QtWidgets.QGridLayout())
+        self.tab_widget.addTab(self.parameter_tab, 'Visual parameters')
+        self.tab_widget.setTabEnabled(1, False)
+        # Scroll area
+        self.parameter_scrollarea = QtWidgets.QScrollArea(self.parameter_tab)
+        self.parameter_scrollarea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOn)
+        self.parameter_scrollarea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.parameter_scrollarea.setWidgetResizable(True)
+        # Tuner widget
+        self.tuner = QtWidgets.QWidget()
+        self.tuner.setLayout(QtWidgets.QGridLayout())
+        self.parameter_scrollarea.setWidget(self.tuner)
+        # Set layout
+        self.parameter_tab.layout().addWidget(self.parameter_scrollarea, 0, 0, 2, 1)
+        self.parameter_tab.layout().setColumnStretch(0, 1)
+        self.parameter_tab.layout().setColumnStretch(1, 0)
+
         # Buttons
         # Start
         self.btn_start = QtWidgets.QPushButton('Start visual')
         self.btn_start.clicked.connect(self.start_visual)
-        self.left_widget.layout().addWidget(self.btn_start)
+        self.overview_tab.layout().addWidget(self.btn_start, 1, 1)
         # Stop
         self.btn_stop = QtWidgets.QPushButton('Stop visual')
         self.btn_stop.clicked.connect(self.stop_visual)
-        self.left_widget.layout().addWidget(self.btn_stop)
-
-        # Visual tuning widget
-        self.tuner = QtWidgets.QGroupBox('Visual parameters',self.right_widget)
-        self.tuner.setLayout(QtWidgets.QVBoxLayout())
-        self.right_widget.layout().addWidget(self.tuner)
+        self.parameter_tab.layout().addWidget(self.btn_stop, 0, 1)
 
     def append_directory_to_tree(self, path: Union[str, object]):
         # Add application visuals
@@ -313,22 +325,7 @@ class VisualInteractor(gui.AddonWidget):
         self.tree.resizeColumnToContents(0)
         self.tree.resizeColumnToContents(1)
 
-    def start_visual(self, item=False, column=False):
-        if not(item):
-            item = self.tree.currentItem()
-
-        visual = item.data(0, QtCore.Qt.ItemDataRole.UserRole)
-
-        if visual is None:
-            return
-
-        # TODO: Reload does not seem to work yet
-        visual_module, visual_name = visual
-        module = importlib.reload(importlib.import_module(visual_module))
-        visual_cls = getattr(module, visual_name)
-
-        # Clear layout
-        self.clear_layout(self.tuner.layout())
+    def _old_ui_elements(self):
 
         # Add UI components for visual
         defaults: Dict[str, Any]= dict()
@@ -385,22 +382,102 @@ class VisualInteractor(gui.AddonWidget):
             if vdef is not None:
                 defaults[name] = vdef
 
+    def start_visual(self, item=False, column=False):
+
+        # Get item data
+        if not item:
+            item = self.tree.currentItem()
+        new_visual = item.data(0, QtCore.Qt.ItemDataRole.UserRole)
+
+        if new_visual is None:
+            return
+
+        # Clear layout
+        self.clear_layout(self.tuner.layout())
+
+        # Import visual class
+        visual_module, visual_name = new_visual
+        module = importlib.reload(importlib.import_module(visual_module))
+        visual_cls: Type[visual.AbstractVisual] = getattr(module, visual_name)
+
+        # Instantiate
+        current_visual = visual_cls()
+
+        # Set up parameter widgets for interaction
+        for i, parameter in enumerate(current_visual.variable_parameters):
+            self._add_parameter_widget(parameter)
+
+        # Add spacer for better layout
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.tuner.layout().addItem(spacer)
 
-        # TODO: this causes ValueError if visual_cls.paramters.values() contains a numpy.ndarray
-        # if None in visual_cls.parameters.values():
-        #     logging.write(logging.WARNING, 'Starting visual with some unset parameters.')
+        # Run visual
+        # ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, defaults)
+        self.tab_widget.setTabEnabled(1, True)
+        self.tab_widget.setCurrentWidget(self.parameter_tab)
 
-        ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, **defaults) #**visual_cls.parameters)
+    def _add_parameter_widget(self, parameter: visual.Parameter):
 
-    def update_parameter(self, name):
+        row_id = self.tuner.layout().count() // 2
+
+        # Add label with parameter name
+        self.tuner.layout().addWidget(QLabel(parameter.name), row_id, 0)
+
+        # Combobox for mapped values
+        value_map = parameter.value_map
+        if bool(value_map):
+            wdgt = QtWidgets.QComboBox(self.tuner)
+            wdgt.addItems([str(key) for key in value_map.keys()])
+
+        else:
+            # Number types
+            if parameter.dtype in (np.uint32, np.int32, np.float32, np.float64):
+                # Floats
+                if parameter.dtype in (np.float32, np.float64):
+                    wdgt = QtWidgets.QDoubleSpinBox(self.tuner)
+                else:
+                    wdgt = QtWidgets.QSpinBox(self.tuner)
+
+
+                # (optional) Set range
+                limits = parameter.limits
+                if limits is not None:
+                    wdgt.setRange(*limits)
+
+                # (optional) Set step size
+                step_size = parameter.step_size
+                if step_size is not None:
+                    wdgt.setSingleStep(step_size)
+
+                # Set default value
+                _default = parameter.default
+                if _default is None:
+                    if limits is not None:
+                        _default = parameter.dtype(sum(limits) / 2)
+                    else:
+                        _default = parameter.dtype(1)
+                wdgt.setValue(_default)
+
+            # Assume it is bool otherwise -> Checkbox
+            else:
+                wdgt = QtWidgets.QCheckBox()
+                wdgt.setTristate(False)
+                state = False if parameter.default is None or parameter.default else True
+                wdgt.setCheckState(QtCore.Qt.CheckState(state))
+
+        self.tuner.layout().addWidget(wdgt, row_id, 1)
+
+    @staticmethod
+    def update_parameter(name):
         def _update(value):
-            ipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, **{name: value})
+            ipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, {name: value})
         return _update
 
     def stop_visual(self):
-        ipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
+        self.clear_layout(self.tuner.layout())
+        self.tab_widget.setCurrentWidget(self.overview_tab)
+        self.tab_widget.setTabEnabled(1, False)
+        # ipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         while layout.count():

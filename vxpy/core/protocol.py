@@ -17,8 +17,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import importlib
+from abc import abstractmethod
 from inspect import isclass
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Type
 
 from vxpy.core.visual import AbstractVisual
 from vxpy.definitions import *
@@ -67,7 +68,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
     return _available_protocols
 
 
-def get_protocol(path: str) -> Union[type[StaticPhasicProtocol], None]:
+def get_protocol(path: str) -> Union[Type[StaticPhasicProtocol], None]:
     if path not in get_available_protocol_paths():
         log.warning(f'Cannot get protocol {path}')
         return None
@@ -88,7 +89,7 @@ class Phase:
         self.action_parameters: Dict = action_params
         self.action = action
 
-        self.visual: Union[AbstractVisual, type[AbstractVisual], None] = visual
+        self.visual: Union[AbstractVisual, Type[AbstractVisual], None] = visual
         self.visual_parameters: Dict = visual_params
 
     def set_duration(self, duration: float):
@@ -126,9 +127,9 @@ class Phase:
     def visual_parameters(self, value):
         self._visual_parameters = value
 
-    def set_visual(self, visual_cls: Callable, **kwargs):
+    def set_visual(self, visual_cls: Callable, parameters: dict):
         self._visual = visual_cls
-        self._visual_parameters = kwargs
+        self._visual_parameters = parameters
 
     def set_action(self, action_cls: Callable, **kwargs):
         self._action = action_cls
@@ -155,7 +156,7 @@ class Phase:
             self._visual = self._visual.__class__(*args, **kwargs)
 
         params = self.visual_parameters
-        self._visual.update(**params)
+        self._visual.update(params)
 
         return True
 
@@ -167,6 +168,17 @@ class AbstractProtocol:
 
     def add_phase(self, phase: Phase) -> None:
         self._phases.append(phase)
+
+    def get_phase(self, phase_id: int) -> Union[Phase, None]:
+        pass
+
+    @abstractmethod
+    def initialize_actions(self):
+        pass
+
+    @abstractmethod
+    def initialize_visuals(self, canvas):
+        pass
 
 
 class StaticPhasicProtocol(AbstractProtocol):
@@ -182,6 +194,7 @@ class StaticPhasicProtocol(AbstractProtocol):
 
     def initialize_visuals(self, canvas):
         for phase in self._phases:
+            continue
             phase.initialize_visual(canvas, self)
 
     @property
