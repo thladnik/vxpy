@@ -742,16 +742,17 @@ class Parameter:
             data = self.value_map(data)
 
         # If a value_map is a dictionary and contains "data" as key, use the mapped value from dictionary
-        if bool(self.value_map) and data.__hash__ is not None:
-            value = self.value_map.get(data)
+        else:
+            if bool(self.value_map) and data.__hash__ is not None:
+                value = self.value_map.get(data)
 
-            # Set data to value
-            if value is not None:
-                data = value
+                # Set data to value
+                if value is not None:
+                    data = value
 
-            # If the mapped value is a callable, call it and use return value instead
-            if callable(data):
-                data = data()
+                # If the mapped value is a callable, call it and use return value instead
+                if callable(data):
+                    data = data()
 
         self._data[:] = data
         self.update()
