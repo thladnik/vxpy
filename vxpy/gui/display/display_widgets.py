@@ -357,8 +357,8 @@ class VisualInteractor(gui.AddonWidget):
             self.tuner.layout().addWidget(label, j, 0, 1, 2)
             j += 1
             for i, parameter in enumerate(current_visual.static_parameters):
-                self._add_parameter_widget(j, parameter)
-                j += 1
+                if self._add_parameter_widget(j, parameter):
+                    j += 1
 
         if len(current_visual.variable_parameters) > 0:
             label = QLabel('Variable parameters')
@@ -366,8 +366,8 @@ class VisualInteractor(gui.AddonWidget):
             self.tuner.layout().addWidget(label, j, 0, 1, 2)
             j += 1
             for i, parameter in enumerate(current_visual.variable_parameters):
-                self._add_parameter_widget(j, parameter)
-                j += 1
+                if self._add_parameter_widget(j, parameter):
+                    j += 1
 
         # Set up triggers
         if len(current_visual.trigger_functions) > 0:
@@ -422,6 +422,7 @@ class VisualInteractor(gui.AddonWidget):
 
         # Assume it is bool otherwise -> Checkbox
         else:
+            # TODO: use custom implementation of checbox which has connect_callback
             wdgt = QtWidgets.QCheckBox()
             wdgt.setTristate(False)
             state = False if parameter.default is None or parameter.default else True
@@ -430,14 +431,18 @@ class VisualInteractor(gui.AddonWidget):
 
         return wdgt
 
-    def _add_parameter_widget(self, idx: int, parameter: visual.Parameter):
-
-        # row_id = self.tuner.layout().count() // 2
-        row_id = idx
+    def _add_parameter_widget(self, row_id: int, parameter: visual.Parameter) -> bool:
 
         # If parameter is marked as internal, skip it (e.g. time parameters)
         if parameter.internal:
-            return
+            return False
+
+        # For textures: print info
+        if issubclass(parameter.__class__, visual.Texture):
+            self.tuner.layout().addWidget(QLabel(f'Texture {parameter.name}'), row_id, 0)
+            label = QLabel(str(parameter.data.shape) if parameter.data is not None else 'Shape unknown')
+            self.tuner.layout().addWidget(label, row_id, 1)
+            return True
 
         # Add label with parameter name
         self.tuner.layout().addWidget(QLabel(parameter.name), row_id, 0)
@@ -470,6 +475,8 @@ class VisualInteractor(gui.AddonWidget):
         self._parameter_widgets[parameter.name] = wdgt
         self.tuner.layout().addWidget(wdgt, row_id, 1)
 
+        return True
+
     @staticmethod
     def update_parameter(name):
         def _update(value):
@@ -479,7 +486,6 @@ class VisualInteractor(gui.AddonWidget):
     @staticmethod
     def trigger_visual_function(function):
         def _trigger():
-            print('Trigger')
             ipc.rpc(PROCESS_DISPLAY, modules.Display.trigger_visual, function.__name__)
         return _trigger
 

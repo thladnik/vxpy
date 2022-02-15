@@ -560,8 +560,6 @@ class AbstractProcess:
 
     def _open_file(self) -> bool:
         """Check if output file should be open and open one if it should be, but isn't.
-
-        :return:
         """
 
         if not (ipc.Control.Recording[definitions.RecCtrl.active]):
@@ -580,8 +578,8 @@ class AbstractProcess:
 
         # Open new file
         log.debug(f'Open new file {filepath}')
-        self.file_container = container.NpBufferedH5File(filepath, 'w')
-        # self.file_container = container.H5File(filepath, 'a')
+        # self.file_container = container.NpBufferedH5File(filepath, 'w')
+        self.file_container = container.H5File(filepath, 'a')
 
         # Set compression
         compr_method = ipc.Control.Recording[definitions.RecCtrl.compression_method]
@@ -596,10 +594,6 @@ class AbstractProcess:
         return True
 
     def _close_file(self) -> bool:
-        """
-
-        :return:
-        """
         if ipc.Control.Recording[definitions.RecCtrl.active]:
             return True
 

@@ -130,7 +130,7 @@ class AbstractVisual(ABC):
                 self.variable_parameters.append(param)
 
     def _add_data_appendix(self, name, data):
-        """Deprecated?"""
+        """Deprecated thanks to static parameters?"""
         self.data_appendix[name] = data
 
     def apply_transform(self, program):
@@ -161,7 +161,6 @@ class AbstractVisual(ABC):
 
     def trigger(self, trigger_fun: Union[Callable, str]):
         name = trigger_fun.__name__ if callable(trigger_fun) else trigger_fun
-        print(trigger_fun, name)
         getattr(self, name)()
 
     def start(self):
@@ -171,9 +170,8 @@ class AbstractVisual(ABC):
         # controller_rpc(end_protocol_phase)
         self.is_active = False
 
-    def update(self, params, _update_verbosely=True):
-        """
-        Method to update stimulus parameters.
+    def update(self, params: dict, _update_verbosely=True):
+        """Update parameters of the visual
 
         Is called by default to update stimulus parameters.
         May be reimplemented in subclass.
@@ -205,20 +203,6 @@ class AbstractVisual(ABC):
             log.info(msg)
         else:
             log.debug(msg)
-
-        # # Write new value to parameters dictionary
-        # for key, value in params.items():
-        #     # (Optional) parsing through custom function
-        #     if hasattr(self, f'{self._parse_fun_prefix}{key}'):
-        #         value = getattr(self, f'{self._parse_fun_prefix}{key}')(value)
-        #     # Save to parameters
-        #     self.parameters[key] = value
-        #
-        # # Update program uniforms from parameters
-        # for program_name, program in self.custom_programs.items():
-        #     for key, value in self.parameters.items():
-        #         if key in program:
-        #             program[key] = value
 
         for key, value in params.items():
             getattr(self, str(key)).data = value
@@ -703,6 +687,8 @@ class Parameter:
 
         if shape is not None:
             self._data: np.ndarray = np.zeros(shape, dtype=self.dtype)
+        else:
+            self._data = None
 
         self._static = static
 
@@ -733,12 +719,17 @@ class Parameter:
     def name(self, value):
         pass
 
+    def _set_start_data(self, data):
+        self._data = np.array(data, dtype=self.dtype)
+
     @property
     def data(self):
         return self._data[:]
 
     @data.setter
     def data(self, data):
+        if self._data is None:
+            self._set_start_data(data)
 
         # If value_map is a callable, use it to transform data
         if callable(self.value_map):
@@ -962,9 +953,6 @@ class Mat4Parameter(Parameter):
 class Texture(Parameter):
     def __init__(self, *args, **kwargs):
         Parameter.__init__(self, *args, **kwargs)
-
-    def set_start_data(self, data):
-        self._data = np.array(data, dtype=self.dtype)
 
 
 class Texture1D(Texture):

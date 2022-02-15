@@ -122,11 +122,8 @@ class Display(process.AbstractProcess):
         self.current_visual.initialize()
         self.canvas.set_visual(self.current_visual)
 
-        # for name, data in self.current_visual.data_appendix.items():
-        #     grp_name = self.record_group
-        #     if grp_name is None:
-        #         grp_name = ''
-        #     self._append_to_dataset(f'{grp_name}/{name}', data)
+        # Save static parameter data to container attributes
+        self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
 
         if self.current_phase is not None:
             parameters = self.current_phase.visual_parameters

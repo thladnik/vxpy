@@ -158,7 +158,11 @@ class CameraDevice(camera_device.AbstractCameraDevice):
 
         else:
             # From dataset
-            frame = self._cap[self.index][:self.res_y, :self.res_x]
+            try:
+                frame = self._cap[self.index][:self.res_y, :self.res_x]
+            except:
+                log.error(f'Error reading frame for device {self}')
+                return None
 
         return np.asarray(frame, dtype=_format[1])
 
