@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from inspect import isclass
+from typing import Callable, Union
+
 from vispy import app
 from vispy import gloo
 import time
@@ -156,7 +158,7 @@ class Display(process.AbstractProcess):
         self.current_visual = None
         self.canvas.set_visual(self.current_visual)
 
-    def trigger_visual(self, trigger_fun):
+    def trigger_visual(self, trigger_fun: Union[Callable, str]):
         self.current_visual.trigger(trigger_fun)
 
     def main(self):

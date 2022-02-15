@@ -127,7 +127,7 @@ class Phase:
     def visual_parameters(self, value):
         self._visual_parameters = value
 
-    def set_visual(self, visual_cls: Callable, parameters: dict):
+    def set_visual(self, visual_cls: Callable, parameters: dict = None):
         self._visual = visual_cls
         self._visual_parameters = parameters
 

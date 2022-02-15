@@ -139,6 +139,7 @@ class CameraDevice(camera_device.AbstractCameraDevice):
     def end_stream(self) -> bool:
         if self._h5 is not None:
             self._h5.close()
+            self._h5 = None
 
         return True
 

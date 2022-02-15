@@ -96,6 +96,7 @@ class AbstractVisual(ABC):
         # Get all visual parameters
         self.static_parameters: List[Parameter] = []
         self.variable_parameters: List[Parameter] = []
+        self.trigger_functions: List[Callable] = []
         self._collect_parameters()
 
         self.is_active = True
@@ -158,8 +159,10 @@ class AbstractVisual(ABC):
     def parse_vertex_shader(self, vert):
         return f'{self._vertex_map}\n{vert}'
 
-    def trigger(self, trigger_fun):
-        getattr(self, trigger_fun.__name__)()
+    def trigger(self, trigger_fun: Union[Callable, str]):
+        name = trigger_fun.__name__ if callable(trigger_fun) else trigger_fun
+        print(trigger_fun, name)
+        getattr(self, name)()
 
     def start(self):
         self.is_active = True

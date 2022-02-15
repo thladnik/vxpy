@@ -350,8 +350,36 @@ class VisualInteractor(gui.AddonWidget):
         current_visual = visual_cls()
 
         # Set up parameter widgets for interaction
-        for i, parameter in enumerate(current_visual.variable_parameters):
-            self._add_parameter_widget(parameter)
+        j = 0
+        if len(current_visual.static_parameters) > 0:
+            label = QLabel('Static parameters')
+            label.setStyleSheet('font-weight:bold;')
+            self.tuner.layout().addWidget(label, j, 0, 1, 2)
+            j += 1
+            for i, parameter in enumerate(current_visual.static_parameters):
+                self._add_parameter_widget(j, parameter)
+                j += 1
+
+        if len(current_visual.variable_parameters) > 0:
+            label = QLabel('Variable parameters')
+            label.setStyleSheet('font-weight:bold;')
+            self.tuner.layout().addWidget(label, j, 0, 1, 2)
+            j += 1
+            for i, parameter in enumerate(current_visual.variable_parameters):
+                self._add_parameter_widget(j, parameter)
+                j += 1
+
+        # Set up triggers
+        if len(current_visual.trigger_functions) > 0:
+            label = QLabel('Triggers')
+            label.setStyleSheet('font-weight:bold;')
+            self.tuner.layout().addWidget(label, j, 0, 1, 2)
+            j += 1
+            for trigger_fun in current_visual.trigger_functions:
+                btn = QtWidgets.QPushButton(trigger_fun.__name__)
+                btn.clicked.connect(self.trigger_visual_function(trigger_fun))
+                self.tuner.layout().addWidget(btn, j, 0, 1, 2)
+                j += 1
 
         # Add spacer for better layout
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
@@ -402,9 +430,10 @@ class VisualInteractor(gui.AddonWidget):
 
         return wdgt
 
-    def _add_parameter_widget(self, parameter: visual.Parameter):
+    def _add_parameter_widget(self, idx: int, parameter: visual.Parameter):
 
-        row_id = self.tuner.layout().count() // 2
+        # row_id = self.tuner.layout().count() // 2
+        row_id = idx
 
         # If parameter is marked as internal, skip it (e.g. time parameters)
         if parameter.internal:
@@ -446,6 +475,13 @@ class VisualInteractor(gui.AddonWidget):
         def _update(value):
             ipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, {name: value})
         return _update
+
+    @staticmethod
+    def trigger_visual_function(function):
+        def _trigger():
+            print('Trigger')
+            ipc.rpc(PROCESS_DISPLAY, modules.Display.trigger_visual, function.__name__)
+        return _trigger
 
     def stop_visual(self):
         self.clear_layout(self.tuner.layout())
