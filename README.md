@@ -1,3 +1,6 @@
+
+<img align="right" width="140" height="140" src="vxpy/vxpy_icon.svg">
+
 # vxPy
 
 Multiprocess based software for vision experiments in Python
