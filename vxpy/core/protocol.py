@@ -144,6 +144,9 @@ class Phase:
 
         return True
 
+    def set_initialize_visual(self, visual: AbstractVisual):
+        self._visual = visual
+
     def initialize_visual(self, canvas, _protocol):
         if self._visual is None:
             return False
@@ -193,9 +196,18 @@ class StaticPhasicProtocol(AbstractProtocol):
             phase.initialize_action()
 
     def initialize_visuals(self, canvas):
+        # Fetch all visuals from phases and identify unique ones
+        all_visuals = [phase.visual for phase in self._phases]
+        unique_visuals = list(set(all_visuals))
+
+        # Initialize unique visuals (one instance per visual class)
+        initialize_visuals = {}
+        for visual in unique_visuals:
+            initialize_visuals[visual] = visual(canvas, _protocol=self)
+
+        # Update all phases to unique visual instance
         for phase in self._phases:
-            continue
-            phase.initialize_visual(canvas, self)
+            phase.set_initialize_visual(initialize_visuals[phase.visual])
 
     @property
     def phase_count(self):

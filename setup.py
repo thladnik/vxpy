@@ -3,6 +3,9 @@ from setuptools import setup, find_packages
 with open('requirements.txt', 'r') as f:
     requirements = f.readlines()
 
+# Add h5gview repository
+requirements.append('git+ssh://git@github.com/thladnik/h5gview.git')
+
 setup(
     name='vxpy',
     version='0.0.1',
@@ -12,6 +15,6 @@ setup(
     license='GPL 3',
     author='Tim Hladnik',
     author_email='tim.hladnik@gmail.com',
-    description='vxPy - Something for vision experiments',
+    description='vxPy - Vision experiments in Python',
     install_requires=requirements
 )

@@ -23,25 +23,27 @@ from vispy import gloo
 import time
 
 from vxpy.api import get_time
-from vxpy import config, calib
-from vxpy import definitions
+from vxpy import calib
+from vxpy import config
 from vxpy.definitions import *
-from vxpy.core import process, ipc, logger
-from vxpy.core import protocol
-from vxpy.core import visual
+import vxpy.core.process as vxprocess
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
+import vxpy.core.protocol as vxprotocol
+import vxpy.core.visual as vxvisual
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class Display(process.AbstractProcess):
+class Display(vxprocess.AbstractProcess):
     name = PROCESS_DISPLAY
 
-    current_visual: visual.AbstractVisual = None
+    current_visual: vxvisual.AbstractVisual = None
 
     _uniform_maps = dict()
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         self.app = app.use_app()
         self.visual_is_displayed = False
@@ -77,23 +79,19 @@ class Display(process.AbstractProcess):
 
     def start_protocol(self):
         # Fetch protocol class
-        _protocol = protocol.get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
+        _protocol = vxprotocol.get_protocol(vxipc.Control.Protocol[ProtocolCtrl.name])
         if _protocol is None:
             # Controller should abort this
             return
 
         # Instantiate protocol
         self.current_protocol = _protocol()
-        try:
-            self.current_protocol.initialize_visuals(self.canvas)
-        except Exception as exc:
-            import traceback
-            print(traceback.print_exc())
+        self.current_protocol.initialize_visuals(self.canvas)
 
     def prepare_phase(self):
         # Get current phase from protocol
-        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-        self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
+        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+        self.set_record_group(f'phase{vxipc.Control.Recording[RecCtrl.record_group_counter]}')
         self.current_phase = self.current_protocol.get_phase(phase_id)
 
         # Prepare visual associated with phase
@@ -114,7 +112,6 @@ class Display(process.AbstractProcess):
 
     def start_phase(self):
         self.start_visual()
-        self.set_record_group_attrs(self.current_visual.parameters)
         self.set_record_group_attrs({'start_time': get_time(),
                                      'visual_name': str(self.current_visual.__class__.__qualname__)})
 
@@ -166,7 +163,7 @@ class Display(process.AbstractProcess):
             self.update_routines(self.current_visual)
 
     def _start_shutdown(self):
-        process.AbstractProcess._start_shutdown(self)
+        vxprocess.AbstractProcess._start_shutdown(self)
 
 
 class Canvas(app.Canvas):

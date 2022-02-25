@@ -19,10 +19,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from vxpy.definitions import *
-from vxpy.core import ipc, logger
-from vxpy.api.attribute import read_attribute
+import vxpy.core.attribute as vxattribute
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
 class Routine(ABC):
@@ -54,12 +55,7 @@ class Routine(ABC):
 
         Compute method is called on data updates (in the producer modules).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
-        raise NotImplementedError(f'_compute not implemented in {self.__class__.__name__}')
-
-    def read(self, attr_name: str, *args, **kwargs):
-        """DEPRECATED: in future all reading of attributes should be done via mappapp.api.attribute
-        Pass-through to buffer read method for convenience"""
-        return read_attribute(attr_name, *args, **kwargs)
+        pass
 
     def add_trigger(self, trigger_name):
         self._triggers[trigger_name] = Trigger(self)
@@ -99,10 +95,10 @@ class Trigger:
 
     def emit(self):
         for process_name, callback in self._registered:
-            ipc.rpc(process_name, callback)
+            vxipc.rpc(process_name, callback)
 
 
-class CameraRoutine(Routine):
+class CameraRoutine(Routine, ABC):
 
     name = PROCESS_CAMERA
 
@@ -110,7 +106,7 @@ class CameraRoutine(Routine):
         Routine.__init__(self, *args, **kwargs)
 
 
-class DisplayRoutine(Routine):
+class DisplayRoutine(Routine, ABC):
 
     name = PROCESS_DISPLAY
 
@@ -118,7 +114,7 @@ class DisplayRoutine(Routine):
         Routine.__init__(self, *args, **kwargs)
 
 
-class IoRoutine(Routine):
+class IoRoutine(Routine, ABC):
 
     name = PROCESS_IO
 
@@ -126,7 +122,7 @@ class IoRoutine(Routine):
         Routine.__init__(self, *args, **kwargs)
 
 
-class WorkerRoutine(Routine):
+class WorkerRoutine(Routine, ABC):
 
     name = PROCESS_WORKER
 

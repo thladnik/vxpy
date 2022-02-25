@@ -325,7 +325,7 @@ class Controller(process.AbstractProcess):
         # Set current folder if none is given
         if not (bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
             output_folder = config.CONF_REC_OUTPUT_FOLDER
-            ipc.Control.Recording[definitions.RecCtrl.folder] = os.path.join(output_folder, f'rec_{time.strftime("%Y-%m-%d-%H-%M-%S")}')
+            ipc.Control.Recording[definitions.RecCtrl.folder] = os.path.join(output_folder, f'{time.strftime("%Y-%m-%d-%H-%M-%S")}')
 
             # Reset record group perf_counter
             self.record_group_counter = 0

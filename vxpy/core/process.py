@@ -25,18 +25,19 @@ import time
 from typing import Any, Callable, List, Union
 
 from vxpy import api
-from vxpy.api import event
 from vxpy import config
-from vxpy.core import protocol
+import vxpy.core.attribute as vxattribute
+import vxpy.core.calibration as vxcalib
+import vxpy.core.configuration as vxconfig
+import vxpy.core.container as vxcontainer
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
+import vxpy.core.protocol as vxprotocol
+import vxpy.core.routine as vxroutine
 from vxpy.definitions import *
-from vxpy import definitions
-from vxpy.core import routine, ipc, logger, configuration, calibration
-from vxpy.core import container
-from vxpy.core.ipc import build_pipes, set_process
-from vxpy.gui.window_controls import ProcessMonitorWidget
-from vxpy.core.attribute import ArrayAttribute, build_attributes, get_permanent_attributes, get_permanent_data
+from vxpy.gui import window_controls
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
 ##################################
@@ -55,8 +56,8 @@ class AbstractProcess:
     _shutdown: bool
 
     # Protocol related
-    current_protocol: protocol.AbstractProtocol = None
-    current_phase: protocol.Phase = None
+    current_protocol: vxprotocol.AbstractProtocol = None
+    current_phase: vxprotocol.Phase = None
     phase_start_time: float = None
     phase_time: float = None
     program_start_time: float = None
@@ -65,8 +66,8 @@ class AbstractProcess:
     _registered_callbacks: dict = dict()
     _protocolized: List[str] = [PROCESS_CAMERA, PROCESS_DISPLAY, PROCESS_IO, PROCESS_WORKER]
 
-    _routines: Dict[str, Dict[str, routine.Routine]] = dict()
-    file_container: Union[None, h5py.File, container.NpBufferedH5File, container.H5File] = None
+    _routines: Dict[str, Dict[str, vxroutine.Routine]] = dict()
+    file_container: Union[None, h5py.File, vxcontainer.NpBufferedH5File, vxcontainer.H5File] = None
     record_group: str = None
     compression_args: Dict[str, Any] = dict()
 
@@ -88,37 +89,37 @@ class AbstractProcess:
             log.error(f'No program start time provided to {self.name}')
 
         # Add handlers to modules that were imported before process class initialization
-        logger.add_handlers()
+        vxlogger.add_handlers()
 
         # Set modules instance
-        set_process(self)
+        vxipc.set_process(self)
 
         # Build pipes
-        build_pipes(_pipes)
+        vxipc.build_pipes(_pipes)
 
         # Build attributes
-        build_attributes(_attrs)
+        vxattribute.build_attributes(_attrs)
 
         # Load configuration
-        config_loaded = configuration.load_configuration(_configuration_path)
+        config_loaded = vxconfig.load_configuration(_configuration_path)
         assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
         # Load calibration
-        calibration.load_calibration(config.CONF_CALIBRATION_PATH)
+        vxcalib.load_calibration(config.CONF_CALIBRATION_PATH)
 
         # Set controls
         if _controls is not None:
             for ckey, control in _controls.items():
-                setattr(ipc.Control, ckey, control)
+                setattr(vxipc.Control, ckey, control)
 
         if _proxies is not None:
             for pkey, proxy in _proxies.items():
-                setattr(ipc, pkey, proxy)
+                setattr(vxipc, pkey, proxy)
 
         # Set states
         if _states is not None:
             for skey, state in _states.items():
-                setattr(ipc.State, skey, state)
+                setattr(vxipc.State, skey, state)
 
         # Set additional attributes
         for key, value in kwargs.items():
@@ -148,8 +149,8 @@ class AbstractProcess:
                     _routine.initialize()
 
         # Set modules state
-        if getattr(ipc.State, self.name) is not None:
-            ipc.set_state(State.STARTING)
+        if getattr(vxipc.State, self.name) is not None:
+            vxipc.set_state(State.STARTING)
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_SIGINT)
@@ -166,9 +167,9 @@ class AbstractProcess:
         self._shutdown = False
 
         # Set modules state
-        ipc.set_state(State.IDLE)
+        vxipc.set_state(State.IDLE)
 
-        min_sleep_time = ipc.Control.General[definitions.GenCtrl.min_sleep_time]
+        min_sleep_time = vxipc.Control.General[GenCtrl.min_sleep_time]
         self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
@@ -185,7 +186,7 @@ class AbstractProcess:
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
                 # print(f'{self.name} says {self.t}')
-                api.gui_rpc(ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
+                api.gui_rpc(window_controls.ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
                             _send_verbosely=False)
 
             # Wait until interval time is up
@@ -249,14 +250,14 @@ class AbstractProcess:
 
         ########
         # RUNNING
-        if self.in_state(definitions.State.RUNNING):
+        if self.in_state(State.RUNNING):
 
             # If phase stoptime is exceeded: end phase
-            phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
+            phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
                 self.end_phase()
 
-                self.set_state(definitions.State.PHASE_END)
+                self.set_state(State.PHASE_END)
 
                 # Do NOT execute
                 return False
@@ -269,14 +270,14 @@ class AbstractProcess:
 
         ########
         # IDLE
-        elif self.in_state(definitions.State.IDLE):
+        elif self.in_state(State.IDLE):
 
             # Ctrl PREPARE_PROTOCOL
-            if self.in_state(definitions.State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
+            if self.in_state(State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
                 self.start_protocol()
 
                 # Set next state
-                self.set_state(definitions.State.WAIT_FOR_PHASE)
+                self.set_state(State.WAIT_FOR_PHASE)
 
                 # Do NOT execute
                 return False
@@ -286,36 +287,36 @@ class AbstractProcess:
 
         ########
         # WAIT_FOR_PHASE
-        elif self.in_state(definitions.State.WAIT_FOR_PHASE):
+        elif self.in_state(State.WAIT_FOR_PHASE):
 
-            if not (self.in_state(definitions.State.PREPARE_PHASE, PROCESS_CONTROLLER)):
+            if not (self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER)):
                 return False
 
-            # self.set_record_group(f'phase{ipc.Control.Recording[definitions.RecCtrl.record_group_counter]}')
+            # self.set_record_group(f'phase{ipc.Control.Recording[RecCtrl.record_group_counter]}')
             # Prepare phase for start
             self.prepare_phase()
 
             # Set next state
-            self.set_state(definitions.State.READY)
+            self.set_state(State.READY)
 
             # Do NOT execute
             return False
 
         ########
         # READY
-        elif self.in_state(definitions.State.READY):
+        elif self.in_state(State.READY):
             # If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not (self.in_state(definitions.State.RUNNING, PROCESS_CONTROLLER)):
+            if not (self.in_state(State.RUNNING, PROCESS_CONTROLLER)):
                 return False
 
             # Wait for go-time
-            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-            while self.in_state(definitions.State.RUNNING, PROCESS_CONTROLLER):
+            phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+            while self.in_state(State.RUNNING, PROCESS_CONTROLLER):
                 now = time.time()
-                if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] <= now:
+                if vxipc.Control.Protocol[ProtocolCtrl.phase_start] <= now:
                     log.debug(f'Start phase {phase_id} in module {self.name} at {(now-self.program_start_time):.3f}')
-                    self.set_state(definitions.State.RUNNING)
-                    self.phase_start_time = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start]
+                    self.set_state(State.RUNNING)
+                    self.phase_start_time = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
                     break
 
             # Immediately start phase
@@ -326,18 +327,18 @@ class AbstractProcess:
 
         ########
         # PHASE_END
-        elif self.in_state(definitions.State.PHASE_END):
+        elif self.in_state(State.PHASE_END):
 
             # Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.in_state(definitions.State.PREPARE_PHASE, PROCESS_CONTROLLER):
-                self.set_state(definitions.State.WAIT_FOR_PHASE)
+            if self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER):
+                self.set_state(State.WAIT_FOR_PHASE)
             # Ctrl in PROTOCOL_END -> clean up protocol remnants
-            elif self.in_state(definitions.State.PROTOCOL_END, PROCESS_CONTROLLER):
+            elif self.in_state(State.PROTOCOL_END, PROCESS_CONTROLLER):
 
                 self.end_protocol()
 
                 # Reset to idle
-                self.set_state(definitions.State.IDLE)
+                self.set_state(State.IDLE)
             else:
                 pass
 
@@ -352,29 +353,29 @@ class AbstractProcess:
 
     def idle(self):
         if self.enable_idle_timeout:
-            time.sleep(ipc.Control.General[definitions.GenCtrl.min_sleep_time])
+            time.sleep(vxipc.Control.General[GenCtrl.min_sleep_time])
 
     def get_state(self, process=None):
         """Convenience function for access in modules class"""
-        return ipc.get_state()
+        return vxipc.get_state()
 
     def set_state(self, code):
         """Convenience function for access in modules class"""
-        ipc.set_state(code)
+        vxipc.set_state(code)
 
     def in_state(self, code, process_name=None):
         """Convenience function for access in modules class"""
         if process_name is None:
             process_name = self.name
-        return ipc.in_state(code, process_name)
+        return vxipc.in_state(code, process_name)
 
     def _start_shutdown(self):
         # Handle all pipe messages before shutdown
-        while ipc.Pipes[self.name][1].poll():
+        while vxipc.Pipes[self.name][1].poll():
             self._handle_inbox()
 
         # Set modules state
-        self.set_state(definitions.State.STOPPED)
+        self.set_state(State.STOPPED)
 
         self._shutdown = True
 
@@ -443,11 +444,11 @@ class AbstractProcess:
     def _handle_inbox(self, *args):
 
         # Poll pipe
-        if not (ipc.Pipes[self.name][1].poll()):
+        if not (vxipc.Pipes[self.name][1].poll()):
             return
 
         # Receive
-        msg = ipc.Pipes[self.name][1].recv()
+        msg = vxipc.Pipes[self.name][1].recv()
 
         # Unpack
         signal, args, kwargs = msg
@@ -457,11 +458,11 @@ class AbstractProcess:
             log.debug(f'{self.name} received message. Signal: {signal}, args: {args}, kwargs: {kwargs}')
 
         # If shutdown signal
-        if signal == definitions.Signal.shutdown:
+        if signal == Signal.shutdown:
             self._start_shutdown()
 
         # If RPC
-        elif signal == definitions.Signal.rpc:
+        elif signal == Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
     def _create_dataset(self, path: str, attr_shape: tuple, attr_dtype: Any):
@@ -523,15 +524,31 @@ class AbstractProcess:
         self.file_container.append(path, value)
 
     # def _routine_on_record(self, routine_name):
-    #     return f'{self.name}/{routine_name}' in config.Recording[definitions.RecCfg.routines]
+    #     return f'{self.name}/{routine_name}' in config.Recording[RecCfg.routines]
 
-    def set_record_group_attrs(self, group_attributes: Dict = None):
+    def set_record_group_attrs(self, group_attributes: Dict[str, Any] = None):
         if self.file_container is None:
             return
 
         grp = self.file_container.require_group(self.record_group)
         if group_attributes is not None:
-            grp.attrs.update(group_attributes)
+            for attr_name, attr_data in group_attributes.items():
+
+                # For arrays there may be special rules
+                if isinstance(attr_data, np.ndarray):
+
+                    # There is a hard size limit on attributes of 64KB: store as dataset instead
+                    if attr_data.dtype.itemsize * attr_data.size >= 64 * 2 ** 10:
+                        grp.create_dataset(f'group_attr_{attr_name}', data=attr_data)
+                        continue
+
+                    # Unpack scalar attributes
+                    elif attr_data.shape == (1,):
+                        grp.attrs[attr_name] = attr_data[0]
+                        continue
+
+                # Otherwise, just write whole attribute data to attribute
+                grp.attrs[attr_name] = attr_data
 
     def set_record_group(self, group_name: str):
         if self.file_container is None:
@@ -550,8 +567,8 @@ class AbstractProcess:
         log.info(f'Set record group "{self.record_group}"')
 
         # Create attributes in group
-        for attr in get_permanent_attributes():
-            if not isinstance(attr, ArrayAttribute):
+        for attr in vxattribute.get_permanent_attributes():
+            if not isinstance(attr, vxattribute.ArrayAttribute):
                 continue
 
             path = f'{self.record_group}/{attr.name}'
@@ -562,28 +579,28 @@ class AbstractProcess:
         """Check if output file should be open and open one if it should be, but isn't.
         """
 
-        if not (ipc.Control.Recording[definitions.RecCtrl.active]):
+        if not (vxipc.Control.Recording[RecCtrl.active]):
             return True
 
         if self.file_container is not None:
             return True
 
-        if not (bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
+        if not (bool(vxipc.Control.Recording[RecCtrl.folder])):
             log.warning('Recording has been started but output folder is not set.')
             return False
 
         # If output folder is set: open file
-        rec_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
+        rec_folder = vxipc.Control.Recording[RecCtrl.folder]
         filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
 
         # Open new file
         log.debug(f'Open new file {filepath}')
         # self.file_container = container.NpBufferedH5File(filepath, 'w')
-        self.file_container = container.H5File(filepath, 'a')
+        self.file_container = vxcontainer.H5File(filepath, 'a')
 
         # Set compression
-        compr_method = ipc.Control.Recording[definitions.RecCtrl.compression_method]
-        compr_opts = ipc.Control.Recording[definitions.RecCtrl.compression_opts]
+        compr_method = vxipc.Control.Recording[RecCtrl.compression_method]
+        compr_opts = vxipc.Control.Recording[RecCtrl.compression_opts]
         self.compression_args = dict()
         if compr_method is not None:
             self.compression_args = {'compression': compr_method, **compr_opts}
@@ -594,7 +611,7 @@ class AbstractProcess:
         return True
 
     def _close_file(self) -> bool:
-        if ipc.Control.Recording[definitions.RecCtrl.active]:
+        if vxipc.Control.Recording[RecCtrl.active]:
             return True
 
         if self.file_container is None:
@@ -612,11 +629,11 @@ class AbstractProcess:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
 
-        if not (ipc.Control.Recording[definitions.RecCtrl.active]) or self.file_container is None:
+        if not (vxipc.Control.Recording[RecCtrl.active]) or self.file_container is None:
             return
 
         # Write attributes to file
-        _iter = get_permanent_data()
+        _iter = vxattribute.get_permanent_data()
         if _iter is None:
             return
 
@@ -627,7 +644,7 @@ class AbstractProcess:
 
             path = f'{self.record_group}/{attr_name}'
             self._append_to_dataset(path, attr_data)
-            self._append_to_dataset(f'{path}_time', attr_time)
+            self._append_to_dataset(f'{path}_attr_time', attr_time)
 
     @property
     def routines(self):
@@ -641,7 +658,7 @@ class AbstractProcess:
 class ProcessProxy:
     def __init__(self, name):
         self.name = name
-        self._state: mp.Value = getattr(ipc.State, self.name)
+        self._state: mp.Value = getattr(vxipc.State, self.name)
 
     @property
     def state(self):
@@ -658,4 +675,4 @@ class ProcessProxy:
         @param args:
         @param kwargs:
         """
-        ipc.rpc(self.name, function, *args, **kwargs)
+        vxipc.rpc(self.name, function, *args, **kwargs)

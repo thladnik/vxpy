@@ -22,7 +22,7 @@ from vxpy.utils import sphere
 
 
 class SphereUniformBackground(visual.SphericalVisual):
-    u_color = 'u_color'
+    u_color = visual.Vec3Parameter('u_color', static=True)
 
     def __init__(self, *args, **kwargs):
         visual.SphericalVisual.__init__(self, *args, **kwargs)
@@ -31,8 +31,9 @@ class SphereUniformBackground(visual.SphericalVisual):
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
         self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
         self.bg = gloo.Program(self.load_vertex_shader('./static_background.vert'),
-                                    self.load_shader('./static_background.frag'))
+                               self.load_shader('./static_background.frag'))
         self.bg['a_position'] = self.position_buffer
+        self.u_color.connect(self.bg)
 
     def initialize(self, *args, **kwargs):
         pass

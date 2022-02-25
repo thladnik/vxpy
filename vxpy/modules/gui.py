@@ -15,28 +15,29 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import os.path
 from PySide6 import QtCore, QtGui, QtWidgets
 import sys
 
 from vxpy import config
 from vxpy.definitions import *
-from vxpy import definitions
-from vxpy.definitions import *
-from vxpy import modules
-from vxpy.core import process, ipc, logger
-from vxpy.gui.window_controls import LoggingWidget, ProcessMonitorWidget, RecordingWidget
-from vxpy.gui.window_widgets import CameraWindow, DisplayWindow, IoWindow, PlottingWindow
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
+import vxpy.core.process as vxprocess
+import vxpy.modules as vxmodules
+from vxpy.gui import window_controls
+from vxpy.gui import window_widgets
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class Gui(process.AbstractProcess):
+class Gui(vxprocess.AbstractProcess):
     name = PROCESS_GUI
 
     app: QtWidgets.QApplication
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        vxprocess.AbstractProcess.__init__(self, **kwargs)
         # Create application
         self.app = QtWidgets.QApplication.instance()
         if self.app is None:
@@ -56,12 +57,12 @@ class Gui(process.AbstractProcess):
                                                QtWidgets.QMessageBox.StandardButton.Cancel)
 
         if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-            ipc.rpc(modules.Controller.name, modules.Controller._force_shutdown)
+            vxipc.rpc(vxmodules.Controller.name, vxmodules.Controller._force_shutdown)
 
     def _start_shutdown(self):
         self.window.close()
 
-        ipc.Process.set_state(definitions.State.STOPPED)
+        vxipc.Process.set_state(State.STOPPED)
 
 
 class Window(QtWidgets.QMainWindow):
@@ -79,7 +80,10 @@ class Window(QtWidgets.QMainWindow):
         if sys.platform == 'win32':
             self.setWindowIcon(QtGui.QIcon('vxpy_icon.ico'))
         elif sys.platform == 'linux':
-            self.setWindowIcon(QtGui.QIcon('vxpy_icon.png'))
+            import vxpy
+            # iconpath = os.path.join(str(vxpy.__path__[0]), 'icon.png')
+            iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
+            self.setWindowIcon(QtGui.QIcon(iconpath))
 
         self.subwindows = []
 
@@ -90,7 +94,7 @@ class Window(QtWidgets.QMainWindow):
         self.setCentralWidget(QtWidgets.QWidget(parent=self, f=QtCore.Qt.WindowType.Widget))
         self.centralWidget().setLayout(QtWidgets.QVBoxLayout())
 
-        self.screenGeo = ipc.Process.app.primaryScreen().geometry()
+        self.screenGeo = vxipc.Process.app.primaryScreen().geometry()
         w, h = self.screenGeo.width(), self.screenGeo.height()
         x, y = self.screenGeo.x(), self.screenGeo.y()
 
@@ -102,17 +106,17 @@ class Window(QtWidgets.QMainWindow):
         self.centralWidget().layout().addWidget(self.controls)
 
         # Process monitor
-        self.process_monitor = ProcessMonitorWidget(self)
+        self.process_monitor = window_controls.ProcessMonitorWidget(self)
         self.process_monitor.create_hooks()
         self.controls.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = RecordingWidget(self)
+        self.recordings = window_controls.RecordingWidget(self)
         self.recordings.create_hooks()
         self.controls.layout().addWidget(self.recordings)
 
         # Logger
-        self.log_display = LoggingWidget(self)
+        self.log_display = window_controls.LoggingWidget(self)
         self.controls.layout().addWidget(self.log_display)
 
         # Set geometry
@@ -127,7 +131,7 @@ class Window(QtWidgets.QMainWindow):
         # Display
         self.display = None
         if config.CONF_DISPLAY_USE and PROCESS_DISPLAY in config.CONF_GUI_ADDONS:
-            self.display = DisplayWindow(self)
+            self.display = window_widgets.DisplayWindow(self)
             self.display.create_hooks()
             self.display.move(x + row2_xoffset,
                               y + self.controls.size().height() + row2_yoffset)
@@ -137,7 +141,7 @@ class Window(QtWidgets.QMainWindow):
         # Camera
         self.camera = None
         if config.CONF_CAMERA_USE and PROCESS_CAMERA in config.CONF_GUI_ADDONS:
-            self.camera = CameraWindow(self)
+            self.camera = window_widgets.CameraWindow(self)
             self.camera.create_hooks()
             self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset,
                              y + self.controls.size().height() + row2_yoffset)
@@ -147,7 +151,7 @@ class Window(QtWidgets.QMainWindow):
         # Io
         self.io = None
         if config.CONF_IO_USE and PROCESS_IO in config.CONF_GUI_ADDONS:
-            self.io = IoWindow(self)
+            self.io = window_widgets.IoWindow(self)
             self.io.create_hooks()
             self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset,
                          y + self.controls.size().height() + row2_yoffset)
@@ -155,7 +159,7 @@ class Window(QtWidgets.QMainWindow):
             self.subwindows.append(self.io)
 
         # Add Plotter
-        self.plotter = PlottingWindow(self)
+        self.plotter = window_widgets.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
         if sys.platform == 'linux':
             self.plotter.move(x, y + h-plotter_default_height)
@@ -213,10 +217,10 @@ class Window(QtWidgets.QMainWindow):
         return self.camera.size().width(), self.camera.size().height()
 
     def restart_camera(self):
-        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.initialize_process, modules.Camera)
+        vxipc.rpc(PROCESS_CONTROLLER, modules.Controller.initialize_process, modules.Camera)
 
     def restart_display(self):
-        ipc.rpc(PROCESS_CONTROLLER, modules.Controller.initialize_process, modules.Display)
+        vxipc.rpc(PROCESS_CONTROLLER, modules.Controller.initialize_process, modules.Display)
 
     def raise_subwindows(self):
         for w in self.subwindows:
@@ -236,5 +240,5 @@ class Window(QtWidgets.QMainWindow):
             #     ipc.Process.main()
 
             # Inform controller of close event
-            ipc.send(PROCESS_CONTROLLER, definitions.Signal.shutdown)
+            vxipc.send(PROCESS_CONTROLLER, Signal.shutdown)
             a0.setAccepted(False)

@@ -1,6 +1,6 @@
 """
-MappApp ./routines/display/display_calibration.py
-Copyright (C) 2020 Tim Hladnik
+vxPy ./routines/display/display_capture.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,83 +15,46 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from vxpy import config, calib
-from vxpy.definitions import *
-from vxpy import definitions
-from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file
-from vxpy.api.routine import DisplayRoutine
-from vxpy.core.visual import AbstractVisual
+from vxpy import calib
+
+import vxpy.api.attribute as vxattribute
+import vxpy.api.routine as vxroutine
+import vxpy.core.visual as vxvisual
 
 
-class StaticParameters(DisplayRoutine):
+class Parameters(vxroutine.DisplayRoutine):
     """This routine buffers the visual parameters,
     but doesn't register them to be written to file continuously"""
 
     def setup(self):
 
         # Set up shared variables
-        self.parameters = ObjectAttribute('sdp')
-
-    def main(self, visual):
-        if visual is None:
-            params = None
-        else:
-            params = visual.parameters
-
-        self.parameters.write(params)
-
-
-class DynamicParameters(DisplayRoutine):
-    """This routine buffers the visual parameters
-    and registers them to be written to file"""
-
-    def setup(self):
-        # Set up shared variables
-        self.parameters = ObjectAttribute('ddp')
+        self.variable_parameters = vxattribute.ObjectAttribute('var_param')
 
     def initialize(self):
-        self.parameters.add_to_file()
+        self.variable_parameters.add_to_file()
 
-    def main(self, visual: AbstractVisual):
-        if visual is None:
-            values = None
-        else:
-            # Use parameters dictionary
-            values = visual.parameters.copy()
-
-            # Add custom program uniforms
-            new = dict()
-            for program_name, program in visual.custom_programs.items():
-                for var_qualifier, var_type, var_name in program.variables:
-                    # Write any uniform variables that are not textures
-                    # or part of the display calibration ("u_mapcalib_*")
-                    if var_qualifier != 'uniform' \
-                            or var_type not in ('int', 'float', 'vec2', 'vec3', 'mat2', 'mat3', 'mat4') \
-                            or var_name.startswith('u_mapcalib_'):
-                        continue
-                    try:
-                        new[f'{program_name}_{var_name}'] = program[var_name]
-                    except:
-                        pass
-
-            values.update(new)
-
-        self.parameters.write(values)
+    def main(self, visual: vxvisual.AbstractVisual):
+        # Update variable parameters
+        variable = {p.name: p.data for p in visual.variable_parameters}
+        self.variable_parameters.write(variable)
 
 
-class Frames(DisplayRoutine):
+class Frames(vxroutine.DisplayRoutine):
 
     def setup(self, *args, **kwargs):
 
         # Set up shared variables
         self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH
         self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
-        self.frame = ArrayAttribute('display_frame', (self.height, self.width, 3), ArrayType.uint8)
+        self.frame = vxattribute.ArrayAttribute('display_frame',
+                                                (self.height, self.width, 3),
+                                                vxattribute.ArrayType.uint8)
 
     def initialize(self):
         self.frame.add_to_file()
 
-    def main(self, visual):
+    def main(self, visual: vxvisual.AbstractVisual):
         if visual is None:
             return
 

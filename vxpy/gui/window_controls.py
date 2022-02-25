@@ -1,6 +1,8 @@
+import os
 from os.path import abspath
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QLabel
+import h5gview
 
 from vxpy import config
 from vxpy.definitions import *
@@ -8,6 +10,8 @@ from vxpy import definitions
 from vxpy.core import ipc, logger
 from vxpy import modules
 from vxpy.core.gui import IntegratedWidget
+
+log = logger.getLogger(__name__)
 
 
 class ProcessMonitorWidget(IntegratedWidget):
@@ -69,7 +73,6 @@ class ProcessMonitorWidget(IntegratedWidget):
         self._tmr_updateGUI.timeout.connect(self._update_states)
         self._tmr_updateGUI.start()
 
-
     def update_process_interval(self, process_name, target_inval, mean_inval, std_inval):
         if process_name in self.intval_widgets:
             self.intval_widgets[process_name].setText('{:.1f}/{:.1f} ({:.1f}) ms'
@@ -79,7 +82,8 @@ class ProcessMonitorWidget(IntegratedWidget):
         else:
             print(process_name, '{:.2f} +/- {:.2f}ms'.format(mean_inval * 1000, std_inval * 1000))
 
-    def _set_process_state(self, le: QtWidgets.QLineEdit, state: Enum):
+    @staticmethod
+    def _set_process_state(le: QtWidgets.QLineEdit, state: Enum):
         # Set text
         le.setText(state.name)
 
@@ -108,85 +112,82 @@ class RecordingWidget(IntegratedWidget):
         IntegratedWidget.__init__(self, 'Recordings', *args)
         self.setLayout(QtWidgets.QHBoxLayout())
         self.setContentsMargins(0,0,0,0)
-        # self.setMaximumWidth(600)
-        # self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Minimum)
+
         # Set object name for stylesheet access via class
         self.wdgt = QtWidgets.QWidget()
-        self.wdgt.setLayout(QtWidgets.QHBoxLayout())
+        self.wdgt.setLayout(QtWidgets.QGridLayout())
         self.wdgt.setObjectName('RecordingWidget')
         self.layout().addWidget(self.wdgt)
 
+        # Add exposed methods
         self.exposed.append(RecordingWidget.show_lab_notebook)
         self.exposed.append(RecordingWidget.close_lab_notebook)
 
-        vSpacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
+        v_spacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
 
         self.lab_nb_folder = None
+        self.h5views: Dict[str, h5gview.ui.Main] = {}
+
         # Basic properties
         self.default_controls_width = 300
         self.default_notebook_width = 300
         self.setCheckable(True)
 
-        self.controls = QtWidgets.QWidget()
-        self.controls.setFixedWidth(self.default_controls_width)
-        self.controls.setLayout(QtWidgets.QGridLayout())
-        self.wdgt.layout().addWidget(self.controls)
-
-        self.lab_notebook = QtWidgets.QWidget()
-        self.lab_notebook.setLayout(QtWidgets.QGridLayout())
-        self.lab_notebook.layout().addWidget(QtWidgets.QLabel('Experimenter'), 0, 0)
-        self.nb_experimenter = QtWidgets.QLineEdit()
-        self.lab_notebook.layout().addWidget(self.nb_experimenter, 1, 0)
-        self.lab_notebook.layout().addWidget(QtWidgets.QLabel('Notes'), 2, 0)
-        self.nb_notes = QtWidgets.QTextEdit()
-        self.lab_notebook.layout().addWidget(self.nb_notes, 3, 0, 1, 2)
-        self.lab_notebook.hide()
-        self.wdgt.layout().addWidget(self.lab_notebook)
-        self.close_lab_notebook()
-
-        # Current folder
+        # Create folder widget and add to widget
         self.folder_wdgt = QtWidgets.QWidget()
         self.folder_wdgt.setLayout(QtWidgets.QGridLayout())
         self.folder_wdgt.layout().setContentsMargins(0, 0, 0, 0)
+        self.wdgt.layout().addWidget(self.folder_wdgt, 0, 0)
 
-        self.folder_wdgt.layout().addWidget(QLabel('Base dir.'), 0, 0)
+        # Current base folder for recordings
         self.base_dir = QtWidgets.QLineEdit('')
         self.base_dir.setDisabled(True)
-        self.folder_wdgt.layout().addWidget(self.base_dir, 0, 1, 1, 2)
+        self.folder_wdgt.layout().addWidget(QLabel('Base folder'), 0, 0)
+        self.folder_wdgt.layout().addWidget(self.base_dir, 0, 1)
 
-        self.select_folder = QtWidgets.QPushButton('Select...')
-        self.select_folder.setDisabled(True)
-        self.folder_wdgt.layout().addWidget(self.select_folder, 1, 1)
-        self.open_folder = QtWidgets.QPushButton('Open')
-        self.open_folder.clicked.connect(self.open_base_folder)
-        self.folder_wdgt.layout().addWidget(self.open_folder, 1, 2)
+        # Button: Open base folder
+        self.btn_open_base_folder = QtWidgets.QPushButton('Open base folder')
+        self.btn_open_base_folder.clicked.connect(self.open_base_folder)
+        self.folder_wdgt.layout().addWidget(self.btn_open_base_folder, 1, 1)
 
-        self.folder_wdgt.layout().addWidget(QLabel('Folder'), 2, 0)
+        # Button: Open last recording
+        self.btn_open_recording = QtWidgets.QPushButton('Open last recording')
+        self.btn_open_recording.setDisabled(True)
+        self.btn_open_recording.clicked.connect(self._open_last_recording)
+        self.folder_wdgt.layout().addWidget(self.btn_open_recording, 2, 1)
+
+        self.folder_wdgt.layout().addWidget(QLabel('Folder'), 3, 0)
         self.rec_folder = QtWidgets.QLineEdit()
         self.rec_folder.setEnabled(False)
-        self.folder_wdgt.layout().addWidget(self.rec_folder, 2, 1, 1, 2)
+        self.folder_wdgt.layout().addWidget(self.rec_folder, 3, 1)
 
-        self.controls.layout().addWidget(self.folder_wdgt, 1, 0, 1, 2)
+        # Add separator
         self.hsep = QtWidgets.QFrame()
         self.hsep.setFrameShape(QtWidgets.QFrame.Shape.HLine)
-        self.controls.layout().addWidget(self.hsep, 2, 0, 1, 2)
+        self.wdgt.layout().addWidget(self.hsep, 1, 0)
 
         # GroupBox
         self.clicked.connect(self.toggle_enable)
 
-        # Left widget
-        self.left_wdgt = QtWidgets.QWidget()
-        self.left_wdgt.setLayout(QtWidgets.QVBoxLayout())
-        self.left_wdgt.layout().setContentsMargins(0,0,0,0)
-        self.controls.layout().addWidget(self.left_wdgt, 5, 0)
+        # Controls widget
+        self.controls = QtWidgets.QWidget()
+        self.controls.setFixedWidth(self.default_controls_width)
+        self.controls.setLayout(QtWidgets.QHBoxLayout())
+        self.wdgt.layout().addWidget(self.controls, 2, 0)
+
+        # Create left widget and add to controls
+        self.interact_widget = QtWidgets.QWidget()
+        self.interact_widget.setLayout(QtWidgets.QVBoxLayout())
+        self.interact_widget.layout().setContentsMargins(0, 0, 0, 0)
+        self.controls.layout().addWidget(self.interact_widget)
 
         # Data compression
-        self.left_wdgt.layout().addWidget(QLabel('Compression'))
+        self.interact_widget.layout().addWidget(QLabel('Compression'))
         self.compression_method = QtWidgets.QComboBox()
         self.compression_opts = QtWidgets.QComboBox()
         self.compression_method.addItems(['None', 'GZIP', 'LZF'])
-        self.left_wdgt.layout().addWidget(self.compression_method)
-        self.left_wdgt.layout().addWidget(self.compression_opts)
+        self.interact_widget.layout().addWidget(self.compression_method)
+        self.interact_widget.layout().addWidget(self.compression_opts)
         self.compression_method.currentTextChanged.connect(self.set_compression_method)
         self.compression_method.currentTextChanged.connect(self.update_compression_opts)
         self.compression_opts.currentTextChanged.connect(self.set_compression_opts)
@@ -195,16 +196,16 @@ class RecordingWidget(IntegratedWidget):
         # Start
         self.btn_start = QtWidgets.QPushButton('Start')
         self.btn_start.clicked.connect(self.start_recording)
-        self.left_wdgt.layout().addWidget(self.btn_start)
+        self.interact_widget.layout().addWidget(self.btn_start)
         # Pause
         self.btn_pause = QtWidgets.QPushButton('Pause')
         self.btn_pause.clicked.connect(self.pause_recording)
-        self.left_wdgt.layout().addWidget(self.btn_pause)
+        self.interact_widget.layout().addWidget(self.btn_pause)
         # Stop
         self.btn_stop = QtWidgets.QPushButton('Stop')
         self.btn_stop.clicked.connect(self.finalize_recording)
-        self.left_wdgt.layout().addWidget(self.btn_stop)
-        self.left_wdgt.layout().addItem(vSpacer)
+        self.interact_widget.layout().addWidget(self.btn_stop)
+        self.interact_widget.layout().addItem(v_spacer)
 
         # Show recorded routines
         self.rec_routines = QtWidgets.QGroupBox('Recorded attributes')
@@ -215,8 +216,20 @@ class RecordingWidget(IntegratedWidget):
         # Update recorded attributes
         for match_string in config.CONF_REC_ATTRIBUTES:
             self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
-        # self.rec_routines.layout().addItem(vSpacer)
-        self.controls.layout().addWidget(self.rec_routines, 5, 1)
+        self.controls.layout().addWidget(self.rec_routines)
+
+        # Lab notebook (opened when recording is active)
+        self.lab_notebook = QtWidgets.QWidget()
+        self.lab_notebook.setLayout(QtWidgets.QVBoxLayout())
+        self.lab_notebook.layout().addWidget(QtWidgets.QLabel('Experimenter'))
+        self.nb_experimenter = QtWidgets.QLineEdit()
+        self.lab_notebook.layout().addWidget(self.nb_experimenter)
+        self.lab_notebook.layout().addWidget(QtWidgets.QLabel('Notes'))
+        self.nb_notes = QtWidgets.QTextEdit()
+        self.lab_notebook.layout().addWidget(self.nb_notes)
+        self.lab_notebook.hide()
+        self.wdgt.layout().addWidget(self.lab_notebook, 0, 1, 3, 1)
+        self.close_lab_notebook()
 
         # Set timer for GUI update
         self.tmr_update_gui = QtCore.QTimer()
@@ -254,34 +267,24 @@ class RecordingWidget(IntegratedWidget):
         self.nb_notes.clear()
         self.lab_notebook.close()
 
-    def start_recording(self):
+    @staticmethod
+    def start_recording():
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.start_manual_recording)
 
-    def pause_recording(self):
+    @staticmethod
+    def pause_recording():
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.pause_recording)
 
-    def finalize_recording(self):
+    @staticmethod
+    def finalize_recording():
         # First: pause recording
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.pause_recording)
-
-        # reply = QtWidgets.QMessageBox.question(self, 'Finalize recording', 'Give me session data and stuff...',
-        #                                        QtWidgets.QMessageBox.StandardButton.Save | QtWidgets.QMessageBox.StandardButton.Discard,
-        #                                        QtWidgets.QMessageBox.StandardButton.Save)
-        # if reply == QtWidgets.QMessageBox.StandardButton.Save:
-        #     pass
-        # else:
-        #     reply = QtWidgets.QMessageBox.question(self, 'Confirm discard', 'Are you sure you want to DISCARD all recorded data?',
-        #                                            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
-        #                                            QtWidgets.QMessageBox.StandardButton.No)
-        #     if reply == QtWidgets.QMessageBox.StandardButton.Yes:
-        #         print('Fine... I`ll trash it all..')
-        #     else:
-        #         print('Puh... good choice')
 
         # Finally: stop recording
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.stop_manual_recording)
 
-    def toggle_enable(self, newstate):
+    @staticmethod
+    def toggle_enable(newstate):
         ipc.rpc(PROCESS_CONTROLLER, modules.Controller.set_enable_recording, newstate)
 
     def get_compression_method(self):
@@ -292,6 +295,24 @@ class RecordingWidget(IntegratedWidget):
             method = method.lower()
 
         return method
+
+    def _open_last_recording(self):
+        base_path = abspath(config.CONF_REC_OUTPUT_FOLDER)
+        recording_list = []
+        for s in os.listdir(base_path):
+            rec_path = os.path.join(base_path, s)
+            if not os.path.isdir(rec_path):
+                continue
+            recording_list.append(rec_path)
+
+        if len(recording_list) == 0:
+            log.warning('Cannot open recording. No valid folders in base directory.')
+            return
+
+        last_recording = sorted(recording_list)[-1]
+        file_list = [os.path.join(last_recording, s) for s in os.listdir(last_recording) if s.endswith('.hdf5')]
+
+        self.h5views[last_recording] = h5gview.open_ui(file_list)
 
     def get_compression_opts(self):
         method = self.compression_method.currentText()
@@ -344,8 +365,6 @@ class RecordingWidget(IntegratedWidget):
         # Start
         self.btn_start.setEnabled(not(active) and enabled)
         self.btn_start.setText('Start' if ipc.in_state(definitions.State.IDLE, PROCESS_CONTROLLER) else 'Resume')
-        # Pause // TODO: implement pause functionality during non-protocol recordings?
-        #self._btn_pause.setEnabled(active and enabled)
         self.btn_pause.setEnabled(False)
         # Stop
         self.btn_stop.setEnabled(bool(ipc.Control.Recording[definitions.RecCtrl.folder]) and enabled)
@@ -354,6 +373,7 @@ class RecordingWidget(IntegratedWidget):
             self.btn_stop.setEnabled(False)
 
         self.base_dir.setText(config.CONF_REC_OUTPUT_FOLDER)
+        self.btn_open_recording.setEnabled(bool(os.listdir(abspath(config.CONF_REC_OUTPUT_FOLDER))))
 
 
 class LoggingWidget(IntegratedWidget):
