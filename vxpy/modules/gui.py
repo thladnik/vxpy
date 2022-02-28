@@ -19,6 +19,7 @@ import os.path
 from PySide6 import QtCore, QtGui, QtWidgets
 import sys
 
+import vxpy
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.ipc as vxipc
@@ -77,13 +78,8 @@ class Window(QtWidgets.QMainWindow):
         io_default_dims = (600, 500)
 
         # Set icon
-        if sys.platform == 'win32':
-            self.setWindowIcon(QtGui.QIcon('vxpy_icon.ico'))
-        elif sys.platform == 'linux':
-            import vxpy
-            # iconpath = os.path.join(str(vxpy.__path__[0]), 'icon.png')
-            iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
-            self.setWindowIcon(QtGui.QIcon(iconpath))
+        iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
+        self.setWindowIcon(QtGui.QIcon(iconpath))
 
         self.subwindows = []
 
@@ -217,10 +213,10 @@ class Window(QtWidgets.QMainWindow):
         return self.camera.size().width(), self.camera.size().height()
 
     def restart_camera(self):
-        vxipc.rpc(PROCESS_CONTROLLER, modules.Controller.initialize_process, modules.Camera)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, vxmodules.Camera)
 
     def restart_display(self):
-        vxipc.rpc(PROCESS_CONTROLLER, modules.Controller.initialize_process, modules.Display)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, vxmodules.Display)
 
     def raise_subwindows(self):
         for w in self.subwindows:

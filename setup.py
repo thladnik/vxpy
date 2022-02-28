@@ -4,7 +4,7 @@ with open('requirements.txt', 'r') as f:
     requirements = f.readlines()
 
 # Add h5gview repository
-requirements.append('git+ssh://git@github.com/thladnik/h5gview.git')
+requirements.append('h5gview @ git+https://git@github.com/thladnik/h5gview.git')
 
 setup(
     name='vxpy',
