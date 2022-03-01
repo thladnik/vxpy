@@ -17,33 +17,35 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import sys
 
+from definitions import *
+
 if __name__ == '__main__':
 
-    if 'patchdir' in sys.argv:
+    if CMD_PATCHDIR in sys.argv:
         from vxpy import setup
         setup.patch_dir()
 
-    if 'setup' in sys.argv:
+    if CMD_SETUP in sys.argv:
         from vxpy import setup
         setup.setup_resources()
 
         # Download sample files for release
-        if 'nosamples' not in sys.argv:
+        if CMD_MOD_NOSAMPLES not in sys.argv:
             setup.download_samples()
 
-    elif 'getsamples' in sys.argv:
+    elif CMD_GETSAMPLES in sys.argv:
         from vxpy import setup
         setup.download_samples()
 
-    elif 'configure' in sys.argv:
+    elif CMD_CONFIGURE in sys.argv:
         from vxpy.configure import main
         main()
 
-    elif 'calibrate' in sys.argv:
+    elif CMD_CALIBRATE in sys.argv:
         from vxpy.calibration_manager import run_calibration
         run_calibration()
 
-    elif 'migrate':
+    elif CMD_MIGRATE:
         pass
         # TODO: migrate current application folder to more recent version (mainly setup resource files?)
 

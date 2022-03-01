@@ -1,6 +1,6 @@
 """
-MappApp ./display_calibration.py
-Copyright (C) 2020 Tim Hladnik
+vxPy ./__init__.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -50,4 +50,8 @@ def main(configfile):
         ctrl = Controller(configfile)
 
     else:
-        print('Sorry, probably not gonna work on \"{}\"'.format(sys.platform))
+        print(f'Platform {sys.platform} not supported')
+        sys.exit(1)
+
+    # Run controller
+    sys.exit(ctrl.start())

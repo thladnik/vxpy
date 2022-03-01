@@ -57,6 +57,15 @@ PROCESS_GUI = 'Gui'
 PROCESS_IO = 'Io'
 PROCESS_WORKER = 'Worker'
 
+CMD_PATCHDIR = 'patchdir'
+CMD_SETUP = 'setup'
+CMD_GETSAMPLES = 'getsamples'
+CMD_CONFIGURE = 'configure'
+CMD_CALIBRATE = 'calibrate'
+CMD_MIGRATE = 'migrate'
+
+CMD_MOD_NOSAMPLES = '--nosamples'
+
 
 # Process states
 class State(Enum):

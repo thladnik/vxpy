@@ -218,9 +218,6 @@ class Controller(process.AbstractProcess):
         self.set_compression_opts(None)
         self.record_group_counter = 0
 
-        # Run event loop
-        self.start()
-
     def _register_process(self, target, **kwargs):
         """Register new modules to be spawned.
 
@@ -282,6 +279,8 @@ class Controller(process.AbstractProcess):
 
         self._running = False
         self.set_state(definitions.State.STOPPED)
+
+        return 0
 
     ################
     # Recording
@@ -542,7 +541,8 @@ class Controller(process.AbstractProcess):
 
         else:
             # If nothing's happning: sleep for a bit
-            time.sleep(0.05)
+            pass
+            # time.sleep(0.05)
 
     def _start_shutdown(self):
         log.debug('Shutdown requested. Checking.')
