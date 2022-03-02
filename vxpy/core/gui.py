@@ -16,78 +16,99 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
+from typing import Callable, List
 from PySide6 import QtCore, QtWidgets
 
 from vxpy import config
-from vxpy import definitions
-from vxpy.core import ipc, logger
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
+import vxpy.modules as vxmodules
 
-# Type hinting
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from vxpy.modules.gui import Gui
-
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class AddonWidget(QtWidgets.QWidget):
-
-    def __init__(self,main):
-        QtWidgets.QWidget.__init__(self)
-        self.main = main
-        self.module_active = True
+class Widget:
+    """Base widget"""
+    def __init__(self, main):
+        self.main: vxmodules.Gui = main
 
 
 class ExposedWidget:
+    """Widget base class for widgets which expose bound methods to be called from external sources"""
 
     def __init__(self):
         # List of exposed methods to register for rpc callbacks
-        self.exposed: list = []
+        self.exposed: List[Callable] = []
 
     def create_hooks(self):
+        """Register exposed functions as callbacks with the local process"""
         for fun in self.exposed:
             fun_str = fun.__qualname__
-            ipc.Process.register_rpc_callback(self, fun_str, fun)
+            vxipc.Process.register_rpc_callback(self, fun_str, fun)
 
 
-class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget):
+class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
+    """Addon widget which should be subclassed by custom widgets in plugins, etc"""
 
-    def __init__(self, group_name, main):
+    def __init__(self, main):
+        Widget.__init__(self, main=main)
+        ExposedWidget.__init__(self)
+        QtWidgets.QWidget.__init__(self, parent=main)
+        self.module_active = True
+
+
+class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget, Widget):
+    """Integrated widgets which are part of the  main window"""
+
+    def __init__(self, group_name: str, main):
+        Widget.__init__(self, main=main)
+        ExposedWidget.__init__(self)
         QtWidgets.QGroupBox.__init__(self, group_name, parent=main)
-        self.main: Gui = main
-
-        self.exposed = list()
 
 
-class WindowWidget(QtWidgets.QWidget, ExposedWidget):
+class WindowWidget(QtWidgets.QWidget, ExposedWidget, Widget):
+    """Widget that should be displayed as a separate window"""
 
-    def __init__(self, group_name, main):
-        QtWidgets.QWidget.__init__(self, main, f=QtCore.Qt.WindowType.Window)
-        self.setWindowTitle(group_name)
-        self.main: Gui = main
+    def __init__(self, title: str, main):
+        Widget.__init__(self, main=main)
+        ExposedWidget.__init__(self)
+        QtWidgets.QWidget.__init__(self, parent=main, f=QtCore.Qt.WindowType.Window)
 
-        # List of exposed methods to register for rpc callbacks
-        self.exposed = list()
+        # Set title
+        self.setWindowTitle(title)
 
+        # Make known to window manager
+        self.createWinId()
+
+        # Open/show
         self.show()
 
     def toggle_visibility(self):
+        """Switch visibility based on current visibility"""
+
         if self.isVisible():
             self.hide()
         else:
             self.show()
 
     def event(self, event):
+        """Catch all events and execute custom responses"""
+
+        # If window is activated (e.g. brought to front),
+        # this also raises all other windows
         if event.type() == QtCore.QEvent.Type.WindowActivate:
             # Raise main window
-            ipc.Process.window.raise_()
-            ipc.Process.window.raise_subwindows()
+            vxipc.Process.window.raise_()
+            # Raise all subwindows
+            vxipc.Process.window.raise_subwindows()
+            # Raise this window last
             self.raise_()
 
         return QtWidgets.QWidget.event(self, event)
 
 
 class WindowTabWidget(WindowWidget, ExposedWidget):
+    """Windowed widget which implements a central tab widget that is used to display addon widgets"""
     def __init__(self, *args, **kwargs):
         WindowWidget.__init__(self, *args, **kwargs)
 
@@ -96,14 +117,18 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout().addWidget(self.tab_widget)
 
-    def create_addon_tabs(self, process_name):
+    def create_addon_tabs(self, process_name: str) -> None:
+        """Read UI addons for local given process and add them to central tab widget.
 
+        :param process_name: name of process for which to add the addons to the tab widget
+        """
+        # Select ui addons for this local
         used_addons = config.CONF_GUI_ADDONS[process_name]
 
+        # Add all addons as individual tabs to tab widget
         for path in used_addons:
             log.info(f'Load UI addon {path}')
 
-            # TODO: search different paths for package structure redo
             # Load routine
             parts = path.split('.')
             module = importlib.import_module('.'.join(parts[:-1]))
