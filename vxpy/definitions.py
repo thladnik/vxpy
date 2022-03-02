@@ -63,6 +63,7 @@ CMD_GETSAMPLES = 'getsamples'
 CMD_CONFIGURE = 'configure'
 CMD_CALIBRATE = 'calibrate'
 CMD_MIGRATE = 'migrate'
+CMD_HELP = 'help'
 
 CMD_MOD_NOSAMPLES = '--nosamples'
 
