@@ -16,33 +16,38 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-
+from abc import ABC, abstractmethod
 import ctypes
 import multiprocessing as mp
-import typing
-from abc import ABC, abstractmethod
-from typing import Tuple, List
-
 import numpy as np
+from typing import Any, Dict, Iterable, Iterator, List, Tuple, Union
 
 from vxpy import definitions
 from vxpy import config
-from vxpy.core import ipc, logger
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
+import vxpy.core.process as vxprocess
+import vxpy.core.routine as vxroutine
 
-log = logger.getLogger(__name__)
-
-
-def read_attribute(attr_name, *args, **kwargs):
-    if attr_name in Attribute.all:
-        return Attribute.all[attr_name].read(*args, **kwargs)
+log = vxlogger.getLogger(__name__)
 
 
-def write_attribute(attr_name, *args, **kwargs):
+def read_attribute(attr_name: str, *args, **kwargs) -> Union[Tuple[List, List, Union[List, np.ndarray]], None]:
+    """Convenience method for calling an attribute's read function via its name"""
+    if attr_name not in Attribute.all:
+        return
+
+    return Attribute.all[attr_name].read(*args, **kwargs)
+
+
+def write_attribute(attr_name: str, *args, **kwargs) -> None:
+    """Convenience method for calling an attribute's write function via its name"""
     if attr_name in Attribute.all:
         return Attribute.all[attr_name].write(*args, **kwargs)
 
 
-def build_attributes(attrs):
+def build_attributes(attrs: Dict[str, Attribute]) -> None:
+    """Calls the build function of all specified attributes"""
     if attrs is None:
         return
 
@@ -51,7 +56,9 @@ def build_attributes(attrs):
         attr.build()
 
 
-def match_to_record_attributes(attr_name: str):
+def match_to_record_attributes(attr_name: str) -> Tuple[int, bool]:
+    """Method matches a given attribute name to a list of attribute name templates to determine whether
+     or not the attribute should be included for recording to file"""
     attribute_filters = config.CONF_REC_ATTRIBUTES
 
     matched = False
@@ -89,21 +96,28 @@ def match_to_record_attributes(attr_name: str):
     return 1, matched
 
 
-def write_to_file(instance, attr_name):
+def write_to_file(instance: Union[vxprocess.AbstractProcess, vxroutine.Routine], attr_name: str) -> None:
     process_name = instance.name
 
+    # If provided process name is not listed in attribute's to-file dictionary, create the associated list
     if process_name not in Attribute.to_file:
         Attribute.to_file[process_name] = []
 
+    # If attribute does not exist, it cannot be added to the to-file list
     if attr_name not in Attribute.all:
         msg = 'Attribute does not exist.'
     else:
-        matchcode, included = match_to_record_attributes(attr_name)
+        # Check attribute name against templates
+        found, included = match_to_record_attributes(attr_name)
+
+        # If attribute name is included by template list, append to the to-file list
         if included:
             log.info(f'Set attribute "{attr_name}" to be written to file. ')
             Attribute.to_file[process_name].append(Attribute.all[attr_name])
             return
-        if matchcode == -1:
+
+        # If not included: is it actively exluded by list or not in template list at all
+        if found:
             msg = 'Excluded by template list.'
         else:
             msg = 'Not in template list.'
@@ -112,23 +126,27 @@ def write_to_file(instance, attr_name):
 
 
 def get_attribute_names() -> List[str]:
+    """Method returns a list of all attribute names"""
     return [n for n in Attribute.all.keys()]
 
 
 def get_attribute_list() -> List[Tuple[str, Attribute]]:
+    """Method returns a list of tuples containing (attribute name, attribute object)"""
     return [(k, v) for k, v in Attribute.all.items()]
 
 
-def get_attribute(attr_name):
+def get_attribute(attr_name: str) -> Union[Attribute, None]:
+    """Method returns an attribute with the given name or None if attribute does not exist"""
     if attr_name not in Attribute.all:
         return None
 
     return Attribute.all[attr_name]
 
 
-def get_permanent_attributes(process_name=None):
+def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
+    """Method returns a list of all attributes that are marked to be saved to file"""
     if process_name is None:
-        process_name = ipc.Process.name
+        process_name = vxipc.Process.name
 
     if process_name not in Attribute.to_file:
         return []
@@ -136,7 +154,9 @@ def get_permanent_attributes(process_name=None):
     return Attribute.to_file[process_name]
 
 
-def get_permanent_data(process_name=None):
+def get_permanent_data(process_name: str = None) -> Iterator[Tuple[str, Any]]:
+    """Method returns all newly added attribute data to be written to file
+    as a tuple of {attrname, attrvalue) for the specified process"""
     for attribute in get_permanent_attributes(process_name):
         if attribute.has_new_entry():
             # Yield attribute data and time
@@ -147,8 +167,12 @@ def get_permanent_data(process_name=None):
 
 
 class Attribute(ABC):
-    all: typing.Dict[str, Attribute] = {}
-    to_file: typing.Dict[str, typing.List[Attribute]] = {}
+    """Attribute base class at the core of vxPy's data management structure. Attributes are, by default,
+    shared and synchronized across all different modules. They are written to (filled with data) by one particular
+    module (producer module) and can be read by all other modules (consumer modules)."""
+
+    all: Dict[str, Attribute] = {}
+    to_file: Dict[str, List[Attribute]] = {}
 
     def __init__(self, name: str, _length: int = None):
         assert name not in self.all, f'Duplicate attribute {name}'
@@ -157,72 +181,107 @@ class Attribute(ABC):
 
         self.shape: tuple = None
         self._length = _length
-        self._data = None
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
-        self._new = False
+        self._new_data_flag = False
 
     def _make_time(self):
-        self._time: List[float, None] = ipc.Manager.list([None] * self._length)
+        """Generate the shared list of times corresponding to individual datapoints in the buffer"""
+        self._time: List[Union[float, None]] = vxipc.Manager.list([None] * self._length)
 
     def _next(self):
+        """Increment the (shared) current index value by one (only happens once per write operation)"""
         self._index.value += 1
 
     @property
     def index(self):
+        """Return the (shared) current index value"""
         return self._index.value
 
     def build(self):
+        """(Optional) method which is called after subprocess fork and which can be used to set up
+        fork-specific parts of the attribute"""
         pass
 
     def _get_times(self, start_idx, end_idx):
+        """Returns the list of time points corresponding to the indices in the interval [start_idx, end_idx)
+        of datapoints written to the attribute """
         if start_idx >= 0:
             return self._time[start_idx:end_idx]
         else:
             return self._time[start_idx:] + self._time[:end_idx]
 
     def get_times(self, last):
+        """Returns the list of time points corresponding to the <last> number of datapoints written to the attribute """
         return self._get_times(*self._get_range(last))
 
     def has_new_entry(self):
-        return self._new
+        return self._new_data_flag
 
-    def set_new(self, state):
-        self._new = state
+    def set_new(self, state: bool) -> None:
+        """Set _new_data state of this attribute. This usually happens when attribute is written to
+        or when the last attribute data is written to file"""
+        self._new_data_flag = state
 
     def add_to_file(self):
-        write_to_file(ipc.Process, self.name)
+        """Convenience method for calling write_to_file method on this attribute"""
+        write_to_file(vxipc.Process, self.name)
 
     @abstractmethod
-    def _read(self, start_idx, end_idx, use_lock):
+    def _read(self, start_idx, end_idx, use_lock) -> Iterable:
+        """Method that is called by read() method. Should return some kind of iterable"""
         pass
 
-    def read(self, last=1, use_lock=True, from_idx=None):
-        if from_idx is not None:
-            last = self.index - from_idx
-            # If this turns up 0, return nothing, as by default read(last=0)
-            # would be used in producer to read current value (which consumers should never do)
-            if last <= 0:
-                # TODO: it's not a given that "datsets" would be a list, this may cause issues
-                #  while reading ArrayAttributes for example
-                return [], [], []
+    @abstractmethod
+    def _read_empty_return(self) -> Tuple[List[int], List[float], Any]:
+        """Method to be called when read() method determines that result should be empty.
+        This method should return an empty version of the same types as _read()"""
+        pass
+
+    def read(self, last: int = None, use_lock: bool = True, from_idx: int = None) -> Tuple[List[int], List[float], Any]:
+        """Read datapoints from the buffer.
+        By default this returns the last written datapoint from the attribute buffer.
+        If from_idx is not None and an scalar integer value, this will return
+        all datapoints from (but not including) from_idx. """
+        if last is None:
+            # By default, set last to 1 if from_idx is not specified
+            if from_idx is None:
+                last = 1
+
+            # Otherwise calculate number of elements to be read based on from_idx
+            else:
+                last = self.index - from_idx
+                # If this turns up 0, return nothing, as by default read(last=0)
+                # would be used in producer to read current value (which consumers should never do)
+                if last <= 0:
+                    return self._read_empty_return()
+
         # Return indices, times, datasets
         return self._get_index_list(last), self.get_times(last), self._read(*self._get_range(last), use_lock)
 
     @abstractmethod
-    def _write(self, internal_idx, value):
+    def _write(self, internal_idx: int, value: Any):
+        """Method that is called by write() method. Should handle the actual writing of the attribute datapoint
+        at the given 'internal_idx' position in the buffer."""
         pass
 
-    def write(self, value):
-        if np.isclose(self._last_time, ipc.Process.global_t, rtol=0., atol=ipc.Process.interval / 4.):
-            log.warning(
-                f'Trying to repeatedly write to attribute "{self.name}" in process {ipc.Process.name} during same iteration. '
-                f'Last={self._last_time} / Current={ipc.Process.global_t}')
+    def write(self, value: Any) -> None:
+        """Write datapoint to the buffer."""
+
+        # Check time difference between last and current write operation and print a warning if it's too low
+        #  Individual occurrences may be caused by a temporary hiccups of the system
+        #  Regular occurrences may indicate an underlying issue with the timing precision of the system
+        #  or repeated erreneous calls to the write function of the attribute during a
+        #  single event loop iteration of the corresponding producer module
+        if np.isclose(self._last_time, vxipc.Process.global_t, rtol=0., atol=vxipc.Process.interval / 4.):
+            log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
+                        f'in process {vxipc.Process.name} during same iteration. '
+                        f'Last={self._last_time} / Current={vxipc.Process.global_t}')
 
         internal_idx = self.index % self._length
 
         # Set time for this entry
-        self._time[internal_idx] = ipc.Process.global_t
+        self._time[internal_idx] = vxipc.Process.global_t
 
         # Write data
         self._write(internal_idx, value)
@@ -231,12 +290,15 @@ class Attribute(ABC):
         self.set_new(True)
 
         # Update last time
-        self._last_time = ipc.Process.global_t
+        self._last_time = vxipc.Process.global_t
 
         # Advance buffer
         self._next()
 
-    def _get_range(self, last):
+    def _get_range(self, last: int) -> Tuple[int, int]:
+        """Return the internal index range based on the specified 'last' number of datapoints in the attribute buffer"""
+
+        # Make sure nothing weird is happening
         assert last < self._length, 'Trying to read more values than stored in buffer'
         assert last >= 0, 'Trying to read negative number of entries from buffer'
 
@@ -250,13 +312,17 @@ class Attribute(ABC):
             internal_idx = (self.index + 1) % self._length
             start_idx = internal_idx - 1
 
+        # Return start and end of index range
         return start_idx, internal_idx
 
-    def _get_index_list(self, last) -> typing.List:
+    def _get_index_list(self, last: int) -> List[int]:
+        """Return list of indices, based on the 'last' number of datapoints specified"""
         return list(range(self.index - last, self.index))
 
 
 class ArrayType:
+    """Corresponding ctype and numpy array datatypes for array attributes"""
+
     bool = (ctypes.c_bool, np.bool)
 
     int8 = (ctypes.c_int8, np.int8)
@@ -281,11 +347,14 @@ class ArrayAttribute(Attribute):
     Optionally supports chunking of buffer into independent segments. This is especially
     useful when long read operations are expected (e.g. when reading multiple frames of RGB video data),
     as these tend to block writing by producer when use_lock=True is set.
+
     :: size tuple of dimension size of the buffered array
     :: dtype tuple with datatypes in c and numpy (ctype, np-type)
     :: chunked bool which indicated whether chunking should be used
     :: chunk_size (optional) int which specifies chunk size if chunked=True
     """
+
+    # TODO: chunked and un-chunked data structures can be unified (un-chunked attributes are chunked with chunk_num 1)
 
     def __init__(self, name, shape, dtype: Tuple[object, np.number], chunked=False, chunk_size=None, **kwargs):
         Attribute.__init__(self, name, **kwargs)
@@ -295,6 +364,8 @@ class ArrayAttribute(Attribute):
         assert isinstance(chunked, bool), 'chunked has to be bool'
         assert isinstance(chunk_size, int) or chunk_size is None, 'chunk_size must be int or None'
 
+        self._raw: List[mp.Array] = None
+        self._data: List[np.ndarray] = None
         self.shape = shape
         self.dtype = dtype
         self._chunked = chunked
@@ -316,7 +387,7 @@ class ArrayAttribute(Attribute):
         # Automatically determine chunk_size
         if self._chunked and self._length < 10:
             self._chunked = False
-            print('WARNING', 'Automatic chunking disabled (auto)', 'Buffer length too small.')
+            log.warning('Automatic chunking disabled (auto)', 'Buffer length too small.')
 
         if self._chunked and self._chunk_size is None:
             for s in range(self._length // 10, self._length):
@@ -327,8 +398,8 @@ class ArrayAttribute(Attribute):
             if self._chunk_size is None:
                 self._chunk_size = self._length // 10
                 self._length = 10 * self._chunk_size
-                print('WARNING', 'Unable to find suitable chunk size.',
-                      f'Resize buffer to match closest length. {self._chunk_size}/{self._length}')
+                log.warning('Unable to find suitable chunk size.',
+                            f'Resize buffer to match closest length. {self._chunk_size}/{self._length}')
 
         self._chunk_num = None
         if self._chunked:
@@ -338,24 +409,26 @@ class ArrayAttribute(Attribute):
         # Init data structures
         if self._chunked:
             init = int(np.product((self._chunk_size,) + self.shape))
-            self._raw: typing.List[mp.Array] = list()
+            self._raw = []
             for i in range(self._chunk_num):
                 self._raw.append(mp.Array(self.dtype[0], init))
-            self._data: typing.List[np.ndarray] = list()
+            self._data = []
         else:
             init = int(np.product((self._length,) + self.shape))
-            self._raw: mp.Array = mp.Array(self.dtype[0], init)
-            self._data: np.ndarray = None
+            self._raw = mp.Array(self.dtype[0], init)
+            self._data = None
 
         # Create list with time points
         self._make_time()
 
-    def _build_array(self, raw, length):
+    def _build_array(self, raw: mp.Array, length: int) -> np.ndarray:
+        """Create the numpy array from the ctype array object and reshape to fit"""
         np_array = np.frombuffer(raw.get_obj(), self.dtype[1])
         return np_array.reshape((length,) + self.shape)
 
-    def _get_lock(self, chunk_idx, use_lock):
-        if not (use_lock):
+    def _get_lock(self, chunk_idx: int, use_lock: bool) -> mp.Lock:
+        """Return lock to array object that corresponds"""
+        if not use_lock:
             return DummyLockContext()
 
         if chunk_idx is None:
@@ -366,6 +439,8 @@ class ArrayAttribute(Attribute):
         return lock()
 
     def build(self) -> None:
+        """Build method that is called upon initialization in the subprocess fork.
+        """
         if self._chunked:
             for raw in self._raw:
                 self._data.append(self._build_array(raw, self._chunk_size))
@@ -373,6 +448,9 @@ class ArrayAttribute(Attribute):
             self._data = self._build_array(self._raw, self._length)
 
     def _read(self, start_idx, end_idx, use_lock) -> np.ndarray:
+        """Read method of ArrayAttribute.
+        Returns a numpy array with the datapoints in the interval [start_idx, end_idx)"""
+
         if self._chunked:
             start_chunk = start_idx // self._chunk_size
             chunk_start_idx = start_idx % self._chunk_size
@@ -405,7 +483,14 @@ class ArrayAttribute(Attribute):
                     ar2 = self._data[:end_idx]
                     return np.concatenate((ar1, ar2))
 
-    def _write(self, internal_idx, value):
+    def _read_empty_return(self) -> Tuple[List[int], List[float], np.ndarray]:
+        """Method to be called when read() method determines that result should be empty.
+        This method should return an empty version of the same types as _read()"""
+        return [], [], np.array([])
+
+    def _write(self, internal_idx: int, value: np.number) -> None:
+        """Method that is called by write() method. Should handle the actual writing of the attribute datapoint
+        at the given 'internal_idx' position in the buffer."""
 
         # Set data
         if self._chunked:
@@ -418,11 +503,10 @@ class ArrayAttribute(Attribute):
             with self._get_lock(None, True):
                 self._data[internal_idx] = value
 
-    def __setitem__(self, key, value):
-        self._data[key % self._length] = value
-
 
 class ObjectAttribute(Attribute):
+    """Object attribute, which can be used to store and synchronize Python objects."""
+
     def __init__(self, name, **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
@@ -433,24 +517,28 @@ class ObjectAttribute(Attribute):
         self.shape = (None,)
 
         # Create shared list
-        self._data = ipc.Manager.list([None] * self._length)
+        self._data = vxipc.Manager.list([None] * self._length)
 
         # Create list with time points
         self._make_time()
 
-    def _read(self, start_idx, end_idx, use_lock):
+    def _read(self, start_idx: int, end_idx: int, use_lock: int) -> List[Any]:
         """use_lock not used, because manager handles locking"""
         if start_idx >= 0:
             return self._data[start_idx:end_idx]
         else:
             return self._data[start_idx:] + self._data[:end_idx]
 
-    def _write(self, internal_idx, value):
+    def _read_empty_return(self) -> Tuple[List, List, List]:
+        """Method to be called when read() method determines that result should be empty.
+        This method should return an empty version of the same types as _read()"""
+        return [], [], []
+
+    def _write(self, internal_idx: int, value: Any) -> None:
+        """Method that is called by write() method. Should handle the actual writing of the attribute datapoint
+        at the given 'internal_idx' position in the buffer."""
         # Set data
         self._data[internal_idx] = value
-
-    def __setitem__(self, key, value):
-        self._data[key % self._length] = value
 
 
 class DummyLockContext:
