@@ -31,6 +31,7 @@ CONF_DISPLAY_FPS: int = 60
 CONF_DISPLAY_ROUTINES: List[str] = []
 
 CONF_GUI_USE: bool = True
+CONF_GUI_SCREEN: int = 0
 CONF_GUI_ADDONS: Dict[str, List[str]] = {}
 
 CONF_IO_USE: bool = True

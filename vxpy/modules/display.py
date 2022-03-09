@@ -58,7 +58,7 @@ class Display(vxprocess.AbstractProcess):
                              position=(calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y),
                              size=(calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT),
                              resizable=False,
-                             always_on_top=True,
+                             always_on_top=False,
                              app=self.app,
                              vsync=False,
                              decorate=False)
@@ -113,19 +113,26 @@ class Display(vxprocess.AbstractProcess):
     def start_phase(self):
         self.start_visual()
         self.set_record_group_attrs({'start_time': get_time(),
+                                     'visual_modules': self.current_visual.__module__,
                                      'visual_name': str(self.current_visual.__class__.__qualname__)})
 
     def start_visual(self, parameters=None):
+
+        # Initialize and update visual on canvas
         self.current_visual.initialize()
         self.canvas.set_visual(self.current_visual)
 
-        # Save static parameter data to container attributes
-        self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
-
+        # If a current_phase is set, that one dictates the parameters to be used!
         if self.current_phase is not None:
             parameters = self.current_phase.visual_parameters
 
+        # Update visual parameters
         self.update_visual(parameters)
+
+        # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
+        self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
+
+        # Start visual
         self.current_visual.start()
 
     def end_phase(self):
@@ -180,6 +187,10 @@ class Canvas(app.Canvas):
         self.times = []
         self.t: float = time.perf_counter()
         self.new_t: float = time.perf_counter()
+
+        from PySide6 import QtWidgets
+        app1 = QtWidgets.QApplication.instance()
+        self._backend.setScreen(app1.screens()[1])
 
         self.show()
 

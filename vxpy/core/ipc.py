@@ -78,7 +78,7 @@ def get_state(process_name: str = None):
     return getattr(State, process_name).value
 
 
-def in_state(state: Enum, process_name: str = None):
+def in_state(state: State, process_name: str = None):
     """Check if modules is in the given state.
 
     By default, if process_name is None, the local modules's name is used

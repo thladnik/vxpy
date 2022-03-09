@@ -47,6 +47,8 @@ class FrameStream(AddonWidget):
             self.view_wdgts[device_id] = FrameStream.CameraWidget(self, device_id, parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
 
+        self.connect_to_timer(self.update_frame)
+
     def update_frame(self):
         for _, widget in self.view_wdgts.items():
             widget.update_frame()
@@ -90,8 +92,6 @@ class FrameStream(AddonWidget):
             self.layout().addWidget(self.graphics_widget)
 
         def update_frame(self):
-            # idx, time, frame = IPC.Camera.read(frames.Frames, f'{self.device_id}_frame')
-            # idx, time, frame = Attribute.all[f'{self.device_id}_frame'].read()
             idx, time, frame = read_attribute(f'{self.device_id}_frame')
 
             if frame is None:
@@ -102,8 +102,6 @@ class FrameStream(AddonWidget):
                 frame = np.fliplr(frame)
             if self._flip_ud:
                 frame = np.flipud(frame)
-
-            #self.image_plot.vb.autoRange()
 
             self.graphics_widget.image_item.setImage(frame)
 

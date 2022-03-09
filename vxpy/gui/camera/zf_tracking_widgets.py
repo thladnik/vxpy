@@ -74,6 +74,8 @@ class EyePositionDetector(AddonWidget):
                                            QtWidgets.QSizePolicy.Policy.Expanding)
         self.layout().addWidget(self.graphics_widget)
 
+        self.connect_to_timer(self.update_frame)
+
     @staticmethod
     def update_image_threshold(im_thresh):
         ipc.rpc(PROCESS_CAMERA, zf_tracking.EyePositionDetection.set_threshold, im_thresh)

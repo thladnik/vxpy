@@ -15,19 +15,20 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import ctypes
 import os.path
 from PySide6 import QtCore, QtGui, QtWidgets
+from qt_material import apply_stylesheet
 import sys
 
 import vxpy
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.ipc as vxipc
+import vxpy.core.gui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.modules as vxmodules
-from vxpy.gui import window_controls
-from vxpy.gui import window_widgets
 
 log = vxlogger.getLogger(__name__)
 
@@ -45,16 +46,20 @@ class Gui(vxprocess.AbstractProcess):
             self.app = QtWidgets.QApplication(sys.argv)
 
         self.window = Window()
+        self.window.show()
 
         # Run event loop
-        self.run(interval=1/30)
+        self.run(interval=1 / 30)
 
     def main(self):
         self.app.processEvents()
 
     def prompt_shutdown_confirmation(self):
-        reply = QtWidgets.QMessageBox.question(self.window, 'Confirm shutdown', 'Program is still busy. Shut down anyways?',
-                                               QtWidgets.QMessageBox.StandardButton.Cancel | QtWidgets.QMessageBox.StandardButton.Yes,
+        reply = QtWidgets.QMessageBox.question(self.window,
+                                               'Confirm shutdown',
+                                               'Program is still busy. Shut down anyways?',
+                                               QtWidgets.QMessageBox.StandardButton.Cancel |
+                                               QtWidgets.QMessageBox.StandardButton.Yes,
                                                QtWidgets.QMessageBox.StandardButton.Cancel)
 
         if reply == QtWidgets.QMessageBox.StandardButton.Yes:
@@ -71,11 +76,11 @@ class Window(QtWidgets.QMainWindow):
     def __init__(self):
         QtWidgets.QMainWindow.__init__(self, flags=QtCore.Qt.WindowType.Window)
 
-        controls_default_height = 400
-        plotter_default_height = 300
-        display_default_dims = (600, 500)
-        camera_default_dims = (600, 500)
-        io_default_dims = (600, 500)
+        # Fix icon issues on windows systems
+        if sys.platform == 'win32':
+            # Explicitly set app-id as suggested by https://stackoverflow.com/a/1552105
+            appid = u'vxpy.application.0.0.1'  # arbitrary string
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
 
         # Set icon
         iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
@@ -88,134 +93,153 @@ class Window(QtWidgets.QMainWindow):
 
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, f=QtCore.Qt.WindowType.Widget))
-        self.centralWidget().setLayout(QtWidgets.QVBoxLayout())
+        self.centralWidget().setLayout(QtWidgets.QHBoxLayout())
 
-        self.screenGeo = vxipc.Process.app.primaryScreen().geometry()
-        w, h = self.screenGeo.width(), self.screenGeo.height()
-        x, y = self.screenGeo.x(), self.screenGeo.y()
+        # Control widgets
+        self.control_wdgt = QtWidgets.QWidget()
+        self.control_wdgt.setLayout(QtWidgets.QHBoxLayout())
+        self.centralWidget().layout().addWidget(self.control_wdgt)
 
-        # Set main controls window
-
-        # Main controls widget
-        self.controls = QtWidgets.QWidget()
-        self.controls.setLayout(QtWidgets.QHBoxLayout())
-        self.centralWidget().layout().addWidget(self.controls)
+        # Main monitoring widget
+        self.monitoring_wdgt = QtWidgets.QWidget()
+        self.monitoring_wdgt.setLayout(QtWidgets.QVBoxLayout())
+        self.centralWidget().layout().addWidget(self.monitoring_wdgt)
 
         # Process monitor
-        self.process_monitor = window_controls.ProcessMonitorWidget(self)
+        self.process_monitor = vxgui.ProcessMonitorWidget(self)
         self.process_monitor.create_hooks()
-        self.controls.layout().addWidget(self.process_monitor)
+        self.monitoring_wdgt.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = window_controls.RecordingWidget(self)
+        self.recordings = vxgui.RecordingWidget(self)
         self.recordings.create_hooks()
-        self.controls.layout().addWidget(self.recordings)
+        self.control_wdgt.layout().addWidget(self.recordings)
+
+        # Protocols}
+        self.protocols = vxgui.Protocols(self)
+        self.protocols.create_hooks()
+        self.control_wdgt.layout().addWidget(self.protocols)
 
         # Logger
-        self.log_display = window_controls.LoggingWidget(self)
-        self.controls.layout().addWidget(self.log_display)
+        self.log_display = vxgui.LoggingWidget(self)
+        self.monitoring_wdgt.layout().addWidget(self.log_display)
 
         # Set geometry
-        self.move(x, y)
-        self.resize(w, controls_default_height)
+        self.setMinimumHeight(500)
+        # screen = vxipc.Process.app.screens()[1]
+        # screen = vxipc.Process.app.primaryScreen()
+        screen = vxipc.Process.app.screens()[config.CONF_GUI_SCREEN]
+
+        self.screenGeo = screen.geometry()
+        width, height = self.screenGeo.width(), self.screenGeo.height()
+        xpos, ypos = self.screenGeo.x(), self.screenGeo.y()
+        self.move(xpos, ypos)
+        self.resize(width, height // 2 if height <= 1080 else 540)
 
         # Optional sub windows
+        row2_yoffset = 0
+        row2_xoffset = 0
+        x_spacing = 5
+        bottom_height_offset = 100
+        if sys.platform == 'win32':
+            titlebar_height = 42
+        else:
+            titlebar_height = 0
+        main_window_height = self.size().height() + titlebar_height
+        addon_window_default_dims = (600, 600)
 
-        row2_yoffset = -20
-        row2_xoffset = 10
+        # Addon widget window if any addons are selected in config
+        self.addon_widget_window = None
+        if any([config.CONF_DISPLAY_USE, config.CONF_CAMERA_USE, config.CONF_IO_USE]) and bool(config.CONF_GUI_ADDONS):
 
-        # Display
-        self.display = None
-        if config.CONF_DISPLAY_USE and PROCESS_DISPLAY in config.CONF_GUI_ADDONS:
-            self.display = window_widgets.DisplayWindow(self)
-            self.display.create_hooks()
-            self.display.move(x + row2_xoffset,
-                              y + self.controls.size().height() + row2_yoffset)
-            self.display.resize(*display_default_dims)
-            self.subwindows.append(self.display)
+            # Create windowed tab
+            self.addon_widget_window = vxgui.AddonTabWidget(self)
 
-        # Camera
-        self.camera = None
-        if config.CONF_CAMERA_USE and PROCESS_CAMERA in config.CONF_GUI_ADDONS:
-            self.camera = window_widgets.CameraWindow(self)
-            self.camera.create_hooks()
-            self.camera.move(x + self.get_display_size()[0] + 2 * row2_xoffset,
-                             y + self.controls.size().height() + row2_yoffset)
-            self.camera.resize(*camera_default_dims)
-            self.subwindows.append(self.camera)
+            for process_name, addons in config.CONF_GUI_ADDONS.items():
+                self.addon_widget_window.create_addon_tabs(process_name)
 
-        # Io
-        self.io = None
-        if config.CONF_IO_USE and PROCESS_IO in config.CONF_GUI_ADDONS:
-            self.io = window_widgets.IoWindow(self)
-            self.io.create_hooks()
-            self.io.move(x + self.get_display_size()[0] + self.get_camera_size()[0] + 3 * row2_xoffset,
-                         y + self.controls.size().height() + row2_yoffset)
-            self.io.resize(*io_default_dims)
-            self.subwindows.append(self.io)
+            # Create hooks
+            self.addon_widget_window.create_hooks()
+
+            # Place and resize
+            self.addon_widget_window.move(xpos + row2_xoffset,
+                                          ypos + main_window_height + row2_yoffset)
+            if height - self.size().height() - addon_window_default_dims[1] > bottom_height_offset:
+                addon_height = addon_window_default_dims[1]
+            else:
+                addon_height = height - self.size().height() - bottom_height_offset
+            self.addon_widget_window.resize(addon_window_default_dims[0], addon_height)
+
+            # Add subwindow
+            self.subwindows.append(self.addon_widget_window)
 
         # Add Plotter
-        self.plotter = window_widgets.PlottingWindow(self)
+        self.plotter = vxgui.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
-        if sys.platform == 'linux':
-            self.plotter.move(x, y + h-plotter_default_height)
-            self.plotter.resize(w, plotter_default_height)
-        else:
-            self.plotter.move(x,
-                              y + 0.9 * h - plotter_default_height)
-            self.plotter.resize(w, plotter_default_height + int(0.05 * h))
+
+        # if sys.platform == 'linux':
+        #     self.plotter.move(xpos, ypos + height - plotter_default_height)
+        #     self.plotter.resize(width, plotter_default_height)
+        # else:
+        #     self.plotter.move(xpos,
+        #                       ypos + 0.9 * height - plotter_default_height)
+        #     self.plotter.resize(width, plotter_default_height + int(0.05 * height))
+
+        # Place and resize
+        addon_win_width = self.addon_widget_window.size().width() if self.addon_widget_window is not None else 0
+        self.plotter.move(xpos + row2_xoffset + addon_win_width + x_spacing,
+                          ypos + self.size().height() + titlebar_height + row2_yoffset)
+
+        self.plotter.resize(width - addon_win_width - x_spacing,
+                            height - self.size().height() - row2_yoffset - bottom_height_offset)
+
         self.plotter.create_hooks()
         self.subwindows.append(self.plotter)
 
         # Setup menubar
         self.setMenuBar(QtWidgets.QMenuBar())
-        # Menu windows
+
+        # Windows actions
         self.menu_windows = QtWidgets.QMenu('Windows')
         self.menuBar().addMenu(self.menu_windows)
+
         self.window_toggles = []
         for subwin in self.subwindows:
             self.window_toggles.append(QtGui.QAction(f'Toggle {subwin.windowTitle()}'))
             self.window_toggles[-1].triggered.connect(subwin.toggle_visibility)
             self.menu_windows.addAction(self.window_toggles[-1])
-        # Menu processes
+
+        # Processes actions
         self.menu_process = QtWidgets.QMenu('Processes')
         self.menuBar().addMenu(self.menu_process)
-        self.menuBar().addMenu(self.menu_windows)
-        # Restart camera
-        self.menu_process.restart_camera = QtGui.QAction('Restart camera')
-        self.menu_process.restart_camera.triggered.connect(self.restart_camera)
-        self.menu_process.addAction(self.menu_process.restart_camera)
-        # Restart display
-        self.menu_process.restart_display = QtGui.QAction('Restart display')
-        self.menu_process.restart_display.triggered.connect(self.restart_display)
-        self.menu_process.addAction(self.menu_process.restart_display)
 
-        # Bind shortcuts
-        # Restart display modules
+        # Restart display module
         if config.CONF_DISPLAY_USE:
+            self.menu_process.restart_display = QtGui.QAction('Restart display')
+            self.menu_process.restart_display.triggered.connect(self.restart_display)
+            self.menu_process.addAction(self.menu_process.restart_display)
             self.menu_process.restart_display.setShortcut('Ctrl+Alt+Shift+d')
             self.menu_process.restart_display.setAutoRepeat(False)
-        # Restart camera modules
+
+        # Restart camera module
         if config.CONF_CAMERA_USE:
+            self.menu_process.restart_camera = QtGui.QAction('Restart camera')
+            self.menu_process.restart_camera.triggered.connect(self.restart_camera)
+            self.menu_process.addAction(self.menu_process.restart_camera)
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 
-        self.show()
+        # Set theme
+        extra = {'density_scale': '-3', }
+        apply_stylesheet(vxipc.Process.app, theme='dark_amber.xml', invert_secondary=False, extra=extra)
+        # apply_stylesheet(vxipc.Process.app, theme='dark_teal.xml', extra=extra)
 
-    def get_display_size(self):
-        if self.display is None:
-            return 0, 0,
-        return self.display.size().width(), self.display.size().height()
-
-    def get_camera_size(self):
-        if self.camera is None:
-            return 0, 0,
-        return self.camera.size().width(), self.camera.size().height()
-
-    def restart_camera(self):
+    @staticmethod
+    def restart_camera():
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, vxmodules.Camera)
 
-    def restart_display(self):
+    @staticmethod
+    def restart_display():
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, vxmodules.Display)
 
     def raise_subwindows(self):

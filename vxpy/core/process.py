@@ -31,11 +31,11 @@ import vxpy.core.calibration as vxcalib
 import vxpy.core.configuration as vxconfig
 import vxpy.core.container as vxcontainer
 import vxpy.core.ipc as vxipc
+import vxpy.core.gui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
 from vxpy.definitions import *
-from vxpy.gui import window_controls
 
 log = vxlogger.getLogger(__name__)
 
@@ -186,7 +186,7 @@ class AbstractProcess:
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
                 # print(f'{self.name} says {self.t}')
-                api.gui_rpc(window_controls.ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
+                api.gui_rpc(vxgui.ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
                             _send_verbosely=False)
 
             # Wait until interval time is up
@@ -355,15 +355,17 @@ class AbstractProcess:
         if self.enable_idle_timeout:
             time.sleep(vxipc.Control.General[GenCtrl.min_sleep_time])
 
-    def get_state(self, process=None):
+    @staticmethod
+    def get_state(process_name: str = None):
         """Convenience function for access in modules class"""
-        return vxipc.get_state()
+        return vxipc.get_state(process_name)
 
-    def set_state(self, code):
+    @staticmethod
+    def set_state(code):
         """Convenience function for access in modules class"""
         vxipc.set_state(code)
 
-    def in_state(self, code, process_name=None):
+    def in_state(self, code: State, process_name: str = None):
         """Convenience function for access in modules class"""
         if process_name is None:
             process_name = self.name
@@ -590,8 +592,7 @@ class AbstractProcess:
             return False
 
         # If output folder is set: open file
-        rec_folder = vxipc.Control.Recording[RecCtrl.folder]
-        filepath = os.path.join(rec_folder, f'{self.name}.hdf5')
+        filepath = os.path.join(config.CONF_REC_OUTPUT_FOLDER, vxipc.Control.Recording[RecCtrl.folder], f'{self.name}.hdf5')
 
         # Open new file
         log.debug(f'Open new file {filepath}')

@@ -20,9 +20,11 @@ from __future__ import annotations
 import ctypes
 import importlib
 import multiprocessing as mp
+from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 import time
 from typing import List, Tuple
 
+import vxpy
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
@@ -32,9 +34,9 @@ from vxpy.api.dependency import register_camera_device, register_io_device, asse
 from vxpy.core import process, ipc, logger
 from vxpy.core import routine
 from vxpy.core import run_process
+import vxpy.core.gui as vxgui
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
-from vxpy.gui.window_controls import RecordingWidget
 
 log = logger.getLogger(__name__)
 
@@ -80,6 +82,28 @@ class Controller(process.AbstractProcess):
 
         # Initialize process
         process.AbstractProcess.__init__(self, _program_start_time=time.time(), _configuration_path=_configuration_path)
+
+        # Generate and show splash screen
+        app = QtWidgets.QApplication([])
+        iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
+        pngpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.png')
+
+        # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
+        # renderer = QtSvg.QSvgRenderer(iconpath)
+        # image = QtGui.QImage(512, 512, QtGui.QImage.Format.Format_RGBA64)
+        # painter = QtGui.QPainter(image)
+        # image.fill(QtGui.QColor(0, 0, 0, 0))
+        # renderer.render(painter)
+        # image.save(pngpath)
+        # painter.end()
+
+        # Show screen
+        splash = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint, screen=app.screens()[config.CONF_GUI_SCREEN])
+        splash.setPixmap(QtGui.QPixmap(pngpath))
+        splash.show()
+
+        # Process events once
+        app.processEvents()
 
         # Set up processes
         _routines_to_load = dict()
@@ -294,57 +318,63 @@ class Controller(process.AbstractProcess):
         self.stop_recording()
 
     @staticmethod
+    def set_recording_folder(folder_name: str):
+        # TODO: checks
+        log.info(f'Set recording folder to {folder_name}')
+        ipc.Control.Recording[RecCtrl.folder] = folder_name
+
+    @staticmethod
     def set_compression_method(method):
-        ipc.Control.Recording[definitions.RecCtrl.compression_method] = method
+        ipc.Control.Recording[RecCtrl.compression_method] = method
         if method is None:
-            ipc.Control.Recording[definitions.RecCtrl.compression_opts] = None
+            ipc.Control.Recording[RecCtrl.compression_opts] = None
         log.info(f'Set compression method to {method}')
 
     @staticmethod
     def set_compression_opts(opts):
-        if ipc.Control.Recording[definitions.RecCtrl.compression_method] is None:
-            ipc.Control.Recording[definitions.RecCtrl.compression_opts] = None
+        if ipc.Control.Recording[RecCtrl.compression_method] is None:
+            ipc.Control.Recording[RecCtrl.compression_opts] = None
             return
-        ipc.Control.Recording[definitions.RecCtrl.compression_opts] = opts
+        ipc.Control.Recording[RecCtrl.compression_opts] = opts
         log.info(f'Set compression options to {opts}')
 
     @staticmethod
     def set_enable_recording(newstate):
-        ipc.Control.Recording[definitions.RecCtrl.enabled] = newstate
+        ipc.Control.Recording[RecCtrl.enabled] = newstate
 
     def start_recording(self):
-        if ipc.Control.Recording[definitions.RecCtrl.active]:
+        if ipc.Control.Recording[RecCtrl.active]:
             log.warning('Tried to start new recording while active')
             return False
 
-        if not ipc.Control.Recording[definitions.RecCtrl.enabled]:
+        if not ipc.Control.Recording[RecCtrl.enabled]:
             log.warning('Recording not enabled. Session will not be saved to disk.')
             return True
 
         # Set current folder if none is given
-        if not (bool(ipc.Control.Recording[definitions.RecCtrl.folder])):
-            output_folder = config.CONF_REC_OUTPUT_FOLDER
-            ipc.Control.Recording[definitions.RecCtrl.folder] = os.path.join(output_folder, f'{time.strftime("%Y-%m-%d-%H-%M-%S")}')
+        if not bool(ipc.Control.Recording[RecCtrl.folder]):
+            ipc.Control.Recording[RecCtrl.folder] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
 
             # Reset record group perf_counter
             self.record_group_counter = 0
 
         # Create output folder
-        rec_folder = ipc.Control.Recording[definitions.RecCtrl.folder]
-        log.debug('Set output folder {}'.format(rec_folder))
-        if not (os.path.exists(rec_folder)):
-            log.debug('Create output folder {}'.format(rec_folder))
-            os.mkdir(rec_folder)
+        rec_folder_path = os.path.join(config.CONF_REC_OUTPUT_FOLDER, ipc.Control.Recording[RecCtrl.folder])
+        log.debug('Set output folder {}'.format(rec_folder_path))
+        if not os.path.exists(rec_folder_path):
+            log.debug('Create output folder {}'.format(rec_folder_path))
+            os.mkdir(rec_folder_path)
 
         # Set state to recording
         log.info('Start recording')
         ipc.Control.Recording[definitions.RecCtrl.active] = True
 
-        gui_rpc(RecordingWidget.show_lab_notebook)
+        gui_rpc(vxgui.RecordingWidget.show_lab_notebook)
 
         return True
 
-    def pause_recording(self):
+    @staticmethod
+    def pause_recording():
         if not ipc.Control.Recording[definitions.RecCtrl.active]:
             log.warning('Tried to pause inactive recording.')
             return
@@ -359,7 +389,7 @@ class Controller(process.AbstractProcess):
         if ipc.Control.Recording[definitions.RecCtrl.active]:
             ipc.Control.Recording[definitions.RecCtrl.active] = False
 
-        gui_rpc(RecordingWidget.close_lab_notebook)
+        gui_rpc(vxgui.RecordingWidget.close_lab_notebook)
 
         log.info('Stop recording')
         self.set_state(definitions.State.IDLE)
