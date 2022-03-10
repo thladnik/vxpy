@@ -66,7 +66,7 @@ class DisplayCalibration(QtWidgets.QWidget):
         self.update_canvas()
 
     def trigger_on_draw(self):
-        self.canvas.draw()
+        self.canvas.on_draw(event=None)
 
     def update_canvas(self):
         # Update size
