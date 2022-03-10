@@ -82,6 +82,12 @@ class Window(QtWidgets.QMainWindow):
             appid = u'vxpy.application.0.0.1'  # arbitrary string
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
 
+        # Set offsets
+        row2_yoffset = 0
+        row2_xoffset = 0
+        side_window_borders = 5
+        x_spacing = 5
+
         # Set icon
         iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
         self.setWindowIcon(QtGui.QIcon(iconpath))
@@ -131,15 +137,10 @@ class Window(QtWidgets.QMainWindow):
         self.screenGeo = screen.geometry()
         width, height = self.screenGeo.width(), self.screenGeo.height()
         xpos, ypos = self.screenGeo.x(), self.screenGeo.y()
-        print(xpos, ypos)
-        print(width, height)
         self.move(xpos, ypos)
-        self.resize(width, height // 2 if height <= 1080 else 540)
+        self.resize(width-side_window_borders, height // 2 if height <= 1080 else 540)
 
         # Optional sub windows
-        row2_yoffset = 0
-        row2_xoffset = 0
-        x_spacing = 5
         if sys.platform == 'win32':
             titlebar_height = 40
             bottom_height_offset = 120
