@@ -18,9 +18,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from inspect import isclass
 from typing import Callable, Union
 
+from PySide6 import QtWidgets
+import time
 from vispy import app
 from vispy import gloo
-import time
 
 from vxpy.api import get_time
 from vxpy import calib
@@ -45,7 +46,8 @@ class Display(vxprocess.AbstractProcess):
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
-        self.app = app.use_app()
+        self.app = app.use_app('PySide6')
+
         self.visual_is_displayed = False
         self.enable_idle_timeout = False
         self.times = []
@@ -58,9 +60,9 @@ class Display(vxprocess.AbstractProcess):
                              position=(calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y),
                              size=(calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT),
                              resizable=False,
-                             always_on_top=False,
+                             always_on_top=True,
                              app=self.app,
-                             vsync=False,
+                             vsync=True,
                              decorate=False)
 
         # Process vispy events once too avoid frozen screen at start
@@ -71,6 +73,7 @@ class Display(vxprocess.AbstractProcess):
         self.run(interval=_interval)
 
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
+        # TODO: the routine class here is not necesasry anymore, since attributes are now independent entities
         if uniform_name not in self._uniform_maps:
             self._uniform_maps[uniform_name] = (routine_cls, attr_name)
             log.info(f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
@@ -140,7 +143,7 @@ class Display(vxprocess.AbstractProcess):
 
     def end_protocol(self):
         self.current_visual = None
-        self.canvas.stimulus_visual = self.current_visual
+        self.canvas.current_visual = self.current_visual
 
     def run_visual(self, new_visual, parameters):
         self.current_visual = new_visual
@@ -164,8 +167,10 @@ class Display(vxprocess.AbstractProcess):
 
     def main(self):
 
-        self.canvas.update()
         self.app.process_events()
+        # self.canvas.update()
+
+        # Update routines
         if self.current_visual is not None and self.current_visual.is_active:
             self.update_routines(self.current_visual)
 
@@ -176,51 +181,38 @@ class Display(vxprocess.AbstractProcess):
 class Canvas(app.Canvas):
 
     def __init__(self, _interval, *args, **kwargs):
-        app.Canvas.__init__(self, *args, **kwargs)
-        self.tick = 0
-        self.measure_fps(.5, self.show_fps)
-        self.current_visual = None
-        gloo.set_viewport(0, 0, *self.physical_size)
-        gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
+        # Get a running PySide6 instance
+        current_app = QtWidgets.QApplication.instance()
+        if current_app is None:
+            current_app = QtWidgets.QApplication([])
 
-        self.debug = False
-        self.times = []
+        backend_kwargs = {'screen': current_app.screens()[calib.CALIB_DISP_WIN_SCREEN_ID]}
+        app.Canvas.__init__(self, *args, **kwargs, backend_kwargs=backend_kwargs)
+
+        self.current_visual = None
         self.t: float = time.perf_counter()
         self.new_t: float = time.perf_counter()
 
-        from PySide6 import QtWidgets
-        app1 = QtWidgets.QApplication.instance()
-        self._backend.setScreen(app1.screens()[1])
+        gloo.set_viewport(0, 0, *self.physical_size)
+        gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
+        self.new_frame_drawn = False
 
+        self.update()
         self.show()
 
     def set_visual(self, visual):
         self.current_visual = visual
 
-    def draw(self):
-        self.update()
-        app.process_events()
-
     def on_draw(self, event):
-        # if event is None:
-        #     return
 
         self.new_t = time.perf_counter()
 
-        # Leave catch in here for now.
-        # This makes debugging new stimuli much easier.
-        try:
-            if self.current_visual is not None:
-                self.current_visual.draw(self.new_t - self.t)
-        except Exception as exc:
-            import traceback
-            print(traceback.print_exc())
+        # print('This is going to get stuck if update() is conditional')
+        if self.current_visual is not None:
+            drawn = self.current_visual.draw(self.new_t - self.t)
+        self.update()
 
         self.t = self.new_t
-
-    def show_fps(self, fps):
-        if self.debug:
-            print("FPS {:.2f}".format(fps))
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
