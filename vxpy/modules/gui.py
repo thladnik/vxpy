@@ -126,13 +126,13 @@ class Window(QtWidgets.QMainWindow):
 
         # Set geometry
         self.setMinimumHeight(500)
-        # screen = vxipc.Process.app.screens()[1]
-        # screen = vxipc.Process.app.primaryScreen()
         screen = vxipc.Process.app.screens()[config.CONF_GUI_SCREEN]
 
         self.screenGeo = screen.geometry()
         width, height = self.screenGeo.width(), self.screenGeo.height()
         xpos, ypos = self.screenGeo.x(), self.screenGeo.y()
+        print(xpos, ypos)
+        print(width, height)
         self.move(xpos, ypos)
         self.resize(width, height // 2 if height <= 1080 else 540)
 
@@ -140,11 +140,12 @@ class Window(QtWidgets.QMainWindow):
         row2_yoffset = 0
         row2_xoffset = 0
         x_spacing = 5
-        bottom_height_offset = 100
         if sys.platform == 'win32':
-            titlebar_height = 42
+            titlebar_height = 40
+            bottom_height_offset = 120
         else:
             titlebar_height = 0
+            bottom_height_offset = 120
         main_window_height = self.size().height() + titlebar_height
         addon_window_default_dims = (600, 600)
 
@@ -161,7 +162,7 @@ class Window(QtWidgets.QMainWindow):
             # Create hooks
             self.addon_widget_window.create_hooks()
 
-            # Place and resize
+            # Place and resize addon widget
             self.addon_widget_window.move(xpos + row2_xoffset,
                                           ypos + main_window_height + row2_yoffset)
             if height - self.size().height() - addon_window_default_dims[1] > bottom_height_offset:
@@ -177,21 +178,18 @@ class Window(QtWidgets.QMainWindow):
         self.plotter = vxgui.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
 
-        # if sys.platform == 'linux':
-        #     self.plotter.move(xpos, ypos + height - plotter_default_height)
-        #     self.plotter.resize(width, plotter_default_height)
-        # else:
-        #     self.plotter.move(xpos,
-        #                       ypos + 0.9 * height - plotter_default_height)
-        #     self.plotter.resize(width, plotter_default_height + int(0.05 * height))
-
         # Place and resize
         addon_win_width = self.addon_widget_window.size().width() if self.addon_widget_window is not None else 0
         self.plotter.move(xpos + row2_xoffset + addon_win_width + x_spacing,
                           ypos + self.size().height() + titlebar_height + row2_yoffset)
 
+        if height - self.size().height() - addon_window_default_dims[1] > bottom_height_offset:
+            plotter_height = addon_window_default_dims[1]
+        else:
+            plotter_height = height - self.size().height() - bottom_height_offset
+
         self.plotter.resize(width - addon_win_width - x_spacing,
-                            height - self.size().height() - row2_yoffset - bottom_height_offset)
+                            plotter_height)
 
         self.plotter.create_hooks()
         self.subwindows.append(self.plotter)
