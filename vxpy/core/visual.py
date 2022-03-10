@@ -454,7 +454,7 @@ class SphericalVisual(AbstractVisual, ABC):
         #gloo.set_clear_color('red')
 
     def draw(self, dt):
-        gloo.clear()
+        # gloo.clear()
         if not self.is_active:
             return
 
@@ -515,7 +515,7 @@ class SphericalVisual(AbstractVisual, ABC):
             self.transform_uniforms['u_mapcalib_projection'] = transforms.perspective(fov, 1., 0.1, 400.0)
 
             xy_offset = np.array([calib.CALIB_DISP_GLOB_POS_X * win_width / win_height,
-                                  calib.CALIB_DISP_WIN_POS_Y])
+                                  calib.CALIB_DISP_GLOB_POS_Y])
 
             self.transform_uniforms['u_mapcalib_rotate_x'] = transforms.rotate(90, (1, 0, 0))
 
