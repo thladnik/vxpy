@@ -453,10 +453,7 @@ class SphericalVisual(AbstractVisual, ABC):
         #gloo.set_clear_color('black')
         #gloo.set_clear_color('red')
 
-    def draw(self, dt):
-        # gloo.clear()
-        if not self.is_active:
-            return
+    def _draw(self, dt):
 
         self.frame_time = dt
 
@@ -560,7 +557,14 @@ class SphericalVisual(AbstractVisual, ABC):
             with self._raw_fb:
                 gloo.clear()
 
+    def draw(self, dt):
+        # gloo.clear()
+        if self.is_active:
+            self._draw(dt)
+
         self._display_prog.draw('triangle_strip')
+
+        return True
 
 
 ################################
