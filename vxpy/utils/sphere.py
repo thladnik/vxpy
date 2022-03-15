@@ -48,9 +48,9 @@ class UVSphere:
 
         # Set vertex attributes
         self.a_azimuth = np.ascontiguousarray(self.azims.flatten(), dtype=np.float32)
-        self.angular_azimuth = np.ascontiguousarray(self.azims.flatten() / np.pi / 2.0 * 360.0, dtype=np.float32)
+        self.azimuth_degree = np.ascontiguousarray(self.azims.flatten() / np.pi / 2.0 * 360.0, dtype=np.float32)
         self.a_elevation = np.ascontiguousarray(self.elevs.flatten(), dtype=np.float32)
-        self.angular_elevation = np.ascontiguousarray(self.elevs.flatten() / np.pi / 2.0 * 360.0, dtype=np.float32)
+        self.elevation_degree = np.ascontiguousarray(self.elevs.flatten() / np.pi / 2.0 * 360.0, dtype=np.float32)
         self.a_position = geometry.sph2cart(self.a_azimuth, self.a_elevation, self.radius)
         self.a_position = np.ascontiguousarray(self.a_position.T, dtype=np.float32)
 
