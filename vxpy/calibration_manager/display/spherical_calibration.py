@@ -148,12 +148,12 @@ class Settings(QtWidgets.QWidget):
     #  are changed in quick succession. It doesn't affect normal everyday operation.
 
     channel_params = ['CALIB_DISP_SPH_POS_RADIAL_OFFSET',
-                  'CALIB_DISP_SPH_POS_LATERAL_OFFSET',
-                  'CALIB_DISP_SPH_VIEW_ELEV_ANGLE',
-                  'CALIB_DISP_SPH_VIEW_AZIM_ANGLE',
-                  'CALIB_DISP_SPH_VIEW_DISTANCE',
-                  'CALIB_DISP_SPH_VIEW_FOV',
-                  'CALIB_DISP_SPH_VIEW_SCALE']
+                      'CALIB_DISP_SPH_POS_LATERAL_OFFSET',
+                      'CALIB_DISP_SPH_VIEW_ELEV_ANGLE',
+                      'CALIB_DISP_SPH_VIEW_AZIM_ANGLE',
+                      'CALIB_DISP_SPH_VIEW_DISTANCE',
+                      'CALIB_DISP_SPH_VIEW_FOV',
+                      'CALIB_DISP_SPH_VIEW_SCALE']
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent=parent)
@@ -280,8 +280,8 @@ class Mesh(QtWidgets.QGroupBox):
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
         access.window.display.canvas.set_visual(RegularMesh(access.window.display.canvas))
-        access.window.display.canvas.stimulus_visual.update(**{RegularMesh.u_elevation_sp: elevation_sp,
-                                                      RegularMesh.u_azimuth_sp: azimuth_sp})
+        access.window.display.canvas.current_visual.update({RegularMesh.u_elevation_sp: elevation_sp,
+                                                            RegularMesh.u_azimuth_sp: azimuth_sp})
 
 
 class Checker(QtWidgets.QGroupBox):
@@ -314,5 +314,5 @@ class Checker(QtWidgets.QGroupBox):
         elevation_sp = self.elevation_sp.get_value()
         azimuth_sp = self.azimuth_sp.get_value()
         access.window.display.canvas.set_visual(BlackWhiteCheckerboard(access.window.display.canvas))
-        access.window.display.canvas.stimulus_visual.update(**{BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
-                                                      BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})
+        access.window.display.canvas.current_visual.update({BlackWhiteCheckerboard.u_elevation_sp: elevation_sp,
+                                                            BlackWhiteCheckerboard.u_azimuth_sp: azimuth_sp})

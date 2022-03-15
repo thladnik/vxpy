@@ -23,17 +23,11 @@ from vxpy.utils import sphere
 
 
 class BlackWhiteCheckerboard(visual.SphericalVisual):
-    u_elevation_sp = 'u_elevation_sp'
-    u_azimuth_sp = 'u_azimuth_sp'
-
-    parameters = {u_elevation_sp: 10.0, u_azimuth_sp: 10.0}
+    u_elevation_sp = visual.FloatParameter('u_elevation_sp')
+    u_azimuth_sp = visual.FloatParameter('u_azimuth_sp')
 
     def __init__(self, *args, **kwargs):
         """Black-and-white checkerboard for calibration.
-
-        :param protocol: protocol of which stimulus is currently part of
-        :param rows: number of rows on checkerboard
-        :param cols: number of columns on checkerboard
         """
         visual.SphericalVisual.__init__(self, *args, **kwargs)
 
@@ -49,6 +43,8 @@ class BlackWhiteCheckerboard(visual.SphericalVisual):
         self.checker['a_azimuth'] = self.azimuth_buffer
         self.checker['a_elevation'] = self.elevation_buffer
 
+        self.u_elevation_sp.connect(self.checker)
+        self.u_azimuth_sp.connect(self.checker)
 
     def initialize(self, *args, **kwargs):
         pass
@@ -59,10 +55,8 @@ class BlackWhiteCheckerboard(visual.SphericalVisual):
 
 
 class RegularMesh(visual.SphericalVisual):
-    u_elevation_sp = 'u_elevation_sp'
-    u_azimuth_sp = 'u_azimuth_sp'
-
-    parameters = {u_elevation_sp: 10.0, u_azimuth_sp: 10.0}
+    u_elevation_sp = visual.FloatParameter('u_elevation_sp')
+    u_azimuth_sp = visual.FloatParameter('u_azimuth_sp')
 
     def __init__(self, *args, **kwargs):
         visual.SphericalVisual.__init__(self, *args, **kwargs)
@@ -79,7 +73,8 @@ class RegularMesh(visual.SphericalVisual):
         self.mesh['a_azimuth'] = self.azimuth_buffer
         self.mesh['a_elevation'] = self.elevation_buffer
 
-        self.update(**kwargs)
+        self.u_elevation_sp.connect(self.mesh)
+        self.u_azimuth_sp.connect(self.mesh)
 
     def initialize(self, *args, **kwargs):
         pass

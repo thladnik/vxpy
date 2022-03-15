@@ -119,13 +119,14 @@ class Display(vxprocess.AbstractProcess):
         self.current_visual.initialize()
         self.canvas.set_visual(self.current_visual)
 
+        # Set parameters
+        if self.current_phase is not None:
+            parameters = self.current_phase.visual_parameters
+        self.update_visual(parameters)
+
         # Save static parameter data to container attributes
         self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
 
-        if self.current_phase is not None:
-            parameters = self.current_phase.visual_parameters
-
-        self.update_visual(parameters)
         self.current_visual.start()
 
     def end_phase(self):
