@@ -558,8 +558,8 @@ class SphericalVisual(AbstractVisual, ABC):
                 gloo.clear()
 
     def draw(self, dt):
-        # gloo.clear()
         if self.is_active:
+            gloo.clear((0, 0, 0, 0))
             self._draw(dt)
 
         self._display_prog.draw('triangle_strip')
@@ -610,11 +610,12 @@ class PlanarVisual(AbstractVisual, ABC):
         AbstractVisual.__init__(self, *args, **kwargs)
 
     def draw(self, dt):
-        gloo.clear()
-        if not self.is_active:
-            return
+        if self.is_active:
+            gloo.clear()
+            self._draw(dt)
 
-        # Construct vertices
+    def _draw(self, dt):
+
         height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
         width = calib.CALIB_DISP_WIN_SIZE_WIDTH
 
@@ -767,8 +768,7 @@ class Parameter:
     def update(self):
         for program in self._programs:
             if self.name in program:
-                program[self.name] = self.data
-
+                program[self.name] = self.data[:]
 
 # Bool types
 

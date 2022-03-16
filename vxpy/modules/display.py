@@ -15,10 +15,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 from inspect import isclass
 from typing import Callable, Union
 
-from PySide6 import QtWidgets
 import time
 from vispy import app
 from vispy import gloo
@@ -43,10 +43,14 @@ class Display(vxprocess.AbstractProcess):
 
     _uniform_maps = dict()
 
+    instance = []
+
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
-        self.app = app.use_app('PySide6')
+        self.instance.append(self)
+
+        self.app = app.use_app()
 
         self.visual_is_displayed = False
         self.enable_idle_timeout = False
@@ -55,15 +59,7 @@ class Display(vxprocess.AbstractProcess):
         # Create canvas
         _interval = 1. / config.CONF_DISPLAY_FPS
 
-        self.canvas = Canvas(_interval,
-                             title='vxPy visual stimulus display',
-                             position=(calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y),
-                             size=(calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT),
-                             resizable=False,
-                             always_on_top=True,
-                             app=self.app,
-                             vsync=True,
-                             decorate=False)
+        self.canvas = Canvas(_interval)
 
         # Process vispy events once too avoid frozen screen at start
         app.process_events()
@@ -71,6 +67,10 @@ class Display(vxprocess.AbstractProcess):
         # Run event loop
         self.enable_idle_timeout = False
         self.run(interval=_interval)
+
+    @classmethod
+    def get_instance(cls):
+        return cls.instance[0]
 
     def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
         # TODO: the routine class here is not necesasry anymore, since attributes are now independent entities
@@ -146,7 +146,6 @@ class Display(vxprocess.AbstractProcess):
         self.canvas.current_visual = self.current_visual
 
     def run_visual(self, new_visual, parameters):
-        self.current_visual = new_visual
         self.prepare_visual(new_visual)
         self.start_visual(parameters)
 
@@ -166,7 +165,6 @@ class Display(vxprocess.AbstractProcess):
         self.current_visual.trigger(trigger_fun)
 
     def main(self):
-
         self.app.process_events()
         # self.canvas.update()
 
@@ -181,13 +179,23 @@ class Display(vxprocess.AbstractProcess):
 class Canvas(app.Canvas):
 
     def __init__(self, _interval, *args, **kwargs):
-        # Get a running PySide6 instance
-        current_app = QtWidgets.QApplication.instance()
-        if current_app is None:
-            current_app = QtWidgets.QApplication([])
-
-        backend_kwargs = {'screen': current_app.screens()[calib.CALIB_DISP_WIN_SCREEN_ID]}
-        app.Canvas.__init__(self, *args, **kwargs, backend_kwargs=backend_kwargs)
+        # # Get a running PySide6 instance
+        # current_app = QtWidgets.QApplication.instance()
+        # if current_app is None:
+        #     current_app = QtWidgets.QApplication([])
+        #
+        # backend_kwargs = {'screen': current_app.screens()[calib.CALIB_DISP_WIN_SCREEN_ID]}
+        # app.Canvas.__init__(self, *args, **kwargs, backend_kwargs=backend_kwargs)
+        app.Canvas.__init__(self, *args,
+                            title='vxPy visual stimulus display',
+                            position=(calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y),
+                            size=(calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT),
+                            resizable=False,
+                            always_on_top=True,
+                            app=Display.get_instance().app,
+                            vsync=True,
+                            decorate=False,
+                            **kwargs)
 
         self.current_visual = None
         self.t: float = time.perf_counter()
@@ -204,7 +212,6 @@ class Canvas(app.Canvas):
         self.current_visual = visual
 
     def on_draw(self, event):
-
         self.new_t = time.perf_counter()
 
         # print('This is going to get stuck if update() is conditional')
@@ -216,4 +223,3 @@ class Canvas(app.Canvas):
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
-

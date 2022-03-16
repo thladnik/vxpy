@@ -141,12 +141,14 @@ class Window(QtWidgets.QMainWindow):
         self.resize(width-side_window_borders, height // 2 if height <= 1080 else 540)
 
         # Optional sub windows
-        if sys.platform == 'win32':
-            titlebar_height = 40
-            bottom_height_offset = 120
-        else:
-            titlebar_height = 0
-            bottom_height_offset = 120
+        titlebar_height = 40
+        bottom_height_offset = 80
+        # if sys.platform == 'win32':
+        #     titlebar_height = 40
+        #     bottom_height_offset = 120
+        # else:
+        #     titlebar_height = 0
+        #     bottom_height_offset = 120
         main_window_height = self.size().height() + titlebar_height
         addon_window_default_dims = (600, 600)
 
@@ -178,6 +180,7 @@ class Window(QtWidgets.QMainWindow):
         # Add Plotter
         self.plotter = vxgui.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
+
 
         # Place and resize
         addon_win_width = self.addon_widget_window.size().width() if self.addon_widget_window is not None else 0

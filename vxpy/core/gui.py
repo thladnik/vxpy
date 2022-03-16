@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 import importlib
 import os.path
+import sys
 import time
 
 import h5py
