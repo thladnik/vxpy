@@ -257,7 +257,7 @@ class BaseVisual(AbstractVisual, ABC):
             return
 
         self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(90, (0, 1, 0)))
-        self.translate = 5
+        self.translate = 2
         self.view = transforms.translate((0, 0, -self.translate))
 
         self.transform_uniforms['u_view'] = self.view
@@ -269,7 +269,7 @@ class BaseVisual(AbstractVisual, ABC):
 
     def apply_zoom(self):
         gloo.set_viewport(0, 0, self.canvas.physical_size[0], self.canvas.physical_size[1])
-        self.projection = transforms.perspective(45.0, self.canvas.size[0] / float(self.canvas.size[1]), 1.0, 1000.0)
+        self.projection = transforms.perspective(90.0, self.canvas.size[0] / float(self.canvas.size[1]), 1.0, 1000.0)
         self.transform_uniforms['u_projection'] = self.projection
 
 
@@ -571,7 +571,6 @@ class SphericalVisual(AbstractVisual, ABC):
 
     def draw(self, dt):
         if self.is_active:
-            gloo.clear((0, 0, 0, 0))
             self._draw(dt)
 
         self._display_prog.draw('triangle_strip')
@@ -715,7 +714,7 @@ class Parameter:
 
         self._name: str = name
         self._programs: List[gloo.Program] = []
-        self._linked_parameters: List[Parameter] = []
+        self._downstream_link: List[Parameter] = []
 
         if shape is not None:
             self._data: np.ndarray = np.zeros(shape, dtype=self.dtype)
@@ -783,19 +782,30 @@ class Parameter:
         self._data[:] = data
         self.update()
 
-    def link(self, parameter: Parameter):
-        if parameter.name not in self._linked_parameters:
-            self._linked_parameters.append(parameter)
-
     def connect(self, program: gloo.Program):
         if program not in self._programs:
             self._programs.append(program)
             self.update()
 
+    def add_downstream_link(self, parameter: Parameter):
+        if parameter not in self._downstream_link:
+            self._downstream_link.append(parameter)
+
     def update(self):
         for program in self._programs:
             if self.name in program:
-                program[self.name] = self.data[:]
+                program[self.name] = self.data
+                # try:
+                #     print(self.name, self.data)
+                #     program[self.name][:] = self.data
+                # except:
+                #     program[self.name] = self.data
+
+        for parameter in self._downstream_link:
+            parameter.upstream_updated()
+
+    def upstream_updated(self):
+        pass
 
 # Bool types
 
@@ -1026,3 +1036,17 @@ class TextureUInt2D(Texture):
 
     def __init__(self, *args, **kwargs):
         Texture.__init__(self, *args, **kwargs)
+
+
+class Attribute(Parameter):
+    dtype = np.float32
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, **kwargs)
+
+
+class BoolAttribute(Parameter):
+    dtype = bool
+
+    def __init__(self, *args, **kwargs):
+        Parameter.__init__(self, *args, **kwargs)

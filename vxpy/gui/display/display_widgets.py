@@ -199,6 +199,11 @@ class VisualInteractor(gui.AddonWidget):
         self.tab_widget.setCurrentWidget(self.parameter_tab)
 
     def _get_widget(self, parameter):
+
+        # Skip attributes, TODO: better
+        if isinstance(parameter, (visual.Attribute, visual.BoolAttribute)):
+            return
+
         # Number types
         dtype = parameter.dtype
         if dtype in (np.uint32, np.int32, np.float32, np.float64):
@@ -251,8 +256,6 @@ class VisualInteractor(gui.AddonWidget):
             self.tuner.layout().addWidget(label, row_id, 1)
             return True
 
-        # Add label with parameter name
-        self.tuner.layout().addWidget(QLabel(parameter.name), row_id, 0)
 
         value_map = parameter.value_map
         if bool(value_map):
@@ -270,6 +273,10 @@ class VisualInteractor(gui.AddonWidget):
         else:
             wdgt = self._get_widget(parameter)
 
+        # No widget returned: skip
+        if wdgt is None:
+            return False
+
         # Add callback to update visual
         if hasattr(wdgt, 'connect_callback'):
             # Get update callback
@@ -278,6 +285,9 @@ class VisualInteractor(gui.AddonWidget):
             # Set widget callback to delay timer
             wdgt.connect_callback(callback)
 
+
+        # Add label with parameter name
+        self.tuner.layout().addWidget(QLabel(parameter.name), row_id, 0)
         # Add widget
         self._parameter_widgets[parameter.name] = wdgt
         self.tuner.layout().addWidget(wdgt, row_id, 1)
