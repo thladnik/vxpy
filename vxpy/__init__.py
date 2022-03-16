@@ -19,25 +19,12 @@ __version__ = '0.0.1-alpha'
 __author__ = 'Tim Hladnik'
 
 import sys
-from vispy import app, gloo
 
 from vxpy.modules import Controller
 from vxpy.configure import acc
 
 
-def set_vispy_env():
-    if sys.platform == 'win32':
-        app.use_app('PySide6')
-        gloo.gl.use_gl('gl2')
-
-    elif sys.platform == 'linux':
-        app.use_app('glfw')
-        gloo.gl.use_gl('gl2')
-
-
 def main(configfile):
-
-    set_vispy_env()
 
     if sys.platform == 'win32':
         # Set windows timer precision as high as possible

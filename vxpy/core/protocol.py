@@ -21,11 +21,11 @@ from abc import abstractmethod
 from inspect import isclass
 from typing import List, Union, Callable, Type
 
-from vxpy.core.visual import AbstractVisual
+import vxpy.core.visual as vxvisual
 from vxpy.definitions import *
-from vxpy.core import logger
+import vxpy.core.logger as vxlogger
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 _available_protocols: List[str] = []
 
@@ -89,7 +89,7 @@ class Phase:
         self.action_parameters: Dict = action_params
         self.action = action
 
-        self.visual: Union[AbstractVisual, Type[AbstractVisual], None] = visual
+        self.visual: Union[vxvisual.AbstractVisual, Type[vxvisual.AbstractVisual], None] = visual
         self.visual_parameters: Dict = visual_params
 
     def set_duration(self, duration: float):
@@ -144,7 +144,7 @@ class Phase:
 
         return True
 
-    def set_initialize_visual(self, visual: AbstractVisual):
+    def set_initialize_visual(self, visual: vxvisual.AbstractVisual):
         self._visual = visual
 
     def initialize_visual(self, canvas, _protocol):
@@ -171,6 +171,11 @@ class AbstractProtocol:
 
     def add_phase(self, phase: Phase) -> None:
         self._phases.append(phase)
+
+    def keep_last_frame_for(self, seconds: float):
+        p = Phase(seconds)
+        p.set_visual(vxvisual.KeepLast)
+        self.add_phase(p)
 
     def get_phase(self, phase_id: int) -> Union[Phase, None]:
         pass

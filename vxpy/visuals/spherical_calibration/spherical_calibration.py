@@ -18,24 +18,19 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from vxpy.core import visual
+import vxpy.core.visual as vxvisual
 from vxpy.utils import sphere
 
 
-class BlackWhiteCheckerboard(visual.SphericalVisual):
-    u_elevation_sp = 'u_elevation_sp'
-    u_azimuth_sp = 'u_azimuth_sp'
+class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
 
-    parameters = {u_elevation_sp: 10.0, u_azimuth_sp: 10.0}
+    u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=15., limits=(5, 180), step_size=5.)
+    u_azimuth_sp = vxvisual.FloatParameter('u_azimuth_sp', static=True, default=22.5, limits=(5, 360), step_size=5.)
 
     def __init__(self, *args, **kwargs):
-        """Black-and-white checkerboard for calibration.
+        """Black-and-white checkerboard for calibration."""
 
-        :param protocol: protocol of which stimulus is currently part of
-        :param rows: number of rows on checkerboard
-        :param cols: number of columns on checkerboard
-        """
-        visual.SphericalVisual.__init__(self, *args, **kwargs)
+        vxvisual.SphericalVisual.__init__(self, *args, **kwargs)
 
         self.sphere = sphere.UVSphere(azim_lvls=100, elev_lvls=50, azimuth_range=2 * np.pi, upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
@@ -49,6 +44,8 @@ class BlackWhiteCheckerboard(visual.SphericalVisual):
         self.checker['a_azimuth'] = self.azimuth_buffer
         self.checker['a_elevation'] = self.elevation_buffer
 
+        self.u_elevation_sp.connect(self.checker)
+        self.u_azimuth_sp.connect(self.checker)
 
     def initialize(self, *args, **kwargs):
         pass
@@ -58,14 +55,13 @@ class BlackWhiteCheckerboard(visual.SphericalVisual):
         self.checker.draw('triangles', self.index_buffer)
 
 
-class RegularMesh(visual.SphericalVisual):
-    u_elevation_sp = 'u_elevation_sp'
-    u_azimuth_sp = 'u_azimuth_sp'
+class RegularMesh(vxvisual.SphericalVisual):
 
-    parameters = {u_elevation_sp: 10.0, u_azimuth_sp: 10.0}
+    u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=15., limits=(5, 180), step_size=5.)
+    u_azimuth_sp = vxvisual.FloatParameter('u_azimuth_sp', static=True, default=22.5, limits=(5, 360), step_size=5.)
 
     def __init__(self, *args, **kwargs):
-        visual.SphericalVisual.__init__(self, *args, **kwargs)
+        vxvisual.SphericalVisual.__init__(self, *args, **kwargs)
 
         self.sphere = sphere.UVSphere(azim_lvls=100, elev_lvls=50, azimuth_range=2 * np.pi, upper_elev=np.pi / 2)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
@@ -79,7 +75,8 @@ class RegularMesh(visual.SphericalVisual):
         self.mesh['a_azimuth'] = self.azimuth_buffer
         self.mesh['a_elevation'] = self.elevation_buffer
 
-        self.update(**kwargs)
+        self.u_elevation_sp.connect(self.mesh)
+        self.u_azimuth_sp.connect(self.mesh)
 
     def initialize(self, *args, **kwargs):
         pass

@@ -1,1 +1,1 @@
-from .planar_calibration import Sinusoid2d, Checkerboard
+from .planar_calibration import Sinusoid2d

@@ -18,65 +18,34 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from vispy import gloo
 import numpy as np
 
-from vxpy.core import visual
+import vxpy.core.visual as vxvisual
 from vxpy.utils import plane
 
 
-class Sinusoid2d(visual.PlanarVisual):
+class Sinusoid2d(vxvisual.PlanarVisual):
 
-    u_sp_vertical = 'u_sp_vertical'
-    u_sp_horizontal = 'u_sp_horizontal'
-    u_checker_pattern = 'u_checker_pattern'
-
-    interface = [
-        (u_sp_vertical, 0.5, 1., 100., dict(step_size=1.)),
-        (u_sp_horizontal, 0.5, 1., 100., dict(step_size=1.))
-    ]
+    u_sp_vertical = vxvisual.FloatParameter('u_sp_vertical', static=True, default=15., limits=(5, 180), step_size=5.)
+    u_sp_horizontal = vxvisual.FloatParameter('u_sp_horizontal', static=True, default=22.5, limits=(5, 360), step_size=5.)
+    u_checker_pattern = vxvisual.FloatParameter('u_checker_pattern', static=True, value_map={'Checker': 1, 'Sinusoid': 0})
 
     def __init__(self, *args):
-        visual.PlanarVisual.__init__(self, *args)
+        vxvisual.PlanarVisual.__init__(self, *args)
 
         self.plane = plane.XYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
         self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
 
-        self.program = gloo.Program(self.load_vertex_shader('./sinusoid_2d.vert'),
-                                    self.load_shader('./sinusoid_2d.frag'))
-        self.program['a_position'] = self.position_buffer
+        self.sinusoid = gloo.Program(self.load_vertex_shader('./sinusoid_2d.vert'),
+                                     self.load_shader('./sinusoid_2d.frag'))
+        self.sinusoid['a_position'] = self.position_buffer
+
+        self.u_sp_horizontal.connect(self.sinusoid)
+        self.u_sp_vertical.connect(self.sinusoid)
+        self.u_checker_pattern.connect(self.sinusoid)
 
     def initialize(self, *args, **kwargs):
-        self.program['u_checker_pattern'] = 0
+        pass
 
     def render(self, frame_time):
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)
-
-
-class Checkerboard(visual.PlanarVisual):
-
-    u_sp_vertical = 'u_sp_vertical'
-    u_sp_horizontal = 'u_sp_horizontal'
-    u_checker_pattern = 'u_checker_pattern'
-
-    interface = [
-        (u_sp_vertical, 0.5, 1., 100., dict(step_size=1.)),
-        (u_sp_horizontal, 0.5, 1., 100., dict(step_size=1.))
-    ]
-
-    def __init__(self, *args):
-        visual.PlanarVisual.__init__(self, *args)
-
-        self.plane = plane.VerticalXYPlane()
-        self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))
-        self.position_buffer = gloo.VertexBuffer(np.ascontiguousarray(self.plane.a_position, dtype=np.float32))
-
-        self.program = gloo.Program(self.load_vertex_shader('./sinusoid_2d.vert'),
-                                    self.load_shader('./sinusoid_2d.frag'))
-        self.program['a_position'] = self.position_buffer
-
-    def initialize(self, *args, **kwargs):
-        self.program['u_checker_pattern'] = 1
-
-    def render(self, frame_time):
-        self.apply_transform(self.program)
-        self.program.draw('triangles', self.index_buffer)
+        self.apply_transform(self.sinusoid)
+        self.sinusoid.draw('triangles', self.index_buffer)

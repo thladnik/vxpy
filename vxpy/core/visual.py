@@ -19,6 +19,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import inspect
 from numbers import Number
+import sys
 
 import numpy as np
 from numpy.typing import DTypeLike
@@ -36,6 +37,17 @@ from vxpy.utils import geometry
 from vxpy.utils import sphere
 
 log = logger.getLogger(__name__)
+
+
+def set_vispy_env():
+    if sys.platform == 'win32':
+        # app.use_app('PySide6')
+        app.use_app('glfw')
+        gloo.gl.use_gl('gl2')
+
+    elif sys.platform == 'linux':
+        app.use_app('glfw')
+        gloo.gl.use_gl('gl2')
 
 
 ################################
@@ -669,6 +681,21 @@ class PlainVisual(AbstractVisual, ABC):
 
     def draw(self, dt):
         self.render(dt)
+
+
+# Special visuals
+
+class KeepLast(PlainVisual):
+
+    def __init__(self, *args, **kwargs):
+        PlainVisual.__init__(self, *args, **kwargs)
+
+    def initialize(self, *args, **kwargs):
+        pass
+
+    def render(self, frame_time):
+        pass
+
 
 
 class Parameter:

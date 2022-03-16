@@ -1,6 +1,6 @@
 """
-MappApp ./setup/planar_calibration.py
-Copyright (C) 2020 Tim Hladnik
+vxPy ./calibration_manager/display/planar_calibration.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from PySide6 import QtWidgets
 
-from vxpy.configure import acc
 from vxpy import calib
 from vxpy.calibration_manager import access
 from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget
@@ -128,6 +127,8 @@ class Checker(QtWidgets.QGroupBox):
         vertical_sf = self.vertical_sp.get_value(),
         horizontal_sf = self.horizontal_sp.get_value()
         access.window.display.canvas.set_visual(Sinusoid2d(access.window.display.canvas))
-        access.window.display.canvas.stimulus_visual.update(**{Sinusoid2d.u_sp_vertical: vertical_sf,
-                                                      Sinusoid2d.u_sp_horizontal: horizontal_sf,
-                                                      Sinusoid2d.u_checker_pattern: True})
+        new_parameters = {Sinusoid2d.u_sp_vertical: vertical_sf,
+                          Sinusoid2d.u_sp_horizontal: horizontal_sf,
+                          Sinusoid2d.u_checker_pattern: 'Checker'}
+        access.window.display.canvas.current_visual.update(new_parameters)
+        access.window.display.canvas.current_visual.is_active = True
