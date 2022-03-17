@@ -20,6 +20,8 @@ from __future__ import annotations
 import ctypes
 import importlib
 import multiprocessing as mp
+import sys
+
 from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 import time
 from typing import List, Tuple
@@ -84,28 +86,27 @@ class Controller(process.AbstractProcess):
         process.AbstractProcess.__init__(self, _program_start_time=time.time(), _configuration_path=_configuration_path)
 
         # Generate and show splash screen
-        # self.qt_app = QtWidgets.QApplication([])
-        # pngpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.png')
-
-        # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
-        # iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
-        # renderer = QtSvg.QSvgRenderer(iconpath)
-        # image = QtGui.QImage(512, 512, QtGui.QImage.Format.Format_RGBA64)
-        # painter = QtGui.QPainter(image)
-        # image.fill(QtGui.QColor(0, 0, 0, 0))
-        # renderer.render(painter)
-        # image.save(pngpath)
-        # painter.end()
-
-        # Show screen
         # TODO: Splashscreen blocks display of GUI under linux
-        # self.splashscreen = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint, screen=self.qt_app.screens()[config.CONF_GUI_SCREEN])
-        # self.splashscreen.setPixmap(QtGui.QPixmap(pngpath))
-        # # splash.setAttribute(QtCore.Qt.WA_TranslucentBackground)
-        # self.splashscreen.show()
-        #
-        # # Process events once
-        # self.qt_app.processEvents()
+        if sys.platform == 'win32':
+            self.qt_app = QtWidgets.QApplication([])
+            pngpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.png')
+
+            # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
+            # iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
+            # renderer = QtSvg.QSvgRenderer(iconpath)
+            # image = QtGui.QImage(512, 512, QtGui.QImage.Format.Format_RGBA64)
+            # painter = QtGui.QPainter(image)
+            # image.fill(QtGui.QColor(0, 0, 0, 0))
+            # renderer.render(painter)
+            # image.save(pngpath)
+            # painter.end()
+            self.splashscreen = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint, screen=self.qt_app.screens()[config.CONF_GUI_SCREEN])
+            self.splashscreen.setPixmap(QtGui.QPixmap(pngpath))
+            # splash.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+            self.splashscreen.show()
+
+            # Process events once
+            self.qt_app.processEvents()
 
         # Set up processes
         _routines_to_load = dict()
@@ -283,8 +284,9 @@ class Controller(process.AbstractProcess):
 
     def start(self):
 
-        # self.splashscreen.close()
-        # self.qt_app.processEvents()
+        if sys.platform == 'win32':
+            self.splashscreen.close()
+            self.qt_app.processEvents()
 
         # Run controller
         self.run(interval=0.001)

@@ -226,7 +226,7 @@ class Canvas(app.Canvas):
         gloo.clear()
         self.update()
         self.swap_buffers()
-        app.process_events()
+        # app.process_events()
 
     def update_dimensions(self):
 

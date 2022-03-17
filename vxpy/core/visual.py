@@ -570,6 +570,7 @@ class SphericalVisual(AbstractVisual, ABC):
                 gloo.clear()
 
     def draw(self, dt):
+        gloo.clear()
         if self.is_active:
             self._draw(dt)
 
