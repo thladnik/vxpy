@@ -17,9 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 from inspect import isclass
-import sys
 from typing import Callable, Union
-from PySide6 import QtWidgets
 import glfw
 import time
 
@@ -114,7 +112,9 @@ class Display(vxprocess.AbstractProcess):
         self.start_visual()
         self.set_record_group_attrs({'start_time': get_time(),
                                      'visual_modules': self.current_visual.__module__,
-                                     'visual_name': str(self.current_visual.__class__.__qualname__)})
+                                     'visual_name': str(self.current_visual.__class__.__qualname__),
+                                     'target_duration': self.current_phase.duration,
+                                     'target_sample_rate': config.CONF_DISPLAY_FPS})
 
     def start_visual(self, parameters=None):
 
@@ -213,8 +213,6 @@ class Canvas(app.Canvas):
 
         # Update size and position once
         self.update_dimensions()
-        # self.update()
-        # app.process_events()
 
         # Show
         self.show()
