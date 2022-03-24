@@ -111,7 +111,7 @@ class Display(vxprocess.AbstractProcess):
     def start_phase(self):
         self.start_visual()
         self.set_record_group_attrs({'start_time': get_time(),
-                                     'visual_modules': self.current_visual.__module__,
+                                     'visual_module': self.current_visual.__module__,
                                      'visual_name': str(self.current_visual.__class__.__qualname__),
                                      'target_duration': self.current_phase.duration,
                                      'target_sample_rate': config.CONF_DISPLAY_FPS})
