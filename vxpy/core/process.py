@@ -24,6 +24,8 @@ import sys
 import time
 from typing import Any, Callable, List, Union
 
+from vispy import gloo
+
 from vxpy import api
 from vxpy import config
 import vxpy.core.attribute as vxattribute
@@ -548,6 +550,12 @@ class AbstractProcess:
                     elif attr_data.shape == (1,):
                         grp.attrs[attr_name] = attr_data[0]
                         continue
+
+                elif isinstance(attr_data, gloo.buffer.DataBufferView):
+                    # TODO: this needs to work in the future
+                    #   problem: buffers can't be read, only set in vispy.
+                    #            How do I get the buffer contents after it's been set?
+                    continue
 
                 # Otherwise, just write whole attribute data to attribute
                 grp.attrs[attr_name] = attr_data

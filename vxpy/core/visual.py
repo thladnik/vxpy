@@ -697,7 +697,6 @@ class KeepLast(PlainVisual):
         pass
 
 
-
 class Parameter:
     dtype: DTypeLike = None
     limits: Tuple[Number, Number] = None
@@ -787,6 +786,9 @@ class Parameter:
         if program not in self._programs:
             self._programs.append(program)
             self.update()
+
+    def remove_downstream_links(self):
+        self._downstream_link = []
 
     def add_downstream_link(self, parameter: Parameter):
         if parameter not in self._downstream_link:
@@ -1024,6 +1026,9 @@ class Texture2D(Texture):
     def __init__(self, *args, **kwargs):
         Texture.__init__(self, *args, **kwargs)
 
+    def _set_start_data(self, data):
+        self._data = gloo.Texture2D(np.ascontiguousarray(data, dtype=self.dtype))
+
 
 class TextureInt2D(Texture):
     dtype = np.int32
@@ -1044,6 +1049,11 @@ class Attribute(Parameter):
 
     def __init__(self, *args, **kwargs):
         Parameter.__init__(self, *args, **kwargs)
+        self._buffer_data_contents = None
+
+
+    def _set_start_data(self, data):
+        self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
 
 
 class BoolAttribute(Parameter):
