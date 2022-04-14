@@ -65,7 +65,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
 
             _available_protocols.append(fullpath)
 
-    return _available_protocols
+    return sorted(_available_protocols)
 
 
 def get_protocol(path: str) -> Union[Type[StaticPhasicProtocol], None]:
