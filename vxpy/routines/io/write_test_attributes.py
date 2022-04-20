@@ -88,7 +88,7 @@ class SinesAddedWhiteNoise(IoRoutine):
         self.whitenoise = ArrayAttribute('test_sines_whitenoise', (1,), ArrayType.float64)
 
     def initialize(self):
-        register_with_plotter('test_sines_whitenoise', axis=SinesAddedWhiteNoise.__name__)
+        register_with_plotter('test_sines_whitenoise', axis='Sines+Noise')
         self.whitenoise.add_to_file()
 
     def main(self, *args, **kwargs):

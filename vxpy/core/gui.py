@@ -20,6 +20,7 @@ import importlib
 import os.path
 import sys
 import time
+from collections import OrderedDict
 
 import h5py
 import h5gview
@@ -27,7 +28,7 @@ import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
-from typing import Callable, List
+from typing import Callable, List, Union
 
 from vxpy import config
 import vxpy.core.attribute as vxattribute
@@ -42,6 +43,7 @@ log = vxlogger.getLogger(__name__)
 
 class Widget:
     """Base widget"""
+
     def __init__(self, main):
         self.main: vxmodules.Gui = main
 
@@ -129,6 +131,7 @@ class WindowWidget(QtWidgets.QWidget, ExposedWidget, Widget):
 
 class WindowTabWidget(WindowWidget, ExposedWidget):
     """Windowed widget which implements a central tab widget that is used to display addon widgets"""
+
     def __init__(self, *args, **kwargs):
         WindowWidget.__init__(self, *args, **kwargs)
 
@@ -164,7 +167,6 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
 
 
 class AddonTabWidget(WindowTabWidget):
-
     timer = QtCore.QTimer()
     timer_interval = 50  # ms
 
@@ -176,7 +178,298 @@ class AddonTabWidget(WindowTabWidget):
         self.timer.start()
 
 
+
 class PlottingWindow(WindowWidget):
+    # Colormap is tab10 from matplotlib:
+    # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
+    cmap = (np.array([(0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
+                      (1.0, 0.4980392156862745, 0.054901960784313725),
+                      (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
+                      (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
+                      (0.5803921568627451, 0.403921568627451, 0.7411764705882353),
+                      (0.5490196078431373, 0.33725490196078434, 0.29411764705882354),
+                      (0.8901960784313725, 0.4666666666666667, 0.7607843137254902),
+                      (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
+                      (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
+                      (0.09019607843137255, 0.7450980392156863, 0.8117647058823529)]) * 255).astype(int)
+
+    cache_chunk_size = 10 ** 4
+
+    def __init__(self, *args):
+        WindowWidget.__init__(self, 'Plotter', *args)
+
+        self.starttime = time.perf_counter()
+
+        # Set layout
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        # Make add_buffer_attribute method accessible for RPCs
+        self.exposed.append(PlottingWindow.add_buffer_attribute)
+
+        # Add range widget
+        self.topbar_widget = QtWidgets.QWidget()
+        self.layout().addWidget(self.topbar_widget)
+        self.topbar_widget.setLayout(QtWidgets.QHBoxLayout())
+
+        # Autoscale checkbox
+        self.check_auto_scale = QtWidgets.QCheckBox('X-autoscale')
+        self.check_auto_scale.setChecked(True)
+        self.topbar_widget.layout().addWidget(self.check_auto_scale)
+
+        # Add spacer
+        hspacer = QtWidgets.QSpacerItem(1, 1,
+                                        QtWidgets.QSizePolicy.Policy.Expanding,
+                                        QtWidgets.QSizePolicy.Policy.Minimum)
+        self.topbar_widget.layout().addItem(hspacer)
+
+        self.topbar_widget.layout().addWidget(QLabel('Show subplot: '))
+
+        # Add plot widget
+        self.layout_widget = pg.GraphicsLayoutWidget()
+        self.layout().addWidget(self.layout_widget)
+        self.plot_items: OrderedDict[str, pg.PlotItem] = OrderedDict()
+        self.data_items: OrderedDict[str, pg.PlotDataItem] = OrderedDict()
+        self.legend_items: OrderedDict[str, pg.LegendItem] = OrderedDict()
+        self.subplot_toggles: Dict[str, QtWidgets.QCheckBox] = {}
+
+        # Start timer
+        self.tmr_update_data = QtCore.QTimer()
+        self.tmr_update_data.setInterval(1000 // 20)
+        self.tmr_update_data.timeout.connect(self._read_buffer_data)
+        self.tmr_update_data.start()
+
+        # self.x_range = 1000
+        self.xmin = -20.
+        self.xmax = 0
+
+        # Set up cache file
+        temp_path = os.path.join(PATH_TEMP, '._plotter_temp.h5')
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        self.cache = h5py.File(temp_path, 'w')
+
+    def _read_buffer_data(self):
+
+        grp = None
+        for attr_name, grp in self.cache.items():
+
+            # Read new values from buffer
+            try:
+                last_idx = grp.attrs['last_idx']
+
+                # If last_idx is set to negative, read last one and set to index
+                if last_idx < 0:
+                    n_idcs, n_times, n_data = vxattribute.read_attribute(attr_name)
+                    if n_times[0] is None:
+                        continue
+                    grp.attrs['last_idx'] = n_idcs[0]
+                else:
+                    # Read this attribute starting from the last_idx
+                    n_idcs, n_times, n_data = vxattribute.read_attribute(attr_name, from_idx=last_idx)
+
+
+            except Exception as exc:
+                log.warning(f'Problem trying to read attribute "{attr_name}" from_idx={grp.attrs["last_idx"]}'
+                              f'If this warning persists, DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE is possibly set too low.'
+                              f'// Exception: {exc}')
+
+                # In case of exception, assume that GUI is lagging behind temporarily and reset last_idx
+                grp.attrs['last_idx'] = -1
+
+                continue
+
+            # No new datapoints to plot
+            if len(n_times) == 0:
+                continue
+
+            try:
+                n_times = np.array(n_times)
+                n_data = np.array(n_data)
+            except Exception as exc:
+                continue
+
+            # Set new last index
+            grp.attrs['last_idx'] = n_idcs[-1]
+
+            try:
+                # Reshape datasets
+                old_n = grp['t'].shape[0]
+                new_n = n_times.shape[0]
+                grp['t'].resize((old_n + new_n, ))
+                grp['y'].resize((old_n + new_n, ))
+
+                # Write new data
+                grp['t'][-new_n:] = n_times.flatten()
+                grp['y'][-new_n:] = n_data.flatten()
+
+                # Set chunk time marker for indexing
+                i_o = old_n // self.cache_chunk_size
+                i_n = (old_n + new_n) // self.cache_chunk_size
+                if i_n > i_o:
+                    grp['mt'].resize((i_n+1, ))
+                    grp['mt'][-1] = n_times[(old_n+new_n) % self.cache_chunk_size]
+            except Exception as exc:
+                import traceback
+                print(traceback.print_exc())
+
+        if grp is not None:
+            self._update_xrange(grp['t'][-1])
+
+        self.update_plots()
+
+    def update_plots(self):
+        times = None
+        for attr_name, dataitem in self.data_items.items():
+
+            grp = self.cache[attr_name]
+
+            if grp['t'].shape[0] == 0:
+                continue
+
+            idcs = np.where(grp['mt'][:][grp['mt'][:] < self.xmin])
+            if len(idcs[0]) > 0:
+                start_idx = idcs[0][-1] * self.cache_chunk_size
+            else:
+                start_idx = 0
+
+            times = grp['t'][start_idx:]
+            data = grp['y'][start_idx:]
+
+            dataitem.setData(x=times, y=data)
+
+        # xmax = 0.
+        # for plot_dataitem in self.data_items.values():
+        #     x = plot_dataitem.xData
+        #     y = plot_dataitem.yData
+        #
+        #     now = time.perf_counter() - self.starttime
+        #     newnum = 40
+        #     dt = (now - x[-1]) / newnum
+        #
+        #     x = np.concatenate([x, np.arange(x[-1], now, dt) + dt])
+        #     y = np.concatenate([y, np.random.rand(newnum)])
+        #     plot_dataitem.setData(x=x, y=y)
+        #
+        #     new_xmax = np.max(x)
+        #     if new_xmax > xmax:
+        #         xmax = new_xmax
+
+        # self._update_xrange(xmax)
+
+    def _update_xrange(self, new_xmax):
+
+        if self.check_auto_scale.isChecked():
+
+            # Calculate new range
+            xrange = self.xmax - self.xmin
+            self.xmin = new_xmax - xrange
+            self.xmax = new_xmax
+
+        # Update x range for all subplots
+        for plot_item in self.plot_items.values():
+            plot_item.getViewBox().setXRange(self.xmin, self.xmax, padding=0.)
+
+    def _xrange_changed(self, viewbox, xrange):
+        self.xmin, self.xmax = xrange
+
+    def _add_subplot_toggle(self, axis_name):
+        checkbox = QtWidgets.QCheckBox(axis_name)
+        checkbox.setTristate(False)
+        checkbox.setChecked(True)
+        checkbox.stateChanged.connect(self._toggle_subplot_visibility(axis_name))
+        self.topbar_widget.layout().addWidget(checkbox)
+        self.subplot_toggles[axis_name] = checkbox
+
+    def _toggle_subplot_visibility(self, axis_name):
+        def _toggle():
+            state = self.subplot_toggles[axis_name].isChecked()
+            plot_item = self.plot_items[axis_name]
+            if state:
+                plot_item.show()
+            else:
+                shown = sum([cb.isChecked() for cb in self.subplot_toggles.values()])
+                if shown < 1:
+                    self.subplot_toggles[axis_name].setChecked(True)
+                else:
+                    plot_item.hide()
+        return _toggle
+
+    def _subplot(self, axis_name, units=None):
+
+        if units is None:
+            units = 'au'
+
+        # Return subplot if it exists
+        if axis_name in self.plot_items:
+            return self.plot_items[axis_name]
+
+        # Else create subplot
+
+        # Hide x axis for previously added subplot
+        if len(self.plot_items) > 0:
+            self.plot_items[list(self.plot_items)[-1]].hideAxis('bottom')
+
+        # Add new subplot
+        new_plot: pg.PlotItem = self.layout_widget.addPlot(col=0, row=len(self.plot_items))
+        new_plot.getViewBox().enableAutoRange(x=False)
+        new_plot.setLabel('bottom', text='Time', units='s')
+        new_plot.setLabel('left', text=axis_name, units=units)
+        new_plot.getAxis('left').setWidth(75)
+        new_plot.sigXRangeChanged.connect(self._xrange_changed)
+        self.plot_items[axis_name] = new_plot
+
+        # Add subplot toggle option
+        self._add_subplot_toggle(axis_name)
+
+        # Add legend for new plot
+        new_legend = pg.LegendItem()
+        new_legend.setParentItem(new_plot)
+        self.legend_items[axis_name] = new_legend
+
+        return new_plot
+
+    def _dataitem(self, subplot, attr_name):
+
+        i = len(subplot.getViewBox().addedItems)
+        color = self.cmap[i]
+
+        idcs, times, values = vxattribute.read_attribute(attr_name)
+        print(idcs, times, values)
+        new_dataitem = pg.PlotDataItem(times, values[0], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
+        # new_dataitem = pg.PlotDataItem([now], [0], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
+        subplot.getViewBox().addItem(new_dataitem)
+        # Add dataitem to dict
+        self.data_items[attr_name] = new_dataitem
+
+        return new_dataitem
+
+    def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None):
+
+        if name is None:
+            name = attr_name
+
+        # Determine axis name
+        axis_name = axis if axis is not None else 'Default'
+
+        # Fetch subplot
+        subplot = self._subplot(axis_name, units=units)
+
+        # Add dataitem
+        dataitem = self._dataitem(subplot, attr_name)
+
+        # Add dataitem to legend
+        self.legend_items[axis_name].addItem(dataitem, name)
+
+        # Add temporary datasets
+        grp = self.cache.create_group(attr_name)
+        grp.create_dataset('t', shape=(0,), chunks=(self.cache_chunk_size,), maxshape=(None,), dtype=np.float32)
+        grp.create_dataset('y', shape=(0,), chunks=(self.cache_chunk_size,), maxshape=(None,), dtype=np.float32)
+        grp.create_dataset('mt', shape=(1,), chunks=(self.cache_chunk_size,), maxshape=(None,), dtype=np.float32)
+        grp.attrs['last_idx'] = -1
+        grp['mt'][0] = 0.
+
+
+class PlottingWindow1(WindowWidget):
 
     # Colormap is tab10 from matplotlib:
     # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
@@ -202,7 +495,7 @@ class PlottingWindow(WindowWidget):
                                         QtWidgets.QSizePolicy.Policy.Minimum)
         self.cmap = (np.array(self.cmap) * 255).astype(int)
 
-        self.exposed.append(PlottingWindow.add_buffer_attribute)
+        self.exposed.append(PlottingWindow1.add_buffer_attribute)
 
         self.setLayout(QtWidgets.QGridLayout())
 
@@ -470,6 +763,7 @@ class PlottingWindow(WindowWidget):
         if times is not None and self.auto_scale:
             self.plot_item.setXRange(times[-1] - self._xrange, times[-1], padding=0.)
 
+
 class ProcessInfo(QtWidgets.QWidget):
 
     def __init__(self, process_name: str, parent: ProcessMonitorWidget):
@@ -493,7 +787,7 @@ class ProcessInfo(QtWidgets.QWidget):
 class ProcessMonitorWidget(IntegratedWidget):
 
     def __init__(self, *args):
-        IntegratedWidget.__init__(self,  'Process monitor', *args)
+        IntegratedWidget.__init__(self, 'Process monitor', *args)
 
         self.exposed.append(ProcessMonitorWidget.update_process_interval)
 
@@ -548,8 +842,8 @@ class ProcessMonitorWidget(IntegratedWidget):
     def update_process_interval(self, process_name, target_inval, mean_inval, std_inval):
         if process_name in self.state_widgets:
             self.state_widgets[process_name].setToolTip(f'{mean_inval * 1000:.1f}'
-                                                      f'/{target_inval * 1000:.1f} '
-                                                      f'({std_inval * 1000:.1f}) ms')
+                                                        f'/{target_inval * 1000:.1f} '
+                                                        f'({std_inval * 1000:.1f}) ms')
         else:
             print(process_name, '{:.2f} +/- {:.2f}ms'.format(mean_inval * 1000, std_inval * 1000))
 
@@ -785,7 +1079,8 @@ class RecordingWidget(IntegratedWidget):
         # if bool(vxipc.Control.Protocol[ProtocolCtrl.name]):
         #     self.btn_stop.setEnabled(False)
 
-        self.btn_open_recording.setEnabled(bool(os.listdir(os.path.abspath(config.CONF_REC_OUTPUT_FOLDER))) and not active)
+        self.btn_open_recording.setEnabled(
+            bool(os.listdir(os.path.abspath(config.CONF_REC_OUTPUT_FOLDER))) and not active)
 
 
 class RecordingSettings(QtWidgets.QWidget):
@@ -921,7 +1216,7 @@ class LoggingWidget(IntegratedWidget):
                 # Crop name if necessary
                 name = rec.name
                 if len(name) > self.loglevelname_limit:
-                    name = name[:5] + '..' + name[-(self.loglevelname_limit-7):]
+                    name = name[:5] + '..' + name[-(self.loglevelname_limit - 7):]
 
                 # Format line
                 str_format = '{:7} {} {:' + str(self.loglevelname_limit) + '} {}'
