@@ -102,7 +102,7 @@ class Camera(process.AbstractProcess):
     #         idx = self._current_frame_index[device_id]
     #         self._frames[device_id][idx] = camera_device.get_image()
 
-    def start_protocol(self):
+    def prepare_protocol(self):
         pass
 
     def start_phase(self):

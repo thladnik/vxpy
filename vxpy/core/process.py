@@ -46,7 +46,7 @@ log = vxlogger.getLogger(__name__)
 # Process BASE class
 
 class AbstractProcess:
-    """AbstractProcess class, which is inherited by all processes.
+    """AbstractProcess class, which is inherited by all modules.
 
     All processes **need to** implement the "main" method, which is called once on
     each iteration of the event loop.
@@ -58,8 +58,7 @@ class AbstractProcess:
     _shutdown: bool
 
     # Protocol related
-    current_protocol: vxprotocol.AbstractProtocol = None
-    current_phase: vxprotocol.Phase = None
+    current_protocol: Union[vxprotocol.AbstractProtocol, None] = None
     phase_start_time: float = None
     phase_time: float = None
     program_start_time: float = None
@@ -221,11 +220,12 @@ class AbstractProcess:
     ################################
     # PROTOCOL RESPONSE
 
-    def start_protocol(self):
+    def prepare_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
         pass
 
     def prepare_phase(self):
+        """Method is called when the Controller has set the next protocol phase."""
         pass
 
     def start_phase(self):
@@ -233,7 +233,7 @@ class AbstractProcess:
         pass
 
     def end_phase(self):
-        """Method is called at end of stimulation protocol phase phase."""
+        """Method is called at end of stimulation protocol phase."""
         pass
 
     def end_protocol(self):
@@ -257,6 +257,7 @@ class AbstractProcess:
             # If phase stoptime is exceeded: end phase
             phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
+                # Call implementation of end_phase
                 self.end_phase()
 
                 self.set_state(State.PHASE_END)
@@ -270,32 +271,43 @@ class AbstractProcess:
             # Execute
             return True
 
-        ########
         # IDLE
         elif self.in_state(State.IDLE):
 
-            # Ctrl PREPARE_PROTOCOL
+            # Check if new protocol is set and prepare it on module-side
             if self.in_state(State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
-                self.start_protocol()
+
+                # Fetch protocol class
+                _protocol = vxprotocol.get_protocol(vxipc.Control.Protocol[ProtocolCtrl.name])
+                if _protocol is None:
+                    # Controller should abort this
+                    return
+
+                # Instantiate protocol
+                self.current_protocol = _protocol()
+
+                # Call implemented preparation function of module
+                self.prepare_protocol()
 
                 # Set next state
                 self.set_state(State.WAIT_FOR_PHASE)
 
-                # Do NOT execute
-                return False
-
             # Do NOT execute
             return False
 
-        ########
         # WAIT_FOR_PHASE
         elif self.in_state(State.WAIT_FOR_PHASE):
 
-            if not (self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER)):
+            if not self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER):
                 return False
 
-            # self.set_record_group(f'phase{ipc.Control.Recording[RecCtrl.record_group_counter]}')
-            # Prepare phase for start
+            # Set record group to write to in file
+            self.set_record_group(f'phase{vxipc.Control.Recording[RecCtrl.record_group_counter]}')
+
+            # Set current phase
+            self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+
+            # Prepare implemented phase initialization
             self.prepare_phase()
 
             # Set next state
@@ -304,11 +316,10 @@ class AbstractProcess:
             # Do NOT execute
             return False
 
-        ########
         # READY
         elif self.in_state(State.READY):
             # If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not (self.in_state(State.RUNNING, PROCESS_CONTROLLER)):
+            if not self.in_state(State.RUNNING, PROCESS_CONTROLLER):
                 return False
 
             # Wait for go-time
@@ -321,7 +332,7 @@ class AbstractProcess:
                     self.phase_start_time = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
                     break
 
-            # Immediately start phase
+            # Immediately start phase now
             self.start_phase()
 
             # Execute
@@ -334,15 +345,18 @@ class AbstractProcess:
             # Ctrl in PREPARE_PHASE -> there's a next phase
             if self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER):
                 self.set_state(State.WAIT_FOR_PHASE)
+
             # Ctrl in PROTOCOL_END -> clean up protocol remnants
             elif self.in_state(State.PROTOCOL_END, PROCESS_CONTROLLER):
 
+                # Call implemented module method
                 self.end_protocol()
 
-                # Reset to idle
+                # Set protocol to none
+                self.current_protocol = None
+
+                # Reset state to idle
                 self.set_state(State.IDLE)
-            else:
-                pass
 
             # Do NOT execute
             return False

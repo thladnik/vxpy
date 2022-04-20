@@ -42,7 +42,7 @@ vxvisual.set_vispy_env()
 class Display(vxprocess.AbstractProcess):
     name = PROCESS_DISPLAY
 
-    current_visual: vxvisual.AbstractVisual = None
+    current_visual: Union[vxvisual.AbstractVisual, None] = None
 
     _uniform_maps = dict()
 
@@ -75,32 +75,17 @@ class Display(vxprocess.AbstractProcess):
         else:
             log.warning(f'Uniform "{uniform_name}" is already set.')
 
-    def start_protocol(self):
-        # Fetch protocol class
-        _protocol = vxprotocol.get_protocol(vxipc.Control.Protocol[ProtocolCtrl.name])
-        if _protocol is None:
-            # Controller should abort this
-            return
-
-        # Instantiate protocol
-        self.current_protocol = _protocol()
+    def prepare_protocol(self):
         self.current_protocol.initialize_visuals(self.canvas)
 
     def prepare_phase(self):
-        # Get current phase from protocol
-        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
-        self.set_record_group(f'phase{vxipc.Control.Recording[RecCtrl.record_group_counter]}')
-        self.current_phase = self.current_protocol.get_phase(phase_id)
-
         # Prepare visual associated with phase
         self.prepare_visual()
 
-    def prepare_visual(self, new_visual=None):
+    def prepare_visual(self, new_visual: vxvisual.AbstractVisual = None) -> None:
+        # If no visual is given, this should be a protocol-controlled run -> fetch current visual from phase
         if new_visual is None:
-            if self.current_phase is None:
-                log.error('No visual set to prepare')
-                return
-            new_visual = self.current_phase.visual
+            new_visual = self.current_protocol.current_phase.visual
 
         # If new_visual hasn't been instantiated yet, do it now
         if isclass(new_visual):
@@ -113,18 +98,18 @@ class Display(vxprocess.AbstractProcess):
         self.set_record_group_attrs({'start_time': get_time(),
                                      'visual_module': self.current_visual.__module__,
                                      'visual_name': str(self.current_visual.__class__.__qualname__),
-                                     'target_duration': self.current_phase.duration,
+                                     'target_duration': self.current_protocol.current_phase.duration,
                                      'target_sample_rate': config.CONF_DISPLAY_FPS})
 
-    def start_visual(self, parameters=None):
+    def start_visual(self, parameters: dict = None):
 
         # Initialize and update visual on canvas
         self.current_visual.initialize()
         self.canvas.set_visual(self.current_visual)
 
-        # If a current_phase is set, that one dictates the parameters to be used!
-        if self.current_phase is not None:
-            parameters = self.current_phase.visual_parameters
+        # If a protocol is set, the phase information dictates the parameters to be used
+        if self.current_protocol is not None:
+            parameters = self.current_protocol.current_phase.visual_parameters
 
         # Update visual parameters
         self.update_visual(parameters)
@@ -139,7 +124,7 @@ class Display(vxprocess.AbstractProcess):
         self.stop_visual()
 
     def end_protocol(self):
-        self.current_visual = None
+        self.current_protocol = None
         self.canvas.current_visual = self.current_visual
 
     def run_visual(self, new_visual, parameters):

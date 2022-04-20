@@ -959,6 +959,10 @@ class Protocols(IntegratedWidget):
         self.tab_widget.addTab(self.progress, 'Progress')
         self.tab_widget.setTabEnabled(1, False)
 
+        self.time_info = QtWidgets.QLineEdit()
+        self.time_info.setReadOnly(True)
+        self.progress.layout().addWidget(self.time_info)
+
         # Overall protocol progress
         self.protocol_progress_bar = QtWidgets.QProgressBar()
         self.protocol_progress_bar.setMinimum(0)
@@ -986,10 +990,6 @@ class Protocols(IntegratedWidget):
         self.abort_btn = QtWidgets.QPushButton('Abort protocol')
         self.abort_btn.clicked.connect(self.abort_protocol)
         self.progress.layout().addWidget(self.abort_btn)
-
-        # Spacer
-        # vspacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
-        # self.progress.layout().addItem(vspacer)
 
         # Set update timer
         self._tmr_update = QtCore.QTimer()
@@ -1063,6 +1063,9 @@ class Protocols(IntegratedWidget):
             self.abort_btn.setEnabled(phase_stop is not None and time.time() <= phase_stop - .2)
         else:
             self.abort_btn.setEnabled(False)
+            if self.tab_widget.currentWidget() == self.progress:
+                self.tab_widget.setCurrentWidget(self.selection)
+                self.tab_widget.widget(1).setEnabled(False)
 
         if vxipc.Control.Protocol[ProtocolCtrl.name] is None:
             self.phase_progress_bar.setEnabled(False)
@@ -1098,6 +1101,15 @@ class Protocols(IntegratedWidget):
             self.protocol_progress_bar.setValue(100 * phase_id + int(phase_diff / phase_duration * 100))
             self.protocol_progress_bar.setFormat(f'Phase {phase_id + 1}/{self.current_protocol.phase_count}')
 
+            # Update time info
+            total_time = int(self.current_protocol.duration)
+            total_min = total_time // 60
+            total_sec = total_time % 60
+            elapsed_time = int(self.current_protocol.get_duration_until_phase(phase_id) + phase_diff)
+            elapsed_min = elapsed_time // 60
+            elapsed_sec = elapsed_time % 60
+            self.time_info.setText(f'{elapsed_min}:{elapsed_sec:02d} of {total_min}:{total_sec:02d}min')
+
     def start_protocol(self):
         protocol_path = self.protocol_list.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
         self.current_protocol = vxprotocol.get_protocol(protocol_path)()
@@ -1110,7 +1122,7 @@ class Protocols(IntegratedWidget):
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_recording)
 
         # Start protocol
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_protocol, protocol_path)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.run_protocol, protocol_path)
 
     def abort_protocol(self):
         self.phase_progress_bar.setValue(0)

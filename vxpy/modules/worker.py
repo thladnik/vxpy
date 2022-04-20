@@ -44,14 +44,14 @@ class Worker(process.AbstractProcess):
         if not(task_name in self._tasks):
             module = '.'.join([PATH_TASKS,task_name])
             try:
-                log.debug('Import task {}'.format(module))
+                log.debug(f'Import task {module}')
                 self._tasks[task_name] = importlib.import_module(module)
             except:
-                log.warning('Failed to import task {}'.format(module))
+                log.warning(f'Failed to import task {module}')
 
         return self._tasks[task_name]
 
-    def schedule_task(self, task_name, task_interval=1. / 2):
+    def schedule_task(self, task_name, task_interval=1./2):
         self._scheduled_tasks.append(task_name)
         self._scheduled_times.append(time() + task_interval)
         self._task_intervals.append(task_interval)
@@ -60,18 +60,6 @@ class Worker(process.AbstractProcess):
         self.set_state(definitions.State.RUNNING)
         self._load_task(task_name).run(*args, **kwargs)
         self.set_state(definitions.State.IDLE)
-
-    def start_protocol(self):
-        pass
-
-    def start_phase(self):
-        pass
-
-    def end_phase(self):
-        pass
-
-    def end_protocol(self):
-        pass
 
     def main(self):
 

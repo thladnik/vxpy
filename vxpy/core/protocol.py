@@ -164,10 +164,31 @@ class Phase:
         return True
 
 
+class PhaseNotSetError(Exception):
+    pass
+
+
 class AbstractProtocol:
 
     def __init__(self):
+        self._current_phase_id = None
         self._phases: List[Phase] = []
+
+    @property
+    def current_phase_id(self):
+        return self._current_phase_id
+
+    @current_phase_id.setter
+    def current_phase_id(self, phase_id):
+        self._current_phase_id = phase_id
+
+    @property
+    def current_phase(self):
+        return self._phases[self.current_phase_id]
+
+    @property
+    def phase_count(self):
+        return len(self._phases)
 
     def add_phase(self, phase: Phase) -> None:
         self._phases.append(phase)
@@ -215,12 +236,15 @@ class StaticPhasicProtocol(AbstractProtocol):
             phase.set_initialize_visual(initialize_visuals[phase.visual])
 
     @property
-    def phase_count(self):
-        return len(self._phases)
+    def progress(self):
+        return 0.
 
     @property
-    def duration(self):
-        return sum([phase.duration for phase in self._phases if phase is not None])
+    def duration(self) -> float:
+        return self.get_duration_until_phase(len(self._phases))
+
+    def get_duration_until_phase(self, phase_id: int) -> float:
+        return sum([phase.duration for phase in self._phases[:phase_id] if phase is not None])
 
     def fetch_phase_duration(self, phase_id):
         return self._phases[phase_id].duration

@@ -42,7 +42,7 @@ class Io(process.AbstractProcess):
 
         # Configure devices
         for did, dev_config in config.CONF_IO_DEVICES.items():
-            if not(all(k in dev_config for k in ("type", "model", "port"))):
+            if not all(k in dev_config for k in ("type", "model", "port")):
                 log.warning(f'Insufficient information to configure device {did}')
                 continue
 
@@ -82,26 +82,15 @@ class Io(process.AbstractProcess):
         # Run event loop
         self.run(interval=1. / config.CONF_IO_MAX_SR)
 
-    def start_protocol(self):
-        _protocol = get_protocol(ipc.Control.Protocol[definitions.ProtocolCtrl.name])
-        if _protocol is None:
-            # Controller should abort this
-            return
+    def prepare_protocol(self):
+        # Initialize actions related to protocol
+        self.current_protocol.initialize_actions()
 
-        self.stimulus_protocol = _protocol()
-        try:
-            self.stimulus_protocol.initialize_actions()
-        except Exception as exc:
-            import traceback
-            print(traceback.print_exc())
     def start_phase(self):
         self.phase_is_active = 1
 
     def end_phase(self):
         self.phase_is_active = 0
-
-    def end_protocol(self):
-        pass
 
     def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""

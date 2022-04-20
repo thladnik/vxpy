@@ -1,7 +1,6 @@
 """
-MappApp ./modules/controller.py
-Controller spawns all sub processes.
-Copyright (C) 2020 Tim Hladnik
+vxPy ./modules/controller.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -91,18 +90,12 @@ class Controller(process.AbstractProcess):
             self.qt_app = QtWidgets.QApplication([])
             pngpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.png')
 
-            # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
-            # iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
-            # renderer = QtSvg.QSvgRenderer(iconpath)
-            # image = QtGui.QImage(512, 512, QtGui.QImage.Format.Format_RGBA64)
-            # painter = QtGui.QPainter(image)
-            # image.fill(QtGui.QColor(0, 0, 0, 0))
-            # renderer.render(painter)
-            # image.save(pngpath)
-            # painter.end()
-            self.splashscreen = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint, screen=self.qt_app.screens()[config.CONF_GUI_SCREEN])
+            # Optionally re-render splash
+            # self._render_splashscreen(pngpath)
+
+            self.splashscreen = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint,
+                                                        screen=self.qt_app.screens()[config.CONF_GUI_SCREEN])
             self.splashscreen.setPixmap(QtGui.QPixmap(pngpath))
-            # splash.setAttribute(QtCore.Qt.WA_TranslucentBackground)
             self.splashscreen.show()
 
             # Process events once
@@ -162,7 +155,7 @@ class Controller(process.AbstractProcess):
             if t1 > t0:
                 dt.append(t1 - t0)
         avg_dt = sum(dt) / len(dt)
-        msg = 'Timing precision on system {0:3f}ms'.format(1000 * avg_dt)
+        msg = f'Timing precision on system {1000 * avg_dt:3f}ms'
         if avg_dt > 0.001:
             log.warning(msg)
         else:
@@ -260,7 +253,7 @@ class Controller(process.AbstractProcess):
 
         if process_name in self._processes:
             # Terminate modules
-            log.info('Restart modules {}'.format(process_name))
+            log.info(f'Restart modules {process_name}')
             self._processes[process_name].terminate()
 
             # Set modules state
@@ -367,9 +360,9 @@ class Controller(process.AbstractProcess):
 
         # Create output folder
         rec_folder_path = os.path.join(config.CONF_REC_OUTPUT_FOLDER, ipc.Control.Recording[RecCtrl.folder])
-        log.debug('Set output folder {}'.format(rec_folder_path))
+        log.debug(f'Set output folder {rec_folder_path}')
         if not os.path.exists(rec_folder_path):
-            log.debug('Create output folder {}'.format(rec_folder_path))
+            log.debug(f'Create output folder {rec_folder_path}')
             os.mkdir(rec_folder_path)
 
         # Set state to recording
@@ -402,7 +395,7 @@ class Controller(process.AbstractProcess):
         self.set_state(definitions.State.IDLE)
         ipc.Control.Recording[definitions.RecCtrl.folder] = ''
 
-    def start_protocol(self, protocol_path):
+    def run_protocol(self, protocol_path):
         # If any relevant subprocesses are currently busy: abort
         if not (self.in_state(definitions.State.IDLE, PROCESS_DISPLAY)):
             processes = list()
@@ -411,15 +404,14 @@ class Controller(process.AbstractProcess):
             if not (self.in_state(definitions.State.IDLE, PROCESS_IO)):
                 processes.append(PROCESS_IO)
 
-            log.warning(
-                          'One or more processes currently busy. Can not start new protocol.'
-                          '(Processes: {})'.format(','.join(processes)))
+            log.warning('One or more processes currently busy. Can not start new protocol.'
+                        f'(Processes: {",".join(processes)}')
             return
 
         # Start recording if enabled; abort if recording can't be started
         if ipc.Control.Recording[definitions.RecCtrl.enabled] \
                 and not (ipc.Control.Recording[definitions.RecCtrl.active]):
-            if not (self.start_recording()):
+            if not self.start_recording():
                 return
 
         # Set phase info
@@ -464,7 +456,7 @@ class Controller(process.AbstractProcess):
 
         ########
         # First: handle log
-        while not (logger.get_queue().empty()):
+        while not logger.get_queue().empty():
 
             # Fetch next record
             record = logger.get_queue().get()
@@ -604,3 +596,15 @@ class Controller(process.AbstractProcess):
         self._shutdown = True
         for process_name in self._processes:
             ipc.send(process_name, definitions.Signal.shutdown)
+
+    @staticmethod
+    def _render_splashscreen(self, pngpath: str) -> None:
+        # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
+        iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
+        renderer = QtSvg.QSvgRenderer(iconpath)
+        image = QtGui.QImage(512, 512, QtGui.QImage.Format.Format_RGBA64)
+        painter = QtGui.QPainter(image)
+        image.fill(QtGui.QColor(0, 0, 0, 0))
+        renderer.render(painter)
+        image.save(pngpath)
+        painter.end()
