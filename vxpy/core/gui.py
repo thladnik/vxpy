@@ -178,7 +178,6 @@ class AddonTabWidget(WindowTabWidget):
         self.timer.start()
 
 
-
 class PlottingWindow(WindowWidget):
     # Colormap is tab10 from matplotlib:
     # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
@@ -312,7 +311,7 @@ class PlottingWindow(WindowWidget):
                 import traceback
                 print(traceback.print_exc())
 
-        if grp is not None:
+        if grp is not None and grp['t'].shape[0] > 0:
             self._update_xrange(grp['t'][-1])
 
         self.update_plots()
@@ -416,8 +415,8 @@ class PlottingWindow(WindowWidget):
         i = len(subplot.getViewBox().addedItems)
         color = self.cmap[i]
 
-        idcs, times, values = vxattribute.read_attribute(attr_name)
-        new_dataitem = pg.PlotDataItem(times, values[0], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
+        # idcs, times, values = vxattribute.read_attribute(attr_name)
+        new_dataitem = pg.PlotDataItem([], [], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
         subplot.getViewBox().addItem(new_dataitem)
         # Add dataitem to dict
         self.data_items[attr_name] = new_dataitem
