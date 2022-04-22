@@ -38,32 +38,43 @@ class DoubleSlider(QtWidgets.QWidget):
 
         # Slider
         self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-        self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
-        self.slider.setRange(0, 100)
+        self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.NoTicks)
         self.slider.valueChanged.connect(self.slider_value_changed)
         self.layout().addWidget(self.slider)
 
     def slider_value_changed(self, value):
         """Update spinner widget"""
-        self.spinner.setValue(self.spinner.maximum() * value / 100 - self.spinner.minimum())
+        print(f'Slider {value}')
+        new_val = value / 10**3 + self.spinner.minimum()
+        new_val = new_val // self.spinner.singleStep() * self.spinner.singleStep()
+        print('-> Spinner', new_val)
+        self.spinner.setValue(new_val)
 
     def spinner_value_changed(self, value):
         """Update slider widget"""
+        print(f'Spinner {value}')
         self.slider.blockSignals(True)
-        self.slider.setValue(100 * value / (self.spinner.maximum() - self.spinner.minimum()))
+        new_val = int((value - self.spinner.minimum()) * 10**3)
+        print('-> Slider', new_val)
+        self.slider.setValue(new_val)
         self.slider.blockSignals(False)
 
     def set_range(self, min_val, max_val):
         self.spinner.setRange(min_val, max_val)
+        # Sliders can only be >= 0 integers
+        self.slider.setRange(0, int((max_val - min_val) * 10**3))
 
     def set_step(self, step_size):
         self.spinner.setSingleStep(step_size)
+        # Sliders can only be integers
+        self.slider.setSingleStep(int(10**3 / step_size))
 
     def get_value(self):
         return self.spinner.value()
 
     def set_value(self, value):
         self.spinner.setValue(value)
+        self.spinner_value_changed(value)
 
     def connect_callback(self, callback):
         self.spinner.valueChanged.connect(callback)
