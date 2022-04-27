@@ -284,6 +284,8 @@ class SphericalVisual(AbstractVisual, ABC):
 
     # Standard transforms of sphere for 4-way display configuration
     _vertex_map = """
+        #version 460
+
         uniform mat2 u_mapcalib_aspectscale;
         uniform vec2 u_mapcalib_scale;
         uniform mat4 u_mapcalib_translation;
@@ -810,6 +812,7 @@ class Parameter:
     def upstream_updated(self):
         pass
 
+
 # Bool types
 
 class BoolParameter(Parameter):
@@ -1014,7 +1017,7 @@ class TextureInt1D(Texture):
 
 
 class TextureUInt1D(Texture):
-    dtype = np.uint32
+    dtype = np.uint8
 
     def __init__(self, *args, **kwargs):
         Texture.__init__(self, *args, **kwargs)
@@ -1026,19 +1029,19 @@ class Texture2D(Texture):
     def __init__(self, *args, **kwargs):
         Texture.__init__(self, *args, **kwargs)
 
-    def _set_start_data(self, data):
-        self._data = gloo.Texture2D(np.ascontiguousarray(data, dtype=self.dtype))
+    # def _set_start_data(self, data):
+    #     self._data = gloo.Texture2D(np.ascontiguousarray(data, dtype=self.dtype))
 
 
 class TextureInt2D(Texture):
-    dtype = np.int32
+    dtype = np.int16
 
     def __init__(self, *args, **kwargs):
         Texture.__init__(self, *args, **kwargs)
 
 
 class TextureUInt2D(Texture):
-    dtype = np.uint32
+    dtype = np.uint8
 
     def __init__(self, *args, **kwargs):
         Texture.__init__(self, *args, **kwargs)
@@ -1050,7 +1053,6 @@ class Attribute(Parameter):
     def __init__(self, *args, **kwargs):
         Parameter.__init__(self, *args, **kwargs)
         self._buffer_data_contents = None
-
 
     def _set_start_data(self, data):
         self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))

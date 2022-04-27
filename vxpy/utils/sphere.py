@@ -19,6 +19,7 @@ import numpy as np
 
 from vxpy.utils import geometry
 
+
 ########
 # !!! BE EXTREMELY CAREFUL WHEN EDITING THESE MODELS !!!
 # Any changes will affect all visuals associated with the models!
@@ -62,6 +63,20 @@ class UVSphere:
                 idcs.append([i * azim_lvls + j, i * azim_lvls + j + 1, (i + 1) * azim_lvls + j + 1])
                 idcs.append([i * azim_lvls + j, (i + 1) * azim_lvls + j, (i + 1) * azim_lvls + j + 1])
         self.indices = np.ascontiguousarray(np.array(idcs).flatten(), dtype=np.uint32)
+
+    def get_uv_coordinates(self):
+        vecs = self.a_position
+        u = 0.5 + np.arctan2(vecs[:, 0], vecs[:, 1]) / np.pi / 2.0
+        v = 0.5 + np.arcsin(-vecs[:, 2]) / np.pi
+
+        return np.stack([u, v]).T
+
+    # def get_uv_coordinates(self):
+    #     vecs = self.a_position
+    #     u = 0.5 + np.arctan2(vecs[:,0], vecs[:,2]) / np.pi / 2.0
+    #     v = 0.5 + np.arcsin(vecs[:,1]) / np.pi
+    #
+    #     return np.stack([u, v]).T
 
 
 class IcosahedronSphere:
@@ -239,6 +254,7 @@ class CMNIcoSphere:
         self.tile_orientation = tileOri
         self.tile_center      = tileCen
         self.intertile_distance = tileDist
+
 
 class Insta360Calibrated:
     """
