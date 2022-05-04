@@ -99,12 +99,7 @@ def cart2sph1(cx, cy, cz):
     elv = np.angle(np.abs(cxy)+cz * 1.j)
     return azi, elv
 
-class qn(np.ndarray):
-    """
-    Created on Fri Aug 9 10:11:32 2019
-    Last update: Fri Nov 8 17:14:32 2019
-    @author: Yue Zhang
-    """
+class qn (np.ndarray) :
 
     qn_dtype = [('w', np.double), ('x', np.double), ('y', np.double), ('z', np.double)]
 
@@ -120,33 +115,45 @@ class qn(np.ndarray):
         :return: M x ... x N quaternion structured array.
         """
         mattype = type(compact_mat)
-        if mattype == list:  # Check if input is ndarray or list, else return a type error
+        if mattype == list or mattype == tuple :  # Check if input is ndarray or list, else return uv_facet type error
             compact_mat = np.asarray(compact_mat)
         elif mattype == np.ndarray:
             pass
         else:
-            raise Exception('Input array should be a list or ndarray, instead its type is %s\n' % mattype)
+            raise Exception('Input array should be list or ndarray, instead its type is %s\n' % mattype)
         matshape = compact_mat.shape  # Shape checking: should be M x ... x 4 or x 3 ndarray, otherwise return error
         qn_compact = np.zeros([*matshape[:-1]], dtype=qn.qn_dtype)  # Preallocate space
         qn_compact = np.full_like(qn_compact, np.nan)  # filled with nan for debugging.
         if matshape[-1] == 4:
-            compactMat_r = compact_mat.reshape([-1, 4])
-            qn_compact['w'] = compactMat_r[:, 0].reshape(matshape[:-1])
-            qn_compact['x'] = compactMat_r[:, 1].reshape(matshape[:-1])
-            qn_compact['y'] = compactMat_r[:, 2].reshape(matshape[:-1])
-            qn_compact['z'] = compactMat_r[:, 3].reshape(matshape[:-1])
+            compact_mat_r = compact_mat.reshape([-1, 4])
+            qn_compact['w'] = compact_mat_r[:, 0].reshape(matshape[:-1])
+            qn_compact['x'] = compact_mat_r[:, 1].reshape(matshape[:-1])
+            qn_compact['y'] = compact_mat_r[:, 2].reshape(matshape[:-1])
+            qn_compact['z'] = compact_mat_r[:, 3].reshape(matshape[:-1])
         elif matshape[-1] == 3:
             targetshape = list(matshape)
             targetshape[-1] = 4
-            compactMat_r = compact_mat.reshape([-1, 3])
+            compact_mat_r = compact_mat.reshape([-1, 3])
             qn_compact['w'] = np.zeros(matshape[:-1])
-            qn_compact['x'] = compactMat_r[:, 0].reshape(matshape[:-1])
-            qn_compact['y'] = compactMat_r[:, 1].reshape(matshape[:-1])
-            qn_compact['z'] = compactMat_r[:, 2].reshape(matshape[:-1])
+            qn_compact['x'] = compact_mat_r[:, 0].reshape(matshape[:-1])
+            qn_compact['y'] = compact_mat_r[:, 1].reshape(matshape[:-1])
+            qn_compact['z'] = compact_mat_r[:, 2].reshape(matshape[:-1])
+            warningmsg = "Input array %s is set to %s" % (matshape, tuple(targetshape))
+            warnings.warn(warningmsg)
+        elif matshape[-1] == 2:
+            targetshape = list(matshape)
+            targetshape[-1] = 4
+            compact_mat_r = compact_mat.reshape([-1, 2])
+            compact_mat_xy = np.exp(1j * compact_mat_r[:, 0]) * np.cos(compact_mat_r[:, 1])
+            compact_mat_z = np.sin(compact_mat_r[:, 1])
+            qn_compact['w'] = np.zeros(matshape[:-1])
+            qn_compact['x'] = np.real(compact_mat_xy).reshape(matshape[:-1])
+            qn_compact['y'] = np.imag(compact_mat_xy).reshape(matshape[:-1])
+            qn_compact['z'] = compact_mat_z.reshape(matshape[:-1])
             warningmsg = "Input array %s is set to %s" % (matshape, tuple(targetshape))
             warnings.warn(warningmsg)
         else:
-            raise Exception('Input array should be a N x ... x 4 matrix, instead its shape is %s\n' % (matshape,))
+            raise Exception('Input array should be uv_facet N x ... x 4 matrix, instead its shape is %s\n' % (matshape,))
         obj = qn_compact.view(cls)  # Convert to quaternion ndarray object
         if obj.shape == ():  # Convert 1 element array (has 0 dim) to 1-d array
             obj = np.expand_dims(obj, -1)
@@ -158,14 +165,20 @@ class qn(np.ndarray):
         """
         Custom indexing for structured quaternion ndarray
         """
+        sub_self = self.view(np.ndarray)
         if type(keys) == int:  # If index is integer, converted to slices; otherwise cause error
             keys = slice(keys, keys + 1)
-        sub_self = self.view(np.ndarray)[keys]
-        # sub_self = super(qn,self).__getitem__(keys)
-        if type(keys) != str:
+            sub_self = sub_self[keys]
             return sub_self.view(qn)
+
+        if type(keys) == str:
+            concat = np.concatenate([sub_self[i][...,np.newaxis] for i in keys],axis=-1)
+            if concat.shape[-1] == 1:
+                concat = concat[...,0]
+            return concat
+
         else:
-            return sub_self.view(np.ndarray)
+            return sub_self[keys].view(qn)
 
     def __repr__(self):
         """
@@ -173,30 +186,30 @@ class qn(np.ndarray):
         show as "a+bi+cj+dk". The printed string are organized in the same way
         as the quaternion ndarray
         """
-        concate_qArray = self.compact
-        stringArray = []
-        for ci in range(concate_qArray.shape[0]):
-            stringArray.append("%+.4g%+.4gi%+.4gj%+.4gk" % tuple(concate_qArray[ci, :]))
-        stringOutput = np.array2string(np.asarray(stringArray).reshape(self['w'].shape))
-        if len(stringOutput) > 1000 // 4 * 4:
-            stringOutput = stringOutput[:1000 // 4 * 4] + '...'
+        concate_q_array = self.compact
+        string_array = []
+        for ci in range(concate_q_array.shape[0]):
+            string_array.append("%+.4g%+.4gi%+.4gj%+.4gk" % tuple(concate_q_array[ci, :]))
+        string_output = np.array2string(np.asarray(string_array).reshape(self['w'].shape))
+        if len(string_output) > 1000 // 4 * 4:
+            string_output = string_output[:1000 // 4 * 4] + '...'
 
-        return '\n'.join(["Quaternion Array " + str(self.shape) + ": ", stringOutput])
+        return '\n'.join(["Quaternion Array " + str(self.shape) + ": ", string_output])
 
     def __neg__(self):
         # Elementary arithmetic: qn * -1
-        compactProduct = -self.matrixform
-        return np.reshape(compactProduct.view(self.qn_dtype).view(qn), compactProduct.shape[:-1])
+        compact_product = -self.matrixform
+        return np.reshape(compact_product.view(self.qn_dtype).view(qn), compact_product.shape[:-1])
 
     def __add__(self, qn2):
         # Elementary arithmetic: qn1 + qn2 or qn1 + r (real number). Same as the elementary arithmetic for real number
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
-            compactProduct = self.matrixform + qn2
+            compact_product = np.concatenate([self['w']+qn2,self['xyz']],-1)
         elif qn2.__class__ == self.__class__:
-            compactProduct = self.matrixform + qn2.matrixform
+            compact_product = self.matrixform + qn2.matrixform
         else:
             raise ValueError('Invalid type of input')
-        return np.reshape(compactProduct.view(self.qn_dtype).view(qn), compactProduct.shape[:-1])
+        return np.reshape(compact_product.view(self.qn_dtype).view(qn), compact_product.shape[:-1])
 
     def __iadd__(self, qn2):
         # Elementary arithmetic: qn1 += qn2 or qn1 += r
@@ -209,12 +222,12 @@ class qn(np.ndarray):
     def __sub__(self, qn2):
         # Elementary arithmetic: qn1 - qn2. Same as the elementary arithmetic for real number
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
-            compactProduct = self.matrixform - qn2
+            compact_product = self.matrixform - qn2
         elif qn2.__class__ == qn:
-            compactProduct = self.matrixform - qn2.matrixform
+            compact_product = self.matrixform - qn2.matrixform
         else:
             raise ValueError('Invalid type of input')
-        return np.reshape(compactProduct.view(self.qn_dtype).view(qn), compactProduct.shape[:-1])
+        return np.reshape(compact_product.view(self.qn_dtype).view(qn), compact_product.shape[:-1])
 
     def __isub__(self, qn2):
         # Elementary arithmetic: qn1 -= qn2 or qn1 -= r
@@ -223,62 +236,62 @@ class qn(np.ndarray):
     def __rsub__(self, qn2):
         # Elementary arithmetic: qn2 - qn1 or r - qn1
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
-            compactProduct = qn2 - self.matrixform
+            compact_product = qn2 - self.matrixform
         elif qn2.__class__ == qn:
-            compactProduct = qn2.matrixform - self.matrixform
+            compact_product = qn2.matrixform - self.matrixform
         else:
             raise ValueError('Invalid type of input')
-        return np.reshape(compactProduct.view(self.qn_dtype).view(qn), compactProduct.shape[:-1])
+        return np.reshape(compact_product.view(self.qn_dtype).view(qn), compact_product.shape[:-1])
 
     def __mul__(self, qn2):
         # Elementary arithmetic: qn1 * qn2; check https://en.wikipedia.org/wiki/Quaternion#Algebraic_properties for
         # details
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
             # if qn1 * r, then the same as real number calculation
-            compactProduct = self.matrixform * qn2
-            compactProduct = np.reshape(compactProduct.view(self.qn_dtype), compactProduct.shape[:-1])
+            compact_product = self.matrixform * qn2
+            compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == self.__class__:
             temp_shape = (self['w'] * qn2['w']).shape
             if not temp_shape:
-                compactProduct = np.zeros([(self['w'] * qn2['w']).size], dtype=self.qn_dtype)
+                compact_product = np.zeros([(self['w'] * qn2['w']).size], dtype=self.qn_dtype)
             else:
-                compactProduct = np.zeros([*temp_shape], dtype=self.qn_dtype)
-            compactProduct = np.full_like(compactProduct, np.nan)
-            compactProduct['w'] = self['w'] * qn2['w'] - self['x'] * qn2['x'] - self['y'] * qn2['y'] - self['z'] * qn2[
+                compact_product = np.zeros([*temp_shape], dtype=self.qn_dtype)
+            compact_product = np.full_like(compact_product, np.nan)
+            compact_product['w'] = self['w'] * qn2['w'] - self['x'] * qn2['x'] - self['y'] * qn2['y'] - self['z'] * qn2[
                 'z']
-            compactProduct['x'] = self['w'] * qn2['x'] + self['x'] * qn2['w'] + self['y'] * qn2['z'] - self['z'] * qn2[
+            compact_product['x'] = self['w'] * qn2['x'] + self['x'] * qn2['w'] + self['y'] * qn2['z'] - self['z'] * qn2[
                 'y']
-            compactProduct['y'] = self['w'] * qn2['y'] - self['x'] * qn2['z'] + self['y'] * qn2['w'] + self['z'] * qn2[
+            compact_product['y'] = self['w'] * qn2['y'] - self['x'] * qn2['z'] + self['y'] * qn2['w'] + self['z'] * qn2[
                 'x']
-            compactProduct['z'] = self['w'] * qn2['z'] + self['x'] * qn2['y'] - self['y'] * qn2['x'] + self['z'] * qn2[
+            compact_product['z'] = self['w'] * qn2['z'] + self['x'] * qn2['y'] - self['y'] * qn2['x'] + self['z'] * qn2[
                 'w']
         else:
             raise ValueError('Invalid type of input')
-        return compactProduct.view(qn)
+        return compact_product.view(qn)
 
     def __rmul__(self, qn2):
         # Elementary arithmetic: qn2 * qn1; Note the result of _rmul_ and _mul_ are not equal for quaternion
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
-            compactProduct = self.matrixform * qn2
-            compactProduct = np.reshape(compactProduct.view(self.qn_dtype), compactProduct.shape[:-1])
+            compact_product = self.matrixform * qn2
+            compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == self.__class__:
             temp_shape = (self['w'] * qn2['w']).shape
             if not temp_shape:
-                compactProduct = np.zeros([(self['w'] * qn2['w']).size], dtype=self.qn_dtype)
+                compact_product = np.zeros([(self['w'] * qn2['w']).size], dtype=self.qn_dtype)
             else:
-                compactProduct = np.zeros([*temp_shape], dtype=self.qn_dtype)
-            compactProduct = np.full_like(compactProduct, np.nan)
-            compactProduct['w'] = qn2['w'] * self['w'] - qn2['x'] * self['x'] - qn2['y'] * self['y'] - qn2['z'] * self[
+                compact_product = np.zeros([*temp_shape], dtype=self.qn_dtype)
+            compact_product = np.full_like(compact_product, np.nan)
+            compact_product['w'] = qn2['w'] * self['w'] - qn2['x'] * self['x'] - qn2['y'] * self['y'] - qn2['z'] * self[
                 'z']
-            compactProduct['x'] = qn2['w'] * self['x'] + qn2['x'] * self['w'] + qn2['y'] * self['z'] - qn2['z'] * self[
+            compact_product['x'] = qn2['w'] * self['x'] + qn2['x'] * self['w'] + qn2['y'] * self['z'] - qn2['z'] * self[
                 'y']
-            compactProduct['y'] = qn2['w'] * self['y'] - qn2['x'] * self['z'] + qn2['y'] * self['w'] + qn2['z'] * self[
+            compact_product['y'] = qn2['w'] * self['y'] - qn2['x'] * self['z'] + qn2['y'] * self['w'] + qn2['z'] * self[
                 'x']
-            compactProduct['z'] = qn2['w'] * self['z'] + qn2['x'] * self['y'] - qn2['y'] * self['x'] + qn2['z'] * self[
+            compact_product['z'] = qn2['w'] * self['z'] + qn2['x'] * self['y'] - qn2['y'] * self['x'] + qn2['z'] * self[
                 'w']
         else:
             raise ValueError('Invalid type of input')
-        return compactProduct.view(qn)
+        return compact_product.view(qn)
 
     def __imul__(self, qn2):
         # Elementary arithmetic: qn1 *= qn2; check https://en.wikipedia.org/wiki/Quaternion#Algebraic_properties for
@@ -288,30 +301,30 @@ class qn(np.ndarray):
     def __truediv__(self, qn2):
         # Elementary arithmetic: qn1 / qn2; Note the result of __truediv__ and __rtruediv__ are not equal for quaternion
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.float64, np.float32, np.int)]):
-            compactProduct = self.matrixform / qn2
-            compactProduct = np.reshape(compactProduct.view(self.qn_dtype), compactProduct.shape[:-1])
+            compact_product = self.matrixform / qn2
+            compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == np.ndarray:
-            compactProduct = self.matrixform / qn2[..., None]
-            compactProduct = np.reshape(compactProduct.view(self.qn_dtype), compactProduct.shape[:-1])
+            compact_product = self.matrixform / qn2[..., None]
+            compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == self.__class__:
             inv_qn2 = qn2.inv
             temp_shape = (self['w'] * inv_qn2['w']).shape
             if not temp_shape:
-                compactProduct = np.zeros([(self['w'] * inv_qn2['w']).size], dtype=self.qn_dtype)
+                compact_product = np.zeros([(self['w'] * inv_qn2['w']).size], dtype=self.qn_dtype)
             else:
-                compactProduct = np.zeros([*temp_shape], dtype=self.qn_dtype)
-            compactProduct = np.full_like(compactProduct, np.nan)
-            compactProduct['w'] = self['w'] * inv_qn2['w'] - self['x'] * inv_qn2['x'] - self['y'] * inv_qn2['y'] - self[
+                compact_product = np.zeros([*temp_shape], dtype=self.qn_dtype)
+            compact_product = np.full_like(compact_product, np.nan)
+            compact_product['w'] = self['w'] * inv_qn2['w'] - self['x'] * inv_qn2['x'] - self['y'] * inv_qn2['y'] - self[
                 'z'] * inv_qn2['z']
-            compactProduct['x'] = self['w'] * inv_qn2['x'] + self['x'] * inv_qn2['w'] + self['y'] * inv_qn2['z'] - self[
+            compact_product['x'] = self['w'] * inv_qn2['x'] + self['x'] * inv_qn2['w'] + self['y'] * inv_qn2['z'] - self[
                 'z'] * inv_qn2['y']
-            compactProduct['y'] = self['w'] * inv_qn2['y'] - self['x'] * inv_qn2['z'] + self['y'] * inv_qn2['w'] + self[
+            compact_product['y'] = self['w'] * inv_qn2['y'] - self['x'] * inv_qn2['z'] + self['y'] * inv_qn2['w'] + self[
                 'z'] * inv_qn2['x']
-            compactProduct['z'] = self['w'] * inv_qn2['z'] + self['x'] * inv_qn2['y'] - self['y'] * inv_qn2['x'] + self[
+            compact_product['z'] = self['w'] * inv_qn2['z'] + self['x'] * inv_qn2['y'] - self['y'] * inv_qn2['x'] + self[
                 'z'] * inv_qn2['w']
         else:
             raise ValueError('Invalid type of input')
-        return compactProduct.view(qn)
+        return compact_product.view(qn)
 
     def __rtruediv__(self, qn2):
         """
@@ -322,29 +335,29 @@ class qn(np.ndarray):
         """
         inv_self: qn = self.inv
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.float64, np.float32, np.int)]):
-            compactProduct = inv_self.matrixform / qn2
-            compactProduct = np.reshape(compactProduct.view(self.qn_dtype), compactProduct.shape[:-1])
+            compact_product = inv_self.matrixform / qn2
+            compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == np.ndarray:
-            compactProduct = inv_self.matrixform / qn2[..., None]
-            compactProduct = np.reshape(compactProduct.view(self.qn_dtype), compactProduct.shape[:-1])
+            compact_product = inv_self.matrixform / qn2[..., None]
+            compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == self.__class__:
             temp_shape = (qn2['w'] * inv_self['w']).shape
             if not temp_shape:
-                compactProduct = np.zeros([(qn2['w'] * inv_self['w']).size], dtype=self.qn_dtype)
+                compact_product = np.zeros([(qn2['w'] * inv_self['w']).size], dtype=self.qn_dtype)
             else:
-                compactProduct = np.zeros([*temp_shape], dtype=self.qn_dtype)
-            compactProduct = np.full_like(compactProduct, np.nan)
-            compactProduct['w'] = qn2['w'] * inv_self['w'] - qn2['x'] * inv_self['x'] - qn2['y'] * inv_self['y'] - qn2[
+                compact_product = np.zeros([*temp_shape], dtype=self.qn_dtype)
+            compact_product = np.full_like(compact_product, np.nan)
+            compact_product['w'] = qn2['w'] * inv_self['w'] - qn2['x'] * inv_self['x'] - qn2['y'] * inv_self['y'] - qn2[
                 'z'] * inv_self['z']
-            compactProduct['x'] = qn2['w'] * inv_self['x'] + qn2['x'] * inv_self['w'] + qn2['y'] * inv_self['z'] - qn2[
+            compact_product['x'] = qn2['w'] * inv_self['x'] + qn2['x'] * inv_self['w'] + qn2['y'] * inv_self['z'] - qn2[
                 'z'] * inv_self['y']
-            compactProduct['y'] = qn2['w'] * inv_self['y'] - qn2['x'] * inv_self['z'] + qn2['y'] * inv_self['w'] + qn2[
+            compact_product['y'] = qn2['w'] * inv_self['y'] - qn2['x'] * inv_self['z'] + qn2['y'] * inv_self['w'] + qn2[
                 'z'] * inv_self['x']
-            compactProduct['z'] = qn2['w'] * inv_self['z'] + qn2['x'] * inv_self['y'] - qn2['y'] * inv_self['x'] + qn2[
+            compact_product['z'] = qn2['w'] * inv_self['z'] + qn2['x'] * inv_self['y'] - qn2['y'] * inv_self['x'] + qn2[
                 'z'] * inv_self['w']
         else:
             raise ValueError('Invalid type of input')
-        return compactProduct.view(qn)
+        return compact_product.view(qn)
 
     def __itruediv__(self, qn2):
         """
@@ -364,8 +377,7 @@ class qn(np.ndarray):
 
         :return:  M x ... x 4 ndarray
         """
-        compact_dtype = np.dtype([('wxyz', 'double', 4)])
-        return self.view(compact_dtype)['wxyz']
+        return self['wxyz']
 
     @property
     def compact(self):
@@ -398,10 +410,10 @@ class qn(np.ndarray):
         """
         # 1/qn
         qconj = self.conj
-        Q_innerproduct = self * qconj
-        Q_ip_inv = 1 / Q_innerproduct['w']
+        q_innerproduct = self * qconj
+        q_ip_inv = 1 / q_innerproduct['w']
         # The broadcast calculation is necessary here, but need to take care of the redundant dimension otherwise will run into dimensionality expansion problem all the time
-        return np.squeeze(qconj * Q_ip_inv[..., None]).view(qn)
+        return np.squeeze(qconj * q_ip_inv[..., None]).view(qn)
 
     @property
     def qT(self):
@@ -413,6 +425,41 @@ class qn(np.ndarray):
         """
 
         return self.conj.T
+
+    def azi(self):
+        return np.angle(self['x'] + 1j * self['y'])
+
+    def elv(self):
+        return np.arctan(self['z'] / (self['xy'] ** 2).sum(axis=-1))
+
+    @property
+    def w(self):
+        return self['w']
+
+    @property
+    def x(self):
+        return self['x']
+
+    @property
+    def y(self):
+        return self['y']
+
+    @property
+    def z(self):
+        return self['z']
+
+    @property
+    def u(self):
+        return self.azi()
+
+    @property
+    def v(self):
+        # Return the double real number matrix (M x ... x 3) of the imaginary part
+        return self.elv()
+
+    @property
+    def uv(self):
+        return np.concatenate([self.azi(), self.elv()], axis=-1)
 
     @property
     def imag(self):
@@ -440,7 +487,7 @@ class qn(np.ndarray):
     @property
     def imagpart(self):
         # Return the double real number matrix (M x ... x 3) of the imaginary part
-        return self.matrixform[..., 1:]
+        return self['xyz']
 
     @property
     def realpart(self):
@@ -451,6 +498,11 @@ class qn(np.ndarray):
     def norm(self):
         # Return the norm (or the absolute value) of the quaternion number
         return np.sqrt(np.sum(self.matrixform ** 2, axis=-1))
+
+    @property
+    def angle(self):
+        # Return the rotation angle
+        return np.arccos(self.w / self.norm)*2
 
     @property
     def normalize(self):
@@ -492,10 +544,10 @@ class qn(np.ndarray):
             sum_axis = 0
         kwargs['axis'] = sum_axis
         if not self.shape:
-            qmatSum = self.matrixform
+            q_mat_sum = self.matrixform
         else:
-            qmatSum = np.sum(self.matrixform, **kwargs)
-        return qmatSum.view(self.qn_dtype).view(qn)
+            q_mat_sum = np.sum(self.matrixform, **kwargs)
+        return q_mat_sum.view(self.qn_dtype).view(qn)
 
 
 ################################### Functions ###################################
@@ -518,12 +570,12 @@ def stack(*qn_array, **kwargs):
     # Same as np.stack
     stack_axis = kwargs.pop('axis', None)
     if stack_axis == 0:
-        qmatStack = np.hstack([x.matrixform for x in qn_array], **kwargs)
+        q_mat_stack = np.hstack([x.matrixform for x in qn_array], **kwargs)
     elif stack_axis == 1:
-        qmatStack = np.vstack([x.matrixform for x in qn_array], **kwargs)
+        q_mat_stack = np.vstack([x.matrixform for x in qn_array], **kwargs)
     else:
-        qmatStack = np.stack([x.matrixform for x in qn_array], **kwargs)
-    return qmatStack.view(qn.qn_dtype).view(qn)
+        q_mat_stack = np.stack([x.matrixform for x in qn_array], **kwargs)
+    return q_mat_stack.view(qn.qn_dtype).view(qn)
 
 
 def sum(*qn_array, **kwargs):
@@ -538,12 +590,12 @@ def sum(*qn_array, **kwargs):
         sum_axis = 0
     kwargs['axis'] = sum_axis
 
-    qmatStack = np.squeeze(np.stack([x for x in qn_array], **kwargs))
-    if not qmatStack.shape:
-        qmatSum = qmatStack.view(qn).matrixform
+    q_mat_stack = np.squeeze(np.stack([x for x in qn_array], **kwargs))
+    if not q_mat_stack.shape:
+        q_mat_sum = q_mat_stack.view(qn).matrixform
     else:
-        qmatSum = np.sum(qmatStack.view(qn).matrixform, **kwargs)
-    return qmatSum.view(qn_array[0].qn_dtype).view(qn)
+        q_mat_sum = np.sum(q_mat_stack.view(qn).matrixform, **kwargs)
+    return q_mat_sum.view(qn_array[0].qn_dtype).view(qn)
 
 
 def nansum(*qn_array, **kwargs):
@@ -557,12 +609,12 @@ def nansum(*qn_array, **kwargs):
     else:
         sum_axis = 0
     kwargs['axis'] = sum_axis
-    qmatStack = np.squeeze(np.stack([x for x in qn_array], **kwargs))
-    if not qmatStack.shape:
-        qmatSum = qmatStack.view(qn).matrixform
+    q_mat_stack = np.squeeze(np.stack([x for x in qn_array], **kwargs))
+    if not q_mat_stack.shape:
+        q_mat_sum = q_mat_stack.view(qn).matrixform
     else:
-        qmatSum = np.nansum(qmatStack.view(qn).matrixform, **kwargs)
-    return qmatSum.view(qn_array[0].qn_dtype).view(qn)
+        q_mat_sum = np.nansum(q_mat_stack.view(qn).matrixform, **kwargs)
+    return q_mat_sum.view(qn_array[0].qn_dtype).view(qn)
 
 
 def mean(*qn_array, **kwargs):
@@ -576,12 +628,12 @@ def mean(*qn_array, **kwargs):
     else:
         sum_axis = 0
     kwargs['axis'] = sum_axis
-    qmatStack = np.squeeze(np.stack([x for x in qn_array], **kwargs))
-    if not qmatStack.shape:
-        qmatSum = qmatStack.view(qn).matrixform
+    q_mat_stack = np.squeeze(np.stack([x for x in qn_array], **kwargs))
+    if not q_mat_stack.shape:
+        q_mat_sum = q_mat_stack.view(qn).matrixform
     else:
-        qmatSum = np.mean(qmatStack.view(qn).matrixform, **kwargs)
-    return qmatSum.view(qn_array[0].qn_dtype).view(qn)
+        q_mat_sum = np.mean(q_mat_stack.view(qn).matrixform, **kwargs)
+    return q_mat_sum.view(qn_array[0].qn_dtype).view(qn)
 
 
 def exp(qn1):
@@ -591,15 +643,15 @@ def exp(qn1):
     coeff_imag = np.sin(coeff_imag_base) / coeff_imag_base
     temp_shape = qn1['w'].shape
     if not temp_shape:
-        compactProduct = np.zeros([qn1['w'].size], dtype=qn1.qn_dtype)
+        compact_product = np.zeros([qn1['w'].size], dtype=qn1.qn_dtype)
     else:
-        compactProduct = np.zeros([*temp_shape], dtype=qn1.qn_dtype)
-    compactProduct = np.full_like(compactProduct, np.nan)
-    compactProduct['w'] = coeff_real * np.cos(coeff_imag_base)
-    compactProduct['x'] = qn1['x'] * coeff_imag
-    compactProduct['y'] = qn1['y'] * coeff_imag
-    compactProduct['z'] = qn1['z'] * coeff_imag
-    return compactProduct.view(qn)
+        compact_product = np.zeros([*temp_shape], dtype=qn1.qn_dtype)
+    compact_product = np.full_like(compact_product, np.nan)
+    compact_product['w'] = coeff_real * np.cos(coeff_imag_base)
+    compact_product['x'] = qn1['x'] * coeff_imag
+    compact_product['y'] = qn1['y'] * coeff_imag
+    compact_product['z'] = qn1['z'] * coeff_imag
+    return compact_product.view(qn)
 
 
 def qdot(qn1, qn2):
@@ -614,8 +666,13 @@ def qcross(qn1, qn2):
 
 def anglebtw(qn1, qn2):
     # Calculate the angle between 3d vectors represented with two quaternions whose real part = 0
-    return np.arcsin((qn1.normalize - qn2.normalize).norm / 2) * 2
-    # return np.arccos(qdot(qn1,qn2)/(qn1.norm*qn2.norm)) # deprecated, too slow
+    distbtw = (qn1.normalize - qn2.normalize).norm / 2
+    errdist = np.abs(distbtw)
+    if (errdist>1).any():
+        warningmsg = "Setting the distance between the normalized points back to 1. Max. error:{err:.4f}".format(err=errdist.max()-1)
+        warnings.warn(warningmsg)
+        distbtw = np.minimum(np.maximum(distbtw, -1), 1)
+    return np.arcsin(distbtw) * 2
 
 
 def reflect(surf_normal, points):
@@ -692,12 +749,14 @@ def rotTo(fromQn, toQn):
         fromQn: current orientation qn vectors
         toQn:   target orientation qn vectors
     Output:
-        the rotation quaternion number for the rotation transform
+        the rotation quaternion for the rotation transform
     """
-    transVec = fromQn * toQn.normalize
-    transVec = transVec.imag - transVec.real
-    transVec += transVec.norm
-    return transVec.normalize
+    toQn_normalized = toQn.normalize
+    realpart = qdot(fromQn,toQn_normalized)
+    imagpart = qcross(fromQn,toQn_normalized)
+    realpart += (realpart+imagpart).norm
+    trans_vec = imagpart+realpart
+    return trans_vec.normalize
 
 
 def projection(surf_normal_qn, proj_pnt_qn, on_plane=True):
@@ -720,7 +779,7 @@ def projection_matrix(projection_normal, flat_output=True):
     Calculate the orthogonal projection transformation
     ------------
     :param projection_normal: 1 x 3 ndarray or a quaternion number; the camera's pointing direction
-    :param flat_output: boolean, optional; if True (default), the output transformation quternion number or matrix will project the target point to the xy planar
+    :param flat_output: boolean, optional; if True (default), the output transformation quternion number or matrix will project the target point to the xy plane
     :return: transformation matrix or quaternion number for the corresponding orthogonal projection
     """
     normaltype = type(projection_normal)
@@ -738,18 +797,36 @@ def projection_matrix(projection_normal, flat_output=True):
         projection_mat = (np.eye(4) + np.squeeze(reflect_mat)) / 2
 
         if flat_output:
-            xynorm = qn(np.array([0, 0, 1]))  # The normal quaternion number for x-y planar
+            xynorm = qn(np.array([0, 0, 1]))  # The normal quaternion number for x-y plane
             if all(projection_normal.imagpart.flatten()[:2] == 0):
                 backrot = rotTo(projection_normal, xynorm)
             else:
                 projection_xy = np.copy(projection_normal).view(
-                    qn)  # Intermediate quaternnion for rotate the projected result to the x-y planar
+                    qn)  # Intermediate quaternnion for rotate the projected result to the x-y plane
                 projection_xy['z'] *= 0
                 backrot = rotTo(projection_xy, xynorm) * rotTo(projection_normal, projection_xy)
             backrot_mat = rotation_matrix(backrot)
             return np.dot(np.squeeze(backrot_mat), projection_mat)
         else:
             return projection_mat
+
+def lerp(pnt1:qn,pnt2:qn,num_pnt=10):
+    grad = np.linspace(0,1,num_pnt)[:,np.newaxis]
+    return pnt1*(1-grad)+pnt2*grad
+
+
+def slerp(pnt1:qn,pnt2:qn,center:qn = qn([0,0,0]),num_pnt=10):
+    pnt1v = pnt1 - center
+    pnt2v = pnt2 - center
+    pnt1v_norm = pnt1v.norm
+    pnt2v_norm = pnt2v.norm
+    pnt1v = pnt1v.normalize
+    pnt2v = pnt2v.normalize
+    rotation_vec = rotTo(pnt1v, pnt2v)
+    arc_pnt = rotate(rotation_vec.imag.normalize, pnt1v, np.linspace(0, rotation_vec.angle, num_pnt))
+    arc_pnt += center
+    return arc_pnt
+
 
 
 class SphereHelper:
