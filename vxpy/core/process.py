@@ -56,6 +56,7 @@ class AbstractProcess:
     interval: float
     _running: bool
     _shutdown: bool
+    _disable_phases = True
 
     # Protocol related
     current_protocol: Union[vxprotocol.AbstractProtocol, None] = None
@@ -304,7 +305,8 @@ class AbstractProcess:
                 return False
 
             # Set record group to write to in file
-            self.set_record_group(f'phase{vxipc.Control.Recording[RecCtrl.record_group_counter]}')
+            if not self._disable_phases:
+                self.set_record_group(f'phase{vxipc.Control.Recording[RecCtrl.record_group_counter]}')
 
             # Set current phase
             self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]

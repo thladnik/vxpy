@@ -45,6 +45,7 @@ class Display(vxprocess.AbstractProcess):
     current_visual: Union[vxvisual.AbstractVisual, None] = None
 
     _uniform_maps = dict()
+    _disable_phases = False
 
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
