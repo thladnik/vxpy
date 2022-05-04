@@ -166,27 +166,31 @@ class GlobalSettings(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Window x pos
-        self.win_x_pos = IntSliderWidget('Window X-Pos [px]', -5000, 5000, 0,
+        self.win_x_pos = IntSliderWidget(self, 'Window X-Pos [px]',
+                                         limits=(-5000, 5000), default=0,
                                          step_size=1, label_width=100)
-        self.win_x_pos.connect_to_result(self.update_window_x_pos)
+        self.win_x_pos.connect_callback(self.update_window_x_pos)
         self.layout().addWidget(self.win_x_pos)
 
         # Window y pos
-        self.win_y_pos = IntSliderWidget('Window Y-Pos [px]', -5000, 5000, 0,
+        self.win_y_pos = IntSliderWidget(self, 'Window Y-Pos [px]',
+                                         limits=(-5000, 5000), default=0,
                                          step_size=1, label_width=100)
-        self.win_y_pos.connect_to_result(self.update_window_y_pos)
+        self.win_y_pos.connect_callback(self.update_window_y_pos)
         self.layout().addWidget(self.win_y_pos)
 
         # Window width
-        self.win_width = IntSliderWidget('Window width [px]', 1, 5000, 0,
+        self.win_width = IntSliderWidget(self, 'Window width [px]',
+                                         limits=(1, 5000), default=0,
                                          step_size=1, label_width=100)
-        self.win_width.connect_to_result(self.update_window_width)
+        self.win_width.connect_callback(self.update_window_width)
         self.layout().addWidget(self.win_width)
 
         # Window height
-        self.win_height = IntSliderWidget('Window height [px]', 1, 5000, 0,
+        self.win_height = IntSliderWidget(self, 'Window height [px]',
+                                          limits=(1, 5000), default=0,
                                           step_size=1, label_width=100)
-        self.win_height.connect_to_result(self.update_window_height)
+        self.win_height.connect_callback(self.update_window_height)
         self.layout().addWidget(self.win_height)
 
         # Use current window settings
@@ -195,20 +199,23 @@ class GlobalSettings(QtWidgets.QGroupBox):
         self.layout().addWidget(self.btn_use_current_window)
 
         # X Position
-        self.x_pos = DoubleSliderWidget('X-position', -1., 1., 0.,
+        self.x_pos = DoubleSliderWidget(self, 'X-position',
+                                        limits=(-1., 1.), default=0.,
                                         step_size=.001, decimals=3, label_width=100)
-        self.x_pos.connect_to_result(self.update_x_pos)
+        self.x_pos.connect_callback(self.update_x_pos)
         self.layout().addWidget(self.x_pos)
 
         # Y Position
-        self.y_pos = DoubleSliderWidget('Y-position', -1., 1., 0.,
+        self.y_pos = DoubleSliderWidget(self, 'Y-position',
+                                        limits=(-1., 1.), default=0.,
                                         step_size=.001, decimals=3, label_width=100)
-        self.y_pos.connect_to_result(self.update_y_pos)
+        self.y_pos.connect_callback(self.update_y_pos)
         self.layout().addWidget(self.y_pos)
 
         # Screen
-        self.screen_id = IntSliderWidget('Screen ID', 0, 10, 0, step_size=1, label_width=100)
-        self.screen_id.connect_to_result(self.update_screen_id)
+        self.screen_id = IntSliderWidget(self, 'Screen ID',
+                                         limits=(0, 10), default=0, step_size=1, label_width=100)
+        self.screen_id.connect_callback(self.update_screen_id)
         self.layout().addWidget(self.screen_id)
 
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum,

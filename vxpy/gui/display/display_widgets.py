@@ -209,9 +209,9 @@ class VisualInteractor(gui.AddonWidget):
         if dtype in (np.uint32, np.int32, np.float32, np.float64):
             # Floats
             if dtype in (np.float32, np.float64):
-                wdgt = widgets.DoubleSlider(self.tuner)
+                wdgt = widgets.DoubleSliderWidget(self.tuner)
             else:
-                wdgt = widgets.IntSlider(self.tuner)
+                wdgt = widgets.IntSliderWidget(self.tuner)
 
             # (optional) Set range
             limits = parameter.limits

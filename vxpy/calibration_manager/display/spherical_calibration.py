@@ -64,51 +64,58 @@ class ChannelParameters(QtWidgets.QWidget):
         label_width = 150
 
         # Radial offset
-        wdgt = DoubleSliderWidget('Radial offset', 0., 1., 0.,
+        wdgt = DoubleSliderWidget(self, 'Radial offset',
+                                  limits=(0., 1.), default=0.,
                                   step_size=.001, decimals=3, label_width=label_width)
-        wdgt.connect_to_result(self.radial_offset_updated)
+        wdgt.connect_callback(self.radial_offset_updated)
         self.edits['CALIB_DISP_SPH_POS_RADIAL_OFFSET'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Lateral offset
-        wdgt = DoubleSliderWidget('Lateral offset', -1., 1., 0.,
+        wdgt = DoubleSliderWidget(self, 'Lateral offset',
+                                  limits=(-1., 1.), default=0.,
                                   step_size=.001, decimals=3, label_width=label_width)
-        wdgt.connect_to_result(self.lateral_offset_updated)
+        wdgt.connect_callback(self.lateral_offset_updated)
         self.edits['CALIB_DISP_SPH_POS_LATERAL_OFFSET'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Elevation
-        wdgt = DoubleSliderWidget('Elevation [deg]', -45., 45., 0.,
+        wdgt = DoubleSliderWidget(self, 'Elevation [deg]',
+                                  limits=(-45., 45.), default=0.,
                                   step_size=.1, decimals=1, label_width=label_width)
-        wdgt.connect_to_result(self.elevation_updated)
+        wdgt.connect_callback(self.elevation_updated)
         self.edits['CALIB_DISP_SPH_VIEW_ELEV_ANGLE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Azimuth
-        wdgt = DoubleSliderWidget('Azimuth [deg]', -20., 20., 0.,
+        wdgt = DoubleSliderWidget(self, 'Azimuth [deg]',
+                                  limits=(-20., 20.), default=0.,
                                   step_size=.1, decimals=1, label_width=label_width)
-        wdgt.connect_to_result(self.azimuth_updated)
+        wdgt.connect_callback(self.azimuth_updated)
         self.edits['CALIB_DISP_SPH_VIEW_AZIM_ANGLE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # View distance
-        wdgt = DoubleSliderWidget('Distance [norm]', 1., 50., 5.,
+        wdgt = DoubleSliderWidget(self, 'Distance [norm]',
+                                  limits=(1., 50.), default=5.,
                                   step_size=.05, decimals=2, label_width=label_width)
-        wdgt.connect_to_result(self.view_distance_updated)
+        wdgt.connect_callback(self.view_distance_updated)
         self.edits['CALIB_DISP_SPH_VIEW_DISTANCE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # FOV
-        wdgt = DoubleSliderWidget('FOV [deg]', .1, 179., 70.,
+        wdgt = DoubleSliderWidget(self, 'FOV [deg]',
+                                  limits=(.1, 179.), default=70.,
                                   step_size=.05, decimals=2, label_width=label_width)
-        wdgt.connect_to_result(self.view_fov_updated)
+        wdgt.connect_callback(self.view_fov_updated)
         self.edits['CALIB_DISP_SPH_VIEW_FOV'] = wdgt
         self.layout().addWidget(wdgt)
 
         # View scale
-        wdgt = DoubleSliderWidget('Scale [norm]', .001, 10., 1.,
+        wdgt = DoubleSliderWidget(self, 'Scale [norm]',
+                                  limits=(.001, 10.), default=1.,
                                   step_size=.001, decimals=3, label_width=label_width)
-        wdgt.connect_to_result(self.view_scale_updated)
+        wdgt.connect_callback(self.view_scale_updated)
         self.edits['CALIB_DISP_SPH_VIEW_SCALE'] = wdgt
         self.layout().addWidget(wdgt)
 
@@ -161,19 +168,22 @@ class Settings(QtWidgets.QWidget):
 
         self.setLayout(QtWidgets.QVBoxLayout())
 
-        self.azimuth_orient = DoubleSliderWidget('Azimuth orientation [deg]', 0., 360, 0., step_size=.1, decimals=1,
+        self.azimuth_orient = DoubleSliderWidget(self, 'Azimuth orientation [deg]',
+                                                 limits=(0., 360), default=0., step_size=.1, decimals=1,
                                                  label_width=200)
-        self.azimuth_orient.connect_to_result(self.update_azimuth_orient)
+        self.azimuth_orient.connect_callback(self.update_azimuth_orient)
         self.layout().addWidget(self.azimuth_orient)
 
-        self.lat_lum_offset = DoubleSliderWidget('Lateral luminance offset', 0., 1., 0., step_size=.01, decimals=2,
+        self.lat_lum_offset = DoubleSliderWidget(self, 'Lateral luminance offset',
+                                                 limits=(0., 1.), default=0., step_size=.01, decimals=2,
                                                  label_width=200)
-        self.lat_lum_offset.connect_to_result(self.update_lat_lum_offset)
+        self.lat_lum_offset.connect_callback(self.update_lat_lum_offset)
         self.layout().addWidget(self.lat_lum_offset)
 
-        self.lat_lum_gradient = DoubleSliderWidget('Lateral luminance gradient', 0., 10., 1., step_size=.05, decimals=2,
+        self.lat_lum_gradient = DoubleSliderWidget(self, 'Lateral luminance gradient',
+                                                   limits=(0., 10.), default=1., step_size=.05, decimals=2,
                                                    label_width=200)
-        self.lat_lum_gradient.connect_to_result(self.update_lat_lum_gradient)
+        self.lat_lum_gradient.connect_callback(self.update_lat_lum_gradient)
         self.layout().addWidget(self.lat_lum_gradient)
 
         self.global_overwrite = Checkbox('Global overwrite', False, label_width=200)
@@ -261,12 +271,14 @@ class Mesh(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Vertical SP
-        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1., 180., 22.5,
+        self.elevation_sp = DoubleSliderWidget(self, 'Elevation SP [deg]',
+                                               limits=(1., 180.), default=22.5,
                                                step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.elevation_sp)
 
         # Horizontal SP
-        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1., 360., 15.,
+        self.azimuth_sp = DoubleSliderWidget(self, 'Azimuth SP [deg]',
+                                             limits=(1., 360.), default=15.,
                                              step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
 
@@ -296,12 +308,14 @@ class Checker(QtWidgets.QGroupBox):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # Vertical SP
-        self.elevation_sp = DoubleSliderWidget('Elevation SP [deg]', 1., 180., 22.5,
+        self.elevation_sp = DoubleSliderWidget(self, 'Elevation SP [deg]',
+                                               limits=(1., 180.), default=22.5,
                                                step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.elevation_sp)
 
         # Horizontal SP
-        self.azimuth_sp = DoubleSliderWidget('Azimuth SP [deg]', 1., 360., 15.,
+        self.azimuth_sp = DoubleSliderWidget(self, 'Azimuth SP [deg]',
+                                             limits=(1., 360.), default=15.,
                                              step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
 
