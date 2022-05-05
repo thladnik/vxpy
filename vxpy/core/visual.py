@@ -1063,3 +1063,7 @@ class BoolAttribute(Parameter):
 
     def __init__(self, *args, **kwargs):
         Parameter.__init__(self, *args, **kwargs)
+
+
+# Complete list of all visual bases
+visual_bases = (AbstractVisual, PlanarVisual, SphericalVisual, PlainVisual, BaseVisual, )

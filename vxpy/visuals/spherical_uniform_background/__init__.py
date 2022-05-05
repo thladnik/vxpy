@@ -1,1 +1,1 @@
-from .spherical_calibration import SphereUniformBackground
+from .spherical_uniform_background import SphereUniformBackground
