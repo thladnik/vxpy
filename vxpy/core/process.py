@@ -258,7 +258,6 @@ class AbstractProcess:
             # If phase stoptime is exceeded: end phase
             phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
-                print(self.record_group)
                 self.set_record_group_attrs({'end_time': api.get_time()})
 
                 # Call implementation of end_phase

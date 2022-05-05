@@ -26,54 +26,86 @@ from PySide6.QtWidgets import QLabel
 
 
 class UniformFixedWidth:
+    """Simple object to synchronize the widths of QWidget and its descendants (makes stuff look prettier)"""
 
     def __init__(self):
         self._widgets: List[QtWidgets.QWidget] = []
 
     def add_widget(self, widget: QtWidgets.QWidget):
+        # Append widget to list
         self._widgets.append(widget)
+
+        # Apply to all
         self.apply()
 
     def apply(self):
-        # Adjust all
+        # Adjust all to fit content first
         for w in self._widgets:
             w.adjustSize()
 
-        # Fin max width
+        # Find maximum width among all
         max_width = max([w.width() for w in self._widgets])
 
-        # Apply fixed width
+        # Apply fixed width to all
         for w in self._widgets:
             w.setFixedWidth(max_width)
 
+    def clear(self):
+        self._widgets = []
+
 
 class SearchableListWidget(QtWidgets.QWidget):
+    """Wrapper around QListWidget with an integrated QLineEdit that allows for simple filtering of list items"""
+
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent=parent)
-
-        self.setLayout(QtWidgets.QVBoxLayout())
+        self.setLayout(QtWidgets.QGridLayout())
 
         # Add searchbar
-        self.search_field = QtWidgets.QLineEdit()
-        self.search_field.textChanged.connect(self.filter)
+        self.search_field = QtWidgets.QLineEdit(self)
         self.search_field.setPlaceholderText('Search...')
-        self.layout().addWidget(self.search_field)
+        self.search_field.textChanged.connect(self.filter)
+        self.layout().addWidget(self.search_field, 0, 0)
+
+        # Add sort order toggle
+        self.sort_order = QtWidgets.QComboBox(self)
+        self.sort_order.addItems(['Ascending', 'Descending'])
+        self.sort_order.currentTextChanged.connect(self.set_sort_order)
+        self.layout().addWidget(self.sort_order, 0, 1)
 
         # Add list widget
         self.list_widget = QtWidgets.QListWidget(self)
-        self.layout().addWidget(self.list_widget)
+        self.list_widget.setSortingEnabled(True)
+        self.layout().addWidget(self.list_widget, 1, 0, 1, 2)
+
+    def set_sort_order(self, order: str):
+        """Change the sort order of the list based on order argument"""
+
+        if order.lower().startswith('asc'):
+            self.list_widget.sortItems(QtCore.Qt.SortOrder.AscendingOrder)
+        else:
+            self.list_widget.sortItems(QtCore.Qt.SortOrder.DescendingOrder)
 
     def add_item(self, text: str = None) -> QtWidgets.QListWidgetItem:
+        """Add a new QListWidgetItem to the QListWidget"""
+
+        # Create item
         item = QtWidgets.QListWidgetItem(self.list_widget)
+
+        # (optionally) Set display test of item
         if text is not None:
             item.setText(text)
 
-        self.list_widget.addItem(item)
+        # Return created item
         return item
 
     def filter(self, substr: str):
+        """Filter QListWidgetItems based on substr and set visibility accordingly"""
+
+        # Get all items matching the filter keyword
         filtered_items = self.list_widget.findItems(substr, QtCore.Qt.MatchFlag.MatchContains)
 
+        # Set visibility of each item in the QListWidget
         for i in range(self.list_widget.count()):
             item = self.list_widget.item(i)
             item.setHidden(item not in filtered_items)
@@ -86,6 +118,7 @@ class SearchableListWidget(QtWidgets.QWidget):
 
 
 class DoubleSliderWidget(QtWidgets.QWidget):
+    """Synchronized combination of a QDoubleSpinBox with a QSlider"""
 
     max_precision = -5
 
@@ -141,7 +174,8 @@ class DoubleSliderWidget(QtWidgets.QWidget):
 
     def set_range(self, min_val, max_val):
         self.spinner.setRange(min_val, max_val)
-        # Sliders can only be >= 0 integers
+
+        # Sliders can only be >= 0 integers, therefore range needs to be adjusted
         self.slider.setRange(0, int((max_val - min_val) / 10**self.max_precision))
 
     def set_step(self, step_size):
@@ -166,6 +200,7 @@ class DoubleSliderWidget(QtWidgets.QWidget):
 
 
 class IntSliderWidget(QtWidgets.QWidget):
+    """Synchronized combination of a QSpinBox with a QSlider"""
 
     def __init__(self, parent,
                  label: str = None,
@@ -240,6 +275,8 @@ class IntSliderWidget(QtWidgets.QWidget):
 
 
 class ComboBox(QtWidgets.QWidget):
+    """Wrapper around QComboBox which mimics the interface and style of IntSliderWidget and DoubleSliderWidget"""
+
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
@@ -247,226 +284,32 @@ class ComboBox(QtWidgets.QWidget):
         self.layout().setContentsMargins(0,0,0,0)
         self.setMaximumHeight(30)
 
-        self.cb = QtWidgets.QComboBox(self)
-        self.cb.setContentsMargins(0,0,0,0)
-        self.layout().addWidget(self.cb)
+        self.combobox = QtWidgets.QComboBox(self)
+        self.combobox.setContentsMargins(0, 0, 0, 0)
+        self.layout().addWidget(self.combobox)
 
     def add_items(self, items):
-        self.cb.addItems(items)
+        self.combobox.addItems(items)
 
     def connect_callback(self, callback):
-        self.cb.currentTextChanged.connect(callback)
+        self.combobox.currentTextChanged.connect(callback)
 
     def get_value(self):
-        return self.cb.currentText()
+        return self.combobox.currentText()
 
     def set_value(self, value):
-        self.cb.setCurrentText(value)
-
-
-# class DoubleSliderWidget(QtWidgets.QWidget):
-#
-#     def __init__(self, slider_name, min_val, max_val, default_val,*args,
-#                  label_width=None,step_size=None,decimals=1,**kwargs):
-#         QtWidgets.QWidget.__init__(self, *args, **kwargs)
-#
-#         self._callbacks = []
-#
-#         self.step_size = step_size
-#         if self.step_size is None:
-#             self.step_size = (max_val - min_val) / 10
-#
-#         self.setLayout(QtWidgets.QHBoxLayout())
-#         self.layout().setContentsMargins(0,0,0,0)
-#
-#         # Label
-#         self.label = QtWidgets.QLabel(slider_name)
-#         if label_width is not None:
-#             self.label.setFixedWidth(label_width)
-#         self.layout().addWidget(self.label)
-#
-#         # Double spinner
-#         self.spinner = QtWidgets.QDoubleSpinBox()
-#         self.spinner.setFixedWidth(75)
-#         self.spinner.setDecimals(decimals)
-#         self.spinner.setMinimum(min_val)
-#         self.spinner.setMaximum(max_val)
-#         self.spinner.setSingleStep(step_size)
-#         self.spinner.setValue(default_val)
-#         self.spinner.valueChanged.connect(self.spinner_value_changed)
-#         self.layout().addWidget(self.spinner)
-#
-#         # Slider
-#         self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-#         self.slider.setMaximumHeight(20)
-#         self.slider.setMinimum(min_val // step_size)
-#         self.slider.setMaximum(max_val // step_size)
-#         # self.slider.setSingleStep(step_size)
-#         self.slider.setTickInterval((max_val - min_val) // step_size)
-#         self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
-#         self.slider.valueChanged.connect(self.slider_value_changed)
-#         self.layout().addWidget(self.slider)
-#
-#         # Force slider update
-#         self.spinner.valueChanged.emit(self.spinner.value())
-#
-#     def slider_value_changed(self, value):
-#         """Update spinner widget"""
-#         self.spinner.blockSignals(True)
-#         # self.spinner.setValue(self.spinner.minimum()+self.spinner.singleStep()*value)
-#         self.spinner.setValue(self.slider.value() * self.step_size)
-#         self.spinner.blockSignals(False)
-#
-#         self._exc_callback()
-#
-#     def spinner_value_changed(self, value):
-#         """Update slider widget"""
-#         self.slider.blockSignals(True)
-#         self.slider.setValue((value-self.spinner.minimum()) // self.spinner.singleStep())
-#         self.slider.blockSignals(False)
-#
-#         self._exc_callback()
-#
-#     def get_value(self):
-#         return self.spinner.value()
-#
-#     def set_value(self, value):
-#         self.spinner.setValue(value)
-#
-#     def connect_to_result(self,callback):
-#         self._callbacks.append(callback)
-#
-#     def emit_current_value(self):
-#         self.spinner.valueChanged.emit(self.spinner.value())
-#
-#     def _exc_callback(self):
-#         for callback in self._callbacks:
-#             callback(self.spinner.value())
-#
-#
-# class IntSliderWidget(QtWidgets.QWidget):
-#
-#     def __init__(self,slider_name,min_val,max_val,default_val,*args,
-#                  label_width=None,step_size=None,**kwargs):
-#         QtWidgets.QWidget.__init__(self, *args, **kwargs)
-#
-#         self._callbacks = []
-#
-#         if step_size is None:
-#             step_size = (max_val - min_val) // 10
-#
-#         self.setLayout(QtWidgets.QHBoxLayout())
-#         self.layout().setContentsMargins(0,0,0,0)
-#
-#         # Label
-#         self.label = QtWidgets.QLabel(slider_name)
-#         if label_width is not None:
-#             self.label.setFixedWidth(label_width)
-#         self.layout().addWidget(self.label)
-#
-#         # Spinner
-#         self.spinner = QtWidgets.QSpinBox()
-#         self.spinner.setFixedWidth(75)
-#         self.spinner.setMinimum(min_val)
-#         self.spinner.setMaximum(max_val)
-#         self.spinner.setSingleStep(step_size)
-#         self.spinner.setValue(default_val)
-#         self.spinner.valueChanged.connect(self.spinner_value_changed)
-#         self.layout().addWidget(self.spinner)
-#
-#         # Slider
-#         self.slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
-#         self.slider.setMaximumHeight(20)
-#         self.slider.setMinimum(min_val)
-#         self.slider.setMaximum(max_val)
-#         self.slider.setSingleStep(step_size)
-#         self.slider.setTickInterval((max_val-min_val) // 10)
-#         self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.TicksBothSides)
-#         self.slider.valueChanged.connect(self.slider_value_changed)
-#         self.layout().addWidget(self.slider)
-#
-#         # Force slider update
-#         self.spinner.valueChanged.emit(self.spinner.value())
-#
-#     def slider_value_changed(self, value):
-#         """Update spinner widget"""
-#         self.spinner.blockSignals(True)
-#         self.spinner.setValue(value)
-#         self.spinner.blockSignals(False)
-#
-#         self._exc_callback()
-#
-#     def spinner_value_changed(self, value):
-#         """Update slider widget"""
-#         self.slider.blockSignals(True)
-#         self.slider.setValue(value)
-#         self.slider.blockSignals(False)
-#
-#         self._exc_callback()
-#
-#     def get_value(self):
-#         return self.spinner.value()
-#
-#     def set_value(self, value):
-#         self.spinner.setValue(value)
-#
-#     def connect_to_result(self, callback):
-#         self._callbacks.append(callback)
-#
-#     def emit_current_value(self):
-#         self.spinner.valueChanged.emit(self.spinner.value())
-#
-#     def _exc_callback(self):
-#         for callback in self._callbacks:
-#             callback(self.spinner.value())
-
-
-class Dial3d(QtWidgets.QWidget):
-
-    def __init__(self, slider_name, min_vals, max_vals, default_vals, *args,
-                 label_width=None, step_size=None, **kwargs):
-        QtWidgets.QWidget.__init__(self, *args, **kwargs)
-
-        self._callbacks = []
-
-        if step_size is None:
-            step_size = (max_vals - min_vals) // 10
-
-        self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,0,0,0)
-
-        # Label
-        self.label = QtWidgets.QLabel(slider_name)
-        if label_width is not None:
-            self.label.setFixedWidth(label_width)
-        self.layout().addWidget(self.label)
-
-    def get_value(self):
-        return self.spinner.value()
-
-    def set_value(self, value):
-        self.spinner.setValue(value)
-
-    def connect_to_result(self, callback):
-        self._callbacks.append(callback)
-
-    def emit_current_value(self):
-        pass
-
-    def _exc_callback(self):
-        for callback in self._callbacks:
-            callback(self.spinner.value())
+        self.combobox.setCurrentText(value)
 
 
 class Checkbox(QtWidgets.QWidget):
+    """Wrapper around QCheckBox which mimics the interface and style of IntSliderWidget and DoubleSliderWidget"""
 
     def __init__(self, name, default_val, label_width=None):
         QtWidgets.QWidget.__init__(self)
 
-        self._callbacks = []
-
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
+        self.setMaximumHeight(30)
 
         # Label
         self.label = QtWidgets.QLabel(name)
@@ -476,9 +319,9 @@ class Checkbox(QtWidgets.QWidget):
 
         # Checkbox
         self.checkbox = QtWidgets.QCheckBox()
-        self.layout().addWidget(self.checkbox)
+        self.checkbox.setTristate(False)
         self.checkbox.setChecked(default_val)
-        self.checkbox.stateChanged.connect(self._exc_callback)
+        self.layout().addWidget(self.checkbox)
 
     def get_value(self):
         return self.checkbox.isChecked()
@@ -486,36 +329,5 @@ class Checkbox(QtWidgets.QWidget):
     def set_value(self, value):
         self.checkbox.setChecked(value)
 
-    def connect_to_result(self, callback):
-        self._callbacks.append(callback)
-
-    def _exc_callback(self):
-        for callback in self._callbacks:
-            callback(self.checkbox.isChecked())
-
-
-class ComboBoxWidget(QtWidgets.QWidget):
-    def __init__(self, name, options, *args, **kwargs):
-        QtWidgets.QWidget.__init__(self, *args, **kwargs)
-
-        self._callbacks = []
-
-        self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,0,0,0)
-        self.lbl = QLabel(name,self)
-        self.lbl.setContentsMargins(0,0,0,0)
-        self.layout().addWidget(self.lbl)
-        self.cb = QtWidgets.QComboBox(self)
-        self.cb.addItems(options)
-        self.cb.setContentsMargins(0,0,0,0)
-        self.cb.addItems(args)
-        self.layout().addWidget(self.cb)
-
-    def connect_to_result(self, callback):
-        self.cb.currentTextChanged.connect(callback)
-
-    def get_value(self):
-        return self.spinner.data()
-
-    def set_value(self,value):
-        self.spinner.setValue(value)
+    def connect_callback(self, callback):
+        self.checkbox.stateChanged.connect(callback)

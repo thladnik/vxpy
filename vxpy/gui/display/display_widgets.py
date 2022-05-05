@@ -1,6 +1,6 @@
 """
-MappApp ./gui/display/display_calibration.py
-Copyright (C) 2020 Tim Hladnik
+vxPy ./gui/display/display_widgets.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,12 +26,13 @@ from typing import Any, Dict, List, Tuple, Union, Type
 from vxpy.definitions import *
 from vxpy import modules
 from vxpy.core import gui, ipc
-from vxpy.core import visual
+import vxpy.core.visual as vxvisual
 from vxpy.utils import widgets
 import vxpy.visuals
 
 
 class VisualInteractor(gui.AddonWidget):
+    """Widget which allows for independent display of visual stimuli and interactive manipulation of parameters"""
 
     def __init__(self, *args, **kwargs):
         gui.AddonWidget.__init__(self, *args, **kwargs)
@@ -50,7 +51,7 @@ class VisualInteractor(gui.AddonWidget):
         self.visual_list.itemDoubleClicked.connect(self.start_visual)
         self.overview_tab.layout().addWidget(self.visual_list, 0, 0, 2, 1)
 
-        self.append_directory_to_tree(PATH_VISUALS)
+        self.append_path_to_list(PATH_VISUALS)
         # self.append_directory_to_tree(vxpy.visuals)
 
         # Visual parameters widget
@@ -83,8 +84,11 @@ class VisualInteractor(gui.AddonWidget):
         self.parameter_tab.layout().addWidget(self.btn_stop, 0, 1)
 
         self._parameter_widgets = {}
+        self._uniform_label_width = widgets.UniformFixedWidth()
 
-    def append_directory_to_tree(self, path: Union[str, object]):
+    def append_path_to_list(self, path: Union[str, object]):
+        """Add all visuals on path to the list"""
+
         # Add application visuals
         if not isinstance(path, str):
             path = path.__path__[0]  # DOES NOT WORK YET. PATH ISSUES
@@ -105,7 +109,7 @@ class VisualInteractor(gui.AddonWidget):
 
             # Add an item per visual class
             for _classname, _class in inspect.getmembers(module, inspect.isclass):
-                if not issubclass(_class, visual.AbstractVisual) or _class in visual.visual_bases:
+                if not issubclass(_class, vxvisual.AbstractVisual) or _class in vxvisual.visual_bases:
                     continue
 
                 # Create item which references the visual class
@@ -115,11 +119,9 @@ class VisualInteractor(gui.AddonWidget):
                 # Set visual class to UserRole
                 item.setData(QtCore.Qt.ItemDataRole.UserRole, (_class.__module__, _class.__name__))
 
-    def resize_columns(self):
-        self.visual_list.resizeColumnToContents(0)
-        self.visual_list.resizeColumnToContents(1)
-
     def start_visual(self, item=False):
+        # Reset label list
+        self._uniform_label_width.clear()
 
         # Get item data
         if not item:
@@ -135,13 +137,15 @@ class VisualInteractor(gui.AddonWidget):
         # Import visual class
         visual_module, visual_name = new_visual
         module = importlib.reload(importlib.import_module(visual_module))
-        visual_cls: Type[visual.AbstractVisual] = getattr(module, visual_name)
+        visual_class: Type[vxvisual.AbstractVisual] = getattr(module, visual_name)
 
-        # Instantiate
-        current_visual = visual_cls()
+        # Instantiate visual
+        current_visual = visual_class()
 
         # Set up parameter widgets for interaction
         j = 0
+
+        # Add static parameters (not meant to be updated at runtime, but still possible)
         if len(current_visual.static_parameters) > 0:
             label = QLabel('Static parameters')
             label.setStyleSheet('font-weight:bold;')
@@ -151,6 +155,7 @@ class VisualInteractor(gui.AddonWidget):
                 if self._add_parameter_widget(j, parameter):
                     j += 1
 
+        # Add variable parameters (meant to be updated online)
         if len(current_visual.variable_parameters) > 0:
             label = QLabel('Variable parameters')
             label.setStyleSheet('font-weight:bold;')
@@ -160,7 +165,7 @@ class VisualInteractor(gui.AddonWidget):
                 if self._add_parameter_widget(j, parameter):
                     j += 1
 
-        # Set up triggers
+        # Set up custom triggers
         if len(current_visual.trigger_functions) > 0:
             label = QLabel('Triggers')
             label.setStyleSheet('font-weight:bold;')
@@ -178,14 +183,14 @@ class VisualInteractor(gui.AddonWidget):
 
         # Run visual
         defaults = {name: wdgt.get_value() for name, wdgt in self._parameter_widgets.items()}
-        ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_cls, defaults)
+        ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_class, defaults)
         self.tab_widget.setTabEnabled(1, True)
         self.tab_widget.setCurrentWidget(self.parameter_tab)
 
     def _get_widget(self, parameter):
 
         # Skip attributes, TODO: better
-        if isinstance(parameter, (visual.Attribute, visual.BoolAttribute)):
+        if isinstance(parameter, (vxvisual.Attribute, vxvisual.BoolAttribute)):
             return
 
         # Number types
@@ -227,19 +232,18 @@ class VisualInteractor(gui.AddonWidget):
 
         return wdgt
 
-    def _add_parameter_widget(self, row_id: int, parameter: visual.Parameter) -> bool:
+    def _add_parameter_widget(self, row_id: int, parameter: vxvisual.Parameter) -> bool:
 
         # If parameter is marked as internal, skip it (e.g. time parameters)
         if parameter.internal:
             return False
 
         # For textures: print info
-        if issubclass(parameter.__class__, visual.Texture):
+        if issubclass(parameter.__class__, vxvisual.Texture):
             self.tuner.layout().addWidget(QLabel(f'Texture {parameter.name}'), row_id, 0)
             label = QLabel(str(parameter.data.shape) if parameter.data is not None else 'Shape unknown')
             self.tuner.layout().addWidget(label, row_id, 1)
             return True
-
 
         value_map = parameter.value_map
         if bool(value_map):
@@ -252,6 +256,8 @@ class VisualInteractor(gui.AddonWidget):
                     wdgt.set_value(parameter.default)
             else:
                 # Normal widget if value_map is a function
+                # TODO: fix this, otherwise this only reflects the background datatype of the mapping,
+                #  which is usually not helpful to the user
                 wdgt = self._get_widget(parameter)
 
         else:
@@ -269,9 +275,11 @@ class VisualInteractor(gui.AddonWidget):
             # Set widget callback to delay timer
             wdgt.connect_callback(callback)
 
-
         # Add label with parameter name
-        self.tuner.layout().addWidget(QLabel(parameter.name), row_id, 0)
+        label = QLabel(parameter.name)
+        self._uniform_label_width.add_widget(label)
+        self.tuner.layout().addWidget(label, row_id, 0)
+
         # Add widget
         self._parameter_widgets[parameter.name] = wdgt
         self.tuner.layout().addWidget(wdgt, row_id, 1)
