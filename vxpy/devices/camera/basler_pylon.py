@@ -12,6 +12,8 @@ log = logger.getLogger(__name__)
 
 class CameraDevice(camera_device.AbstractCameraDevice):
 
+    _exposure_unit = camera_device.ExposureUnit.microseconds
+
     def get_format_list(self) -> List[CameraFormat]:
         pass
 
@@ -47,14 +49,15 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self._device = camera
         self._device.Open()
 
-        # Temp
-        self._device.Width.SetValue(1920)
-        self._device.Height.SetValue(1080)
-        # self._device.GainAuto.SetValue('True')
-        self._device.ExposureTime.SetValue(20000.)
-        # self._device.Width.SetValue(3840)
-        # self._device.Height.SetValue(2160)
-        # self._device.Framerate.SetValue(20)
+        # Set acquisition parameters
+        self._device.Width.SetValue(self.format.width)
+        self._device.Height.SetValue(self.format.height)
+        self._device.GainAuto.SetValue('Off')
+        self._device.Gain.SetValue(self.gain)
+        self._device.ExposureAuto.SetValue('Off')
+        self._device.ExposureTime.SetValue(self.exposure)
+        self._device.AcquisitionFrameRateEnable.SetValue(True)
+        self._device.AcquisitionFrameRate.SetValue(self.framerate)
 
         # Start grabbing
         camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
@@ -67,8 +70,10 @@ class CameraDevice(camera_device.AbstractCameraDevice):
     def get_image(self) -> np.ndarray:
         t = time.perf_counter()
         grab_result = self._device.RetrieveResult(1000, pylon.TimeoutHandling_ThrowException)
-        print(self._device.ExposureTime.GetValue())
-        print(f'{time.perf_counter()-t:.3f}')
+        # print(self._device.ExposureTime.GetValue())
+        # print(f'{time.perf_counter()-t:.3f}')
+        # print(self._device.ExposureTime.GetValue())
+        # print(self._device.Gain.GetValue())
 
         frame = None
         if grab_result.GrabSucceeded():
