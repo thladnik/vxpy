@@ -89,6 +89,7 @@ class FrameStream(AddonWidget):
 
             # Add graphics widget
             self.graphics_widget = FrameStream.GraphicsWidget(self.main, parent=self)
+            self.graphics_widget.image_plot.invertY(True)
             self.layout().addWidget(self.graphics_widget)
 
         def update_frame(self):

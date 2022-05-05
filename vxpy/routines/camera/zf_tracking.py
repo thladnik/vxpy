@@ -109,7 +109,8 @@ class EyePositionDetection(CameraRoutine):
             # self.data.append(roi)
 
         # Set frame buffer
-        self.frame = ArrayAttribute('eyeposdetect_frame', (self.res_y, self.res_x), ArrayType.uint8)
+        # self.frame = ArrayAttribute('eyeposdetect_frame', (self.res_y, self.res_x), ArrayType.uint8)
+        self.frame = ArrayAttribute('eyeposdetect_frame', (self.res_x, self.res_y), ArrayType.uint8)
 
         # Set saccade trigger buffer
         self.saccade_trigger = ArrayAttribute('eyeposdetect_saccade_trigger', (1, ), ArrayType.bool)
@@ -279,9 +280,6 @@ class EyePositionDetection(CameraRoutine):
 
         return [thetas[le_idx], thetas[re_idx]], thresh
 
-    def coord_transform_pg2cv(self, point, asType : type = np.float32):
-        return [asType(point[0]), asType(self.res_y - point[1])]
-
     def main(self, **frames):
 
         # Read frame
@@ -296,7 +294,7 @@ class EyePositionDetection(CameraRoutine):
             frame = frame[:,:,0]
 
         # Write frame to buffer
-        self.frame.write(frame)
+        self.frame.write(frame.T)
 
         # Do eye detection and angular position estimation
         if not bool(self.rois):
@@ -310,7 +308,7 @@ class EyePositionDetection(CameraRoutine):
             # Extract rectanglular ROI
 
             # Convert from pyqtgraph image coordinates to openCV
-            rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
+            # rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
 
             # Get rect and frame parameters
             center, size, angle = rect_params[0], rect_params[1], rect_params[2]

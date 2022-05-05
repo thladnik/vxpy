@@ -19,10 +19,89 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import decimal
-from typing import List, Tuple
+from abc import abstractmethod
+from typing import List, Tuple, Union, Dict
 
+import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
+
+import vxpy.core.gui as vxgui
+import vxpy.core.attribute as vxattribute
+
+
+class ImageWidget(pg.GraphicsLayoutWidget):
+
+    def __init__(self, parent, attribute: vxattribute.Attribute = None, **kwargs):
+        pg.GraphicsLayoutWidget.__init__(self, parent=parent, **kwargs)
+
+        # Add plot
+        self.image_plot = self.addPlot(0, 0, 1, 10)
+
+        # Set up plot image item
+        self.image_item = pg.ImageItem()
+        self.image_plot.hideAxis('left')
+        self.image_plot.hideAxis('bottom')
+        self.image_plot.setAspectLocked(True)
+        self.image_plot.addItem(self.image_item)
+
+        self._attribute = None
+        self.connect_to_attribute(attribute)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_image)
+        self.timer.setInterval(50)
+        self.timer.start()
+
+    def connect_to_attribute(self, attribute: Union[str, vxattribute.Attribute]):
+        if isinstance(attribute, str):
+            attribute = vxattribute.get_attribute(attribute)
+
+        self._attribute = attribute
+
+    def update_image(self):
+
+        if self._attribute is None:
+            return
+
+        # Read last frame
+        idx, time, frame = self._attribute.read()
+
+        if idx[0] is None:
+            return
+
+        # Set frame data on image plot
+        self.image_item.setImage(frame[0])
+
+
+class AddonCameraWidget(vxgui.AddonWidget):
+
+    def __init__(self, *args, **kwargs):
+        vxgui.AddonWidget.__init__(self, *args, **kwargs)
+
+        self.setLayout(QtWidgets.QGridLayout())
+
+        self._components: Dict[int, List[QtWidgets.QWidget]] = {}
+
+        # Call structure (implemented in child)
+        self.structure()
+
+        # Build layout
+        self.build()
+
+    @abstractmethod
+    def structure(self):
+        pass
+
+    def add_image(self, attribute: Union[str, vxattribute.Attribute], group: int, *args, **kwargs):
+        if group not in self._components:
+            self._components[group] = []
+
+        self._components[group].append(ImageWidget(self, attribute))
+
+    def build(self):
+        for group, widget_list in self._components.items():
+            self.layout().addWidget(widget_list[0], group, 0)
 
 
 class UniformFixedWidth:

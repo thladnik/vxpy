@@ -37,7 +37,8 @@ class Frames(CameraRoutine):
         # Set one array attribute per camera device
         self.frames: Dict[str, ArrayAttribute] = {}
         for device_id, res_x, res_y in self.device_list:
-            self.frames[device_id] = ArrayAttribute(f'{device_id}_frame', (res_y, res_x), ArrayType.uint8)
+            # self.frames[device_id] = ArrayAttribute(f'{device_id}_frame', (res_y, res_x), ArrayType.uint8)
+            self.frames[device_id] = ArrayAttribute(f'{device_id}_frame', (res_x, res_y), ArrayType.uint8)
 
     def initialize(self):
         for attr in self.frames.values():
@@ -51,8 +52,8 @@ class Frames(CameraRoutine):
 
             # Update shared attributes
             if frame.ndim > 2:
-                self.frames[device_id].write(frame[:, :, 0])
+                self.frames[device_id].write(frame[:, :, 0].T)
             else:
-                self.frames[device_id].write(frame[:, :])
+                self.frames[device_id].write(frame[:, :].T)
 
 

@@ -23,7 +23,7 @@ from vxpy import definitions
 from vxpy.definitions import *
 from vxpy.configure import acc
 from vxpy.configure.utils import ModuleWidget
-from vxpy.configure.camera.__init__ import CameraWidget
+# from vxpy.configure.camera.__init__ import CameraWidget
 from vxpy.utils import misc
 
 

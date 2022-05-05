@@ -33,11 +33,11 @@ import vxpy.core.calibration as vxcalib
 import vxpy.core.configuration as vxconfig
 import vxpy.core.container as vxcontainer
 import vxpy.core.ipc as vxipc
-import vxpy.core.gui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
 from vxpy.definitions import *
+from vxpy.gui import core_widgets
 
 log = vxlogger.getLogger(__name__)
 
@@ -188,7 +188,7 @@ class AbstractProcess:
                 # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
                 self.tt = [self.tt[-1]]
                 # print(f'{self.name} says {self.t}')
-                api.gui_rpc(vxgui.ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
+                api.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
                             _send_verbosely=False)
 
             # Wait until interval time is up

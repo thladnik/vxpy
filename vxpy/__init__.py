@@ -21,7 +21,7 @@ __author__ = 'Tim Hladnik'
 import sys
 
 from vxpy.modules import Controller
-from vxpy.configure import acc
+# from vxpy.configure import acc
 
 
 def main(configfile):

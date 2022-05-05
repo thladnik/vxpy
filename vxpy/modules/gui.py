@@ -28,6 +28,7 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.gui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
+from vxpy.gui import core_widgets
 import vxpy.modules as vxmodules
 
 log = vxlogger.getLogger(__name__)
@@ -112,22 +113,22 @@ class Window(QtWidgets.QMainWindow):
         self.centralWidget().layout().addWidget(self.monitoring_wdgt)
 
         # Process monitor
-        self.process_monitor = vxgui.ProcessMonitorWidget(self)
+        self.process_monitor = core_widgets.ProcessMonitorWidget(self)
         self.process_monitor.create_hooks()
         self.monitoring_wdgt.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = vxgui.RecordingWidget(self)
+        self.recordings = core_widgets.RecordingWidget(self)
         self.recordings.create_hooks()
         self.control_wdgt.layout().addWidget(self.recordings)
 
         # Protocols}
-        self.protocols = vxgui.Protocols(self)
+        self.protocols = core_widgets.Protocols(self)
         self.protocols.create_hooks()
         self.control_wdgt.layout().addWidget(self.protocols)
 
         # Logger
-        self.log_display = vxgui.LoggingWidget(self)
+        self.log_display = core_widgets.LoggingWidget(self)
         self.monitoring_wdgt.layout().addWidget(self.log_display)
 
         # Set geometry
@@ -178,7 +179,7 @@ class Window(QtWidgets.QMainWindow):
             self.subwindows.append(self.addon_widget_window)
 
         # Add Plotter
-        self.plotter = vxgui.PlottingWindow(self)
+        self.plotter = core_widgets.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
 
 

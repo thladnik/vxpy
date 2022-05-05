@@ -38,6 +38,7 @@ from vxpy.core import run_process
 import vxpy.core.gui as vxgui
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
+from vxpy.gui import core_widgets
 
 log = logger.getLogger(__name__)
 
@@ -369,7 +370,7 @@ class Controller(process.AbstractProcess):
         log.info('Start recording')
         ipc.Control.Recording[definitions.RecCtrl.active] = True
 
-        gui_rpc(vxgui.RecordingWidget.show_lab_notebook)
+        gui_rpc(core_widgets.RecordingWidget.show_lab_notebook)
 
         return True
 
@@ -389,7 +390,7 @@ class Controller(process.AbstractProcess):
         if ipc.Control.Recording[definitions.RecCtrl.active]:
             ipc.Control.Recording[definitions.RecCtrl.active] = False
 
-        gui_rpc(vxgui.RecordingWidget.close_lab_notebook)
+        gui_rpc(core_widgets.RecordingWidget.close_lab_notebook)
 
         log.info('Stop recording')
         self.set_state(definitions.State.IDLE)

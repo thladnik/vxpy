@@ -88,10 +88,6 @@ class EyePositionDetector(AddonWidget):
 
         self.connect_to_timer(self.update_frame)
 
-    # def resizeEvent(self, event: QtGui.QResizeEvent) -> None:
-    #     event.accept()
-    #     self.uniform_label_width.apply()
-
     @staticmethod
     def update_image_threshold(im_thresh):
         ipc.rpc(PROCESS_CAMERA, zf_tracking.EyePositionDetection.set_threshold, im_thresh)
@@ -111,7 +107,7 @@ class EyePositionDetector(AddonWidget):
         if frame is None:
             return
 
-        self.graphics_widget.image_item.setImage(np.rot90(frame, -1))
+        self.graphics_widget.image_item.setImage(frame)
 
     class GraphicsWidget(pg.GraphicsLayoutWidget):
         def __init__(self, **kwargs):
@@ -140,6 +136,7 @@ class EyePositionDetector(AddonWidget):
             self.image_plot.hideAxis('bottom')
             self.image_plot.setAspectLocked(True)
             self.image_plot.addItem(self.image_item)
+            self.image_plot.invertY(True)
 
             # Make subplots update with whole camera frame
             self.image_item.sigImageChanged.connect(self.update_subplots)
@@ -215,6 +212,7 @@ class EyePositionDetector(AddonWidget):
                 if rect is None:
                     return
 
+                # self.subplots[id]['imageitem'].setImage(np.rot90(rect, -1))
                 self.subplots[id]['imageitem'].setImage(np.rot90(rect, -1))
 
     class Line(pg.LineSegmentROI):
