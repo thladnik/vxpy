@@ -37,6 +37,7 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
+from vxpy.utils import widgets
 
 log = vxlogger.getLogger(__name__)
 
@@ -926,6 +927,7 @@ class Protocols(IntegratedWidget):
         self.tab_widget.addTab(self.selection, 'Selection')
 
         self.protocol_list = QtWidgets.QListWidget()
+        self.protocol_list = widgets.SearchableListWidget(self.selection)
         self.selection.layout().addWidget(self.protocol_list)
 
         # Start button
@@ -992,7 +994,8 @@ class Protocols(IntegratedWidget):
 
         protocol_paths = vxprotocol.get_available_protocol_paths()
         for path in protocol_paths:
-            item = QtWidgets.QListWidgetItem(self.protocol_list)
+            # item = QtWidgets.QListWidgetItem(self.protocol_list)
+            item = self.protocol_list.add_item()
             item.setData(QtCore.Qt.ItemDataRole.UserRole, path)
             # Shorten display path
             parts = path.split('.')
@@ -1001,7 +1004,7 @@ class Protocols(IntegratedWidget):
                 new_parts.insert(1, '..')
             item.setText('.'.join(new_parts))
             item.setToolTip(path)
-            self.protocol_list.addItem(item)
+            # self.protocol_list.addItem(item)
 
     def check_status(self):
 

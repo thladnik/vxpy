@@ -258,8 +258,9 @@ class AbstractProcess:
             # If phase stoptime is exceeded: end phase
             phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
-
+                print(self.record_group)
                 self.set_record_group_attrs({'end_time': api.get_time()})
+
                 # Call implementation of end_phase
                 self.end_phase()
 
@@ -545,11 +546,11 @@ class AbstractProcess:
         # Append to dataset
         self.file_container.append(path, value)
 
-    # def _routine_on_record(self, routine_name):
-    #     return f'{self.name}/{routine_name}' in config.Recording[RecCfg.routines]
-
     def set_record_group_attrs(self, group_attributes: Dict[str, Any] = None):
         if self.file_container is None:
+            return
+
+        if self.record_group == '':
             return
 
         grp = self.file_container.require_group(self.record_group)

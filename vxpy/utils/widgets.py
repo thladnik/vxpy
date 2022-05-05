@@ -47,6 +47,44 @@ class UniformFixedWidth:
             w.setFixedWidth(max_width)
 
 
+class SearchableListWidget(QtWidgets.QWidget):
+    def __init__(self, parent=None):
+        QtWidgets.QWidget.__init__(self, parent=parent)
+
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        # Add searchbar
+        self.search_field = QtWidgets.QLineEdit()
+        self.search_field.textChanged.connect(self.filter)
+        self.search_field.setPlaceholderText('Search...')
+        self.layout().addWidget(self.search_field)
+
+        # Add list widget
+        self.list_widget = QtWidgets.QListWidget(self)
+        self.layout().addWidget(self.list_widget)
+
+    def add_item(self, text: str = None) -> QtWidgets.QListWidgetItem:
+        item = QtWidgets.QListWidgetItem(self.list_widget)
+        if text is not None:
+            item.setText(text)
+
+        self.list_widget.addItem(item)
+        return item
+
+    def filter(self, substr: str):
+        filtered_items = self.list_widget.findItems(substr, QtCore.Qt.MatchFlag.MatchContains)
+
+        for i in range(self.list_widget.count()):
+            item = self.list_widget.item(i)
+            item.setHidden(item not in filtered_items)
+
+    def __getattr__(self, item):
+        """Automatically foward non-existent attribute calls to list widget"""
+        if item not in self.__dict__:
+            return getattr(self.list_widget, item)
+        return self.__getattribute__(item)
+
+
 class DoubleSliderWidget(QtWidgets.QWidget):
 
     max_precision = -5
