@@ -15,16 +15,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import time
-from typing import Any, Dict
-import numpy as np
 
 from vxpy import config
 from vxpy.definitions import *
-from vxpy import definitions
 from vxpy.api.attribute import ArrayAttribute, ArrayType, write_attribute
-from vxpy.core import routine, ipc
-from vxpy.routines.camera import zf_tracking
+from vxpy.core import routine
 from vxpy.api.ui import register_with_plotter
 
 

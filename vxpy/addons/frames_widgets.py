@@ -21,15 +21,14 @@ import pyqtgraph as pg
 
 from vxpy import config
 from vxpy.definitions import *
-from vxpy import definitions
-from vxpy.core.gui import AddonWidget
+import vxpy.core.gui as vxgui
 from vxpy.core.attribute import read_attribute
 
 
-class FrameStream(AddonWidget):
+class FrameStream(vxgui.AddonWidget):
 
     def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
+        vxgui.AddonWidget.__init__(self, *args, **kwargs)
         # TODO: check if requirements are met (e.g. camera device configured?) and set self.module_active
 
         self.setLayout(QtWidgets.QGridLayout())

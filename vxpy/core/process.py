@@ -37,7 +37,7 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
 from vxpy.definitions import *
-from vxpy.gui import core_widgets
+from vxpy.addons import core_widgets
 
 log = vxlogger.getLogger(__name__)
 

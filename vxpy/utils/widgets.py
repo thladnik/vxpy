@@ -32,7 +32,7 @@ import vxpy.core.attribute as vxattribute
 
 class ImageWidget(pg.GraphicsLayoutWidget):
 
-    def __init__(self, parent, attribute: vxattribute.Attribute = None, **kwargs):
+    def __init__(self, parent, attribute: Union[str, vxattribute.Attribute] = None, **kwargs):
         pg.GraphicsLayoutWidget.__init__(self, parent=parent, **kwargs)
 
         # Add plot
@@ -43,6 +43,7 @@ class ImageWidget(pg.GraphicsLayoutWidget):
         self.image_plot.hideAxis('left')
         self.image_plot.hideAxis('bottom')
         self.image_plot.setAspectLocked(True)
+        self.image_plot.invertY(True)
         self.image_plot.addItem(self.image_item)
 
         self._attribute = None
@@ -74,7 +75,17 @@ class ImageWidget(pg.GraphicsLayoutWidget):
         self.image_item.setImage(frame[0])
 
 
-class AddonCameraWidget(vxgui.AddonWidget):
+class WidgetInteraction:
+    def __init__(self):
+        self.ui: QtWidgets.QWidget = None
+        self.connection = None
+
+    def set_type(self, itype):
+        if itype == '':
+            pass
+
+
+class SimpleAddonCameraWidget(vxgui.AddonWidget):
 
     def __init__(self, *args, **kwargs):
         vxgui.AddonWidget.__init__(self, *args, **kwargs)
@@ -91,6 +102,9 @@ class AddonCameraWidget(vxgui.AddonWidget):
 
     @abstractmethod
     def structure(self):
+        pass
+
+    def add_interaction(self, itype: str, group: int):
         pass
 
     def add_image(self, attribute: Union[str, vxattribute.Attribute], group: int, *args, **kwargs):

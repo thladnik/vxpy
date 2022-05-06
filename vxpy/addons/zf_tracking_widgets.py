@@ -21,11 +21,10 @@ from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 
 from vxpy.definitions import *
-from vxpy import definitions
 from vxpy.core import ipc
 from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import AddonWidget
-from vxpy.routines.camera import zf_tracking
+from vxpy.routines import zf_tracking
 from vxpy.utils import geometry
 from vxpy.utils.widgets import IntSliderWidget, UniformFixedWidth
 

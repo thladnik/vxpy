@@ -28,7 +28,7 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.gui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
-from vxpy.gui import core_widgets
+from vxpy.addons import core_widgets
 import vxpy.modules as vxmodules
 
 log = vxlogger.getLogger(__name__)
@@ -158,7 +158,7 @@ class Window(QtWidgets.QMainWindow):
         if any([config.CONF_DISPLAY_USE, config.CONF_CAMERA_USE, config.CONF_IO_USE]) and bool(config.CONF_GUI_ADDONS):
 
             # Create windowed tab
-            self.addon_widget_window = vxgui.AddonTabWidget(self)
+            self.addon_widget_window = vxgui.AddonWindow(self)
 
             for process_name, addons in config.CONF_GUI_ADDONS.items():
                 self.addon_widget_window.create_addon_tabs(process_name)

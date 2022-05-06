@@ -24,6 +24,7 @@ from typing import Callable, List, Union
 from vxpy import config
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
+from vxpy.definitions import *
 import vxpy.modules as vxmodules
 
 log = vxlogger.getLogger(__name__)
@@ -53,6 +54,9 @@ class ExposedWidget:
 class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
     """Addon widget which should be subclassed by custom widgets in plugins, etc"""
 
+    name = None
+    display_name = None
+
     def __init__(self, main):
         Widget.__init__(self, main=main)
         ExposedWidget.__init__(self)
@@ -61,7 +65,19 @@ class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
 
     @staticmethod
     def connect_to_timer(fun: Callable):
-        AddonTabWidget.timer.timeout.connect(fun)
+        AddonWindow.timer.timeout.connect(fun)
+
+
+class CameraAddonWidget(AddonWidget):
+
+    name = PROCESS_CAMERA
+
+    def __init__(self, *args, **kwargs):
+        AddonWidget.__init__(self, *args, **kwargs)
+
+    @classmethod
+    def call_routine(cls, fun, *args, **kwargs):
+        vxipc.rpc(cls.name, fun, *args, **kwargs)
 
 
 class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget, Widget):
@@ -151,10 +167,15 @@ class WindowTabWidget(WindowWidget, ExposedWidget):
 
             wdgt = addon_cls(self.main)
 
-            self.tab_widget.addTab(wdgt, f'{process_name}:{parts[-1]}')
+            if addon_cls.display_name is None:
+                display_name = parts[-1]
+            else:
+                display_name = addon_cls.display_name
+
+            self.tab_widget.addTab(wdgt, f'{process_name}:{display_name}')
 
 
-class AddonTabWidget(WindowTabWidget):
+class AddonWindow(WindowTabWidget):
     timer = QtCore.QTimer()
     timer_interval = 50  # ms
 

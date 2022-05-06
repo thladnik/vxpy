@@ -18,14 +18,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 
-from vxpy.definitions import *
-from vxpy import definitions
-from vxpy.core import ipc
 from vxpy.core.gui import AddonWidget
-from vxpy.utils.widgets import IntSliderWidget
-from vxpy.api.attribute import get_attribute_list, get_attribute, read_attribute
+from vxpy.api.attribute import get_attribute_list, read_attribute
 from vxpy.api import worker_rpc
-from vxpy.routines.worker.calculate_csd import CalculatePSD
+from vxpy.routines.calculate_csd import CalculatePSD
 
 
 class DisplayPSD(AddonWidget):

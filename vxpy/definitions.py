@@ -37,7 +37,7 @@ Env = EnvTypes.DEV
 
 PATH_PACKAGE = 'vxpy'
 PATH_CONFIG = 'configurations'
-PATH_GUI = 'gui'
+PATH_GUI = 'addons'
 PATH_DLL = os.path.join('lib', 'dll')
 PATH_LOG = 'logs'
 PATH_VISUALS = 'visuals'
