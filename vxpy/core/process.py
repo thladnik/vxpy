@@ -131,9 +131,17 @@ class AbstractProcess:
         if _routines is not None and isinstance(_routines, dict):
             self._routines = _routines
             if self.name in self._routines:
+
                 process_routines = self._routines[self.name]
+
                 for _routine in process_routines.values():
+
+                    # Run local initialization for producer modules (this needs to happen before callback reg.)
+                    _routine._connect_triggers(_routines)
+                    _routine.initialize()
+
                     for fun in _routine.exposed:
+
                         try:
                             self.register_rpc_callback(_routine, fun.__qualname__, fun)
                         except:
@@ -145,10 +153,6 @@ class AbstractProcess:
                             # on the new, uninitialized QMainWindow sub-class.
                             # Catching this (unimportant) exception prevents a crash.
                             pass
-
-                    # Run local initialization for producer modules
-                    _routine._connect_triggers(_routines)
-                    _routine.initialize()
 
         # Set modules state
         if getattr(vxipc.State, self.name) is not None:

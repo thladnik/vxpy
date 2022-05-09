@@ -52,17 +52,6 @@ class EyePositionDetection(CameraRoutine):
     def setup(self):
         require_camera_device(self.camera_device_id)
 
-        self.add_trigger('saccade_trigger')
-
-        # Set accessible methods
-        self.exposed.append(EyePositionDetection.set_threshold)
-        self.exposed.append(EyePositionDetection.set_threshold_range)
-        self.exposed.append(EyePositionDetection.set_threshold_iterations)
-        self.exposed.append(EyePositionDetection.set_max_im_value)
-        self.exposed.append(EyePositionDetection.set_min_particle_size)
-        self.exposed.append(EyePositionDetection.set_roi)
-        self.exposed.append(EyePositionDetection.set_saccade_threshold)
-
         # Get camera specs
         camera_config = config.CONF_CAMERA_DEVICES.get(self.camera_device_id)
         self.res_x = camera_config['width']
@@ -116,6 +105,17 @@ class EyePositionDetection(CameraRoutine):
         self.saccade_trigger = ArrayAttribute('eyeposdetect_saccade_trigger', (1, ), ArrayType.bool)
 
     def initialize(self):
+        self.add_trigger('saccade_trigger')
+
+        # Set accessible methods
+        self.exposed.append(EyePositionDetection.set_threshold)
+        self.exposed.append(EyePositionDetection.set_threshold_range)
+        self.exposed.append(EyePositionDetection.set_threshold_iterations)
+        self.exposed.append(EyePositionDetection.set_max_im_value)
+        self.exposed.append(EyePositionDetection.set_min_particle_size)
+        self.exposed.append(EyePositionDetection.set_roi)
+        self.exposed.append(EyePositionDetection.set_saccade_threshold)
+
         set_digital_output('saccade_trigger_out', 'eyeposdetect_saccade_trigger')
 
     def set_threshold(self, thresh):
