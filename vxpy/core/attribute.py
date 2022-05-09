@@ -183,7 +183,7 @@ class Attribute(ABC):
         self._length = _length
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
-        self._new_data_flag = False
+        self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
 
     def _make_time(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
@@ -216,12 +216,12 @@ class Attribute(ABC):
         return self._get_times(*self._get_range(last))
 
     def has_new_entry(self):
-        return self._new_data_flag
+        return self._new_data_flag.value
 
     def set_new(self, state: bool) -> None:
         """Set _new_data state of this attribute. This usually happens when attribute is written to
         or when the last attribute data is written to file"""
-        self._new_data_flag = state
+        self._new_data_flag.value = state
 
     def add_to_file(self):
         """Convenience method for calling write_to_file method on this attribute"""
