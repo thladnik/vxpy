@@ -50,8 +50,16 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self._device.Open()
 
         # Set acquisition parameters
+        max_x = 3840
+        max_y = 2160
         self._device.Width.SetValue(self.format.width)
         self._device.Height.SetValue(self.format.height)
+        # self._device.Width.SetValue(max_x)
+        # self._device.Height.SetValue(max_y)
+        self._device.BinningHorizontalMode.SetValue('Average')
+        self._device.BinningHorizontal.SetValue(max_x // self.format.width)
+        self._device.BinningVerticalMode.SetValue('Average')
+        self._device.BinningVertical.SetValue(max_y // self.format.height)
         self._device.GainAuto.SetValue('Off')
         self._device.Gain.SetValue(self.gain)
         self._device.ExposureAuto.SetValue('Off')
