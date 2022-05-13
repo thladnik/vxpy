@@ -802,34 +802,36 @@ class Protocols(vxgui.IntegratedWidget):
         self.progress.setLayout(QtWidgets.QVBoxLayout())
         self.tab_widget.addTab(self.progress, 'Progress')
         self.tab_widget.setTabEnabled(1, False)
-
+        # Protocol info
+        self.progress.layout().addWidget(QtWidgets.QLabel('Protocol'))
+        self.protocol_name = QtWidgets.QLineEdit('')
+        self.protocol_name.setReadOnly(True)
+        self.progress.layout().addWidget(self.protocol_name)
+        # Time info
         self.time_info = QtWidgets.QLineEdit()
         self.time_info.setReadOnly(True)
         self.progress.layout().addWidget(self.time_info)
-
         # Overall protocol progress
         self.protocol_progress_bar = QtWidgets.QProgressBar()
         self.protocol_progress_bar.setMinimum(0)
         self.protocol_progress_bar.setTextVisible(True)
         self.progress.layout().addWidget(self.protocol_progress_bar)
 
+        # Visual info
+        self.progress.layout().addWidget(QtWidgets.QLabel('Visual properties'))
+        self.current_visual_name = QtWidgets.QLineEdit('')
+        self.current_visual_name.setReadOnly(True)
+        self.progress.layout().addWidget(self.current_visual_name)
         # Phase progress
         self.phase_progress_bar = QtWidgets.QProgressBar()
         self.phase_progress_bar.setMinimum(0)
         self.phase_progress_bar.setTextVisible(True)
         self.progress.layout().addWidget(self.phase_progress_bar)
-
-        # Show current visual information
-        self.progress.layout().addWidget(QtWidgets.QLabel('Visual properties'))
-        self.current_visual_name = QtWidgets.QLineEdit('')
-        self.current_visual_name.setDisabled(True)
-        self.progress.layout().addWidget(self.current_visual_name)
-
+        # Visual properties
         self.visual_properties = QtWidgets.QTableWidget()
         self.visual_properties.setColumnCount(2)
         self.visual_properties.setHorizontalHeaderLabels(['Parameter', 'Value'])
         self.progress.layout().addWidget(self.visual_properties)
-
         # Abort button
         self.abort_btn = QtWidgets.QPushButton('Abort protocol')
         self.abort_btn.clicked.connect(self.abort_protocol)
@@ -846,17 +848,16 @@ class Protocols(vxgui.IntegratedWidget):
         self.last_protocol = None
         self.current_phase = None
         self.last_phase = None
+        self.in_running_mode = False
 
         # Once set up: compile file list for first time
         self.load_protocol_list()
 
     def load_protocol_list(self):
         self.protocol_list.clear()
-        self.start_btn.setEnabled(False)
 
         protocol_paths = vxprotocol.get_available_protocol_paths()
         for path in protocol_paths:
-            # item = QtWidgets.QListWidgetItem(self.protocol_list)
             item = self.protocol_list.add_item()
             item.setData(QtCore.Qt.ItemDataRole.UserRole, path)
             # Shorten display path
@@ -866,7 +867,6 @@ class Protocols(vxgui.IntegratedWidget):
                 new_parts.insert(1, '..')
             item.setText('.'.join(new_parts))
             item.setToolTip(path)
-            # self.protocol_list.addItem(item)
 
     def check_status(self):
 
@@ -896,72 +896,75 @@ class Protocols(vxgui.IntegratedWidget):
 
     def update_ui(self):
         # Enable/Disable control elements
-        ctrl_is_idle = vxipc.in_state(State.IDLE, PROCESS_CONTROLLER)
-        self.start_btn.setEnabled(ctrl_is_idle)
-        self.protocol_list.setEnabled(ctrl_is_idle)
-        protocol_is_running = bool(vxipc.Control.Protocol[ProtocolCtrl.name])
-        start_phase = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
+        protocol_name = vxipc.Control.Protocol[ProtocolCtrl.name]
+        protocol_is_running = bool(protocol_name)
+        phase_start = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
         phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
         phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
 
-        if protocol_is_running:
+        # Protocol is running
+        if protocol_is_running and self.in_running_mode:
             self.abort_btn.setEnabled(phase_stop is not None and time.time() <= phase_stop - .2)
-        else:
-            self.abort_btn.setEnabled(False)
-            if self.tab_widget.currentWidget() == self.progress:
-                self.tab_widget.setCurrentWidget(self.selection)
-                self.tab_widget.widget(1).setEnabled(False)
 
-        if vxipc.Control.Protocol[ProtocolCtrl.name] is None:
-            self.phase_progress_bar.setEnabled(False)
-            self.protocol_progress_bar.setEnabled(False)
-            self.protocol_progress_bar.setTextVisible(False)
-            self.phase_progress_bar.setTextVisible(False)
-            self.protocol_progress_bar.setValue(0)
-        else:
-            self.phase_progress_bar.setEnabled(True)
-            self.protocol_progress_bar.setEnabled(True)
-            self.protocol_progress_bar.setTextVisible(True)
-            self.phase_progress_bar.setTextVisible(True)
+            if phase_start is None or phase_stop is None:
+                return
 
-        if start_phase is None:
-            self.phase_progress_bar.setValue(0)
-            return
-
-        if phase_stop is None:
-            return
-
-        # Update progress
-        phase_diff = time.time() - start_phase
-        phase_duration = phase_stop - start_phase
-        if phase_stop is not None:
-            # Update phase progress
-            self.phase_progress_bar.setMaximum(int(phase_duration * 1000))
-            if phase_diff > 0.:
-                self.phase_progress_bar.setValue(int(phase_diff * 1000))
-                self.phase_progress_bar.setFormat(f'{phase_diff:.1f}/{phase_duration:.1f}s')
+            # Update progress
+            phase_diff = time.time() - phase_start
+            phase_duration = phase_stop - phase_start
 
             # Update protocol progress
             self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count * 100)
             self.protocol_progress_bar.setValue(100 * phase_id + int(phase_diff / phase_duration * 100))
             self.protocol_progress_bar.setFormat(f'Phase {phase_id + 1}/{self.current_protocol.phase_count}')
 
+            # Update phase progress
+            self.phase_progress_bar.setMaximum(int(phase_duration * 1000))
+            if phase_diff > 0.:
+                self.phase_progress_bar.setValue(int(phase_diff * 1000))
+                self.phase_progress_bar.setFormat(f'{phase_diff:.1f}/{phase_duration:.1f}s')
+
             # Update time info
             total_time = int(self.current_protocol.duration)
-            total_min = total_time // 60
-            total_sec = total_time % 60
             elapsed_time = int(self.current_protocol.get_duration_until_phase(phase_id) + phase_diff)
-            elapsed_min = elapsed_time // 60
-            elapsed_sec = elapsed_time % 60
-            self.time_info.setText(f'{elapsed_min}:{elapsed_sec:02d} of {total_min}:{total_sec:02d}min')
+            self.time_info.setText(f'{elapsed_time // 60}:{elapsed_time % 60:02d} '
+                                   f'of {total_time // 60}:{total_time % 60:02d} min')
+
+        # Protocol just started
+        elif protocol_is_running and not self.in_running_mode:
+            # Disable protocol selection
+            self.tab_widget.setTabEnabled(0, False)
+
+            # Enable progress and set to progress
+            self.tab_widget.setTabEnabled(1, True)
+            self.tab_widget.setCurrentWidget(self.progress)
+
+            # Start progress
+            self.protocol_name.setText(protocol_name)
+            self.protocol_progress_bar.setFormat('Preparing...')
+            self.phase_progress_bar.setFormat('Preparing...')
+
+            # Set flag to true
+            self.in_running_mode = True
+
+        # Protocol just ended
+        else:
+            # Enable protocol selection and set to selection
+            self.tab_widget.setTabEnabled(0, True)
+            self.tab_widget.setCurrentWidget(self.selection)
+
+            # Disable and reset progress
+            self.tab_widget.setTabEnabled(1, False)
+            self.protocol_name.setText('')
+            self.phase_progress_bar.setValue(0)
+            self.protocol_progress_bar.setValue(0)
+
+            # Reset flag to false
+            self.in_running_mode = False
 
     def start_protocol(self):
         protocol_path = self.protocol_list.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
         self.current_protocol = vxprotocol.get_protocol(protocol_path)()
-        self.tab_widget.setCurrentWidget(self.progress)
-        self.tab_widget.setTabEnabled(1, True)
-        self.protocol_progress_bar.setFormat('Preparing...')
-        self.phase_progress_bar.setFormat('Preparing...')
 
         # Start recording
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_recording)
@@ -970,8 +973,4 @@ class Protocols(vxgui.IntegratedWidget):
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.run_protocol, protocol_path)
 
     def abort_protocol(self):
-        self.phase_progress_bar.setValue(0)
-        self.phase_progress_bar.setEnabled(False)
-        self.tab_widget.setCurrentWidget(self.selection)
-        self.tab_widget.setTabEnabled(1, False)
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.abort_protocol)
