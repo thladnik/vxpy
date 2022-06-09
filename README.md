@@ -77,7 +77,7 @@ Within the Python environment, you then need to install `pycairo` and `PyGObject
 **WARNING**: starting with version 1.0.0, `tiscamera` no longer supports older camera models (see list in repo). 
 If you're using one of those, instead install the latest pre-1.0.0 stable release (0.14.0) by checking it out with
 ```console
-git checkout tags/v-tiscamera-0.14.0
+user@machine: ~/tiscamera$ git checkout tags/v-tiscamera-0.14.0
 ```
 directly after cloning the repository and before installing the dependencies or building the binaries.
 
