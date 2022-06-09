@@ -718,6 +718,7 @@ class Parameter:
         self._programs: List[gloo.Program] = []
         self._downstream_link: List[Parameter] = []
 
+        self._shape = shape
         if shape is not None:
             self._data: np.ndarray = np.zeros(shape, dtype=self.dtype)
         else:
@@ -753,7 +754,9 @@ class Parameter:
         pass
 
     def _set_start_data(self, data):
-        self._data = np.array(data, dtype=self.dtype)
+        if self._data is None:
+            self._shape = data.shape if hasattr(data, 'shape') else (1,)
+            self._data = np.array(data, dtype=self.dtype)
 
     @property
     def data(self):
@@ -761,8 +764,7 @@ class Parameter:
 
     @data.setter
     def data(self, data):
-        if self._data is None:
-            self._set_start_data(data)
+        self._set_start_data(data)
 
         # If value_map is a callable, use it to transform data
         if callable(self.value_map):
@@ -1055,7 +1057,9 @@ class Attribute(Parameter):
         self._buffer_data_contents = None
 
     def _set_start_data(self, data):
-        self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
+        if self._data is None or self._shape != data.shape:
+            self._shape = data.shape
+            self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
 
 
 class BoolAttribute(Parameter):
