@@ -70,7 +70,7 @@ class AbstractProcess:
 
     _routines: Dict[str, Dict[str, vxroutine.Routine]] = dict()
     file_container: Union[None, h5py.File, vxcontainer.NpBufferedH5File, vxcontainer.H5File] = None
-    record_group: str = None
+    record_group: int = -1
     compression_args: Dict[str, Any] = dict()
 
     def __init__(self,
@@ -212,6 +212,10 @@ class AbstractProcess:
             # Set new global time
             self.global_t = time.time() - self.program_start_time
 
+            # Add record group id
+            self._append_to_dataset('record_group_id', vxipc.Control.Recording[RecCtrl.record_group_counter])
+            self._append_to_dataset('global_time', self.global_t)
+
             # Execute main method
             self.main()
 
@@ -267,6 +271,9 @@ class AbstractProcess:
                 # Call implementation of end_phase
                 self.end_phase()
 
+                # Reset record group
+                self.set_record_group(-1)
+
                 self.set_state(State.PHASE_END)
 
                 # Do NOT execute
@@ -310,7 +317,7 @@ class AbstractProcess:
 
             # Set record group to write to in file
             if not self._disable_phases:
-                self.set_record_group(f'phase{vxipc.Control.Recording[RecCtrl.record_group_counter]}')
+                self.set_record_group(vxipc.Control.Recording[RecCtrl.record_group_counter])
 
             # Set current phase
             self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
@@ -369,6 +376,11 @@ class AbstractProcess:
             # Do NOT execute
             return False
 
+        ########
+        # PROTOCOL_ABORT
+        elif self.in_state(State.PROTOCOL_ABORT, PROCESS_CONTROLLER):
+            self.end_phase()
+            self.end_protocol()
         ########
         # Fallback: timeout
         else:
@@ -549,14 +561,18 @@ class AbstractProcess:
         # Append to dataset
         self.file_container.append(path, value)
 
+    @property
+    def record_group_name(self):
+        return f'phase{self.record_group}' if self.record_group >= 0 else ''
+
     def set_record_group_attrs(self, group_attributes: Dict[str, Any] = None):
         if self.file_container is None:
             return
 
-        if self.record_group == '':
+        if self.record_group < 0:
             return
 
-        grp = self.file_container.require_group(self.record_group)
+        grp = self.file_container.require_group(self.record_group_name)
         if group_attributes is not None:
             for attr_name, attr_data in group_attributes.items():
 
@@ -582,28 +598,29 @@ class AbstractProcess:
                 # Otherwise, just write whole attribute data to attribute
                 grp.attrs[attr_name] = attr_data
 
-    def set_record_group(self, group_name: str):
+    def set_record_group(self, group_id: int):
         if self.file_container is None:
             return
 
         # Save last results (this should also delete large temp. files)
         self.file_container.save()
 
-        self.record_group = group_name
+        self.record_group = group_id
 
-        if not (bool(self.record_group)):
+        # Of record group is not set
+        if self.record_group < 0:
             return
 
         # Set group
-        self.file_container.require_group(self.record_group)
-        log.info(f'Set record group "{self.record_group}"')
+        self.file_container.require_group(self.record_group_name)
+        log.info(f'Set record group "{self.record_group_name}"')
 
         # Create attributes in group
         for attr in vxattribute.get_permanent_attributes():
             if not isinstance(attr, vxattribute.ArrayAttribute):
                 continue
 
-            path = f'{self.record_group}/{attr.name}'
+            path = f'{self.record_group_name}/{attr.name}'
             self._create_dataset(path, attr.shape, attr.dtype[1])
             self._create_dataset(f'{path}_time', (1,), np.float64)
 
@@ -628,6 +645,7 @@ class AbstractProcess:
         log.debug(f'Open new file {filepath}')
         # self.file_container = container.NpBufferedH5File(filepath, 'w')
         self.file_container = vxcontainer.H5File(filepath, 'a')
+        self._create_dataset('record_group_id', (1,), np.int32)
 
         # Set compression
         compr_method = vxipc.Control.Recording[RecCtrl.compression_method]
@@ -637,7 +655,7 @@ class AbstractProcess:
             self.compression_args = {'compression': compr_method, **compr_opts}
 
         # Set current group to root
-        self.set_record_group('')
+        self.set_record_group(-1)
 
         return True
 
@@ -673,7 +691,7 @@ class AbstractProcess:
             if attr_time is None or attr_data is None:
                 continue
 
-            path = f'{self.record_group}/{attr_name}'
+            path = f'{self.record_group_name}/{attr_name}'
             self._append_to_dataset(path, attr_data)
             self._append_to_dataset(f'{path}_attr_time', attr_time)
 

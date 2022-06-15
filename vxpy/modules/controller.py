@@ -165,15 +165,16 @@ class Controller(process.AbstractProcess):
         # Recording
         ipc.Control.Recording = ipc.Manager.dict()
         ipc.Control.Recording.update({
-            definitions.RecCtrl.enabled: True,
-            definitions.RecCtrl.active: False,
-            definitions.RecCtrl.folder: ''})
+            RecCtrl.record_group_counter: -1,
+            RecCtrl.enabled: True,
+            RecCtrl.active: False,
+            RecCtrl.folder: ''})
 
         # Protocol
-        ipc.Control.Protocol = ipc.Manager.dict({definitions.ProtocolCtrl.name: None,
-                                                 definitions.ProtocolCtrl.phase_id: None,
-                                                 definitions.ProtocolCtrl.phase_start: None,
-                                                 definitions.ProtocolCtrl.phase_stop: None})
+        ipc.Control.Protocol = ipc.Manager.dict({ProtocolCtrl.name: None,
+                                                 ProtocolCtrl.phase_id: None,
+                                                 ProtocolCtrl.phase_start: None,
+                                                 ProtocolCtrl.phase_stop: None})
 
         # Load routine modules
         self._routines = dict()
@@ -451,7 +452,7 @@ class Controller(process.AbstractProcess):
     def abort_protocol(self):
         # TODO: handle stuff?
         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = time.time()
-        self.set_state(definitions.State.PROTOCOL_END)
+        self.set_state(definitions.State.PROTOCOL_ABORT)
 
     def main(self):
 
