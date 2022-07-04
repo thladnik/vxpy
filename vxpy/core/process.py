@@ -229,19 +229,66 @@ class AbstractProcess:
     ################################
     # PROTOCOL RESPONSE
 
+    def _prepare_protocol(self):
+
+        # Fetch protocol class
+        _protocol = vxprotocol.get_protocol(vxipc.Control.Protocol[ProtocolCtrl.name])
+        if _protocol is None:
+            # Controller should abort this
+            return
+
+        # Instantiate protocol
+        self.current_protocol = _protocol()
+
+        # Call implemented preparation function of module
+        self.prepare_protocol()
+
+        # Set next state
+        self.set_state(State.WAIT_FOR_PHASE)
+
     def prepare_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
         pass
 
-    def prepare_phase(self):
+    def _prepare_protocol_phase(self):
+        # Set record group to write to in file
+        if not self._disable_phases:
+            self.set_record_group(vxipc.Control.Recording[RecCtrl.record_group_counter])
+
+        # Set current phase
+        self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+
+        # Call implemented phase initialization
+        self.prepare_protocol_phase()
+
+        # Set next state
+        self.set_state(State.READY)
+
+    def prepare_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         pass
 
-    def start_phase(self):
+    def _start_protocol_phase(self):
+
+        # Wait for go-time
+        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+        while self.in_state(State.RUNNING, PROCESS_CONTROLLER):
+            now = time.time()
+            if vxipc.Control.Protocol[ProtocolCtrl.phase_start] <= now:
+                log.debug(f'Start phase {phase_id} in module {self.name} at {(now - self.program_start_time):.3f}')
+                break
+
+        self.set_state(State.RUNNING)
+        self.phase_start_time = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
+
+        # Immediately start phase now
+        self.start_protocol_phase()
+
+    def start_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         pass
 
-    def end_phase(self):
+    def end_protocol_phase(self):
         """Method is called at end of stimulation protocol phase."""
         pass
 
@@ -269,7 +316,7 @@ class AbstractProcess:
                 self.set_record_group_attrs({'end_time': api.get_time()})
 
                 # Call implementation of end_phase
-                self.end_phase()
+                self.end_protocol_phase()
 
                 # Reset record group
                 self.set_record_group(-1)
@@ -291,20 +338,7 @@ class AbstractProcess:
             # Check if new protocol is set and prepare it on module-side
             if self.in_state(State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
 
-                # Fetch protocol class
-                _protocol = vxprotocol.get_protocol(vxipc.Control.Protocol[ProtocolCtrl.name])
-                if _protocol is None:
-                    # Controller should abort this
-                    return
-
-                # Instantiate protocol
-                self.current_protocol = _protocol()
-
-                # Call implemented preparation function of module
-                self.prepare_protocol()
-
-                # Set next state
-                self.set_state(State.WAIT_FOR_PHASE)
+                self._prepare_protocol()
 
             # Do NOT execute
             return False
@@ -315,40 +349,19 @@ class AbstractProcess:
             if not self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER):
                 return False
 
-            # Set record group to write to in file
-            if not self._disable_phases:
-                self.set_record_group(vxipc.Control.Recording[RecCtrl.record_group_counter])
-
-            # Set current phase
-            self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
-
-            # Prepare implemented phase initialization
-            self.prepare_phase()
-
-            # Set next state
-            self.set_state(State.READY)
+            self._prepare_protocol_phase()
 
             # Do NOT execute
             return False
 
         # READY
         elif self.in_state(State.READY):
+
             # If Controller is not yet running, don't wait for go time, because there may be an abort
             if not self.in_state(State.RUNNING, PROCESS_CONTROLLER):
                 return False
 
-            # Wait for go-time
-            phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
-            while self.in_state(State.RUNNING, PROCESS_CONTROLLER):
-                now = time.time()
-                if vxipc.Control.Protocol[ProtocolCtrl.phase_start] <= now:
-                    log.debug(f'Start phase {phase_id} in module {self.name} at {(now-self.program_start_time):.3f}')
-                    self.set_state(State.RUNNING)
-                    self.phase_start_time = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
-                    break
-
-            # Immediately start phase now
-            self.start_phase()
+            self._start_protocol_phase()
 
             # Execute
             return True
@@ -379,7 +392,7 @@ class AbstractProcess:
         ########
         # PROTOCOL_ABORT
         elif self.in_state(State.PROTOCOL_ABORT, PROCESS_CONTROLLER):
-            self.end_phase()
+            self.end_protocol_phase()
             self.end_protocol()
         ########
         # Fallback: timeout

@@ -238,7 +238,7 @@ class Controller(process.AbstractProcess):
         self.manual_recording = False
         self.set_compression_method(None)
         self.set_compression_opts(None)
-        self.record_group_counter = 0
+        self.record_group_counter = -1
 
     def _register_process(self, target, **kwargs):
         """Register new modules to be spawned.
@@ -358,7 +358,7 @@ class Controller(process.AbstractProcess):
             ipc.Control.Recording[RecCtrl.folder] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
 
             # Reset record group perf_counter
-            self.record_group_counter = 0
+            self.record_group_counter = -1
 
         # Create output folder
         rec_folder_path = os.path.join(config.CONF_REC_OUTPUT_FOLDER, ipc.Control.Recording[RecCtrl.folder])
@@ -424,35 +424,80 @@ class Controller(process.AbstractProcess):
         ipc.Control.Protocol[definitions.ProtocolCtrl.name] = protocol_path
 
         # Go into PREPARE_PROTOCOL
-        self.set_state(definitions.State.PREPARE_PROTOCOL)
+        self.set_state(State.PREPARE_PROTOCOL)
 
     def end_protocol_phase(self):
-        if not self.in_state(definitions.State.RUNNING):
+        if not self.in_state(State.RUNNING):
             return
 
-        if ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] is None:
-            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = time.time()
+        if ipc.Control.Protocol[ProtocolCtrl.phase_stop] is None:
+            ipc.Control.Protocol[ProtocolCtrl.phase_stop] = time.time()
 
-        log.info(f'End phase {ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]}.')
-        self.set_state(definitions.State.PHASE_END)
+        # Set record group
+        ipc.Control.Recording[RecCtrl.record_group_counter] = -1
 
-    def start_protocol_phase(self):
+        log.info(f'End phase {ipc.Control.Protocol[ProtocolCtrl.phase_id]}')
+        self.set_state(State.PHASE_END)
+
+    def _start_protocol_phase(self):
         # Set phase_id within protocol
-        phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+        phase_id = ipc.Control.Protocol[ProtocolCtrl.phase_id]
         if phase_id is None:
             phase_id = 0
         else:
             phase_id += 1
-        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = phase_id
+        ipc.Control.Protocol[ProtocolCtrl.phase_id] = phase_id
 
         # Add to record group counter
         self.record_group_counter += 1
-        ipc.Control.Recording[definitions.RecCtrl.record_group_counter] = self.record_group_counter
+        ipc.Control.Recording[RecCtrl.record_group_counter] = self.record_group_counter
 
     def abort_protocol(self):
         # TODO: handle stuff?
-        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = time.time()
-        self.set_state(definitions.State.PROTOCOL_ABORT)
+        ipc.Control.Protocol[ProtocolCtrl.phase_stop] = time.time()
+        # self.set_state(State.PROTOCOL_ABORT)
+        self.set_state(State.PROTOCOL_END)
+
+    def _check_all_in_state(self, code: State):
+
+        check = [ipc.in_state(code, pname) for pname in self._active_protocols]
+
+        return all(check)
+
+    # def main2(self):
+    #
+    #     # Handle log
+    #     while not logger.get_queue().empty():
+    #         # Fetch next record
+    #         record = logger.get_queue().get()
+    #
+    #         try:
+    #             logger.add_to_file(record)
+    #             logger.add_to_history(record)
+    #         except Exception:
+    #             import sys, traceback
+    #             print('Exception in Logger:', file=sys.stderr)
+    #             traceback.print_exc(file=sys.stderr)
+    #
+    #     # Was controller put into protocol-preparation state?
+    #     if self.in_state(State.PREPARE_PROTOCOL):
+    #         # Load and check protocol
+    #         protocol_path = ipc.Control.Protocol[ProtocolCtrl.name]
+    #         _protocol = get_protocol(protocol_path)
+    #         if _protocol is None:
+    #             log.error(f'Cannot get protocol {protocol_path}. Aborting ')
+    #             self.set_state(definitions.State.PROTOCOL_ABORT)
+    #             return
+    #
+    #         self.current_protocol = _protocol()
+    #
+    #         self.set_state(State.PROTOCOL_PREPARED)
+    #
+    #     # Has controller entered protocol-prepped state?
+    #     elif self.in_state(State.PROTOCOL_PREPARED):
+    #         if not self._check_all_in_state(State.PROTOCOL_PREPARED):
+    #             return
+
 
     def main(self):
 
@@ -475,7 +520,7 @@ class Controller(process.AbstractProcess):
         # PREPARE_PROTOCOL
         if self.in_state(definitions.State.PREPARE_PROTOCOL):
 
-            protocol_path = ipc.Control.Protocol[definitions.ProtocolCtrl.name]
+            protocol_path = ipc.Control.Protocol[ProtocolCtrl.name]
             _protocol = get_protocol(protocol_path)
             if _protocol is None:
                 log.error(f'Cannot get protocol {protocol_path}. Aborting ')
@@ -491,7 +536,7 @@ class Controller(process.AbstractProcess):
                 return
 
             # Set next phase
-            self.start_protocol_phase()
+            self._start_protocol_phase()
 
             # Set PREPARE_PHASE
             self.set_state(definitions.State.PREPARE_PHASE)
@@ -501,7 +546,7 @@ class Controller(process.AbstractProcess):
         if self.in_state(definitions.State.PREPARE_PHASE):
 
             # Wait for processes to be ready (have phase prepared)
-            check = [not (ipc.in_state(definitions.State.READY, process_name))
+            check = [not ipc.in_state(definitions.State.READY, process_name)
                      for process_name in self._active_protocols]
             if any(check):
                 return
@@ -547,7 +592,7 @@ class Controller(process.AbstractProcess):
                 return
 
             # Else, continue with next phase
-            self.start_protocol_phase()
+            self._start_protocol_phase()
 
             # Move to PREPARE_PHASE (again)
             self.set_state(definitions.State.PREPARE_PHASE)

@@ -79,7 +79,7 @@ class Display(vxprocess.AbstractProcess):
     def prepare_protocol(self):
         self.current_protocol.initialize_visuals(self.canvas)
 
-    def prepare_phase(self):
+    def prepare_protocol_phase(self):
         # Prepare visual associated with phase
         self.prepare_visual()
 
@@ -94,7 +94,7 @@ class Display(vxprocess.AbstractProcess):
         else:
             self.current_visual = new_visual
 
-    def start_phase(self):
+    def start_protocol_phase(self):
         self.start_visual()
         self.set_record_group_attrs({'start_time': get_time(),
                                      'visual_module': self.current_visual.__module__,
@@ -121,7 +121,7 @@ class Display(vxprocess.AbstractProcess):
         # Start visual
         self.current_visual.start()
 
-    def end_phase(self):
+    def end_protocol_phase(self):
         self.stop_visual()
 
     def end_protocol(self):

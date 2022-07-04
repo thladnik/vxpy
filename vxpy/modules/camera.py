@@ -105,10 +105,10 @@ class Camera(process.AbstractProcess):
     def prepare_protocol(self):
         pass
 
-    def start_phase(self):
+    def start_protocol_phase(self):
         pass
 
-    def end_phase(self):
+    def end_protocol_phase(self):
         pass
 
     def end_protocol(self):

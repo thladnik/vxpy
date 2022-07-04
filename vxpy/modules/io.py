@@ -86,10 +86,10 @@ class Io(process.AbstractProcess):
         # Initialize actions related to protocol
         self.current_protocol.initialize_actions()
 
-    def start_phase(self):
+    def start_protocol_phase(self):
         self.phase_is_active = 1
 
-    def end_phase(self):
+    def end_protocol_phase(self):
         self.phase_is_active = 0
 
     def set_outpin_to_attr(self, pid, attr_name):
