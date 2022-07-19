@@ -3,11 +3,13 @@
 
 # vxPy
 
-Multiprocess based software for vision experiments in Python
+`vxPy` is a multiprocessing-based software for vision experiments in Python. 
+
+It leverages OpenGL-based 3D graphics rendering, using the Python visualization library [VisPy](https://github.com/vispy/vispy), for dynamic generation and realtime updating of visual stimuli. `vxPy` utilizes multicore hardware for fast online aquisition and analysis of behavioral and other sensor data, as well as control of external devices, such as actuators or LEDs, via configurable microcontroller interfaces. 
 
 ## Requirements
 
-vxPy has been tested on Windows 10 and Ubuntu 20.04 LTS. It requires Python 3.8+
+`vxPy` has been tested on Windows 10 and Ubuntu 20.04 LTS. It requires Python 3.8 or higher.
 
 ## Installation
 
@@ -31,7 +33,7 @@ TODO
 
 #### Linux
 
-Create a new folder where you'd like to install the vxPy application (here ~/vxPy_app/)
+Create a new folder where you'd like to install the vxPy application (here ~/vxPy_app/).
 Using a terminal, create a virtual environment inside the empty folder 
 ```console
 user@machine: ~/vxPy_app$ python3.x -m venv venv 
@@ -85,7 +87,7 @@ directly after cloning the repository and before installing the dependencies or 
 
 [Basler](https://www.baslerweb.com/) cameras are supported for Windows and Linux. Just download the `pylon` installer for your plattform from the [Basler website](https://www.baslerweb.com/de/downloads/downloads-software/#type=pylonsoftware;language=all;version=all).
 
-Then install the respective Python `pylon` package into your environment with
+Then install the respective Python `pypylon` package into your environment with
 ```console
 (venv) user@machine: ~/vxPy_app$ pip install pypylon
 ```
