@@ -51,6 +51,7 @@ class UVSphere:
         self.a_azimuth = np.ascontiguousarray(self.azims.flatten(), dtype=np.float32)
         self.azimuth_degree = np.ascontiguousarray(self.azims.flatten() / np.pi / 2.0 * 360.0, dtype=np.float32)
         self.azimuth_degree2 = np.ascontiguousarray((self.azims.flatten() - np.pi) / np.pi / 2.0 * 360.0, dtype=np.float32)
+        self.azimuth_degree_zero_front_pos_cw = -np.ascontiguousarray((self.azims.flatten() - np.pi) / np.pi / 2.0 * 360.0, dtype=np.float32)
         self.a_elevation = np.ascontiguousarray(self.elevs.flatten(), dtype=np.float32)
         self.elevation_degree = np.ascontiguousarray(self.elevs.flatten() / np.pi / 2.0 * 360.0, dtype=np.float32)
         self.a_position = geometry.sph2cart(self.a_azimuth, self.a_elevation, self.radius)
