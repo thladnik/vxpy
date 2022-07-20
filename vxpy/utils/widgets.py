@@ -118,7 +118,7 @@ class SimpleAddonCameraWidget(vxgui.AddonWidget):
             self.layout().addWidget(widget_list[0], group, 0)
 
 
-class UniformFixedWidth:
+class UniformWidth:
     """Simple object to synchronize the widths of QWidget and its descendants (makes stuff look prettier)"""
 
     def __init__(self):

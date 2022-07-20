@@ -27,7 +27,7 @@ from vxpy.calibration_manager.display import planar_calibration
 from vxpy.calibration_manager.display import spherical_calibration
 from vxpy.calibration_manager import access
 from vxpy.modules.display import Canvas
-from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget
+from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget, UniformWidth
 
 vxvisual.set_vispy_env()
 
@@ -39,7 +39,7 @@ class DisplayCalibration(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         # Create canvas
-        self.canvas = Canvas(1 / 10, always_on_top=False)
+        self.canvas = Canvas(1 / 60, always_on_top=False)
 
         self.canvas_timer = QtCore.QTimer(self)
         self.canvas_timer.setInterval(50)
@@ -83,79 +83,105 @@ class ScreenSelection(QtWidgets.QGroupBox):
 
         self.painter = QPainter()
 
+        self.xminbound = 0
+        self.xmaxbound = 1
+        self.yminbound = 0
+        self.ymaxbound = 1
+
     def mouseDoubleClickEvent(self, ev, *args, **kwargs):
-        for screen_id, screen_coords in enumerate(self._get_widget_screen_coords()):
-            rect = QtCore.QRectF(*screen_coords)
+        for screen_id, screen in enumerate(access.application.screens()):
+            screen_rect = self.calculate_screen_rect(screen)
 
-            if not rect.contains(QtCore.QPoint(ev.pos().x(), ev.pos().y())):
-                continue
+            # Check if clicked position is contained in screen rect
+            if screen_rect.contains(QtCore.QPoint(ev.pos().x(), ev.pos().y())):
+                # Set to fullscreen if it is contained
+                self.set_fullscreen(screen_id)
 
-            print(f'Set display to fullscreen on screen {screen_id}')
+    def set_fullscreen(self, screen_id):
+        print(f'Set display to fullscreen on screen {screen_id}')
 
-            screen = access.application.screens()[screen_id]
+        screen = access.application.screens()[screen_id]
+        px_ratio = screen.devicePixelRatio()
+        self.main.global_settings.screen_id.set_value(screen_id)
+        self.main.global_settings.win_x_pos.set_value(screen.geometry().x())
+        self.main.global_settings.win_y_pos.set_value(screen.geometry().y())
+        self.main.global_settings.win_width.set_value(int(screen.geometry().width() * px_ratio))
+        self.main.global_settings.win_height.set_value(int(screen.geometry().height() * px_ratio))
+
+        access.application.processEvents()
+
+    def calculate_bounds(self):
+        xbounds = []
+        ybounds = []
+        # Go through all screens and gauge the bounds
+        for screen in access.application.screens():
+            geo = screen.geometry()
             px_ratio = screen.devicePixelRatio()
-            self.main.global_settings.screen_id.set_value(screen_id)
-            self.main.global_settings.win_x_pos.set_value(screen.geometry().x())
-            self.main.global_settings.win_y_pos.set_value(screen.geometry().y())
-            self.main.global_settings.win_width.set_value(int(screen.geometry().width() * px_ratio))
-            self.main.global_settings.win_height.set_value(int(screen.geometry().height() * px_ratio))
 
-            access.application.processEvents()
+            xbounds.append(geo.x())
+            xbounds.append(geo.x() + geo.width())
 
-    @staticmethod
-    def _get_norm_screen_coords() -> np.ndarray:
+            ybounds.append(geo.y())
+            ybounds.append(geo.y() + geo.height())
 
-        # Get connected screens
-        avail_screens = access.application.screens()
+        # Set bounds
+        self.xminbound = min(xbounds)
+        self.xmaxbound = max(xbounds)
+        self.yminbound = min(ybounds)
+        self.ymaxbound = max(ybounds)
 
-        # Calculate total display area bounding box
-        area = [[s.geometry().width() * s.devicePixelRatio(), s.geometry().height() * s.devicePixelRatio()] for s in
-                avail_screens]
-        area = np.sum(area, axis=0)
+        return self.display_bounds
 
-        xmin = np.min([s.geometry().x() for s in avail_screens])
-        ymin = np.min([s.geometry().y() for s in avail_screens])
+    @property
+    def display_bounds(self):
+        return self.xminbound, self.xmaxbound, self.yminbound, self.ymaxbound
 
-        # Define normalization functions
-        xnorm = lambda x: (x - xmin) / area[0]
-        ynorm = lambda y: (y - ymin) / area[1]
+    def calculate_screen_rect(self, screen):
 
-        # Add screen dimensions
-        screens = []
-        for s in avail_screens:
-            g = s.geometry()
-            screens.append([xnorm(g.x() * s.devicePixelRatio()),  # x
-                            ynorm(g.y() * s.devicePixelRatio()),  # y
-                            xnorm(g.width() * s.devicePixelRatio()),  # width
-                            ynorm(g.height() * s.devicePixelRatio())])  # height
+        # Get bounds
+        xmin, xmax, ymin, ymax = self.display_bounds
 
-        return np.array(screens)
+        # Determine ranges
+        xrange = xmax - xmin
+        yrange = ymax - ymin
 
-    def _get_widget_screen_coords(self):
-        s = self._get_norm_screen_coords()
-        s[:, 0] *= self.size().width()
-        s[:, 1] *= self.size().height()
-        s[:, 2] *= self.size().width()
-        s[:, 3] *= self.size().height()
+        # Estimate available drawing space on canvas
+        canvas_width = self.size().width()-1
+        canvas_height = self.size().height()-1
 
-        return s.astype(int)
+        # Calculate rect
+        geo = screen.geometry()
+        rect = QtCore.QRect(canvas_width * (geo.x() - xmin) / xrange,
+                            canvas_height * (geo.y() - ymin) / yrange,
+                            canvas_width * geo.width() / xrange,
+                            canvas_height * geo.height() / yrange)
+
+        return rect
 
     def paintEvent(self, QPaintEvent):
 
-        for i, screen in enumerate(self._get_widget_screen_coords()):
+        # Update bounds
+        self.calculate_bounds()
 
-            rect = QtCore.QRect(*screen)
+        # Paint all screens on canvas
+        for screen_id, screen in enumerate(access.application.screens()):
+
+            screen_rect = self.calculate_screen_rect(screen)
 
             self.painter.begin(self)
 
+            # Paint rect
             self.painter.setBrush(QtCore.Qt.BrushStyle.Dense4Pattern)
-            self.painter.drawRect(rect)
+            self.painter.drawRect(screen_rect)
 
+            # Paint text
             self.painter.setPen(QColor(168, 34, 3))
             self.painter.setFont(QFont('Decorative', 30))
-            self.painter.drawText(rect, QtCore.Qt.AlignmentFlag.AlignCenter, str(i))
+            self.painter.drawText(screen_rect, QtCore.Qt.AlignmentFlag.AlignCenter, f'Screen {screen_id}')
 
             self.painter.end()
+
+        return
 
 
 class GlobalSettings(QtWidgets.QGroupBox):
@@ -165,11 +191,14 @@ class GlobalSettings(QtWidgets.QGroupBox):
         self.main = parent
         self.setLayout(QtWidgets.QVBoxLayout())
 
+        self.fixed_width = UniformWidth()
+
         # Window x pos
         self.win_x_pos = IntSliderWidget(self, 'Window X-Pos [px]',
                                          limits=(-5000, 5000), default=0,
                                          step_size=1, label_width=100)
         self.win_x_pos.connect_callback(self.update_window_x_pos)
+        self.fixed_width.add_widget(self.win_x_pos.label)
         self.layout().addWidget(self.win_x_pos)
 
         # Window y pos
@@ -177,6 +206,7 @@ class GlobalSettings(QtWidgets.QGroupBox):
                                          limits=(-5000, 5000), default=0,
                                          step_size=1, label_width=100)
         self.win_y_pos.connect_callback(self.update_window_y_pos)
+        self.fixed_width.add_widget(self.win_y_pos.label)
         self.layout().addWidget(self.win_y_pos)
 
         # Window width
@@ -184,6 +214,7 @@ class GlobalSettings(QtWidgets.QGroupBox):
                                          limits=(1, 5000), default=0,
                                          step_size=1, label_width=100)
         self.win_width.connect_callback(self.update_window_width)
+        self.fixed_width.add_widget(self.win_width.label)
         self.layout().addWidget(self.win_width)
 
         # Window height
@@ -191,6 +222,7 @@ class GlobalSettings(QtWidgets.QGroupBox):
                                           limits=(1, 5000), default=0,
                                           step_size=1, label_width=100)
         self.win_height.connect_callback(self.update_window_height)
+        self.fixed_width.add_widget(self.win_height.label)
         self.layout().addWidget(self.win_height)
 
         # Use current window settings
@@ -203,6 +235,7 @@ class GlobalSettings(QtWidgets.QGroupBox):
                                         limits=(-1., 1.), default=0.,
                                         step_size=.001, decimals=3, label_width=100)
         self.x_pos.connect_callback(self.update_x_pos)
+        self.fixed_width.add_widget(self.x_pos.label)
         self.layout().addWidget(self.x_pos)
 
         # Y Position
@@ -210,12 +243,14 @@ class GlobalSettings(QtWidgets.QGroupBox):
                                         limits=(-1., 1.), default=0.,
                                         step_size=.001, decimals=3, label_width=100)
         self.y_pos.connect_callback(self.update_y_pos)
+        self.fixed_width.add_widget(self.y_pos.label)
         self.layout().addWidget(self.y_pos)
 
         # Screen
         self.screen_id = IntSliderWidget(self, 'Screen ID',
                                          limits=(0, 10), default=0, step_size=1, label_width=100)
         self.screen_id.connect_callback(self.update_screen_id)
+        self.fixed_width.add_widget(self.screen_id.label)
         self.layout().addWidget(self.screen_id)
 
         spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Minimum,

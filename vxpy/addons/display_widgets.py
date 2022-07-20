@@ -84,7 +84,7 @@ class VisualInteractor(gui.AddonWidget):
         self.parameter_tab.layout().addWidget(self.btn_stop, 0, 1)
 
         self._parameter_widgets = {}
-        self._uniform_label_width = widgets.UniformFixedWidth()
+        self._uniform_label_width = widgets.UniformWidth()
 
     def append_path_to_list(self, path: Union[str, object]):
         """Add all visuals on path to the list"""

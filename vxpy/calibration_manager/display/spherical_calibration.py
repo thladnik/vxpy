@@ -22,7 +22,7 @@ from PySide6 import QtWidgets
 from vxpy.calibration_manager import access
 from vxpy.definitions import *
 from vxpy import definitions, calib
-from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget, Checkbox
+from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget, Checkbox, UniformWidth
 
 
 class SphericalCalibrationWidget(QtWidgets.QWidget):
@@ -30,10 +30,14 @@ class SphericalCalibrationWidget(QtWidgets.QWidget):
     def __init__(self):
         QtWidgets.QWidget.__init__(self)
 
-        self.setLayout(QtWidgets.QHBoxLayout())
+        # Settings on the left
+        hlayout = QtWidgets.QHBoxLayout()
+        hlayout.setStretch(0, 5)
+        self.setLayout(hlayout)
         self.settings = Settings(self)
         self.layout().addWidget(self.settings)
 
+        # Test visuals on the right
         self.test_visuals = QtWidgets.QWidget()
         self.test_visuals.setLayout(QtWidgets.QVBoxLayout())
         self.layout().addWidget(self.test_visuals)
@@ -50,10 +54,10 @@ class SphericalCalibrationWidget(QtWidgets.QWidget):
         self.test_visuals.layout().addItem(spacer)
 
 
-class ChannelParameters(QtWidgets.QWidget):
+class ChannelParameters(QtWidgets.QGroupBox):
 
     def __init__(self, channel_num, settings_widget):
-        QtWidgets.QWidget.__init__(self)
+        QtWidgets.QGroupBox.__init__(self, f'Channel {channel_num}')
         self.setLayout(QtWidgets.QVBoxLayout())
 
         self.settings_widget = settings_widget
@@ -61,61 +65,69 @@ class ChannelParameters(QtWidgets.QWidget):
 
         self.edits = dict()
 
-        label_width = 150
+        self.uniform_width = UniformWidth()
+
 
         # Radial offset
         wdgt = DoubleSliderWidget(self, 'Radial offset',
                                   limits=(0., 1.), default=0.,
-                                  step_size=.001, decimals=3, label_width=label_width)
+                                  step_size=.001, decimals=3)
         wdgt.connect_callback(self.radial_offset_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_POS_RADIAL_OFFSET'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Lateral offset
         wdgt = DoubleSliderWidget(self, 'Lateral offset',
                                   limits=(-1., 1.), default=0.,
-                                  step_size=.001, decimals=3, label_width=label_width)
+                                  step_size=.001, decimals=3)
         wdgt.connect_callback(self.lateral_offset_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_POS_LATERAL_OFFSET'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Elevation
         wdgt = DoubleSliderWidget(self, 'Elevation [deg]',
                                   limits=(-45., 45.), default=0.,
-                                  step_size=.1, decimals=1, label_width=label_width)
+                                  step_size=.1, decimals=1)
         wdgt.connect_callback(self.elevation_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_VIEW_ELEV_ANGLE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # Azimuth
         wdgt = DoubleSliderWidget(self, 'Azimuth [deg]',
                                   limits=(-20., 20.), default=0.,
-                                  step_size=.1, decimals=1, label_width=label_width)
+                                  step_size=.1, decimals=1)
         wdgt.connect_callback(self.azimuth_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_VIEW_AZIM_ANGLE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # View distance
         wdgt = DoubleSliderWidget(self, 'Distance [norm]',
                                   limits=(1., 50.), default=5.,
-                                  step_size=.05, decimals=2, label_width=label_width)
+                                  step_size=.05, decimals=2)
         wdgt.connect_callback(self.view_distance_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_VIEW_DISTANCE'] = wdgt
         self.layout().addWidget(wdgt)
 
         # FOV
         wdgt = DoubleSliderWidget(self, 'FOV [deg]',
                                   limits=(.1, 179.), default=70.,
-                                  step_size=.05, decimals=2, label_width=label_width)
+                                  step_size=.05, decimals=2)
         wdgt.connect_callback(self.view_fov_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_VIEW_FOV'] = wdgt
         self.layout().addWidget(wdgt)
 
         # View scale
         wdgt = DoubleSliderWidget(self, 'Scale [norm]',
                                   limits=(.001, 10.), default=1.,
-                                  step_size=.001, decimals=3, label_width=label_width)
+                                  step_size=.001, decimals=3)
         wdgt.connect_callback(self.view_scale_updated)
+        self.uniform_width.add_widget(wdgt.label)
         self.edits['CALIB_DISP_SPH_VIEW_SCALE'] = wdgt
         self.layout().addWidget(wdgt)
 
@@ -166,37 +178,50 @@ class Settings(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
         self.main = parent
 
-        self.setLayout(QtWidgets.QVBoxLayout())
+        self.setLayout(QtWidgets.QGridLayout())
+
+        # Add channel-independent settings
+        self.channel_independent = QtWidgets.QGroupBox('Channel independent settings')
+        self.channel_independent.setLayout(QtWidgets.QVBoxLayout())
+        self.layout().addWidget(self.channel_independent)
+
+        self.uniform_width = UniformWidth()
 
         self.azimuth_orient = DoubleSliderWidget(self, 'Azimuth orientation [deg]',
-                                                 limits=(0., 360), default=0., step_size=.1, decimals=1,
-                                                 label_width=200)
+                                                 limits=(0., 360), default=0., step_size=.1, decimals=1)
         self.azimuth_orient.connect_callback(self.update_azimuth_orient)
-        self.layout().addWidget(self.azimuth_orient)
+        self.uniform_width.add_widget(self.azimuth_orient.label)
+        self.channel_independent.layout().addWidget(self.azimuth_orient)
 
         self.lat_lum_offset = DoubleSliderWidget(self, 'Lateral luminance offset',
                                                  limits=(0., 1.), default=0., step_size=.01, decimals=2,
                                                  label_width=200)
         self.lat_lum_offset.connect_callback(self.update_lat_lum_offset)
-        self.layout().addWidget(self.lat_lum_offset)
+        self.uniform_width.add_widget(self.lat_lum_offset.label)
+        self.channel_independent.layout().addWidget(self.lat_lum_offset)
 
         self.lat_lum_gradient = DoubleSliderWidget(self, 'Lateral luminance gradient',
                                                    limits=(0., 10.), default=1., step_size=.05, decimals=2,
                                                    label_width=200)
         self.lat_lum_gradient.connect_callback(self.update_lat_lum_gradient)
-        self.layout().addWidget(self.lat_lum_gradient)
-
-        self.global_overwrite = Checkbox('Global overwrite', False, label_width=200)
-        self.global_overwrite.checkbox.stateChanged.connect(self.toggle_overwrite)
-        self.layout().addWidget(self.global_overwrite)
+        self.uniform_width.add_widget(self.lat_lum_gradient.label)
+        self.channel_independent.layout().addWidget(self.lat_lum_gradient)
 
         # Set channels
-        self.tabs = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tabs)
-        self.channels = {str(i - 1): ChannelParameters(i - 1, self) for i in range(5)}
-        for channel_num, channel_wdgt in self.channels.items():
-            self.tabs.addTab(channel_wdgt, str(channel_num) if int(channel_num) >= 0 else 'Global')
-        self.tabs.setTabEnabled(0, False)
+        self.channel_tab_widget = QtWidgets.QTabWidget(self)
+        self.layout().addWidget(self.channel_tab_widget)
+
+        self.global_overwrite_channel = ChannelParameters(-1, self)
+        self.channel_tab_widget.addTab(self.global_overwrite_channel, 'Global overwrite')
+
+        self.individual_channels = QtWidgets.QWidget()
+        self.channels = [ChannelParameters(i, self) for i in range(4)]
+        self.individual_channels.setLayout(QtWidgets.QGridLayout())
+        self.individual_channels.layout().addWidget(self.channels[0], 0, 1)
+        self.individual_channels.layout().addWidget(self.channels[1], 1, 1)
+        self.individual_channels.layout().addWidget(self.channels[2], 1, 0)
+        self.individual_channels.layout().addWidget(self.channels[3], 0, 0)
+        self.channel_tab_widget.addTab(self.individual_channels, 'Channels')
 
         # Connect reload config signal
         access.window.sig_reload_calibration.connect(self.reload_calibration)
@@ -209,22 +234,11 @@ class Settings(QtWidgets.QWidget):
         # Update UI for individual channels
         for key, values in zip(self.channel_params, [getattr(calib, key) for key in self.channel_params]):
             # By default set "global overwrite" channel to 0 channel parameters
-            self.channels['-1'].update_ui_edit(key, values[0])
+            # self.channels['-1'].update_ui_edit(key, values[0])
 
             # Update all channels
             for i, v in enumerate(values):
-                self.channels[str(i)].update_ui_edit(key, v)
-
-    def toggle_overwrite(self, newstate):
-        self.tabs.setTabEnabled(0, newstate)
-
-        # if not newstate:
-        #     return
-        #
-        # # Write channel 0 to global overwrite channel in UI
-        # for key, values in zip(self.channel_params, [getattr(calib, key) for key in self.channel_params]):
-        #     print(f'Write {key=} to {values[0]=}')
-        #     self.channels['-1'].update_ui_edit(key, values[0])
+                self.channels[i].update_ui_edit(key, v)
 
     @staticmethod
     def update_azimuth_orient(value):
@@ -256,7 +270,7 @@ class Settings(QtWidgets.QWidget):
         setattr(calib, key, _calib)
 
         # Trigger reload on other channels
-        access.window.sig_reload_calibration.emit()
+        # access.window.sig_reload_calibration.emit()
 
         access.window.display.update_canvas()
 

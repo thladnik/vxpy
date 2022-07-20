@@ -26,7 +26,7 @@ from vxpy.api.attribute import read_attribute
 from vxpy.core.gui import AddonWidget
 from vxpy.routines import zf_tracking
 from vxpy.utils import geometry
-from vxpy.utils.widgets import IntSliderWidget, UniformFixedWidth
+from vxpy.utils.widgets import IntSliderWidget, UniformWidth
 
 
 class EyePositionDetector(AddonWidget):
@@ -45,7 +45,7 @@ class EyePositionDetector(AddonWidget):
         self.lpanel.layout().addWidget(QLabel('<b>Eye detection</b>'))
 
         label_width = 125
-        self.uniform_label_width = UniformFixedWidth()
+        self.uniform_label_width = UniformWidth()
         # Image threshold
         self.image_threshold = IntSliderWidget(self, 'Threshold',
                                                limits=(1, 255), default=60,

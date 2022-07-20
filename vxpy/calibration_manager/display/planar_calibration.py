@@ -19,7 +19,7 @@ from PySide6 import QtWidgets
 
 from vxpy import calib
 from vxpy.calibration_manager import access
-from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget
+from vxpy.utils.widgets import DoubleSliderWidget, IntSliderWidget, UniformWidth
 
 
 class PlanarCalibrationWidget(QtWidgets.QWidget):
@@ -50,28 +50,31 @@ class Settings(QtWidgets.QGroupBox):
         QtWidgets.QGroupBox.__init__(self, 'Planar')
         self.main = parent
 
-        label_width = 150
+        self.uniform_width = UniformWidth()
 
         self.setLayout(QtWidgets.QVBoxLayout())
 
         # X extent
         self.x_extent = DoubleSliderWidget(self, 'X-extent [rel]',
                                            limits=(0., 10.), default=1.,
-                                           step_size=.001, decimals=3, label_width=label_width)
+                                           step_size=.001, decimals=3)
         self.x_extent.connect_callback(self.update_x_extent)
+        self.uniform_width.add_widget(self.x_extent.label)
         self.layout().addWidget(self.x_extent)
 
         # Y extent
         self.y_extent = DoubleSliderWidget(self, 'Y-extent [rel]',
                                            limits=(0., 10.), default=1.,
-                                           step_size=.001, decimals=3, label_width=label_width)
+                                           step_size=.001, decimals=3)
         self.y_extent.connect_callback(self.update_y_extent)
+        self.uniform_width.add_widget(self.y_extent.label)
         self.layout().addWidget(self.y_extent)
 
         # Small side
         self.small_side = IntSliderWidget(self, 'Small side [mm]',
-                                          limits=(1, 1000), default=100, label_width=label_width)
+                                          limits=(1, 1000), default=100)
         self.small_side.connect_callback(self.update_small_side)
+        self.uniform_width.add_widget(self.small_side.label)
         self.layout().addWidget(self.small_side)
 
         spacer = QtWidgets.QSpacerItem(1, 1,
@@ -108,19 +111,21 @@ class Checker(QtWidgets.QGroupBox):
         QtWidgets.QGroupBox.__init__(self, 'Planar Checkerboard')
         self.main = parent
 
-        label_width = 150
-
         self.setLayout(QtWidgets.QVBoxLayout())
+
+        self.uniform_width = UniformWidth()
 
         # Vertical SF
         self.vertical_sp = IntSliderWidget(self, 'Vertical SP [mm]',
                                            limits=(1, 100), default=10,
-                                           step_size=1., label_width=label_width)
+                                           step_size=1)
+        self.uniform_width.add_widget(self.vertical_sp.label)
         self.layout().addWidget(self.vertical_sp)
         # Horizontal SF
         self.horizontal_sp = IntSliderWidget(self, 'Horizontal SP [mm]',
                                              limits=(1, 100), default=10,
-                                             step_size=1, label_width=label_width)
+                                             step_size=1)
+        self.uniform_width.add_widget(self.horizontal_sp.label)
         self.layout().addWidget(self.horizontal_sp)
         # Show button
         self.btn_show = QtWidgets.QPushButton('Show')

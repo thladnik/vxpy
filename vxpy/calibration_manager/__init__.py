@@ -2,7 +2,7 @@ import os.path
 from typing import Union
 
 from PySide6 import QtCore, QtGui, QtWidgets
-import yaml
+from qt_material import apply_stylesheet
 
 from vxpy.calibration_manager import access
 from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
@@ -56,7 +56,10 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.display = DisplayCalibration(self)
         self.widget.layout().addWidget(self.display)
 
-        self.resize(1000, 800)
+        self.resize(1400, 900)
+
+        extra = {'density_scale': '-3', }
+        apply_stylesheet(access.application, theme='dark_amber.xml', invert_secondary=False, extra=extra)
 
         self.show()
         self.sig_reload_calibration.emit()
