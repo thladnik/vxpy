@@ -211,9 +211,11 @@ class Settings(QtWidgets.QWidget):
         self.channel_tab_widget = QtWidgets.QTabWidget(self)
         self.layout().addWidget(self.channel_tab_widget)
 
+        # Add global overwrite channel
         self.global_overwrite_channel = ChannelParameters(-1, self)
         self.channel_tab_widget.addTab(self.global_overwrite_channel, 'Global overwrite')
 
+        # Add individual channel calibration widgets
         self.individual_channels = QtWidgets.QWidget()
         self.channels = [ChannelParameters(i, self) for i in range(4)]
         self.individual_channels.setLayout(QtWidgets.QGridLayout())
@@ -222,6 +224,9 @@ class Settings(QtWidgets.QWidget):
         self.individual_channels.layout().addWidget(self.channels[2], 1, 0)
         self.individual_channels.layout().addWidget(self.channels[3], 0, 0)
         self.channel_tab_widget.addTab(self.individual_channels, 'Channels')
+
+        # Select individual channels
+        self.channel_tab_widget.setCurrentWidget(self.individual_channels)
 
         # Connect reload config signal
         access.window.sig_reload_calibration.connect(self.reload_calibration)
