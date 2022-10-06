@@ -139,7 +139,7 @@ class qn (np.ndarray) :
             qn_compact['y'] = compact_mat_r[:, 1].reshape(matshape[:-1])
             qn_compact['z'] = compact_mat_r[:, 2].reshape(matshape[:-1])
             warningmsg = "Input array %s is set to %s" % (matshape, tuple(targetshape))
-            warnings.warn(warningmsg)
+            # warnings.warn(warningmsg)
         elif matshape[-1] == 2:
             targetshape = list(matshape)
             targetshape[-1] = 4
@@ -151,7 +151,7 @@ class qn (np.ndarray) :
             qn_compact['y'] = np.imag(compact_mat_xy).reshape(matshape[:-1])
             qn_compact['z'] = compact_mat_z.reshape(matshape[:-1])
             warningmsg = "Input array %s is set to %s" % (matshape, tuple(targetshape))
-            warnings.warn(warningmsg)
+            # warnings.warn(warningmsg)
         else:
             raise Exception('Input array should be uv_facet N x ... x 4 matrix, instead its shape is %s\n' % (matshape,))
         obj = qn_compact.view(cls)  # Convert to quaternion ndarray object
