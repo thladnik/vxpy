@@ -25,17 +25,17 @@ from typing import Any, Dict, List, Tuple, Union, Type
 
 from vxpy.definitions import *
 from vxpy import modules
-from vxpy.core import gui, ipc
+import vxpy.core.ipc as vxipc
+import vxpy.core.ui as vxui
 import vxpy.core.visual as vxvisual
 from vxpy.utils import widgets
-import vxpy.visuals
 
 
-class VisualInteractor(gui.AddonWidget):
+class VisualInteractor(vxui.AddonWidget):
     """Widget which allows for independent display of visual stimuli and interactive manipulation of parameters"""
 
     def __init__(self, *args, **kwargs):
-        gui.AddonWidget.__init__(self, *args, **kwargs)
+        vxui.AddonWidget.__init__(self, *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         self.tab_widget = QtWidgets.QTabWidget()
@@ -183,7 +183,7 @@ class VisualInteractor(gui.AddonWidget):
 
         # Run visual
         defaults = {name: wdgt.get_value() for name, wdgt in self._parameter_widgets.items()}
-        ipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_class, defaults)
+        vxipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_class, defaults)
         self.tab_widget.setTabEnabled(1, True)
         self.tab_widget.setCurrentWidget(self.parameter_tab)
 
@@ -289,20 +289,20 @@ class VisualInteractor(gui.AddonWidget):
     @staticmethod
     def update_parameter(name):
         def _update(value):
-            ipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, {name: value})
+            vxipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, {name: value})
         return _update
 
     @staticmethod
     def trigger_visual_function(function):
         def _trigger():
-            ipc.rpc(PROCESS_DISPLAY, modules.Display.trigger_visual, function.__name__)
+            vxipc.rpc(PROCESS_DISPLAY, modules.Display.trigger_visual, function.__name__)
         return _trigger
 
     def stop_visual(self):
         self.clear_layout(self.tuner.layout())
         self.tab_widget.setCurrentWidget(self.overview_tab)
         self.tab_widget.setTabEnabled(1, False)
-        ipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
+        vxipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         self._parameter_widgets = {}

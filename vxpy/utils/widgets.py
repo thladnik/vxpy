@@ -26,7 +26,7 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 
-import vxpy.core.gui as vxgui
+import vxpy.core.ui as vxgui
 import vxpy.core.attribute as vxattribute
 
 

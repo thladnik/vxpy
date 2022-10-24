@@ -20,7 +20,7 @@ from vxpy import config
 from vxpy.definitions import *
 from vxpy.api.attribute import ArrayAttribute, ArrayType, write_attribute
 from vxpy.core import routine
-from vxpy.api.ui import register_with_plotter
+from vxpy.core.ui import register_with_plotter
 
 
 class ReadAll(routine.IoRoutine):

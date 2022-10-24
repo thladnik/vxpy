@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 
-from vxpy.core.gui import AddonWidget
+from vxpy.core.ui import AddonWidget
 from vxpy.api.attribute import get_attribute_list, read_attribute
 from vxpy.api import worker_rpc
 from vxpy.routines.calculate_csd import CalculatePSD

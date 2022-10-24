@@ -25,7 +25,7 @@ import vxpy
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.ipc as vxipc
-import vxpy.core.gui as vxgui
+import vxpy.core.ui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 from vxpy.addons import core_widgets

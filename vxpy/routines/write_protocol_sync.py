@@ -15,13 +15,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import numpy as np
 
-from vxpy.api import get_time
-from vxpy.api.io import set_digital_output
+from vxpy.core.io import set_digital_output
 from vxpy.api.routine import IoRoutine
 from vxpy.api.attribute import ArrayAttribute, ArrayType
-from vxpy.api.ui import register_with_plotter
+from vxpy.core.ui import register_with_plotter
 from vxpy.core import ipc
 
 

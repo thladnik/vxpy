@@ -1,6 +1,6 @@
 """
-MappApp ./routines/camera/display_calibration.py
-Copyright (C) 2020 Tim Hladnik
+vxPy ./routines/zf_tracking.py
+Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,18 +22,17 @@ from scipy.spatial import distance
 
 from vxpy import config
 from vxpy.api import get_time
-from vxpy.api.attribute import ArrayAttribute, ArrayType, ObjectAttribute, write_to_file, get_attribute
-from vxpy.api.routine import CameraRoutine
-from vxpy.api.ui import register_with_plotter
-from vxpy.api.io import set_digital_output
-from vxpy.api.dependency import require_camera_device
+import vxpy.core.attribute as vxattribute
+import vxpy.core.io as vxio
+import vxpy.api.routine as vxroutine
+import vxpy.core.ui as vxui
+import vxpy.core.dependency as vxdependency
 from vxpy.core import logger
-
 
 log = logger.getLogger(__name__)
 
 
-class EyePositionDetection(CameraRoutine):
+class EyePositionDetection(vxroutine.CameraRoutine):
 
     # Set required device
     camera_device_id = 'fish_embedded'
@@ -41,91 +40,71 @@ class EyePositionDetection(CameraRoutine):
     routine_prefix = 'eyepos_'
 
     extracted_rect_prefix = f'{routine_prefix}extracted_rect_'
-    ang_le_pos_prefix = f'{routine_prefix}angular_le_pos_'
-    ang_re_pos_prefix = f'{routine_prefix}angular_re_pos_'
-    ang_le_vel_prefix = f'{routine_prefix}angular_le_vel_'
-    ang_re_vel_prefix = f'{routine_prefix}angular_re_vel_'
+    ang_le_pos_prefix = f'{routine_prefix}ang_le_pos_'
+    ang_re_pos_prefix = f'{routine_prefix}ang_re_pos_'
+    ang_le_vel_prefix = f'{routine_prefix}ang_le_vel_'
+    ang_re_vel_prefix = f'{routine_prefix}ang_re_vel_'
     le_sacc_prefix = f'{routine_prefix}le_saccade_'
     re_sacc_prefix = f'{routine_prefix}re_saccade_'
+    frame_name = f'{routine_prefix}frame'
+    sacc_trigger_name = f'{routine_prefix}saccade_trigger'
     roi_maxnum = 10
 
-    def setup(self):
-        require_camera_device(self.camera_device_id)
+    thresh: int = None
+    min_size: int = None
+    saccade_threshold: int = None
+
+    def __init__(self, *args, **kwargs):
+        vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
+
+        self.rois = dict()
+
+    @classmethod
+    def require(cls):
+        vxdependency.require_camera_device(cls.camera_device_id)
 
         # Get camera specs
-        camera_config = config.CONF_CAMERA_DEVICES.get(self.camera_device_id)
-        self.res_x = camera_config['width']
-        self.res_y = camera_config['height']
+        camera_config = config.CONF_CAMERA_DEVICES.get(cls.camera_device_id)
+        res_x = camera_config['width']
+        res_y = camera_config['height']
 
-        # Set up parameter variables (accessible externally)
-        self.rois = dict()
-        self.thresh = None
-        self.min_size = None
-        self.saccade_threshold = None
+        vxattribute.ArrayAttribute(cls.frame_name, (res_x, res_y), vxattribute.ArrayType.uint8)
 
-        # Set up attributes
-        # self.data = []
-        for id in range(self.roi_maxnum):
-            roi = {}
+        # Add saccade trigger buffer
+        vxattribute.ArrayAttribute(cls.sacc_trigger_name, (1, ), vxattribute.ArrayType.bool)
 
+        # Add attributes per fish
+        for id in range(cls.roi_maxnum):
             # Rectangle
-            extracted_roi_name = f'{self.extracted_rect_prefix}{id}'
-            roi[extracted_roi_name] = ObjectAttribute(extracted_roi_name)
+            vxattribute.ObjectAttribute(f'{cls.extracted_rect_prefix}{id}')
 
             # Position
-            # LE
-            le_pos_name = f'{self.ang_le_pos_prefix}{id}'
-            roi[le_pos_name] = ArrayAttribute(le_pos_name, (1,), ArrayType.float64)
-            # RE
-            re_pos_name = f'{self.ang_re_pos_prefix}{id}'
-            roi[re_pos_name] = ArrayAttribute(re_pos_name, (1,), ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{cls.ang_le_pos_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{cls.ang_re_pos_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
             # Velocity
-            # LE
-            le_vel_name = f'{self.ang_le_vel_prefix}{id}'
-            roi[le_vel_name] = ArrayAttribute(le_vel_name, (1,), ArrayType.float64)
-            # RE
-            re_vel_name = f'{self.ang_re_vel_prefix}{id}'
-            roi[re_vel_name] = ArrayAttribute(re_vel_name, (1,), ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{cls.ang_le_vel_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{cls.ang_re_vel_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
             # Saccade detection
-            # LE
-            le_sacc_name = f'{self.le_sacc_prefix}{id}'
-            roi[le_sacc_name] = ArrayAttribute(le_sacc_name, (1,), ArrayType.float64)
-            # RE
-            re_sacc_name = f'{self.re_sacc_prefix}{id}'
-            roi[re_sacc_name] = ArrayAttribute(re_sacc_name, (1,), ArrayType.float64)
-            # self.data.append(roi)
-
-        # Set frame buffer
-        # self.frame = ArrayAttribute('eyeposdetect_frame', (self.res_y, self.res_x), ArrayType.uint8)
-        self.frame = ArrayAttribute('eyeposdetect_frame', (self.res_x, self.res_y), ArrayType.uint8)
-
-        # Set saccade trigger buffer
-        self.saccade_trigger = ArrayAttribute('eyeposdetect_saccade_trigger', (1, ), ArrayType.bool)
+            vxattribute.ArrayAttribute(f'{cls.le_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{cls.re_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
     def initialize(self):
         self.add_trigger('saccade_trigger')
 
         # Set accessible methods
         self.exposed.append(EyePositionDetection.set_threshold)
-        self.exposed.append(EyePositionDetection.set_threshold_range)
-        self.exposed.append(EyePositionDetection.set_threshold_iterations)
         self.exposed.append(EyePositionDetection.set_max_im_value)
         self.exposed.append(EyePositionDetection.set_min_particle_size)
         self.exposed.append(EyePositionDetection.set_roi)
         self.exposed.append(EyePositionDetection.set_saccade_threshold)
 
-        set_digital_output('saccade_trigger_out', 'eyeposdetect_saccade_trigger')
+        # Set saccade trigger (LE and RE) signal to "saccade_trigger_out" channel by default
+        vxio.set_digital_output('saccade_trigger_out', self.sacc_trigger_name)
 
     def set_threshold(self, thresh):
         self.thresh = thresh
-
-    def set_threshold_range(self, range):
-        self.thresh_range = range
-
-    def set_threshold_iterations(self, n):
-        self.thresh_iter = n
 
     def set_max_im_value(self, value):
         self.maxvalue = value
@@ -133,38 +112,35 @@ class EyePositionDetection(CameraRoutine):
     def set_min_particle_size(self, size):
         self.min_size = size
 
+    def set_saccade_threshold(self, thresh):
+        self.saccade_threshold = thresh
+
     def set_roi(self, id, params):
         if id not in self.rois:
             log.info(f'Create new ROI at {params}')
             # Send buffer attributes to plotter
             # Position
-            register_with_plotter(f'{self.ang_le_pos_prefix}{id}', name=f'eye_pos(LE {id})', axis='eye_pos', units='deg')
-            register_with_plotter(f'{self.ang_re_pos_prefix}{id}', name=f'eye_pos(RE {id})', axis='eye_pos', units='deg')
+            vxui.register_with_plotter(f'{self.ang_le_pos_prefix}{id}', name=f'eye_pos(LE {id})', axis='eye_pos', units='deg')
+            vxui.register_with_plotter(f'{self.ang_re_pos_prefix}{id}', name=f'eye_pos(RE {id})', axis='eye_pos', units='deg')
 
             # Velocity
-            register_with_plotter(f'{self.ang_le_vel_prefix}{id}', name=f'eye_vel(LE {id})', axis='eye_vel', units='deg/s')
-            register_with_plotter(f'{self.ang_re_vel_prefix}{id}', name=f'eye_vel(RE {id})', axis='eye_vel', units='deg/s')
+            vxui.register_with_plotter(f'{self.ang_le_vel_prefix}{id}', name=f'eye_vel(LE {id})', axis='eye_vel', units='deg/s')
+            vxui.register_with_plotter(f'{self.ang_re_vel_prefix}{id}', name=f'eye_vel(RE {id})', axis='eye_vel', units='deg/s')
 
             # Saccade trigger
-            register_with_plotter(f'{self.le_sacc_prefix}{id}', name=f'sacc(LE {id})', axis='sacc')
-            register_with_plotter(f'{self.re_sacc_prefix}{id}', name=f'sacc(RE {id})', axis='sacc')
+            vxui.register_with_plotter(f'{self.le_sacc_prefix}{id}', name=f'sacc(LE {id})', axis='sacc')
+            vxui.register_with_plotter(f'{self.re_sacc_prefix}{id}', name=f'sacc(RE {id})', axis='sacc')
 
             # Add attributes to save-to-file list:
-            write_to_file(self, f'{self.ang_le_pos_prefix}{id}')
-            write_to_file(self, f'{self.ang_re_pos_prefix}{id}')
-            write_to_file(self, f'{self.ang_le_vel_prefix}{id}')
-            write_to_file(self, f'{self.ang_re_vel_prefix}{id}')
-            write_to_file(self, f'{self.le_sacc_prefix}{id}')
-            write_to_file(self, f'{self.re_sacc_prefix}{id}')
+            vxattribute.write_to_file(self, f'{self.ang_le_pos_prefix}{id}')
+            vxattribute.write_to_file(self, f'{self.ang_re_pos_prefix}{id}')
+            vxattribute.write_to_file(self, f'{self.ang_le_vel_prefix}{id}')
+            vxattribute.write_to_file(self, f'{self.ang_re_vel_prefix}{id}')
+            vxattribute.write_to_file(self, f'{self.le_sacc_prefix}{id}')
+            vxattribute.write_to_file(self, f'{self.re_sacc_prefix}{id}')
 
         self.rois[id] = params
 
-    def set_saccade_threshold(self, thresh):
-        self.saccade_threshold = thresh
-
-    @staticmethod
-    def tuple_o_ints(t):
-        return tuple((int(i) for i in t))
 
     def from_ellipse(self, rect):
         # Formatting for drawing
@@ -180,6 +156,7 @@ class EyePositionDetection(CameraRoutine):
 
         # Detect contours
         cnts, hierarchy = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+        cnts = list(cnts)
 
         # Make RGB
         thresh = np.stack((thresh, thresh, thresh), axis=-1)
@@ -251,7 +228,7 @@ class EyePositionDetection(CameraRoutine):
                         (0, 255, 0), line_thickness, tipLength=0.3)
 
         # Draw hull contours for debugging (before possible premature return)
-        cv2.drawContours(thresh, hulls, -1, (128,128,0), line_thickness)
+        cv2.drawContours(thresh, hulls, -1, (128, 128, 0), line_thickness)
 
         # If less than two particles, return
         if len(cnts) < 2:
@@ -263,8 +240,8 @@ class EyePositionDetection(CameraRoutine):
 
         try:
             for center, axis, theta in zip(barycenters, axes, thetas):
-                center = self.tuple_o_ints(center)
-                axis = self.tuple_o_ints(axis)
+                center = tuple((int(i) for i in center))
+                axis = tuple((int(i) for i in axis))
                 angle = float(theta)
                 start_angle = 0.
                 end_angle = 360.
@@ -294,7 +271,7 @@ class EyePositionDetection(CameraRoutine):
             frame = frame[:,:,0]
 
         # Write frame to buffer
-        self.frame.write(frame.T)
+        vxattribute.write_attribute(self.frame_name, frame.T)
 
         # Do eye detection and angular position estimation
         if not bool(self.rois):
@@ -306,9 +283,6 @@ class EyePositionDetection(CameraRoutine):
 
             ####
             # Extract rectanglular ROI
-
-            # Convert from pyqtgraph image coordinates to openCV
-            # rect_params = (tuple(self.coord_transform_pg2cv(rect_params[0])), tuple(rect_params[1]), -rect_params[2],)
 
             # Get rect and frame parameters
             center, size, angle = rect_params[0], rect_params[1], rect_params[2]
@@ -339,20 +313,19 @@ class EyePositionDetection(CameraRoutine):
             # Rotate
             rot_rect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-            ####
             # Calculate eye angular POSITIONS
 
             # Apply detection function on cropped rect which contains eyes
             (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
 
             # Get shared attributes
-            le_pos_attr = get_attribute(f'{self.ang_le_pos_prefix}{id}')
-            re_pos_attr = get_attribute(f'{self.ang_re_pos_prefix}{id}')
-            le_vel_attr = get_attribute(f'{self.ang_le_vel_prefix}{id}')
-            re_vel_attr = get_attribute(f'{self.ang_re_vel_prefix}{id}')
-            le_sacc_attr = get_attribute(f'{self.le_sacc_prefix}{id}')
-            re_sacc_attr = get_attribute(f'{self.re_sacc_prefix}{id}')
-            rect_roi_attr = get_attribute(f'{self.extracted_rect_prefix}{id}')
+            le_pos_attr = vxattribute.get_attribute(f'{self.ang_le_pos_prefix}{id}')
+            re_pos_attr = vxattribute.get_attribute(f'{self.ang_re_pos_prefix}{id}')
+            le_vel_attr = vxattribute.get_attribute(f'{self.ang_le_vel_prefix}{id}')
+            re_vel_attr = vxattribute.get_attribute(f'{self.ang_re_vel_prefix}{id}')
+            le_sacc_attr = vxattribute.get_attribute(f'{self.le_sacc_prefix}{id}')
+            re_sacc_attr = vxattribute.get_attribute(f'{self.re_sacc_prefix}{id}')
+            rect_roi_attr = vxattribute.get_attribute(f'{self.extracted_rect_prefix}{id}')
 
             # Calculate eye angular VELOCITIES
             _, _, last_le_pos = le_pos_attr.read()
@@ -397,4 +370,4 @@ class EyePositionDetection(CameraRoutine):
             # Set current rect ROI data
             rect_roi_attr.write(new_rect)
 
-        self.saccade_trigger.write(saccade_happened)
+        vxattribute.write_attribute(self.sacc_trigger_name, saccade_happened)

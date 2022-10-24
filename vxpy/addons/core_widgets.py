@@ -30,7 +30,7 @@ from typing import Callable, List, Union
 
 from vxpy import config
 import vxpy.core.attribute as vxattribute
-import vxpy.core.gui as vxgui
+import vxpy.core.ui as vxgui
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol

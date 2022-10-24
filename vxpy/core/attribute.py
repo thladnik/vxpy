@@ -110,7 +110,7 @@ def write_to_file(instance: Union[vxprocess.AbstractProcess, vxroutine.Routine],
         # Check attribute name against templates
         found, included = match_to_record_attributes(attr_name)
 
-        # If attribute name is included by template list, append to the to-file list
+        # If attribute name is included by template list, append to the to_file list
         if included:
             log.info(f'Set attribute "{attr_name}" to be written to file. ')
             Attribute.to_file[process_name].append(Attribute.all[attr_name])
@@ -173,6 +173,7 @@ class Attribute(ABC):
 
     all: Dict[str, Attribute] = {}
     to_file: Dict[str, List[Attribute]] = {}
+    _instance: ArrayAttribute = None
 
     def __init__(self, name: str, _length: int = None):
         assert name not in self.all, f'Duplicate attribute {name}'
@@ -184,6 +185,13 @@ class Attribute(ABC):
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
         self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
+        self._last_read_idx: int = -1
+
+    # def create(cls, attr_type: type, name: str, *args, **kwargs):
+    #     if name in cls.all:
+    #         return cls.all[name]
+    #     obj = object.__new__(cls)
+    #     return obj
 
     def _make_time(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
@@ -241,7 +249,7 @@ class Attribute(ABC):
     def read(self, last: int = None, use_lock: bool = True, from_idx: int = None) -> Tuple[List[int], List[float], Any]:
         """Read datapoints from the buffer.
         By default this returns the last written datapoint from the attribute buffer.
-        If from_idx is not None and an scalar integer value, this will return
+        If from_idx is not None and a scalar integer value, this will return
         all datapoints from (but not including) from_idx. """
         if last is None:
             # By default, set last to 1 if from_idx is not specified
@@ -257,7 +265,15 @@ class Attribute(ABC):
                     return self._read_empty_return()
 
         # Return indices, times, datasets
-        return self._get_index_list(last), self.get_times(last), self._read(*self._get_range(last), use_lock)
+        indices = self._get_index_list(last)
+        self._last_read_idx = indices[-1]
+        return indices, self.get_times(last), self._read(*self._get_range(last), use_lock)
+
+    def read_all_new(self, include_last_read: bool = False):
+        from_idx = self._last_read_idx
+        if include_last_read:
+            from_idx -= 1
+        return self.read(from_idx=from_idx)
 
     @abstractmethod
     def _write(self, internal_idx: int, value: Any):

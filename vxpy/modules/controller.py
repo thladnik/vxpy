@@ -31,11 +31,10 @@ from vxpy import definitions
 from vxpy.definitions import *
 from vxpy import modules
 from vxpy.api import gui_rpc
-from vxpy.api.dependency import register_camera_device, register_io_device, assert_device_requirements
+from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import process, ipc, logger
 from vxpy.core import routine
 from vxpy.core import run_process
-import vxpy.core.gui as vxgui
 from vxpy.core.attribute import Attribute
 from vxpy.core.protocol import get_protocol
 from vxpy.addons import core_widgets
@@ -176,6 +175,16 @@ class Controller(process.AbstractProcess):
                                                  ProtocolCtrl.phase_start: None,
                                                  ProtocolCtrl.phase_stop: None})
 
+        # Set configured cameras
+        if config.CONF_CAMERA_USE:
+            for device_id in config.CONF_CAMERA_DEVICES:
+                register_camera_device(device_id)
+
+        # Set configured io devices
+        if config.CONF_IO_USE:
+            for device_id in config.CONF_IO_DEVICES:
+                register_io_device(device_id)
+
         # Load routine modules
         self._routines = dict()
         for process_name, routine_list in _routines_to_load.items():
@@ -189,21 +198,11 @@ class Controller(process.AbstractProcess):
                 module = importlib.import_module('.'.join(parts[:-1]))
                 routine_cls = getattr(module, parts[-1])
                 if routine_cls is None:
-                    log.error(f'Routine "{path}" not found.')
+                    log.error(f'Routine {path} not found.')
                     continue
 
                 # Instantiate
                 self._routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
-
-        # Set configured cameras
-        if config.CONF_CAMERA_USE:
-            for device_id in config.CONF_CAMERA_DEVICES:
-                register_camera_device(device_id)
-
-        # Set configured io devices
-        if config.CONF_IO_USE:
-            for device_id in config.CONF_IO_DEVICES:
-                register_io_device(device_id)
 
         # Compare required vs registered devices
         assert_device_requirements()
@@ -211,6 +210,7 @@ class Controller(process.AbstractProcess):
         # Set up routines
         for rs in self._routines.values():
             for r in rs.values():
+                r.require()
                 r.setup()
 
         self._init_params = dict(
@@ -497,7 +497,6 @@ class Controller(process.AbstractProcess):
     #     elif self.in_state(State.PROTOCOL_PREPARED):
     #         if not self._check_all_in_state(State.PROTOCOL_PREPARED):
     #             return
-
 
     def main(self):
 

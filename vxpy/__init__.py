@@ -28,10 +28,16 @@ def main(configfile):
 
     if sys.platform == 'win32':
         # Set windows timer precision as high as possible
-        import wres
-        minres, maxres, curres = wres.query_resolution()
-        with wres.set_resolution(maxres):
+        try:
+            import wres
+        except ImportError as exc:
+            print(f'Unable to import wres. '
+                  f'Please consider installing wres for better performance on {sys.platform} platform')
             ctrl = Controller(configfile)
+        else:
+            minres, maxres, curres = wres.query_resolution()
+            with wres.set_resolution(maxres):
+                ctrl = Controller(configfile)
 
     elif sys.platform == 'linux':
         ctrl = Controller(configfile)

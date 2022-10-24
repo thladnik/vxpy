@@ -271,7 +271,7 @@ class BaseVisual(AbstractVisual, ABC):
 
     def apply_zoom(self):
         gloo.set_viewport(0, 0, self.canvas.physical_size[0], self.canvas.physical_size[1])
-        self.projection = transforms.perspective(15.0, self.canvas.size[0] / float(self.canvas.size[1]), 0.01, 1000.0)
+        self.projection = transforms.perspective(25.0, self.canvas.size[0] / float(self.canvas.size[1]), 0.01, 1000.0)
         self.transform_uniforms['u_projection'] = self.projection
 
 

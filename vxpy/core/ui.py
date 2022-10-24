@@ -24,8 +24,11 @@ from typing import Callable, List, Union
 from vxpy import config
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
+from vxpy.addons import core_widgets
+from vxpy.core import ipc
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
+from vxpy.definitions import PROCESS_GUI
 
 log = vxlogger.getLogger(__name__)
 
@@ -51,6 +54,16 @@ class ExposedWidget:
             vxipc.Process.register_rpc_callback(self, fun_str, fun)
 
 
+class RoutineParameter:
+
+    def __init__(self, addon_cls: AddonWidget, update_fun: Callable):
+        self.addon_class = addon_cls
+        self.routine_update_fun = update_fun
+
+    def update(self, *args, **kwargs):
+        vxipc.rpc(self.addon_class.name, self.routine_update_fun, *args, **kwargs)
+
+
 class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
     """Addon widget which should be subclassed by custom widgets in plugins, etc"""
 
@@ -67,6 +80,10 @@ class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
     def connect_to_timer(fun: Callable):
         AddonWindow.timer.timeout.connect(fun)
 
+    @classmethod
+    def call_routine(cls, fun, *args, **kwargs):
+        vxipc.rpc(cls.name, fun, *args, **kwargs)
+
 
 class CameraAddonWidget(AddonWidget):
 
@@ -75,9 +92,29 @@ class CameraAddonWidget(AddonWidget):
     def __init__(self, *args, **kwargs):
         AddonWidget.__init__(self, *args, **kwargs)
 
-    @classmethod
-    def call_routine(cls, fun, *args, **kwargs):
-        vxipc.rpc(cls.name, fun, *args, **kwargs)
+
+class DisplayAddonWidget(AddonWidget):
+
+    name = PROCESS_DISPLAY
+
+    def __init__(self, *args, **kwargs):
+        AddonWidget.__init__(self, *args, **kwargs)
+
+
+class IoAddonWidget(AddonWidget):
+
+    name = PROCESS_IO
+
+    def __init__(self, *args, **kwargs):
+        AddonWidget.__init__(self, *args, **kwargs)
+
+
+class WorkerAddonWidget(AddonWidget):
+
+    name = PROCESS_WORKER
+
+    def __init__(self, *args, **kwargs):
+        AddonWidget.__init__(self, *args, **kwargs)
 
 
 class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget, Widget):
@@ -186,3 +223,6 @@ class AddonWindow(WindowTabWidget):
         self.timer.setInterval(self.timer_interval)
         self.timer.start()
 
+
+def register_with_plotter(attr_name: str, *args, **kwargs):
+    ipc.rpc(PROCESS_GUI, core_widgets.PlottingWindow.add_buffer_attribute, attr_name, *args, **kwargs)

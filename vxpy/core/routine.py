@@ -1,5 +1,5 @@
 """
-MappApp ./core/routine.py
+vxpy ./core/routine.py
 Copyright (C) 2020 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -17,9 +17,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from deprecation import deprecated
 
 from vxpy.definitions import *
-import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
@@ -27,13 +27,13 @@ log = vxlogger.getLogger(__name__)
 
 
 class Routine(ABC):
-    """AbstractRoutine to be subclassed by all implementations of routines.
+    """Abstract routine base class - to be inherited by all routines.
     """
 
     name: str = None
+    _instance: Routine = None
 
     def __init__(self, *args, **kwargs):
-
         self._triggers = dict()
 
         self._trigger_callbacks = dict()
@@ -41,7 +41,18 @@ class Routine(ABC):
         # List of methods open to rpc calls
         self.exposed = []
 
-    @abstractmethod
+    def __new__(cls, *args, **kwargs):
+        """Ensure each routine can only be used as Singleton"""
+        if cls._instance is None:
+            cls._instance = super(Routine, cls).__new__(cls)
+
+        return cls._instance
+
+    @classmethod
+    def require(cls):
+        pass
+
+    @deprecated(details='Use require method instead', deprecated_in='0.1.0', removed_in='0.2.0')
     def setup(self):
         pass
 
