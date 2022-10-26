@@ -9,7 +9,7 @@ It leverages OpenGL-based 3D graphics rendering, using the Python visualization 
 
 ## Requirements
 
-`vxPy` has been tested on Windows 10 and Ubuntu 20.04 LTS. It requires Python 3.8 or higher.
+`vxPy` has been tested on Windows 10 and Ubuntu 20.04 and 22.04 LTS. It requires Python 3.8 or higher.
 
 ## Installation
 
@@ -89,7 +89,7 @@ directly after cloning the repository and before installing the dependencies or 
 
 Then install the respective Python `pypylon` package into your environment with
 ```console
-(venv) user@machine: ~/vxPy_app$ pip install pypylon
+(venv) user@machine: ~/vxPy_app$ pip install gst PyGObject pypylon
 ```
 
 ### Arduino 
