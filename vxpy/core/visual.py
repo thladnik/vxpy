@@ -33,6 +33,7 @@ from vxpy import calib
 from vxpy.definitions import *
 from vxpy.core import logger
 from vxpy.core import protocol
+import vxpy.core.event as vxevent
 from vxpy.utils import geometry
 from vxpy.utils import sphere
 
@@ -176,10 +177,15 @@ class AbstractVisual(ABC):
         getattr(self, name)()
 
     def start(self):
+        for attr in self.__dict__.values():
+            if issubclass(type(attr), vxevent.Trigger):
+                attr.set_active(True)
         self.is_active = True
 
     def end(self):
-        # controller_rpc(end_protocol_phase)
+        for attr in self.__dict__.values():
+            if issubclass(type(attr), vxevent.Trigger):
+                attr.set_active(False)
         self.is_active = False
 
     def update(self, params: dict, _update_verbosely=True):

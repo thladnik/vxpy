@@ -269,6 +269,7 @@ class Controller(process.AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
+        # ctx = mp.get_context('fork')
         self._processes[process_name] = mp.Process(target=run_process, name=process_name, args=(target,), kwargs=kwargs)
 
         # Start subprocess

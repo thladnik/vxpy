@@ -32,6 +32,7 @@ import vxpy.core.attribute as vxattribute
 import vxpy.core.calibration as vxcalib
 import vxpy.core.configuration as vxconfig
 import vxpy.core.container as vxcontainer
+import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
@@ -215,6 +216,10 @@ class AbstractProcess:
             # Add record group id
             self._append_to_dataset('record_group_id', vxipc.Control.Recording[RecCtrl.record_group_counter])
             self._append_to_dataset('global_time', self.global_t)
+
+            # Process triggers
+            for trigger in vxevent.Trigger.all:
+                trigger.process()
 
             # Execute main method
             self.main()

@@ -185,13 +185,6 @@ class Attribute(ABC):
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
         self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
-        self._last_read_idx: int = -1
-
-    # def create(cls, attr_type: type, name: str, *args, **kwargs):
-    #     if name in cls.all:
-    #         return cls.all[name]
-    #     obj = object.__new__(cls)
-    #     return obj
 
     def _make_time(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
@@ -266,14 +259,7 @@ class Attribute(ABC):
 
         # Return indices, times, datasets
         indices = self._get_index_list(last)
-        self._last_read_idx = indices[-1]
         return indices, self.get_times(last), self._read(*self._get_range(last), use_lock)
-
-    def read_all_new(self, include_last_read: bool = False):
-        from_idx = self._last_read_idx
-        if include_last_read:
-            from_idx -= 1
-        return self.read(from_idx=from_idx)
 
     @abstractmethod
     def _write(self, internal_idx: int, value: Any):
@@ -386,6 +372,7 @@ class ArrayAttribute(Attribute):
         self.dtype = dtype
         self._chunked = chunked
         self._chunk_size = chunk_size
+        self._rising_edge_trigger_callbacks = vxipc.Manager.list([])
 
         # By default, calculate _length based on data type, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
         max_multiplier = 1.
@@ -436,6 +423,9 @@ class ArrayAttribute(Attribute):
 
         # Create list with time points
         self._make_time()
+
+    # def add_rising_edge_trigger(self, process_name, fun):
+    #     self.
 
     def _build_array(self, raw: mp.Array, length: int) -> np.ndarray:
         """Create the numpy array from the ctype array object and reshape to fit"""
