@@ -7,6 +7,8 @@
 
 It leverages OpenGL-based 3D graphics rendering, using the Python visualization library [VisPy](https://github.com/vispy/vispy), for dynamic generation and realtime updating of visual stimuli. `vxPy` utilizes multicore hardware for fast online aquisition and analysis of behavioral and other sensor data, as well as control of external devices, such as actuators or LEDs, via configurable microcontroller interfaces. 
 
+This is the core package for `vxPy`. The accompanying application to configure and run the UI is hosted at [vxPy_app](https://github.com/thladnik/vxPy_app).
+
 ## Requirements
 
 `vxPy` has been tested on Windows 10 and Ubuntu 20.04 and 22.04 LTS. It requires Python 3.8 or higher.
