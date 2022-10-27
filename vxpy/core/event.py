@@ -76,10 +76,10 @@ class Trigger:
             # print(instances)
             # print(np.where(instances)[0])
             idcs = np.where(instances)[0].astype(int)
-            print([times[i] for i in idcs])
-            # for c in self.callbacks:
-            #     for i in np.where(instances)[0]:
-            #         c(indices[i], times[i], data[i])
+            # print([times[i] for i in idcs])
+            for c in self.callbacks:
+                for i in np.where(instances)[0]:
+                    c(indices[i], times[i], data[i])
 
 
 class RisingEdgeTrigger(Trigger):
