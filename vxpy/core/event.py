@@ -73,13 +73,28 @@ class Trigger:
         # Evaluate condition
         result, instances = self.condition(data)
         if result:
-            # print(instances)
-            # print(np.where(instances)[0])
-            idcs = np.where(instances)[0].astype(int)
-            # print([times[i] for i in idcs])
             for c in self.callbacks:
                 for i in np.where(instances)[0]:
                     c(indices[i], times[i], data[i])
+
+
+class OnTrigger(Trigger):
+
+    @staticmethod
+    def condition(data):
+        if not isinstance(data, np.ndarray):
+            data = np.array(data)
+
+        data = np.squeeze(data)
+
+        if data.ndim != 1 or data.shape[0] < 2:
+            return False, []
+
+        results = data.astype(bool)
+        if np.any(results):
+            return True, results
+        else:
+            return False, []
 
 
 class RisingEdgeTrigger(Trigger):
