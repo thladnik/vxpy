@@ -24,7 +24,7 @@ import time
 from vispy import app
 from vispy import gloo
 
-from vxpy.api import get_time
+from vxpy.core.ipc import get_time
 from vxpy import calib
 from vxpy import config
 from vxpy.definitions import *
@@ -68,14 +68,6 @@ class Display(vxprocess.AbstractProcess):
         self.enable_idle_timeout = False
         self.run(interval=_interval)
 
-    def set_display_uniform_attribute(self, uniform_name, routine_cls, attr_name):
-        # TODO: the routine class here is not necesasry anymore, since attributes are now independent entities
-        if uniform_name not in self._uniform_maps:
-            self._uniform_maps[uniform_name] = (routine_cls, attr_name)
-            log.info(f'Set uniform "{uniform_name}" to attribute "{attr_name}" of {routine_cls.__name__}.')
-        else:
-            log.warning(f'Uniform "{uniform_name}" is already set.')
-
     def prepare_protocol(self):
         self.current_protocol.initialize_visuals(self.canvas)
 
@@ -96,11 +88,17 @@ class Display(vxprocess.AbstractProcess):
 
     def start_protocol_phase(self):
         self.start_visual()
-        self.set_record_group_attrs({'start_time': get_time(),
-                                     'visual_module': self.current_visual.__module__,
-                                     'visual_name': str(self.current_visual.__class__.__qualname__),
-                                     'target_duration': self.current_protocol.current_phase.duration,
-                                     'target_sample_rate': config.CONF_DISPLAY_FPS})
+        display_attrs = {'start_time': vxipc.get_time(),
+                         'visual_module': self.current_visual.__module__,
+                         'visual_name': str(self.current_visual.__class__.__qualname__),
+                         'target_duration': self.current_protocol.current_phase.duration,
+                         'target_sample_rate': config.CONF_DISPLAY_FPS}
+
+        # Old version. Leave in here for compatibility (for now) // TODO: remove
+        self.set_record_group_attrs(display_attrs)
+
+        # Use double underscores to set process-level attribute apart from visual-defined ones
+        self.set_record_group_attrs({f'__{key}': val for key, val in display_attrs.items()})
 
     def start_visual(self, parameters: dict = None):
 
@@ -146,6 +144,9 @@ class Display(vxprocess.AbstractProcess):
 
     def trigger_visual(self, trigger_fun: Union[Callable, str]):
         self.current_visual.trigger(trigger_fun)
+
+    def clear_canvas(self):
+        self.canvas.clear()
 
     def main(self):
 

@@ -17,7 +17,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from vxpy import modules
-from vxpy.api import io_rpc
+from vxpy.core.ipc import io_rpc
 
 
 def set_digital_output(out_pid, attr_name):

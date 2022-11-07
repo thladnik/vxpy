@@ -182,7 +182,6 @@ class Window(QtWidgets.QMainWindow):
         self.plotter = core_widgets.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
 
-
         # Place and resize
         addon_win_width = self.addon_widget_window.size().width() if self.addon_widget_window is not None else 0
         self.plotter.move(xpos + row2_xoffset + addon_win_width + x_spacing,
@@ -212,6 +211,29 @@ class Window(QtWidgets.QMainWindow):
             self.window_toggles[-1].triggered.connect(subwin.toggle_visibility)
             self.menu_windows.addAction(self.window_toggles[-1])
 
+        # Add modules
+        # self.module_menus: Dict[str, QtWidgets.QMenu] = {}
+        # module_opts = [(config.CONF_CAMERA_USE, PROCESS_CAMERA, vxmodules.Camera),
+        #                (config.CONF_DISPLAY_USE, PROCESS_DISPLAY, vxmodules.Display),
+        #                (config.CONF_GUI_USE, PROCESS_GUI, vxmodules.Gui),
+        #                (config.CONF_IO_USE, PROCESS_IO, vxmodules.Io),
+        #                (config.CONF_WORKER_USE, PROCESS_WORKER, vxmodules.Worker)]
+        #
+        # for use, name, module in module_opts:
+        #     if not use:
+        #         continue
+        #
+        #     # Create menu
+        #     menu = QtWidgets.QMenu(name)
+        #     self.menuBar().addMenu(menu)
+        #
+        #     # Add restart action
+        #     action = menu.addAction('Restart')
+        #     action.triggered.connect(self.restart_process(module))
+        #     action.setAutoRepeat(False)
+        #
+        #     self.module_menus[name] = menu
+
         # Processes actions
         self.menu_process = QtWidgets.QMenu('Processes')
         self.menuBar().addMenu(self.menu_process)
@@ -232,10 +254,24 @@ class Window(QtWidgets.QMainWindow):
             self.menu_process.restart_camera.setShortcut('Ctrl+Alt+Shift+c')
             self.menu_process.restart_camera.setAutoRepeat(False)
 
+        # Restart camera module
+        if config.CONF_IO_USE:
+            self.menu_process.restart_io = QtGui.QAction('Restart IO')
+            self.menu_process.restart_io.triggered.connect(self.restart_io)
+            self.menu_process.addAction(self.menu_process.restart_io)
+            self.menu_process.restart_io.setShortcut('Ctrl+Alt+Shift+i')
+            self.menu_process.restart_io.setAutoRepeat(False)
+
         # Set theme
-        extra = {'density_scale': '-3', }
+        extra = {'density_scale': '-2', }
         apply_stylesheet(vxipc.Process.app, theme='dark_amber.xml', invert_secondary=False, extra=extra)
         # apply_stylesheet(vxipc.Process.app, theme='dark_teal.xml', extra=extra)
+
+    # @staticmethod
+    # def restart_process(module):
+    #     def _restart():
+    #         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, module)
+    #     return _restart
 
     @staticmethod
     def restart_camera():
@@ -244,6 +280,10 @@ class Window(QtWidgets.QMainWindow):
     @staticmethod
     def restart_display():
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, vxmodules.Display)
+
+    @staticmethod
+    def restart_io():
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.initialize_process, vxmodules.Io)
 
     def raise_subwindows(self):
         for w in self.subwindows:

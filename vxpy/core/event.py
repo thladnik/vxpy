@@ -1,3 +1,20 @@
+"""
+vxPy ./core/event.py
+Copyright (C) 2022 Tim Hladnik
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""
 from __future__ import annotations
 from typing import Any, Callable, Iterable, List, Union
 
@@ -19,7 +36,6 @@ class Trigger:
 
     def __init__(self, attr: Union[str, vxattribute.Attribute],
                  callback: Union[Callable, List[Callable]] = None):
-
         if isinstance(attr, str):
             self.attribute = vxattribute.get_attribute(attr)
         elif isinstance(attr, vxattribute.Attribute):
@@ -27,6 +43,8 @@ class Trigger:
         else:
             log.error('Trigger attribute has to be either valid attribute name or attribute object.')
             return
+
+        log.info(f'Add {self.__class__.__name__} on attribute "{self.attribute.name}"')
 
         self.callbacks: List[Callable] = []
         if callback is not None:
@@ -54,7 +72,8 @@ class Trigger:
 
         for c in callback:
             if not isinstance(c, Callable):
-                log.warning('Trigger callback must be callable')
+                log.warning(f'Failed to set callback {c} on {self.__class__.__name__}. '
+                            f'Trigger callback must be callable')
 
             self.callbacks.append(c)
 

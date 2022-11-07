@@ -25,7 +25,7 @@ from vxpy.core import ipc, logger
 from vxpy import modules
 
 # Type hinting
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     pass
@@ -35,8 +35,52 @@ log = logger.getLogger(__name__)
 
 class H5File(h5py.File):
 
+    _protocol_prefix = 'protocol'
+
     def __init__(self, *args, **kwargs):
         h5py.File.__init__(self, *args, **kwargs)
+
+        self._protocol_idx_list = [-1]
+        self._current_protocol_idx = -1
+
+        self._phase_idx_list = [-1]
+        self._current_phase_idx = -1
+
+    @property
+    def current_protocol(self) -> h5py.Group:
+        return self[f'{self._protocol_prefix}{self._current_protocol_idx}']
+
+    def start_protocol(self):
+        if self._current_protocol_idx < 0:
+            log.error('New protocol was started with previous protocol still running.')
+
+        self._current_protocol_idx = max(self._protocol_idx_list) + 1
+        self.create_group(f'{self._protocol_prefix}{self._current_protocol_idx}')
+
+    def add_protocol_attributes(self, attributes: Dict[str, Any]):
+        if self._current_protocol_idx < 0:
+            log.error('Unable to set protocol attributes. No running protocol')
+            return
+
+        # Update attribute list
+        self.current_protocol.attrs.update(attributes)
+
+    def add_protocol_data(self, data: Dict[str, np.ndarray]):
+        if self._current_protocol_idx < 0:
+            log.error('Unable to set protocol attributes. No running protocol')
+            return
+
+        # Update attribute list
+        for key, arr in data.items():
+            self.current_protocol.create_dataset(key, data=arr)
+
+    def end_protocol(self):
+        if self._current_protocol_idx < 0:
+            log.error('Tried ending protocol while none was running.')
+            return
+
+        self._protocol_idx_list.append(self._current_protocol_idx)
+        self._current_protocol_idx = -1
 
     def append(self, path, value):
         # Get dataset

@@ -21,7 +21,6 @@ __author__ = 'Tim Hladnik'
 import sys
 
 from vxpy.modules import Controller
-# from vxpy.configure import acc
 
 
 def main(configfile):
@@ -33,11 +32,12 @@ def main(configfile):
         except ImportError as exc:
             print(f'Unable to import wres. '
                   f'Please consider installing wres for better performance on {sys.platform} platform')
-            ctrl = Controller(configfile)
         else:
             minres, maxres, curres = wres.query_resolution()
             with wres.set_resolution(maxres):
                 ctrl = Controller(configfile)
+
+        ctrl = Controller(configfile)
 
     elif sys.platform == 'linux':
         ctrl = Controller(configfile)

@@ -21,10 +21,10 @@ import numpy as np
 from scipy.spatial import distance
 
 from vxpy import config
-from vxpy.api import get_time
+from vxpy.core.ipc import get_time
 import vxpy.core.attribute as vxattribute
 import vxpy.core.io as vxio
-import vxpy.api.routine as vxroutine
+import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
 import vxpy.core.dependency as vxdependency
 from vxpy.core import logger
@@ -93,54 +93,54 @@ class EyePositionDetection(vxroutine.CameraRoutine):
     def initialize(self):
         self.add_trigger('saccade_trigger')
 
-        # Set accessible methods
-        self.exposed.append(EyePositionDetection.set_threshold)
-        self.exposed.append(EyePositionDetection.set_max_im_value)
-        self.exposed.append(EyePositionDetection.set_min_particle_size)
-        self.exposed.append(EyePositionDetection.set_roi)
-        self.exposed.append(EyePositionDetection.set_saccade_threshold)
-
         # Set saccade trigger (LE and RE) signal to "saccade_trigger_out" channel by default
         vxio.set_digital_output('saccade_trigger_out', self.sacc_trigger_name)
 
+    @vxroutine.Routine.callback
     def set_threshold(self, thresh):
         self.thresh = thresh
 
-    def set_max_im_value(self, value):
-        self.maxvalue = value
-
+    @vxroutine.Routine.callback
     def set_min_particle_size(self, size):
         self.min_size = size
 
+    @vxroutine.Routine.callback
     def set_saccade_threshold(self, thresh):
         self.saccade_threshold = thresh
 
-    def set_roi(self, id, params):
-        if id not in self.rois:
+    @vxroutine.Routine.callback
+    def set_roi(self, roi_id: int, params):
+        if roi_id not in self.rois:
             log.info(f'Create new ROI at {params}')
-            # Send buffer attributes to plotter
-            # Position
-            vxui.register_with_plotter(f'{self.ang_le_pos_prefix}{id}', name=f'eye_pos(LE {id})', axis='eye_pos', units='deg')
-            vxui.register_with_plotter(f'{self.ang_re_pos_prefix}{id}', name=f'eye_pos(RE {id})', axis='eye_pos', units='deg')
+            self._create_roi(roi_id)
 
-            # Velocity
-            vxui.register_with_plotter(f'{self.ang_le_vel_prefix}{id}', name=f'eye_vel(LE {id})', axis='eye_vel', units='deg/s')
-            vxui.register_with_plotter(f'{self.ang_re_vel_prefix}{id}', name=f'eye_vel(RE {id})', axis='eye_vel', units='deg/s')
+        self.rois[roi_id] = params
 
-            # Saccade trigger
-            vxui.register_with_plotter(f'{self.le_sacc_prefix}{id}', name=f'sacc(LE {id})', axis='sacc')
-            vxui.register_with_plotter(f'{self.re_sacc_prefix}{id}', name=f'sacc(RE {id})', axis='sacc')
+    def _create_roi(self, roi_id: int):
+        # Send buffer attributes to plotter
+        # Position
+        vxui.register_with_plotter(f'{self.ang_le_pos_prefix}{roi_id}', name=f'eye_pos(LE {roi_id})', axis='eye_pos',
+                                   units='deg')
+        vxui.register_with_plotter(f'{self.ang_re_pos_prefix}{roi_id}', name=f'eye_pos(RE {roi_id})', axis='eye_pos',
+                                   units='deg')
 
-            # Add attributes to save-to-file list:
-            vxattribute.write_to_file(self, f'{self.ang_le_pos_prefix}{id}')
-            vxattribute.write_to_file(self, f'{self.ang_re_pos_prefix}{id}')
-            vxattribute.write_to_file(self, f'{self.ang_le_vel_prefix}{id}')
-            vxattribute.write_to_file(self, f'{self.ang_re_vel_prefix}{id}')
-            vxattribute.write_to_file(self, f'{self.le_sacc_prefix}{id}')
-            vxattribute.write_to_file(self, f'{self.re_sacc_prefix}{id}')
+        # Velocity
+        vxui.register_with_plotter(f'{self.ang_le_vel_prefix}{roi_id}', name=f'eye_vel(LE {roi_id})', axis='eye_vel',
+                                   units='deg/s')
+        vxui.register_with_plotter(f'{self.ang_re_vel_prefix}{roi_id}', name=f'eye_vel(RE {roi_id})', axis='eye_vel',
+                                   units='deg/s')
 
-        self.rois[id] = params
+        # Saccade trigger
+        vxui.register_with_plotter(f'{self.le_sacc_prefix}{roi_id}', name=f'sacc(LE {roi_id})', axis='sacc')
+        vxui.register_with_plotter(f'{self.re_sacc_prefix}{roi_id}', name=f'sacc(RE {roi_id})', axis='sacc')
 
+        # Add attributes to save-to-file list:
+        vxattribute.write_to_file(self, f'{self.ang_le_pos_prefix}{roi_id}')
+        vxattribute.write_to_file(self, f'{self.ang_re_pos_prefix}{roi_id}')
+        vxattribute.write_to_file(self, f'{self.ang_le_vel_prefix}{roi_id}')
+        vxattribute.write_to_file(self, f'{self.ang_re_vel_prefix}{roi_id}')
+        vxattribute.write_to_file(self, f'{self.le_sacc_prefix}{roi_id}')
+        vxattribute.write_to_file(self, f'{self.re_sacc_prefix}{roi_id}')
 
     def from_ellipse(self, rect):
         # Formatting for drawing

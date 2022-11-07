@@ -17,16 +17,16 @@ from __future__ import annotations
 import multiprocessing as mp
 from multiprocessing.managers import SyncManager
 
-from vxpy.definitions import *
-from vxpy import definitions
 from vxpy.core import logger
+from vxpy.definitions import *
 
 # Type hinting
 from typing import TYPE_CHECKING
 
+
 if TYPE_CHECKING:
     from typing import Callable, Dict, Tuple
-    from vxpy.core.process import AbstractProcess, ProcessProxy
+    from vxpy.core.process import AbstractProcess
 
 
 log = logger.getLogger(__name__)
@@ -53,13 +53,28 @@ class State:
     Worker: mp.Value = None
 
 
+class ProcessProxy:
+    def __init__(self, name):
+        self.name = name
+
+    @property
+    def state(self):
+        return get_state(self.name)
+
+    def in_state(self, state):
+        return in_state(state, self.name)
+
+    def rpc(self, function: Callable, *args, **kwargs) -> None:
+        rpc(self.name, function, *args, **kwargs)
+
+
 # Proxies
-Controller: ProcessProxy
-Camera: ProcessProxy
-Display: ProcessProxy
-Gui: ProcessProxy
-Io: ProcessProxy
-Worker: ProcessProxy
+Controller: ProcessProxy = ProcessProxy(PROCESS_CONTROLLER)
+Camera: ProcessProxy = ProcessProxy(PROCESS_CAMERA)
+Display: ProcessProxy = ProcessProxy(PROCESS_DISPLAY)
+Gui: ProcessProxy = ProcessProxy(PROCESS_GUI)
+Io: ProcessProxy = ProcessProxy(PROCESS_IO)
+Worker: ProcessProxy = ProcessProxy(PROCESS_WORKER)
 
 
 def set_state(new_state: Enum):
@@ -146,7 +161,7 @@ def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
     """
     if not (isinstance(function, str)):
         function = function.__qualname__
-    send(process_name, definitions.Signal.rpc, function, *args, **kwargs)
+    send(process_name, Signal.rpc, function, *args, **kwargs)
 
 
 class Log:
@@ -162,3 +177,31 @@ class Control:
     General = None
     Recording = None
     Protocol = None
+
+
+def get_time():
+    return Process.global_t
+
+
+def camera_rpc(function, *args, **kwargs):
+    rpc(PROCESS_CAMERA, function, *args, **kwargs)
+
+
+def controller_rpc(function, *args, **kwargs):
+    rpc(PROCESS_CONTROLLER, function, *args, **kwargs)
+
+
+def display_rpc(function, *args, **kwargs):
+    rpc(PROCESS_DISPLAY, function, *args, **kwargs)
+
+
+def gui_rpc(function, *args, **kwargs):
+    rpc(PROCESS_GUI, function, *args, **kwargs)
+
+
+def worker_rpc(function, *args, **kwargs):
+    rpc(PROCESS_WORKER, function, *args, **kwargs)
+
+
+def io_rpc(function, *args, **kwargs):
+    rpc(PROCESS_IO, function, *args, **kwargs)

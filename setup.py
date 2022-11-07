@@ -6,7 +6,7 @@ with open('requirements.txt', 'r') as f:
 # Add wres~=1.0.3 for windows platform?
 
 # Add h5gview repository
-requirements.append('h5gview @ git+https://git@github.com/thladnik/h5gview.git')
+# requirements.append('h5gview @ git+https://git@github.com/thladnik/h5gview.git')
 
 setup(
     name='vxpy',

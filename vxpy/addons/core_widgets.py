@@ -288,6 +288,10 @@ class PlottingWindow(vxgui.WindowWidget):
 
     def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None):
 
+        if attr_name in self.cache:
+            log.warning(f'Tried to add buffer attribute "{attr_name}" again')
+            return
+
         if name is None:
             name = attr_name
 

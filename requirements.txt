@@ -12,3 +12,4 @@ pyyaml~=6.0
 qt_material~=2.10
 setuptools~=65.5.0
 deprecation~=2.1.0
+git+https://git@github.com/thladnik/h5gview@main

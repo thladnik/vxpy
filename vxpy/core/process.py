@@ -26,6 +26,7 @@ from typing import Any, Callable, List, Union
 
 from vispy import gloo
 
+import vxpy.core.ipc
 from vxpy import api
 from vxpy import config
 import vxpy.core.attribute as vxattribute
@@ -70,7 +71,7 @@ class AbstractProcess:
     _protocolized: List[str] = [PROCESS_CAMERA, PROCESS_DISPLAY, PROCESS_IO, PROCESS_WORKER]
 
     _routines: Dict[str, Dict[str, vxroutine.Routine]] = dict()
-    file_container: Union[None, h5py.File, vxcontainer.NpBufferedH5File, vxcontainer.H5File] = None
+    file_container: Union[None, vxcontainer.H5File] = None
     record_group: int = -1
     compression_args: Dict[str, Any] = dict()
 
@@ -141,7 +142,7 @@ class AbstractProcess:
                     _routine._connect_triggers(_routines)
                     _routine.initialize()
 
-                    for fun in _routine.exposed:
+                    for fun in _routine._callbacks:
 
                         try:
                             self.register_rpc_callback(_routine, fun.__qualname__, fun)
@@ -164,6 +165,19 @@ class AbstractProcess:
 
         self.local_t: float = time.perf_counter()
         self.global_t: float = 0.
+        self.loop_times: List[float] = [time.perf_counter()]
+
+    def _keep_time(self, target_interval):
+        self.loop_times.append(time.perf_counter())
+        if (self.loop_times[-1] - self.loop_times[0]) > 1.:
+            dt = np.diff(self.loop_times)
+            mean_dt = np.mean(dt)
+            std_dt = np.std(dt)
+            # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
+            self.loop_times = [self.loop_times[-1]]
+            # print(f'{self.name} says {self.t}')
+            vxpy.core.ipc.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval,
+                                  self.name, target_interval, mean_dt, std_dt, _send_verbosely=False)
 
     def run(self, interval):
         self.interval = interval
@@ -177,24 +191,15 @@ class AbstractProcess:
         vxipc.set_state(State.IDLE)
 
         min_sleep_time = vxipc.Control.General[GenCtrl.min_sleep_time]
-        self.tt = [time.perf_counter()]
         # Run event loop
         while self._is_running():
             self._handle_inbox()
-            self._handle_protocol()
 
             self._open_file()
 
-            self.tt.append(time.perf_counter())
-            if (self.tt[-1] - self.tt[0]) > 1.:
-                dt = np.diff(self.tt)
-                mdt = np.mean(dt)
-                sdt = np.std(dt)
-                # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
-                self.tt = [self.tt[-1]]
-                # print(f'{self.name} says {self.t}')
-                api.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval, self.name, interval, mdt, sdt,
-                            _send_verbosely=False)
+            self._handle_protocol()
+
+            self._keep_time(interval)
 
             # Wait until interval time is up
             dt = (self.local_t + interval) - time.perf_counter()
@@ -242,11 +247,23 @@ class AbstractProcess:
             # Controller should abort this
             return
 
+        # Make sure recording is running
+        # self._open_file()
+
         # Instantiate protocol
         self.current_protocol = _protocol()
 
         # Call implemented preparation function of module
         self.prepare_protocol()
+
+        # Let file container know that protocol was started
+        self.file_container.start_protocol()
+        protocol_attributes = {'__protocol_module': self.current_protocol.__class__.__module__,
+                               '__protocol_name': self.current_protocol.__class__.__qualname__,
+                               '__start_time': vxipc.get_time(),
+                               '__target_phase_count': self.current_protocol.phase_count}
+
+        self.file_container.add_protocol_attributes(protocol_attributes)
 
         # Set next state
         self.set_state(State.WAIT_FOR_PHASE)
@@ -318,7 +335,11 @@ class AbstractProcess:
             # If phase stoptime is exceeded: end phase
             phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
             if phase_stop is not None and phase_stop < time.time():
-                self.set_record_group_attrs({'end_time': api.get_time()})
+                phase_attributes = {'end_time': vxpy.core.ipc.get_time()}
+                # Leave this for compat (for now) # TODO: remove
+                self.set_record_group_attrs(phase_attributes)
+                # Add attributes with double underscores
+                self.set_record_group_attrs({f'__{key}': val for key, val in phase_attributes.items()})
 
                 # Call implementation of end_phase
                 self.end_protocol_phase()
@@ -639,29 +660,30 @@ class AbstractProcess:
                 continue
 
             path = f'{self.record_group_name}/{attr.name}'
-            self._create_dataset(path, attr.shape, attr.dtype[1])
+            self._create_dataset(path, attr.shape, attr.numpytype[1])
             self._create_dataset(f'{path}_time', (1,), np.float64)
 
     def _open_file(self) -> bool:
         """Check if output file should be open and open one if it should be, but isn't.
         """
 
-        if not (vxipc.Control.Recording[RecCtrl.active]):
+        if not vxipc.Control.Recording[RecCtrl.active]:
             return True
 
         if self.file_container is not None:
             return True
 
-        if not (bool(vxipc.Control.Recording[RecCtrl.folder])):
+        if not bool(vxipc.Control.Recording[RecCtrl.folder]):
             log.warning('Recording has been started but output folder is not set.')
             return False
 
         # If output folder is set: open file
-        filepath = os.path.join(config.CONF_REC_OUTPUT_FOLDER, vxipc.Control.Recording[RecCtrl.folder], f'{self.name}.hdf5')
+        filepath = os.path.join(config.CONF_REC_OUTPUT_FOLDER,
+                                vxipc.Control.Recording[RecCtrl.folder],
+                                f'{self.name}.hdf5')
 
         # Open new file
         log.debug(f'Open new file {filepath}')
-        # self.file_container = container.NpBufferedH5File(filepath, 'w')
         self.file_container = vxcontainer.H5File(filepath, 'a')
         self._create_dataset('record_group_id', (1,), np.int32)
 
@@ -720,26 +742,3 @@ class AbstractProcess:
     def handle_SIGINT(self, sig, frame):
         print(f'> SIGINT handled in  {self.__class__}')
         sys.exit(0)
-
-
-class ProcessProxy:
-    def __init__(self, name):
-        self.name = name
-        self._state: mp.Value = getattr(vxipc.State, self.name)
-
-    @property
-    def state(self):
-        return self._state.value
-
-    def in_state(self, state):
-        return self.state == state
-
-    def rpc(self, function: Callable, *args, **kwargs) -> None:
-        """Send a remote procedure call of given function to another modules.
-
-        @param process_name:
-        @param function:
-        @param args:
-        @param kwargs:
-        """
-        vxipc.rpc(self.name, function, *args, **kwargs)

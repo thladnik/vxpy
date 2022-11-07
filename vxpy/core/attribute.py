@@ -22,7 +22,7 @@ import multiprocessing as mp
 import numpy as np
 from typing import Any, Dict, Iterable, Iterator, List, Tuple, Union
 
-from vxpy import definitions
+from vxpy.definitions import *
 from vxpy import config
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
@@ -58,7 +58,7 @@ def build_attributes(attrs: Dict[str, Attribute]) -> None:
 
 def match_to_record_attributes(attr_name: str) -> Tuple[int, bool]:
     """Method matches a given attribute name to a list of attribute name templates to determine whether
-     or not the attribute should be included for recording to file"""
+     the attribute should be included for recording to file"""
     attribute_filters = config.CONF_REC_ATTRIBUTES
 
     matched = False
@@ -136,7 +136,8 @@ def get_attribute_list() -> List[Tuple[str, Attribute]]:
 
 
 def get_attribute(attr_name: str) -> Union[Attribute, None]:
-    """Method returns an attribute with the given name or None if attribute does not exist"""
+    """Method returns an attribute with the given name or None if attribute does not exist
+    """
     if attr_name not in Attribute.all:
         return None
 
@@ -144,7 +145,8 @@ def get_attribute(attr_name: str) -> Union[Attribute, None]:
 
 
 def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
-    """Method returns a list of all attributes that are marked to be saved to file"""
+    """Method returns a list of all attributes that are marked to be saved to file
+    """
     if process_name is None:
         process_name = vxipc.Process.name
 
@@ -155,8 +157,15 @@ def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
 
 
 def get_permanent_data(process_name: str = None) -> Iterator[Tuple[str, Any]]:
-    """Method returns all newly added attribute data to be written to file
-    as a tuple of {attrname, attrvalue) for the specified process"""
+    """Returns all newly added attribute data to be written to file
+    for the specified process.
+
+    :param process_name: Name of process for which to return data
+    :type process_name: str, optional
+
+    :return A
+    :rtype Iterator[Tuple[str, Any]
+    """
     for attribute in get_permanent_attributes(process_name):
         if attribute.has_new_entry():
             # Yield attribute data and time
@@ -167,28 +176,41 @@ def get_permanent_data(process_name: str = None) -> Iterator[Tuple[str, Any]]:
 
 
 class Attribute(ABC):
-    """Attribute base class at the core of vxPy's data management structure. Attributes are, by default,
-    shared and synchronized across all different modules. They are written to (filled with data) by one particular
-    module (producer module) and can be read by all other modules (consumer modules)."""
+    """Abstract Attribute class at the core of vxPy's data management structure.
+    Attributes act as ring buffers and are, by default, shared and synchronized
+    across all different modules.
+    They are written to by one particular module (producer module)
+    and can be read by all modules (consumer modules, including producer).
+
+    :param name: Name of the attribute. Must be unique in the
+        current instance of vxPy
+    :type name: str
+    :param length: Length of the ring buffer
+    :type length: int, optional
+    """
 
     all: Dict[str, Attribute] = {}
     to_file: Dict[str, List[Attribute]] = {}
     _instance: ArrayAttribute = None
 
-    def __init__(self, name: str, _length: int = None):
+    def __init__(self, name: str, length: int = None):
         assert name not in self.all, f'Duplicate attribute {name}'
         self.name = name
         Attribute.all[name] = self
 
-        self.shape: tuple = None
-        self._length = _length
+        self.shape: tuple = ()
+        self._length = length
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
         self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
 
+    @property
+    def length(self):
+        return self._length
+
     def _make_time(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
-        self._time: List[Union[float, None]] = vxipc.Manager.list([None] * self._length)
+        self._time: List[Union[float, None]] = vxipc.Manager.list([None] * self.length)
 
     def _next(self):
         """Increment the (shared) current index value by one (only happens once per write operation)"""
@@ -241,7 +263,7 @@ class Attribute(ABC):
 
     def read(self, last: int = None, use_lock: bool = True, from_idx: int = None) -> Tuple[List[int], List[float], Any]:
         """Read datapoints from the buffer.
-        By default this returns the last written datapoint from the attribute buffer.
+        By default, this returns the last written datapoint from the attribute buffer.
         If from_idx is not None and a scalar integer value, this will return
         all datapoints from (but not including) from_idx. """
         if last is None:
@@ -280,7 +302,7 @@ class Attribute(ABC):
                         f'in process {vxipc.Process.name} during same iteration. '
                         f'Last={self._last_time} / Current={vxipc.Process.global_t}')
 
-        internal_idx = self.index % self._length
+        internal_idx = self.index % self.length
 
         # Set time for this entry
         self._time[internal_idx] = vxipc.Process.global_t
@@ -301,17 +323,17 @@ class Attribute(ABC):
         """Return the internal index range based on the specified 'last' number of datapoints in the attribute buffer"""
 
         # Make sure nothing weird is happening
-        assert last < self._length, 'Trying to read more values than stored in buffer'
+        assert last < self.length, 'Trying to read more values than stored in buffer'
         assert last >= 0, 'Trying to read negative number of entries from buffer'
 
         # Regular read: fetch some number of entries from buffer
         if last > 0:
-            internal_idx = self.index % self._length
+            internal_idx = self.index % self.length
             start_idx = internal_idx - last
         # Read current entry from buffer
         # (Should only be done in producer! In consumer the result is unpredictable)
         else:
-            internal_idx = (self.index + 1) % self._length
+            internal_idx = (self.index + 1) % self.length
             start_idx = internal_idx - 1
 
         # Return start and end of index range
@@ -343,17 +365,23 @@ class ArrayType:
 
 class ArrayAttribute(Attribute):
     """Array buffer attribute for synchronization of large datasets.
-
     Uses a shared array for fast read and write of large amounts of data.
 
-    Optionally supports chunking of buffer into independent segments. This is especially
-    useful when long read operations are expected (e.g. when reading multiple frames of RGB video data),
-    as these tend to block writing by producer when use_lock=True is set.
+    Optionally supports chunking of buffer into independent segments. This is
+    particularly useful when long read operations are expected (e.g. when
+    reading multiple frames of RGB video data), as these tend to block writing
+    by producer when use_lock=True is set
 
-    :: size tuple of dimension size of the buffered array
-    :: dtype tuple with datatypes in c and numpy (ctype, np-type)
-    :: chunked bool which indicated whether chunking should be used
-    :: chunk_size (optional) int which specifies chunk size if chunked=True
+    :param shape: Tuple of dimension size of the buffered array
+    :type shape: tuple
+    :param dtype: Datatype of ArrayAttribute
+    :type dtype: class.`vxpy.core.attribute.ArrayType`
+    :param chunked: Flag to indicate whether chunking should be used
+    :type chunked: bool, optional
+    :param chunk_size: Length of chunks if chunked=True. If chunk_size is not
+        set, but chunked=True, chunk_size will be determined based on
+        dtype and length
+    :type chunk_size: int, optional
     """
 
     # TODO: chunked and un-chunked data structures can be unified (un-chunked attributes are chunked with chunk_num 1)
@@ -366,70 +394,76 @@ class ArrayAttribute(Attribute):
         assert isinstance(chunked, bool), 'chunked has to be bool'
         assert isinstance(chunk_size, int) or chunk_size is None, 'chunk_size must be int or None'
 
-        self._raw: List[mp.Array] = None
-        self._data: List[np.ndarray] = None
+        self._raw: List[mp.Array] = []
+        self._data: List[np.ndarray] = []
         self.shape = shape
-        self.dtype = dtype
+        self._dtype = dtype
         self._chunked = chunked
         self._chunk_size = chunk_size
         self._rising_edge_trigger_callbacks = vxipc.Manager.list([])
 
-        # By default, calculate _length based on data type, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
+        # By default, calculate length based on dtype, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
         max_multiplier = 1.
-        itemsize = np.dtype(self.dtype[1]).itemsize
+        itemsize = np.dtype(self._dtype[1]).itemsize
         attr_el_size = np.product(self.shape)
+
         # Significantly reduce max attribute buffer size in case element size is < 1KB
         if (itemsize * attr_el_size) < 10 ** 3:
             max_multiplier = 0.01
-        self._length = int(
-            (max_multiplier * definitions.DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
+
+        self._length = int((max_multiplier * DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
 
         if self._chunked and self._chunk_size is not None:
-            assert self._length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'
+            assert self.length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'
 
-        # Automatically determine chunk_size
-        if self._chunked and self._length < 10:
+        # Disable for short lengths
+        if self._chunked and self.length < 10:
             self._chunked = False
             log.warning('Automatic chunking disabled (auto)', 'Buffer length too small.')
 
         if self._chunked and self._chunk_size is None:
-            for s in range(self._length // 10, self._length):
-                if self._length % s == 0:
+            for s in range(self.length // 10, self.length):
+                if self.length % s == 0:
                     self._chunk_size = s
                     break
 
             if self._chunk_size is None:
-                self._chunk_size = self._length // 10
+                self._chunk_size = self.length // 10
                 self._length = 10 * self._chunk_size
                 log.warning('Unable to find suitable chunk size.',
-                            f'Resize buffer to match closest length. {self._chunk_size}/{self._length}')
+                            f'Resize buffer to match closest length. {self._chunk_size}/{self.length}')
 
         self._chunk_num = None
         if self._chunked:
             # This should be int
-            self._chunk_num = self._length // self._chunk_size
+            self._chunk_num = self.length // self._chunk_size
 
         # Init data structures
         if self._chunked:
             init = int(np.product((self._chunk_size,) + self.shape))
             self._raw = []
             for i in range(self._chunk_num):
-                self._raw.append(mp.Array(self.dtype[0], init))
+                self._raw.append(mp.Array(self._dtype[0], init))
             self._data = []
         else:
-            init = int(np.product((self._length,) + self.shape))
-            self._raw = mp.Array(self.dtype[0], init)
-            self._data = None
+            init = int(np.product((self.length,) + self.shape))
+            self._raw = mp.Array(self._dtype[0], init)
+            self._data = []
 
         # Create list with time points
         self._make_time()
 
-    # def add_rising_edge_trigger(self, process_name, fun):
-    #     self.
+    @property
+    def numpytype(self):
+        return self._dtype[1]
+
+    @property
+    def ctype(self):
+        return self._dtype[0]
 
     def _build_array(self, raw: mp.Array, length: int) -> np.ndarray:
         """Create the numpy array from the ctype array object and reshape to fit"""
-        np_array = np.frombuffer(raw.get_obj(), self.dtype[1])
+        np_array = np.frombuffer(raw.get_obj(), self._dtype[1])
         return np_array.reshape((length,) + self.shape)
 
     def _get_lock(self, chunk_idx: int, use_lock: bool) -> mp.Lock:
@@ -451,7 +485,7 @@ class ArrayAttribute(Attribute):
             for raw in self._raw:
                 self._data.append(self._build_array(raw, self._chunk_size))
         else:
-            self._data = self._build_array(self._raw, self._length)
+            self._data = self._build_array(self._raw, self.length)
 
     def _read(self, start_idx, end_idx, use_lock) -> np.ndarray:
         """Read method of ArrayAttribute.
@@ -523,7 +557,7 @@ class ObjectAttribute(Attribute):
         self.shape = (None,)
 
         # Create shared list
-        self._data = vxipc.Manager.list([None] * self._length)
+        self._data = vxipc.Manager.list([None] * self.length)
 
         # Create list with time points
         self._make_time()

@@ -17,6 +17,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
+from typing import Callable, List
+
 from deprecation import deprecated
 
 from vxpy.definitions import *
@@ -32,6 +34,7 @@ class Routine(ABC):
 
     name: str = None
     _instance: Routine = None
+    _callbacks: List[Callable] = None
 
     def __init__(self, *args, **kwargs):
         self._triggers = dict()
@@ -39,7 +42,8 @@ class Routine(ABC):
         self._trigger_callbacks = dict()
 
         # List of methods open to rpc calls
-        self.exposed = []
+        if self._callbacks is None:
+            self._callbacks = []
 
     def __new__(cls, *args, **kwargs):
         """Ensure each routine can only be used as Singleton"""
@@ -47,6 +51,18 @@ class Routine(ABC):
             cls._instance = super(Routine, cls).__new__(cls)
 
         return cls._instance
+
+    @classmethod
+    def callback(cls, fun: Callable):
+        if cls._callbacks is None:
+            cls._callbacks = []
+
+        if fun in cls._callbacks:
+            return
+
+        cls._callbacks.append(fun)
+
+        return fun
 
     @classmethod
     def require(cls):
@@ -78,7 +94,7 @@ class Routine(ABC):
             log.warning(f'Cannot emit trigger "{trigger_name}". Does not exist.')
 
     def connect_to_trigger(self, trigger_name, routine, callback):
-        self.exposed.append(callback)
+        self._callbacks.append(callback)
 
         if routine.name not in self._trigger_callbacks:
             self._trigger_callbacks[routine.name] = dict()

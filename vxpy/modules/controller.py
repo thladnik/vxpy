@@ -30,7 +30,7 @@ from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
 from vxpy import modules
-from vxpy.api import gui_rpc
+from vxpy.core.ipc import gui_rpc
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import process, ipc, logger
 from vxpy.core import routine
@@ -64,14 +64,14 @@ class Controller(process.AbstractProcess):
         # Manually set up pipe for controller
         ipc.Pipes[self.name] = mp.Pipe()
 
-        # Set up modules proxies (TODO: get rid of IPC.State)
-        _proxies = {
-            PROCESS_CONTROLLER: process.ProcessProxy(PROCESS_CONTROLLER),
-            PROCESS_CAMERA: process.ProcessProxy(PROCESS_CAMERA),
-            PROCESS_DISPLAY: process.ProcessProxy(PROCESS_DISPLAY),
-            PROCESS_GUI: process.ProcessProxy(PROCESS_GUI),
-            PROCESS_IO: process.ProcessProxy(PROCESS_IO),
-        }
+        # # Set up modules proxies (TODO: get rid of IPC.State)
+        # _proxies = {
+        #     PROCESS_CONTROLLER: process.ProcessProxy(PROCESS_CONTROLLER),
+        #     PROCESS_CAMERA: process.ProcessProxy(PROCESS_CAMERA),
+        #     PROCESS_DISPLAY: process.ProcessProxy(PROCESS_DISPLAY),
+        #     PROCESS_GUI: process.ProcessProxy(PROCESS_GUI),
+        #     PROCESS_IO: process.ProcessProxy(PROCESS_IO),
+        # }
 
         # Set up STATES
         ipc.State.Controller = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
@@ -91,7 +91,7 @@ class Controller(process.AbstractProcess):
             pngpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.png')
 
             # Optionally re-render splash
-            # self._render_splashscreen(pngpath)
+            self._render_splashscreen(pngpath)
 
             self.splashscreen = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint,
                                                         screen=self.qt_app.screens()[config.CONF_GUI_SCREEN])
@@ -220,7 +220,7 @@ class Controller(process.AbstractProcess):
             _states={k: v for k, v
                      in ipc.State.__dict__.items()
                      if not (k.startswith('_'))},
-            _proxies=_proxies,
+            # _proxies=_proxies,
             _routines=self._routines,
             _controls={k: v for k, v
                        in ipc.Control.__dict__.items()
@@ -400,11 +400,11 @@ class Controller(process.AbstractProcess):
 
     def run_protocol(self, protocol_path):
         # If any relevant subprocesses are currently busy: abort
-        if not (self.in_state(definitions.State.IDLE, PROCESS_DISPLAY)):
+        if not (self.in_state(State.IDLE, PROCESS_DISPLAY)):
             processes = list()
-            if not (self.in_state(definitions.State.IDLE, PROCESS_DISPLAY)):
+            if not (self.in_state(State.IDLE, PROCESS_DISPLAY)):
                 processes.append(PROCESS_DISPLAY)
-            if not (self.in_state(definitions.State.IDLE, PROCESS_IO)):
+            if not (self.in_state(State.IDLE, PROCESS_IO)):
                 processes.append(PROCESS_IO)
 
             log.warning('One or more processes currently busy. Can not start new protocol.'
@@ -412,17 +412,16 @@ class Controller(process.AbstractProcess):
             return
 
         # Start recording if enabled; abort if recording can't be started
-        if ipc.Control.Recording[definitions.RecCtrl.enabled] \
-                and not (ipc.Control.Recording[definitions.RecCtrl.active]):
+        if ipc.Control.Recording[RecCtrl.enabled] and not ipc.Control.Recording[RecCtrl.active]:
             if not self.start_recording():
                 return
 
         # Set phase info
-        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = None
-        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
-        ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = None
+        ipc.Control.Protocol[ProtocolCtrl.phase_id] = None
+        ipc.Control.Protocol[ProtocolCtrl.phase_start] = None
+        ipc.Control.Protocol[ProtocolCtrl.phase_stop] = None
         # Set protocol class path
-        ipc.Control.Protocol[definitions.ProtocolCtrl.name] = protocol_path
+        ipc.Control.Protocol[ProtocolCtrl.name] = protocol_path
 
         # Go into PREPARE_PROTOCOL
         self.set_state(State.PREPARE_PROTOCOL)
@@ -645,11 +644,11 @@ class Controller(process.AbstractProcess):
             ipc.send(process_name, definitions.Signal.shutdown)
 
     @staticmethod
-    def _render_splashscreen(self, pngpath: str) -> None:
+    def _render_splashscreen(pngpath: str) -> None:
         # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
         iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
         renderer = QtSvg.QSvgRenderer(iconpath)
-        image = QtGui.QImage(512, 512, QtGui.QImage.Format.Format_RGBA64)
+        image = QtGui.QImage(256, 256, QtGui.QImage.Format.Format_RGBA64)
         painter = QtGui.QPainter(image)
         image.fill(QtGui.QColor(0, 0, 0, 0))
         renderer.render(painter)

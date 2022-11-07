@@ -18,6 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 
 import vxpy.api as vxapi
+import vxpy.core.ipc
 from vxpy.core.io import set_digital_output
 from vxpy.api.routine import IoRoutine
 import vxpy.api.attribute as vxattribute
@@ -51,7 +52,7 @@ class WriteRandoms(IoRoutine):
         set_digital_output('ch_do01', self.attr_name_poisson)
 
     def main(self, *args, **kwargs):
-        t = vxapi.get_time()
+        t = vxpy.core.ipc.get_time()
 
         # Update sawtooth
         sawtooth = - 2. / np.pi * np.arctan(1. / np.tan(np.pi * t / 2.))
@@ -89,7 +90,7 @@ class OnOff(IoRoutine):
         set_digital_output('onoff_out', self.attr_name)
 
     def main(self, *args, **kwargs):
-        t = vxapi.get_time()
+        t = vxpy.core.ipc.get_time()
         sig = int(t / 2) % 2
         vxattribute.get_attribute(self.attr_name).write(sig)
 
@@ -121,5 +122,5 @@ class SinesAddedWhiteNoise(IoRoutine):
     def main(self, *args, **kwargs):
         y = np.random.normal()
         for p, f in zip(self.phases, self.frequencies):
-            y += np.sin(vxapi.get_time() * 2 * np.pi * f + p * f) / 5
+            y += np.sin(vxpy.core.ipc.get_time() * 2 * np.pi * f + p * f) / 5
         vxattribute.get_attribute(self.attr_name).write(y)
