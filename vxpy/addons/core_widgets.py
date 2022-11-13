@@ -446,7 +446,6 @@ class RecordingWidget(vxgui.IntegratedWidget):
         self.folder_wdgt_width = 300
         self.notebook_width = 300
         self.setFixedWidth(400)
-        self.setCheckable(True)
 
         # Create folder widget and add to widget
         self.folder_wdgt = QtWidgets.QWidget()
@@ -530,11 +529,11 @@ class RecordingWidget(vxgui.IntegratedWidget):
 
     @staticmethod
     def open_base_folder():
-        output_path = os.path.abspath(config.CONF_REC_OUTPUT_FOLDER)
+        output_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
 
     def show_lab_notebook(self):
-        self.lab_nb_folder = os.path.join(config.CONF_REC_OUTPUT_FOLDER, vxipc.Control.Recording[RecCtrl.folder])
+        self.lab_nb_folder = os.path.join(vxipc.CONTROL[CTRL_REC_BASE_PATH], vxipc.CONTROL[CTRL_REC_FLDNAME])
         self.lab_notebook.setEnabled(True)
 
     def close_lab_notebook(self):
@@ -551,28 +550,28 @@ class RecordingWidget(vxgui.IntegratedWidget):
     def set_recording_folder(self):
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_recording_folder, self.rec_folder.text())
 
-    @staticmethod
-    def start_recording():
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_manual_recording)
+    def start_recording(self):
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_recording)
 
     @staticmethod
     def pause_recording():
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.pause_recording)
+        pass
+        # vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.pause_recording)
 
     @staticmethod
     def finalize_recording():
-        # First: pause recording
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.pause_recording)
+        # # First: pause recording
+        # vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.pause_recording)
 
         # Finally: stop recording
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.stop_manual_recording)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.stop_recording)
 
     @staticmethod
     def toggle_enable(newstate):
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_enable_recording, newstate)
 
     def _open_last_recording(self):
-        base_path = os.path.abspath(config.CONF_REC_OUTPUT_FOLDER)
+        base_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
         recording_list = []
         for s in os.listdir(base_path):
             rec_path = os.path.join(base_path, s)
@@ -594,45 +593,42 @@ class RecordingWidget(vxgui.IntegratedWidget):
         """(Periodically) update UI based on shared configuration"""
 
         # Get states
-        enabled = vxipc.Control.Recording[RecCtrl.enabled]
-        active = vxipc.Control.Recording[RecCtrl.active]
-        current_folder = vxipc.Control.Recording[RecCtrl.folder]
+        enabled = True
+        rec_active = vxipc.CONTROL[CTRL_REC_ACTIVE]
+        base_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
+        current_folder = vxipc.CONTROL[CTRL_REC_FLDNAME]
+        protocol_active = vxipc.CONTROL[CTRL_PRCL_ACTIVE]
 
         # Make these calls a bit more economical
-        state = (enabled, active, current_folder)
+        state = (enabled, rec_active, current_folder, protocol_active, base_path)
         if state == self.ui_state:
             return
         self.ui_state = state
 
-        if active and enabled:
+        if rec_active and enabled:
             self.setStyleSheet('QGroupBox#RecordingWidgetComboBox{border: 4px solid red;}')
         else:
             self.setStyleSheet('QGroupBox#RecordingWidgetComboBox{}')
 
         # Set enabled
-        self.setCheckable(not active and not bool(current_folder))
+        self.setCheckable(not rec_active and not bool(current_folder))
         self.setChecked(enabled)
 
         # Base folder
-        self.base_folder.setText(config.CONF_REC_OUTPUT_FOLDER)
+        self.base_folder.setText(base_path)
 
         # Recording folder
-        self.rec_folder.setText(vxipc.Control.Recording[RecCtrl.folder])
-        self.rec_folder.setReadOnly(active)
+        self.rec_folder.setText(current_folder)
+        self.rec_folder.setReadOnly(rec_active)
 
         # Buttons
         # Start
-        self.btn_start.setEnabled(not active and enabled)
-        # self.btn_start.setText('Start' if vxipc.in_state(State.IDLE, PROCESS_CONTROLLER) else 'Resume')
+        self.btn_start.setEnabled(not rec_active and enabled)
         self.btn_pause.setEnabled(False)
         # Stop
-        self.btn_stop.setEnabled(active and enabled and not bool(vxipc.Control.Protocol[ProtocolCtrl.name]))
-        # Overwrite stop button during protocol
-        # if bool(vxipc.Control.Protocol[ProtocolCtrl.name]):
-        #     self.btn_stop.setEnabled(False)
+        self.btn_stop.setEnabled(rec_active and enabled and not protocol_active)
 
-        self.btn_open_recording.setEnabled(
-            bool(os.listdir(os.path.abspath(config.CONF_REC_OUTPUT_FOLDER))) and not active)
+        self.btn_open_recording.setEnabled(bool(os.listdir(base_path)) and not rec_active)
 
 
 class RecordingSettings(QtWidgets.QWidget):
@@ -970,11 +966,8 @@ class Protocols(vxgui.IntegratedWidget):
         protocol_path = self.protocol_list.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
         self.current_protocol = vxprotocol.get_protocol(protocol_path)()
 
-        # Start recording
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_recording)
-
         # Start protocol
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.run_protocol, protocol_path)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_protocol, protocol_path)
 
     def abort_protocol(self):
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.abort_protocol)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.stop_protocol)

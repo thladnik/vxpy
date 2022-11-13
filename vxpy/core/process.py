@@ -16,6 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
+import os
+
 import h5py
 import multiprocessing as mp
 import numpy as np
@@ -27,7 +30,6 @@ from typing import Any, Callable, List, Union
 from vispy import gloo
 
 import vxpy.core.ipc
-from vxpy import api
 from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.calibration as vxcalib
@@ -39,7 +41,7 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
 from vxpy.definitions import *
-from vxpy.addons import core_widgets
+# from vxpy.addons import core_widgets
 
 log = vxlogger.getLogger(__name__)
 
@@ -79,6 +81,7 @@ class AbstractProcess:
                  _program_start_time=None,
                  _configuration_path=None,
                  _controls=None,
+                 _control=None,
                  _log=None,
                  _proxies=None,
                  _pipes=None,
@@ -113,8 +116,11 @@ class AbstractProcess:
 
         # Set controls
         if _controls is not None:
-            for ckey, control in _controls.items():
-                setattr(vxipc.Control, ckey, control)
+            for ckey, ctrl in _controls.items():
+                setattr(vxipc.Control, ckey, ctrl)
+
+        if _control is not None:
+            setattr(vxipc, 'CONTROL', _control)
 
         if _proxies is not None:
             for pkey, proxy in _proxies.items():
@@ -161,7 +167,7 @@ class AbstractProcess:
             vxipc.set_state(State.STARTING)
 
         # Bind signals
-        signal.signal(signal.SIGINT, self.handle_SIGINT)
+        signal.signal(signal.SIGINT, self.handle_sigint)
 
         self.local_t: float = time.perf_counter()
         self.global_t: float = 0.
@@ -176,10 +182,23 @@ class AbstractProcess:
             # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
             self.loop_times = [self.loop_times[-1]]
             # print(f'{self.name} says {self.t}')
-            vxpy.core.ipc.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval,
-                                  self.name, target_interval, mean_dt, std_dt, _send_verbosely=False)
+            # vxpy.core.ipc.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval,
+            #                       self.name, target_interval, mean_dt, std_dt, _send_verbosely=False)
 
-    def run(self, interval):
+    def run(self, interval: float, enable_idle_timeout: bool = True):
+        """Event loop of process.
+        Event loop logic:
+        ---
+
+        ---
+
+        :param interval: Interval (in seconds) of this process' event loop
+        :type interval: float
+        :param enable_idle_timeout: Flag determines whether to allow sleep during idle times
+        :type enable_idle_timeout: bool
+        :return: None
+        """
+
         self.interval = interval
         log.info(f'Process {self.name} started')
 
@@ -188,7 +207,7 @@ class AbstractProcess:
         self._shutdown = False
 
         # Set modules state
-        vxipc.set_state(State.IDLE)
+        vxipc.set_state(STATE.IDLE)
 
         min_sleep_time = vxipc.Control.General[GenCtrl.min_sleep_time]
         # Run event loop
@@ -197,7 +216,7 @@ class AbstractProcess:
 
             self._open_file()
 
-            self._handle_protocol()
+            self._eval_state()
 
             self._keep_time(interval)
 
@@ -205,7 +224,7 @@ class AbstractProcess:
             dt = (self.local_t + interval) - time.perf_counter()
             if self.enable_idle_timeout and dt > (1.2 * min_sleep_time):
                 # Sleep to reduce CPU usage
-                time.sleep(dt / 1.2)
+                time.sleep(0.9 * dt)
 
             # Busy loop until next main execution for precise timing
             # while self.t + interval - time.perf_counter() >= 0:
@@ -218,9 +237,10 @@ class AbstractProcess:
             # Set new global time
             self.global_t = time.time() - self.program_start_time
 
-            # Add record group id
-            self._append_to_dataset('record_group_id', vxipc.Control.Recording[RecCtrl.record_group_counter])
-            self._append_to_dataset('global_time', self.global_t)
+            # Add record_group_id aand corresponding global time if anything is to be written to file from this process
+            if len(vxattribute.Attribute.to_file) > 0:
+                self._append_to_dataset('record_group_id', vxipc.Control.Recording[RecCtrl.record_group_counter])
+                self._append_to_dataset('global_time', self.global_t)
 
             # Process triggers
             for trigger in vxevent.Trigger.all:
@@ -233,8 +253,7 @@ class AbstractProcess:
 
     def main(self):
         """Event loop to be re-implemented in subclass"""
-        raise NotImplementedError('Event loop of modules base class is not implemented in {}.'
-                                  .format(self.name))
+        raise NotImplementedError(f'Event loop of modules base class is not implemented in {self.name}.')
 
     ################################
     # PROTOCOL RESPONSE
@@ -318,7 +337,64 @@ class AbstractProcess:
         """Method is called after the last phase at the end of the protocol."""
         pass
 
-    def _handle_protocol(self):
+    def _start_recording(self):
+        # DO START RECORDING STUFF
+        log.debug(f'Start recording to {vxipc.get_recording_path()}')
+
+        # AND THEN, SWITCH STATE
+        vxipc.set_state(STATE.REC_STARTED)
+
+    def _stop_recording(self):
+        # DO START RECORDING STUFF
+        log.debug(f'Stop recording to {vxipc.get_recording_path()}')
+
+        # AND THEN, SWITCH STATE
+        vxipc.set_state(STATE.REC_STOPPED)
+
+    def _start_protocol(self):
+        vxipc.set_state(STATE.PRCL_STARTED)
+
+    def _stop_protocol(self):
+        vxipc.set_state(STATE.PRCL_STOPPED)
+
+    def _eval_state(self):
+
+        # Controller is in idle
+        if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
+            # TODO: Check different transition conditions based on CURRENT fork state
+            #  i.e. are cleanups needed after protocol/abort
+            #       do file handles need to be closed after recording
+            #       etc...
+
+            # Ultimately, go into idle too
+            if not vxipc.in_state(STATE.IDLE):
+                vxipc.set_state(STATE.IDLE)
+
+        # Controller has started a recording
+        elif vxipc.in_state(STATE.REC_START, PROCESS_CONTROLLER):
+            # If fork hasn't reacted yet, do it
+            if not vxipc.in_state(STATE.REC_STARTED):
+                self._start_recording()
+
+        # Controller has stopped a recording
+        elif vxipc.in_state(STATE.REC_STOP, PROCESS_CONTROLLER):
+            # If fork hasn't reacted yet, do it
+            if not vxipc.in_state(STATE.REC_STOPPED):
+                self._stop_recording()
+
+        # Controller has started a protocol
+        elif vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
+            # If fork hasn't reacted yet, do it
+            if not vxipc.in_state(STATE.PRCL_STARTED):
+                self._start_protocol()
+
+        # Controller has stopped running protocol
+        elif vxipc.in_state(STATE.PRCL_STOP, PROCESS_CONTROLLER):
+            # If fork hasn't reacted yet, do it
+            if not vxipc.in_state(STATE.PRCL_STOPPED):
+                self._stop_protocol()
+
+    def _handle_protocol_old(self):
         """Method can be called by all processes that in some way respond to
         the protocol control states.
 
@@ -718,7 +794,7 @@ class AbstractProcess:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
 
-        if not (vxipc.Control.Recording[RecCtrl.active]) or self.file_container is None:
+        if not vxipc.Control.Recording[RecCtrl.active] or self.file_container is None:
             return
 
         # Write attributes to file
@@ -733,12 +809,15 @@ class AbstractProcess:
 
             path = f'{self.record_group_name}/{attr_name}'
             self._append_to_dataset(path, attr_data)
+            # Keep for now for compatibility
             self._append_to_dataset(f'{path}_attr_time', attr_time)
+            # New version: double leading underscores
+            self._append_to_dataset(f'__attr_time_{path}', attr_time)
 
     @property
     def routines(self):
         return self._routines
 
-    def handle_SIGINT(self, sig, frame):
+    def handle_sigint(self, sig, frame):
         print(f'> SIGINT handled in  {self.__class__}')
         sys.exit(0)

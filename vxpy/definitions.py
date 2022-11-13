@@ -35,6 +35,7 @@ class EnvTypes(Enum):
 
 Env = EnvTypes.DEV
 
+# Default paths
 PATH_PACKAGE = 'vxpy'
 PATH_CONFIG = 'configurations'
 PATH_GUI = 'addons'
@@ -50,6 +51,7 @@ PATH_ROUTINES = 'routines'
 PATH_SHADERS = 'shaders'
 PATH_TASKS = 'tasks'
 
+# Process names
 PROCESS_CAMERA = 'Camera'
 PROCESS_CONTROLLER = 'Controller'
 PROCESS_DISPLAY = 'Display'
@@ -57,6 +59,7 @@ PROCESS_GUI = 'Gui'
 PROCESS_IO = 'Io'
 PROCESS_WORKER = 'Worker'
 
+# Setup commands
 CMD_PATCHDIR = 'patchdir'
 CMD_SETUP = 'setup'
 CMD_GETSAMPLES = 'getsamples'
@@ -64,8 +67,34 @@ CMD_CONFIGURE = 'configure'
 CMD_CALIBRATE = 'calibrate'
 CMD_MIGRATE = 'migrate'
 CMD_HELP = 'help'
-
 CMD_MOD_NOSAMPLES = '--nosamples'
+
+# Controls
+CTRL_REC_ACTIVE = 'CTRL_REC_ACTIVE'
+CTRL_REC_BASE_PATH = 'CTRL_REC_BASE_PATH'
+CTRL_REC_FLDNAME = 'CTRL_REC_FLDNAME'
+CTRL_REC_GROUP_ID = 'CTRL_REC_GROUP_ID'
+CTRL_PRCL_ACTIVE = 'CTRL_PRCL_ACTIVE'
+CTRL_PRCL_IMPORTPATH = 'CTRL_PRCL_IMPORTPATH'
+CTRL_PRCL_TYPE = 'CTRL_PRCL_TYPE'
+CTRL_PRCL_PHASE_ID = 'CTRL_PRCL_PHASE_ID'
+
+
+class STATE(Enum):
+    IDLE = 1
+    REC_START_REQ = 10
+    REC_START = 11
+    REC_STARTED = 12
+    REC_STOP_REQ = 17
+    REC_STOP = 18
+    REC_STOPPED = 19
+    PRCL_START_REQ = 20
+    PRCL_START = 21
+    PRCL_STARTED = 22
+    PRCL_IN_PROGRESS = 23
+    PRCL_STOP_REQ = 27
+    PRCL_STOP = 28
+    PRCL_STOPPED = 29
 
 
 # Process states

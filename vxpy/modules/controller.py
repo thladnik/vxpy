@@ -23,21 +23,20 @@ import sys
 
 from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import vxpy
 from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
-from vxpy import modules
-from vxpy.core.ipc import gui_rpc
+import vxpy.modules as vxmodules
+import vxpy.core.ipc as vxipc
+import vxpy.core.protocol as vxprotocol
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import process, ipc, logger
 from vxpy.core import routine
 from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
-from vxpy.core.protocol import get_protocol
-from vxpy.addons import core_widgets
 
 log = logger.getLogger(__name__)
 
@@ -63,15 +62,6 @@ class Controller(process.AbstractProcess):
 
         # Manually set up pipe for controller
         ipc.Pipes[self.name] = mp.Pipe()
-
-        # # Set up modules proxies (TODO: get rid of IPC.State)
-        # _proxies = {
-        #     PROCESS_CONTROLLER: process.ProcessProxy(PROCESS_CONTROLLER),
-        #     PROCESS_CAMERA: process.ProcessProxy(PROCESS_CAMERA),
-        #     PROCESS_DISPLAY: process.ProcessProxy(PROCESS_DISPLAY),
-        #     PROCESS_GUI: process.ProcessProxy(PROCESS_GUI),
-        #     PROCESS_IO: process.ProcessProxy(PROCESS_IO),
-        # }
 
         # Set up STATES
         ipc.State.Controller = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
@@ -105,22 +95,22 @@ class Controller(process.AbstractProcess):
         _routines_to_load = dict()
         # Camera
         if config.CONF_CAMERA_USE:
-            self._register_process(modules.Camera)
+            self._register_process(vxmodules.Camera)
             _routines_to_load[PROCESS_CAMERA] = config.CONF_CAMERA_ROUTINES
         # Display
         if config.CONF_DISPLAY_USE:
-            self._register_process(modules.Display)
+            self._register_process(vxmodules.Display)
             _routines_to_load[PROCESS_DISPLAY] = config.CONF_DISPLAY_ROUTINES
         # GUI
         if config.CONF_GUI_USE:
-            self._register_process(modules.Gui)
+            self._register_process(vxmodules.Gui)
         # IO
         if config.CONF_IO_USE:
-            self._register_process(modules.Io)
+            self._register_process(vxmodules.Io)
             _routines_to_load[PROCESS_IO] = config.CONF_IO_ROUTINES
         # Worker
         if config.CONF_WORKER_USE:
-            self._register_process(modules.Worker)
+            self._register_process(vxmodules.Worker)
             _routines_to_load[PROCESS_WORKER] = config.CONF_WORKER_ROUTINES
 
         # Select subset of registered processes which should implement
@@ -175,6 +165,9 @@ class Controller(process.AbstractProcess):
                                                  ProtocolCtrl.phase_start: None,
                                                  ProtocolCtrl.phase_stop: None})
 
+        # NEW UNIFIED CONTROL:
+        vxipc.CONTROL = ipc.Manager.dict(self._shared_controls())
+
         # Set configured cameras
         if config.CONF_CAMERA_USE:
             for device_id in config.CONF_CAMERA_DEVICES:
@@ -225,6 +218,7 @@ class Controller(process.AbstractProcess):
             _controls={k: v for k, v
                        in ipc.Control.__dict__.items()
                        if not (k.startswith('_'))},
+            _control=vxipc.CONTROL,
             _log_queue=logger._log_queue,
             _log_history=logger.get_history(),
             _attrs=Attribute.all
@@ -235,10 +229,22 @@ class Controller(process.AbstractProcess):
             self.initialize_process(target, **kwargs)
 
         # Set up initial recording states
-        self.manual_recording = False
         self.set_compression_method(None)
         self.set_compression_opts(None)
         self.record_group_counter = -1
+
+    @staticmethod
+    def _shared_controls():
+        _controls = {CTRL_REC_ACTIVE: False,
+                     CTRL_REC_BASE_PATH: os.path.join(os.getcwd(), PATH_RECORDING_OUTPUT),
+                     CTRL_REC_FLDNAME: '',
+                     CTRL_REC_GROUP_ID: -1,
+                     CTRL_PRCL_ACTIVE: False,
+                     CTRL_PRCL_IMPORTPATH: '',
+                     CTRL_PRCL_TYPE: None,
+                     CTRL_PRCL_PHASE_ID: -1}
+
+        return _controls
 
     def _register_process(self, target, **kwargs):
         """Register new modules to be spawned.
@@ -309,23 +315,6 @@ class Controller(process.AbstractProcess):
 
         return 0
 
-    ################
-    # Recording
-
-    def start_manual_recording(self):
-        self.manual_recording = True
-        self.start_recording()
-
-    def stop_manual_recording(self):
-        self.manual_recording = False
-        self.stop_recording()
-
-    @staticmethod
-    def set_recording_folder(folder_name: str):
-        # TODO: checks
-        log.info(f'Set recording folder to {folder_name}')
-        ipc.Control.Recording[RecCtrl.folder] = folder_name
-
     @staticmethod
     def set_compression_method(method):
         ipc.Control.Recording[RecCtrl.compression_method] = method
@@ -341,80 +330,10 @@ class Controller(process.AbstractProcess):
         ipc.Control.Recording[RecCtrl.compression_opts] = opts
         log.info(f'Set compression options to {opts}')
 
-    @staticmethod
-    def set_enable_recording(newstate):
-        ipc.Control.Recording[RecCtrl.enabled] = newstate
-
-    def start_recording(self):
-        if ipc.Control.Recording[RecCtrl.active]:
-            log.warning('Tried to start new recording while active')
-            return False
-
-        if not ipc.Control.Recording[RecCtrl.enabled]:
-            log.warning('Recording not enabled. Session will not be saved to disk.')
-            return True
-
-        # Set current folder if none is given
-        if not bool(ipc.Control.Recording[RecCtrl.folder]):
-            ipc.Control.Recording[RecCtrl.folder] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
-
-            # Reset record group perf_counter
-            self.record_group_counter = -1
-
-        # Create output folder
-        rec_folder_path = os.path.join(config.CONF_REC_OUTPUT_FOLDER, ipc.Control.Recording[RecCtrl.folder])
-        log.debug(f'Set output folder {rec_folder_path}')
-        if not os.path.exists(rec_folder_path):
-            log.debug(f'Create output folder {rec_folder_path}')
-            os.mkdir(rec_folder_path)
-
-        # Set state to recording
-        log.info('Start recording')
-        ipc.Control.Recording[definitions.RecCtrl.active] = True
-
-        gui_rpc(core_widgets.RecordingWidget.show_lab_notebook)
-
-        return True
-
-    @staticmethod
-    def pause_recording():
-        if not ipc.Control.Recording[definitions.RecCtrl.active]:
-            log.warning('Tried to pause inactive recording.')
+    def run_protocol_old(self, protocol_path):
+        if not vxipc.in_state(STATE.IDLE):
+            log.error(f'Unable to start protocol {protocol_path}. Controller not ready.')
             return
-
-        log.info('Pause recording')
-        ipc.Control.Recording[definitions.RecCtrl.active] = False
-
-    def stop_recording(self, sessiondata=None):
-        if self.manual_recording:
-            return
-
-        if ipc.Control.Recording[definitions.RecCtrl.active]:
-            ipc.Control.Recording[definitions.RecCtrl.active] = False
-
-        gui_rpc(core_widgets.RecordingWidget.close_lab_notebook)
-
-        log.info('Stop recording')
-        self.set_state(definitions.State.IDLE)
-        ipc.Control.Recording[definitions.RecCtrl.folder] = ''
-
-    def run_protocol(self, protocol_path):
-        # If any relevant subprocesses are currently busy: abort
-        if not (self.in_state(State.IDLE, PROCESS_DISPLAY)):
-            processes = list()
-            if not (self.in_state(State.IDLE, PROCESS_DISPLAY)):
-                processes.append(PROCESS_DISPLAY)
-            if not (self.in_state(State.IDLE, PROCESS_IO)):
-                processes.append(PROCESS_IO)
-
-            log.warning('One or more processes currently busy. Can not start new protocol.'
-                        f'(Processes: {",".join(processes)}')
-            return
-
-        # Start recording if enabled; abort if recording can't be started
-        if ipc.Control.Recording[RecCtrl.enabled] and not ipc.Control.Recording[RecCtrl.active]:
-            if not self.start_recording():
-                return
 
         # Set phase info
         ipc.Control.Protocol[ProtocolCtrl.phase_id] = None
@@ -452,53 +371,266 @@ class Controller(process.AbstractProcess):
         self.record_group_counter += 1
         ipc.Control.Recording[RecCtrl.record_group_counter] = self.record_group_counter
 
-    def abort_protocol(self):
-        # TODO: handle stuff?
-        ipc.Control.Protocol[ProtocolCtrl.phase_stop] = time.time()
-        # self.set_state(State.PROTOCOL_ABORT)
-        self.set_state(State.PROTOCOL_END)
+    @staticmethod
+    def _handle_logging():
+        while not logger.get_queue().empty():
 
-    def _check_all_in_state(self, code: State):
+            # Fetch next record
+            record = logger.get_queue().get()
 
-        check = [ipc.in_state(code, pname) for pname in self._active_protocols]
+            try:
+                logger.add_to_file(record)
+                logger.add_to_history(record)
+            except Exception as exc:
+                import sys, traceback
+                print('Exception in Logger:', file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+
+    def _all_forks_in_state(self, code: Union[State, STATE]):
+
+        check = [vxipc.in_state(code, pname) for pname in self._active_protocols]
 
         return all(check)
 
-    # def main2(self):
-    #
-    #     # Handle log
-    #     while not logger.get_queue().empty():
-    #         # Fetch next record
-    #         record = logger.get_queue().get()
-    #
-    #         try:
-    #             logger.add_to_file(record)
-    #             logger.add_to_history(record)
-    #         except Exception:
-    #             import sys, traceback
-    #             print('Exception in Logger:', file=sys.stderr)
-    #             traceback.print_exc(file=sys.stderr)
-    #
-    #     # Was controller put into protocol-preparation state?
-    #     if self.in_state(State.PREPARE_PROTOCOL):
-    #         # Load and check protocol
-    #         protocol_path = ipc.Control.Protocol[ProtocolCtrl.name]
-    #         _protocol = get_protocol(protocol_path)
-    #         if _protocol is None:
-    #             log.error(f'Cannot get protocol {protocol_path}. Aborting ')
-    #             self.set_state(definitions.State.PROTOCOL_ABORT)
-    #             return
-    #
-    #         self.current_protocol = _protocol()
-    #
-    #         self.set_state(State.PROTOCOL_PREPARED)
-    #
-    #     # Has controller entered protocol-prepped state?
-    #     elif self.in_state(State.PROTOCOL_PREPARED):
-    #         if not self._check_all_in_state(State.PROTOCOL_PREPARED):
-    #             return
+    def _any_forks_in_state(self, code: Union[State, STATE]):
+
+        check = [vxipc.in_state(code, pname) for pname in self._active_protocols]
+
+        return any(check)
+
+    @staticmethod
+    def set_recording_path(path: str):
+        if not vxipc.in_state(STATE.IDLE):
+            log.warning(f'Failed to set new recording path to {path}. Controller busy.')
+            return
+
+        if vxipc.CONTROL[CTRL_REC_ACTIVE]:
+            log.warning(f'Failed to set new recording path to {path}. Recording active.')
+            return
+
+        if os.path.exists(path) and os.path.isfile(path):
+            log.warning(f'Failed to set new recording path to {path}. Path is existing file.')
+            return
+
+        log.info(f'Set new recording path to {path}')
+        if not os.path.exists(path):
+            log.info(f'Create new folder at {path}')
+            os.mkdir(path)
+
+        vxipc.CONTROL[CTRL_REC_BASE_PATH] = path
+
+    @staticmethod
+    def set_recording_folder(folder_name: str):
+        log.info(f'Set recording folder to {folder_name}')
+        vxipc.CONTROL[CTRL_REC_FLDNAME] = folder_name
+
+    def start_recording(self):
+        print('Controller was requested to start new recording')
+        vxipc.set_state(STATE.REC_START_REQ)
+
+    def stop_recording(self):
+        print('Controller was requested to stop recording')
+        vxipc.set_state(STATE.REC_STOP_REQ)
+
+    def _start_recording(self):
+
+        # Only start recording if all forks are in idle
+        if not self._all_forks_in_state(STATE.IDLE):
+            return
+
+        # If foldername hasn't been set yet, use default format
+        if vxipc.CONTROL[CTRL_REC_FLDNAME] == '':
+            vxipc.CONTROL[CTRL_REC_FLDNAME] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+            
+        # Check recording path
+        path = vxipc.get_recording_path()
+        if os.path.exists(path):
+            log.error(f'Unable to start new recording to path {path}. '
+                      f'Path already exists')
+
+            # Reset folder name
+            vxipc.CONTROL[CTRL_REC_FLDNAME] = ''
+
+            return
+
+        # Create output folder
+        log.debug(f'Create folder on path {path}')
+        os.mkdir(path)
+
+        # Set state to REC_START
+        log.info(f'Controller starts recording to {path}')
+        vxipc.set_state(STATE.REC_START)
+
+    def _started_recording(self):
+
+        if not self._all_forks_in_state(STATE.REC_STARTED):
+            return
+
+        log.debug('All forks confirmed start of recording. Set recording to active.')
+        vxipc.CONTROL[CTRL_REC_ACTIVE] = True
+
+        # If all forks have signalled REC_STARTED, return to idle
+        vxipc.set_state(STATE.IDLE)
+
+    def _stop_recording(self):
+        # DO RECORDING STARTING STUFF
+        log.info(f'Stop recording to {vxipc.get_recording_path()}')
+        vxipc.set_state(STATE.REC_STOP)
+
+    def _stopped_recording(self):
+
+        # Only stop recording if all forks are in REC_STOPPED
+        if not self._all_forks_in_state(STATE.REC_STOPPED):
+            return
+
+        log.debug('All forks confirmed stop of recording. Set recording to inactive.')
+        vxipc.CONTROL[CTRL_REC_ACTIVE] = False
+        vxipc.CONTROL[CTRL_REC_FLDNAME] = ''
+
+        # If all forks have signalled REC_STOPPED, return to IDLE
+        vxipc.set_state(STATE.IDLE)
+
+    def start_protocol(self, protocol_path: str):
+
+        log.debug(f'Protocol start requested for importpath {protocol_path}')
+        vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = protocol_path
+
+        # Set state to PRCL_START_REQ
+        vxipc.set_state(STATE.PRCL_START_REQ)
+
+    def stop_protocol(self):
+
+        if not vxipc.in_state(STATE.PRCL_IN_PROGRESS):
+            return
+
+        vxipc.set_state(STATE.PRCL_STOP_REQ)
+
+    def _start_protocol(self):
+        protocol = vxprotocol.get_protocol(vxipc.CONTROL[CTRL_PRCL_IMPORTPATH])
+
+        # Abort protocol start if protocol cannot be imported
+        if protocol is None:
+            log.error(f'Failed to import protocol from importpath {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}')
+            vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
+            vxipc.set_state(STATE.IDLE)
+            return
+
+        if issubclass(protocol, vxprotocol.StaticPhasicProtocol):
+            prcl_type = vxprotocol.StaticPhasicProtocol
+        elif issubclass(protocol, vxprotocol.ContinuousProtocol):
+            prcl_type = vxprotocol.ContinuousProtocol
+        elif issubclass(protocol, vxprotocol.TriggeredProtocol):
+            prcl_type = vxprotocol.TriggeredProtocol
+        else:
+            log.error(f'Failed to start protocol from importpath {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}. '
+                      f'Unknown type for protocol {protocol}')
+            vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
+            vxipc.set_state(STATE.IDLE)
+            return
+
+        vxipc.CONTROL[CTRL_PRCL_TYPE] = prcl_type
+
+        self.current_protocol = protocol()
+
+        # Set state to PRCL_START
+        vxipc.set_state(STATE.PRCL_START)
+
+    def _started_protocol(self):
+
+        # Only start protocol if all forks are in PRCL_STARTED
+        if not self._all_forks_in_state(STATE.PRCL_STARTED):
+            return
+
+        vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
+        vxipc.set_state(STATE.PRCL_IN_PROGRESS)
+
+    def _stop_protocol(self):
+        vxipc.set_state(STATE.PRCL_STOP)
+
+    def _stopped_protocol(self):
+
+        # Only return to idle if all forks are in PRCL_STOPPED
+        if not self._all_forks_in_state(STATE.PRCL_STOPPED):
+            return
+
+        vxipc.CONTROL[CTRL_PRCL_ACTIVE] = False
+        vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
+        vxipc.CONTROL[CTRL_PRCL_TYPE] = None
+        vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = -1
+
+        vxipc.set_state(STATE.IDLE)
+
+    def _process_static_phasic_protocol(self):
+        pass
 
     def main(self):
+        pass
+
+    def _eval_state(self):
+
+        # First, handle log
+        self._handle_logging()
+
+        # If in state IDLE, just do that
+        if vxipc.in_state(STATE.IDLE):
+            self.idle()
+
+        # Controller received request to start a recording
+        elif vxipc.in_state(STATE.REC_START_REQ):
+            self._start_recording()
+
+        # Controller started recording REC_START
+        # Waiting until all forks have gone to REC_STARTED
+        # Then return to IDLE
+        elif vxipc.in_state(STATE.REC_START):
+            self._started_recording()
+
+        # Controller received request to stop recording REC_STOP_REQ
+        # Evaluate and go to REC_STOP
+        elif vxipc.in_state(STATE.REC_STOP_REQ):
+            self._stop_recording()
+
+        # Controller stopped recording REC_STOP
+        # Waiting until all forks have gone to REC_STOPPED
+        # Then return to IDLE
+        elif vxipc.in_state(STATE.REC_STOP):
+            self._stopped_recording()
+
+        # Controller received request to start a protocol
+        # Evaluate and go to PRCL_START
+        elif vxipc.in_state(STATE.PRCL_START_REQ):
+            self._start_protocol()
+
+        # Controller started protocol
+        # Waiting until all forks have gone to PRCL_STARTED
+        # Then go to PRCL_IN_PROGRESS
+        elif vxipc.in_state(STATE.PRCL_START):
+            self._started_protocol()
+
+        # Controller has activated protocol
+        # While in PRCL_IN_PROGESS, choose appropriate method to process based on protocol type
+        elif vxipc.in_state(STATE.PRCL_IN_PROGRESS):
+            prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
+            if prcl_type == vxprotocol.StaticPhasicProtocol:
+                self._process_static_phasic_protocol()
+            elif prcl_type == vxprotocol.ContinuousProtocol:
+                pass
+            elif prcl_type == vxprotocol.TriggeredProtocol:
+                pass
+
+        # Controller received request to stop running protocol
+        # Evaluate and go to PRCL_STOP
+        elif vxipc.in_state(STATE.PRCL_STOP_REQ):
+            self._stop_protocol()
+
+        # Controller stopped protocol
+        # Waiting until all forks have gone to PRCL_STOPPED
+        # Then return to IDLE
+        elif vxipc.in_state(STATE.PRCL_STOP):
+            self._stopped_protocol()
+
+
+    def main_old(self):
 
         ########
         # First: handle log

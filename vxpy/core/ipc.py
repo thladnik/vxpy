@@ -21,8 +21,7 @@ from vxpy.core import logger
 from vxpy.definitions import *
 
 # Type hinting
-from typing import TYPE_CHECKING
-
+from typing import TYPE_CHECKING, Union, Any
 
 if TYPE_CHECKING:
     from typing import Callable, Dict, Tuple
@@ -77,7 +76,7 @@ Io: ProcessProxy = ProcessProxy(PROCESS_IO)
 Worker: ProcessProxy = ProcessProxy(PROCESS_WORKER)
 
 
-def set_state(new_state: Enum):
+def set_state(new_state: Union[State, STATE]):
     """Set state of local modules to new_state"""
     getattr(State, Process.name).value = new_state
 
@@ -93,7 +92,7 @@ def get_state(process_name: str = None):
     return getattr(State, process_name).value
 
 
-def in_state(state: State, process_name: str = None):
+def in_state(state: Union[State, STATE], process_name: str = None):
     """Check if modules is in the given state.
 
     By default, if process_name is None, the local modules's name is used
@@ -172,6 +171,13 @@ class Log:
 
 ########
 # Controls
+
+CONTROL: Dict[str, Any]
+
+
+def get_recording_path():
+    return os.path.join(CONTROL[CTRL_REC_BASE_PATH], CONTROL[CTRL_REC_FLDNAME])
+
 
 class Control:
     General = None

@@ -254,3 +254,10 @@ class StaticPhasicProtocol(AbstractProtocol):
             return self._phases[phase_id]
         return None
 
+
+class ContinuousProtocol(AbstractProtocol):
+    pass
+
+
+class TriggeredProtocol(AbstractProtocol):
+    pass
