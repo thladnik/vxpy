@@ -32,6 +32,20 @@ import vxpy.core.routine as vxroutine
 log = vxlogger.getLogger(__name__)
 
 
+def init(attrs: Dict[str, Attribute]) -> None:
+    """Calls the build function of all specified attributes"""
+    if attrs is None:
+        return
+
+    # Reset logger to include process_name
+    global log
+    log = vxlogger.getLogger(f'{__name__}[{vxipc.LocalProcess.name}]')
+
+    Attribute.all.update(attrs)
+    for attr in Attribute.all.values():
+        attr.build()
+
+
 def read_attribute(attr_name: str, *args, **kwargs) -> Union[Tuple[List, List, Union[List, np.ndarray]], None]:
     """Convenience method for calling an attribute's read function via its name"""
     if attr_name not in Attribute.all:
@@ -44,16 +58,6 @@ def write_attribute(attr_name: str, *args, **kwargs) -> None:
     """Convenience method for calling an attribute's write function via its name"""
     if attr_name in Attribute.all:
         return Attribute.all[attr_name].write(*args, **kwargs)
-
-
-def build_attributes(attrs: Dict[str, Attribute]) -> None:
-    """Calls the build function of all specified attributes"""
-    if attrs is None:
-        return
-
-    Attribute.all.update(attrs)
-    for attr in Attribute.all.values():
-        attr.build()
 
 
 def match_to_record_attributes(attr_name: str) -> Tuple[int, bool]:
@@ -148,7 +152,7 @@ def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
     """Method returns a list of all attributes that are marked to be saved to file
     """
     if process_name is None:
-        process_name = vxipc.Process.name
+        process_name = vxipc.LocalProcess.name
 
     if process_name not in Attribute.to_file:
         return []
@@ -248,7 +252,7 @@ class Attribute(ABC):
 
     def add_to_file(self):
         """Convenience method for calling write_to_file method on this attribute"""
-        write_to_file(vxipc.Process, self.name)
+        write_to_file(vxipc.LocalProcess, self.name)
 
     @abstractmethod
     def _read(self, start_idx, end_idx, use_lock) -> Iterable:
@@ -297,15 +301,15 @@ class Attribute(ABC):
         #  Regular occurrences may indicate an underlying issue with the timing precision of the system
         #  or repeated erreneous calls to the write function of the attribute during a
         #  single event loop iteration of the corresponding producer module
-        if np.isclose(self._last_time, vxipc.Process.global_t, rtol=0., atol=vxipc.Process.interval / 4.):
+        if np.isclose(self._last_time, vxipc.LocalProcess.global_t, rtol=0., atol=vxipc.LocalProcess.interval / 4.):
             log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
-                        f'in process {vxipc.Process.name} during same iteration. '
-                        f'Last={self._last_time} / Current={vxipc.Process.global_t}')
+                        f'in process {vxipc.LocalProcess.name} during same iteration. '
+                        f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
 
         internal_idx = self.index % self.length
 
         # Set time for this entry
-        self._time[internal_idx] = vxipc.Process.global_t
+        self._time[internal_idx] = vxipc.LocalProcess.global_t
 
         # Write data
         self._write(internal_idx, value)
@@ -314,7 +318,7 @@ class Attribute(ABC):
         self.set_new(True)
 
         # Update last time
-        self._last_time = vxipc.Process.global_t
+        self._last_time = vxipc.LocalProcess.global_t
 
         # Advance buffer
         self._next()

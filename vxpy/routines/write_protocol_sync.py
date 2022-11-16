@@ -39,4 +39,4 @@ class WriteProtocolSync(IoRoutine):
         set_digital_output('phase_active', 'phase_active')
 
     def main(self, *args, **kwargs):
-        self.phase_active.write(ipc.Process.phase_is_active)
+        self.phase_active.write(ipc.LocalProcess.phase_is_active)

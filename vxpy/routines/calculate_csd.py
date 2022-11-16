@@ -15,8 +15,8 @@ class CalculatePSD(WorkerRoutine):
     def __init__(self, *args, **kwargs):
         WorkerRoutine.__init__(self, *args, **kwargs)
 
-        self._callbacks.append(CalculatePSD.set_input_signal)
-        self._callbacks.append(CalculatePSD.set_integration_window_width)
+        self.callback_ops.append(CalculatePSD.set_input_signal)
+        self.callback_ops.append(CalculatePSD.set_integration_window_width)
 
     def set_input_signal(self, attr_name, force_overwrite=False):
         if self.input_signal is not None and not force_overwrite:

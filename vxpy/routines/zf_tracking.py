@@ -91,24 +91,22 @@ class EyePositionDetection(vxroutine.CameraRoutine):
             vxattribute.ArrayAttribute(f'{cls.re_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
     def initialize(self):
-        self.add_trigger('saccade_trigger')
-
         # Set saccade trigger (LE and RE) signal to "saccade_trigger_out" channel by default
         vxio.set_digital_output('saccade_trigger_out', self.sacc_trigger_name)
 
-    @vxroutine.Routine.callback
+    @vxroutine.CameraRoutine.callback
     def set_threshold(self, thresh):
         self.thresh = thresh
 
-    @vxroutine.Routine.callback
+    @vxroutine.CameraRoutine.callback
     def set_min_particle_size(self, size):
         self.min_size = size
 
-    @vxroutine.Routine.callback
+    @vxroutine.CameraRoutine.callback
     def set_saccade_threshold(self, thresh):
         self.saccade_threshold = thresh
 
-    @vxroutine.Routine.callback
+    @vxroutine.CameraRoutine.callback
     def set_roi(self, roi_id: int, params):
         if roi_id not in self.rois:
             log.info(f'Create new ROI at {params}')
@@ -355,8 +353,6 @@ class EyePositionDetection(vxroutine.CameraRoutine):
 
             is_saccade = bool(le_sacc) or bool(re_sacc)
             saccade_happened = saccade_happened or is_saccade
-            if is_saccade:
-                self.emit_trigger('saccade_trigger')
 
             # Write to buffer
             le_pos_attr.write(le_pos)
@@ -370,4 +366,5 @@ class EyePositionDetection(vxroutine.CameraRoutine):
             # Set current rect ROI data
             rect_roi_attr.write(new_rect)
 
+        # Write saccade_happened trigger attribute (this is evaluated for all eyes of all ROIs)
         vxattribute.write_attribute(self.sacc_trigger_name, saccade_happened)

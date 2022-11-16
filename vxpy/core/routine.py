@@ -34,7 +34,7 @@ class Routine(ABC):
 
     name: str = None
     _instance: Routine = None
-    _callbacks: List[Callable] = None
+    callback_ops: List[Callable] = None
 
     def __init__(self, *args, **kwargs):
         self._triggers = dict()
@@ -42,8 +42,8 @@ class Routine(ABC):
         self._trigger_callbacks = dict()
 
         # List of methods open to rpc calls
-        if self._callbacks is None:
-            self._callbacks = []
+        if self.callback_ops is None:
+            self.callback_ops = []
 
     def __new__(cls, *args, **kwargs):
         """Ensure each routine can only be used as Singleton"""
@@ -54,13 +54,13 @@ class Routine(ABC):
 
     @classmethod
     def callback(cls, fun: Callable):
-        if cls._callbacks is None:
-            cls._callbacks = []
+        if cls.callback_ops is None:
+            cls.callback_ops = []
 
-        if fun in cls._callbacks:
+        if fun in cls.callback_ops:
             return
 
-        cls._callbacks.append(fun)
+        cls.callback_ops.append(fun)
 
         return fun
 
@@ -83,46 +83,6 @@ class Routine(ABC):
         Compute method is called on data updates (in the producer modules).
         Every buffer needs to implement this method and it's used to set all buffer attributes"""
         pass
-
-    def add_trigger(self, trigger_name):
-        self._triggers[trigger_name] = Trigger(self)
-
-    def emit_trigger(self, trigger_name):
-        if trigger_name in self._triggers:
-            self._triggers[trigger_name].emit()
-        else:
-            log.warning(f'Cannot emit trigger "{trigger_name}". Does not exist.')
-
-    def connect_to_trigger(self, trigger_name, routine, callback):
-        self._callbacks.append(callback)
-
-        if routine.name not in self._trigger_callbacks:
-            self._trigger_callbacks[routine.name] = dict()
-
-        if routine.__qualname__ not in self._trigger_callbacks[routine.name]:
-            self._trigger_callbacks[routine.name][routine.__qualname__] = dict()
-
-        self._trigger_callbacks[routine.name][routine.__qualname__][trigger_name] = callback
-
-    def _connect_triggers(self, _routines):
-        for process_name, routines in self._trigger_callbacks.items():
-            for routine_name, callbacks in routines.items():
-                for trigger_name, callback in callbacks.items():
-                    _routines[process_name][routine_name]._triggers[trigger_name].add_callback(self.name, callback)
-
-
-class Trigger:
-    _registered = []
-
-    def __init__(self, routine):
-        self.routine = routine
-
-    def add_callback(self, process_name, callback):
-        self._registered.append((process_name, callback))
-
-    def emit(self):
-        for process_name, callback in self._registered:
-            vxipc.rpc(process_name, callback)
 
 
 class CameraRoutine(Routine, ABC):

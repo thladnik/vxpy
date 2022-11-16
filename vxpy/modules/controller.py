@@ -32,49 +32,50 @@ from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
-import vxpy.core.ipc as vxipc
 import vxpy.core.protocol as vxprotocol
+import vxpy.core.process as vxprocess
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
-from vxpy.core import process, ipc, logger
 from vxpy.core import routine
 from vxpy.core import run_process
 from vxpy.core.attribute import Attribute
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class Controller(process.AbstractProcess):
+class Controller(vxprocess.AbstractProcess):
     name = PROCESS_CONTROLLER
 
     configfile: str = None
 
     _processes: Dict[str, mp.Process] = dict()
-    _registered_processes: List[Tuple[process.AbstractProcess, Dict]] = list()
+    _registered_processes: List[Tuple[vxprocess.AbstractProcess, Dict]] = list()
 
     _active_protocols: List[str] = list()
 
     def __init__(self, _configuration_path):
         # Set up manager
-        ipc.Manager = mp.Manager()
+        vxipc.Manager = mp.Manager()
 
         # Set up logging
-        logger.setup_log_queue(ipc.Manager.Queue())
-        logger.setup_log_history(ipc.Manager.list())
-        logger.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
+        vxlogger.setup_log_queue(vxipc.Manager.Queue())
+        vxlogger.setup_log_history(vxipc.Manager.list())
+        vxlogger.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
 
         # Manually set up pipe for controller
-        ipc.Pipes[self.name] = mp.Pipe()
+        vxipc.Pipes[self.name] = mp.Pipe()
 
         # Set up STATES
-        ipc.State.Controller = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
-        ipc.State.Camera = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
-        ipc.State.Display = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
-        ipc.State.Gui = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
-        ipc.State.Io = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
-        ipc.State.Worker = ipc.Manager.Value(ctypes.c_int8, definitions.State.NA)
+        vxipc.State.Controller = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
+        vxipc.State.Camera = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
+        vxipc.State.Display = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
+        vxipc.State.Gui = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
+        vxipc.State.Io = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
+        vxipc.State.Worker = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
 
         # Initialize process
-        process.AbstractProcess.__init__(self, _program_start_time=time.time(), _configuration_path=_configuration_path)
+        vxprocess.AbstractProcess.__init__(self, _program_start_time=time.time(), _configuration_path=_configuration_path)
 
         # Generate and show splash screen
         # TODO: Splashscreen blocks display of GUI under linux
@@ -129,14 +130,14 @@ class Controller(process.AbstractProcess):
         # Set up CONTROLS
 
         # General
-        ipc.Control.General = ipc.Manager.dict()
+        vxipc.Control.General = vxipc.Manager.dict()
         # Set avg. minimum sleep period
         times = list()
         for i in range(100):
             t = time.perf_counter()
             time.sleep(10 ** -10)
             times.append(time.perf_counter() - t)
-        ipc.Control.General.update({definitions.GenCtrl.min_sleep_time: max(times)})
+        vxipc.Control.General.update({definitions.GenCtrl.min_sleep_time: max(times)})
         log.info(f'Minimum sleep period is {(1000 * max(times)):.3f}ms')
 
         # Check time precision on system
@@ -154,21 +155,21 @@ class Controller(process.AbstractProcess):
             log.info(msg)
 
         # Recording
-        ipc.Control.Recording = ipc.Manager.dict()
-        ipc.Control.Recording.update({
+        vxipc.Control.Recording = vxipc.Manager.dict()
+        vxipc.Control.Recording.update({
             RecCtrl.record_group_counter: -1,
             RecCtrl.enabled: True,
             RecCtrl.active: False,
             RecCtrl.folder: ''})
 
         # Protocol
-        ipc.Control.Protocol = ipc.Manager.dict({ProtocolCtrl.name: None,
-                                                 ProtocolCtrl.phase_id: None,
-                                                 ProtocolCtrl.phase_start: None,
-                                                 ProtocolCtrl.phase_stop: None})
+        vxipc.Control.Protocol = vxipc.Manager.dict({ProtocolCtrl.name: None,
+                                                     ProtocolCtrl.phase_id: None,
+                                                     ProtocolCtrl.phase_start: None,
+                                                     ProtocolCtrl.phase_stop: None})
 
         # NEW UNIFIED CONTROL:
-        vxipc.CONTROL = ipc.Manager.dict(self._shared_controls())
+        vxipc.CONTROL = vxipc.Manager.dict(self._shared_controls())
 
         # Set configured cameras
         if config.CONF_CAMERA_USE:
@@ -211,18 +212,18 @@ class Controller(process.AbstractProcess):
         self._init_params = dict(
             _program_start_time=self.program_start_time,
             _configuration_path=_configuration_path,
-            _pipes=ipc.Pipes,
+            _pipes=vxipc.Pipes,
             _states={k: v for k, v
-                     in ipc.State.__dict__.items()
+                     in vxipc.State.__dict__.items()
                      if not (k.startswith('_'))},
             # _proxies=_proxies,
             _routines=self._routines,
             _controls={k: v for k, v
-                       in ipc.Control.__dict__.items()
+                       in vxipc.Control.__dict__.items()
                        if not (k.startswith('_'))},
             _control=vxipc.CONTROL,
-            _log_queue=logger._log_queue,
-            _log_history=logger.get_history(),
+            _log_queue=vxlogger._log_queue,
+            _log_history=vxlogger.get_history(),
             _attrs=Attribute.all
         )
 
@@ -257,7 +258,7 @@ class Controller(process.AbstractProcess):
         :param kwargs: optional keyword arguments for initalization of modules class
         """
         self._registered_processes.append((target, kwargs))
-        ipc.Pipes[target.name] = mp.Pipe()
+        vxipc.Pipes[target.name] = mp.Pipe()
 
     def initialize_process(self, target, **kwargs):
 
@@ -270,7 +271,7 @@ class Controller(process.AbstractProcess):
 
             # Set modules state
             # (this is the ONLY instance where a modules state may be set externally)
-            getattr(ipc.State, process_name).value = definitions.State.STOPPED
+            getattr(vxipc.State, process_name).value = definitions.State.STOPPED
 
             # Delete references
             del self._processes[process_name]
@@ -290,6 +291,7 @@ class Controller(process.AbstractProcess):
 
     def start(self):
 
+        # On windows systems, show splashscreen to show that something is happening
         if sys.platform == 'win32':
             self.splashscreen.close()
             self.qt_app.processEvents()
@@ -299,39 +301,38 @@ class Controller(process.AbstractProcess):
 
         # Shutdown procedure
         log.debug('Wait for processes to terminate')
-        while True:
-            # Complete shutdown if all processes are deleted
-            if not (bool(self._processes)):
-                break
+        while len(self._processes) > 0:
 
             # Check status of processes until last one is stopped
             for process_name in list(self._processes):
-                if not (getattr(ipc.State, process_name).value == definitions.State.STOPPED):
+
+                # Wait on process if it hasn't stopped yet
+                if not vxipc.in_state(STATE.STOPPED, process_name):
                     continue
 
-                # Terminate and delete references
+                # Terminate process and delete references if it has stopped
                 self._processes[process_name].terminate()
                 del self._processes[process_name]
-                del ipc.Pipes[process_name]
+                del vxipc.Pipes[process_name]
 
         self._running = False
-        self.set_state(definitions.State.STOPPED)
+        self.set_state(STATE.STOPPED)
 
         return 0
 
     @staticmethod
     def set_compression_method(method):
-        ipc.Control.Recording[RecCtrl.compression_method] = method
+        vxipc.Control.Recording[RecCtrl.compression_method] = method
         if method is None:
-            ipc.Control.Recording[RecCtrl.compression_opts] = None
+            vxipc.Control.Recording[RecCtrl.compression_opts] = None
         log.info(f'Set compression method to {method}')
 
     @staticmethod
     def set_compression_opts(opts):
-        if ipc.Control.Recording[RecCtrl.compression_method] is None:
-            ipc.Control.Recording[RecCtrl.compression_opts] = None
+        if vxipc.Control.Recording[RecCtrl.compression_method] is None:
+            vxipc.Control.Recording[RecCtrl.compression_opts] = None
             return
-        ipc.Control.Recording[RecCtrl.compression_opts] = opts
+        vxipc.Control.Recording[RecCtrl.compression_opts] = opts
         log.info(f'Set compression options to {opts}')
 
     def run_protocol_old(self, protocol_path):
@@ -340,11 +341,11 @@ class Controller(process.AbstractProcess):
             return
 
         # Set phase info
-        ipc.Control.Protocol[ProtocolCtrl.phase_id] = None
-        ipc.Control.Protocol[ProtocolCtrl.phase_start] = None
-        ipc.Control.Protocol[ProtocolCtrl.phase_stop] = None
+        vxipc.Control.Protocol[ProtocolCtrl.phase_id] = None
+        vxipc.Control.Protocol[ProtocolCtrl.phase_start] = None
+        vxipc.Control.Protocol[ProtocolCtrl.phase_stop] = None
         # Set protocol class path
-        ipc.Control.Protocol[ProtocolCtrl.name] = protocol_path
+        vxipc.Control.Protocol[ProtocolCtrl.name] = protocol_path
 
         # Go into PREPARE_PROTOCOL
         self.set_state(State.PREPARE_PROTOCOL)
@@ -353,38 +354,38 @@ class Controller(process.AbstractProcess):
         if not self.in_state(State.RUNNING):
             return
 
-        if ipc.Control.Protocol[ProtocolCtrl.phase_stop] is None:
-            ipc.Control.Protocol[ProtocolCtrl.phase_stop] = time.time()
+        if vxipc.Control.Protocol[ProtocolCtrl.phase_stop] is None:
+            vxipc.Control.Protocol[ProtocolCtrl.phase_stop] = time.time()
 
         # Set record group
-        ipc.Control.Recording[RecCtrl.record_group_counter] = -1
+        vxipc.Control.Recording[RecCtrl.record_group_counter] = -1
 
-        log.info(f'End phase {ipc.Control.Protocol[ProtocolCtrl.phase_id]}')
+        log.info(f'End phase {vxipc.Control.Protocol[ProtocolCtrl.phase_id]}')
         self.set_state(State.PHASE_END)
 
     def _start_protocol_phase(self):
         # Set phase_id within protocol
-        phase_id = ipc.Control.Protocol[ProtocolCtrl.phase_id]
+        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
         if phase_id is None:
             phase_id = 0
         else:
             phase_id += 1
-        ipc.Control.Protocol[ProtocolCtrl.phase_id] = phase_id
+        vxipc.Control.Protocol[ProtocolCtrl.phase_id] = phase_id
 
         # Add to record group counter
         self.record_group_counter += 1
-        ipc.Control.Recording[RecCtrl.record_group_counter] = self.record_group_counter
+        vxipc.Control.Recording[RecCtrl.record_group_counter] = self.record_group_counter
 
     @staticmethod
     def _handle_logging():
-        while not logger.get_queue().empty():
+        while not vxlogger.get_queue().empty():
 
             # Fetch next record
-            record = logger.get_queue().get()
+            record = vxlogger.get_queue().get()
 
             try:
-                logger.add_to_file(record)
-                logger.add_to_history(record)
+                vxlogger.add_to_file(record)
+                vxlogger.add_to_history(record)
             except Exception as exc:
                 import sys, traceback
                 print('Exception in Logger:', file=sys.stderr)
@@ -429,11 +430,11 @@ class Controller(process.AbstractProcess):
         vxipc.CONTROL[CTRL_REC_FLDNAME] = folder_name
 
     def start_recording(self):
-        print('Controller was requested to start new recording')
+        log.debug('Controller was requested to start new recording')
         vxipc.set_state(STATE.REC_START_REQ)
 
     def stop_recording(self):
-        print('Controller was requested to stop recording')
+        log.debug('Controller was requested to stop recording')
         vxipc.set_state(STATE.REC_STOP_REQ)
 
     def _start_recording(self):
@@ -494,6 +495,11 @@ class Controller(process.AbstractProcess):
         # If all forks have signalled REC_STOPPED, return to IDLE
         vxipc.set_state(STATE.IDLE)
 
+
+    @phase_start_time.setter
+    def phase_start_time(self, time):
+        vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = time
+
     def start_protocol(self, protocol_path: str):
 
         if not vxipc.in_state(STATE.IDLE):
@@ -521,6 +527,7 @@ class Controller(process.AbstractProcess):
         vxipc.CONTROL[CTRL_PRCL_ACTIVE] = False
         vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
         vxipc.CONTROL[CTRL_PRCL_TYPE] = None
+        vxipc.CONTROL[CTRL_PRCL_PHASE_ACTIVE] = False
         vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = -1
         vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = np.inf
         vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = -np.inf
@@ -531,10 +538,11 @@ class Controller(process.AbstractProcess):
         # Abort protocol start if protocol cannot be imported
         if protocol is None:
             log.error(f'Failed to import protocol from importpath {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}')
-            vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
+            self._reset_protocol_ctrls()
             vxipc.set_state(STATE.IDLE)
             return
 
+        # Figure out protocol type
         if issubclass(protocol, vxprotocol.StaticPhasicProtocol):
             prcl_type = vxprotocol.StaticPhasicProtocol
         elif issubclass(protocol, vxprotocol.ContinuousProtocol):
@@ -544,16 +552,18 @@ class Controller(process.AbstractProcess):
         else:
             log.error(f'Failed to start protocol from importpath {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}. '
                       f'Unknown type for protocol {protocol}')
-            vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
+            self._reset_protocol_ctrls()
             vxipc.set_state(STATE.IDLE)
             return
 
+        # Set protocol type for all to see
         vxipc.CONTROL[CTRL_PRCL_TYPE] = prcl_type
 
+        # Instantiate protocol
         self.current_protocol = protocol()
 
-        log.info(f'Start {prcl_type.__name__} from importpath {self.current_protocol.__class__.__qualname__}')
         # Set state to PRCL_START
+        log.info(f'Start {prcl_type.__name__} from importpath {self.current_protocol.__class__.__qualname__}')
         vxipc.set_state(STATE.PRCL_START)
 
     def _started_protocol(self):
@@ -562,6 +572,7 @@ class Controller(process.AbstractProcess):
         if not self._all_forks_in_state(STATE.PRCL_STARTED):
             return
 
+        # Set protocol to active
         vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
         vxipc.set_state(STATE.PRCL_IN_PROGRESS)
 
@@ -580,7 +591,7 @@ class Controller(process.AbstractProcess):
         # Set back to idle
         vxipc.set_state(STATE.IDLE)
 
-    def _process_static_phasic_protocol(self):
+    def _process_static_protocol(self):
 
         t = vxipc.get_time()
         phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
@@ -590,27 +601,34 @@ class Controller(process.AbstractProcess):
         #  - either protocol just started (end time = -inf)
         #  - or the current phase just ended
         if phase_end_time < t:
+
+            # If any fork is still in an active phase, wait a turn
+            if not self._all_forks_in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
+                return
+
+            # When all forks are done with the last phase
             # Increment phase ID by 1 and set new phase end time to inf
             vxipc.CONTROL[CTRL_PRCL_PHASE_ID] += 1
             vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = np.inf
 
-        # If phase end time and start times are in the future,
-        # check if new start and end time need to be updated to run the next phase
-        elif phase_start_time > t and phase_end_time > t:
+        # If phase start equals end time, this should only happen for inf == inf (i.e. between phases)
+        elif phase_start_time == phase_end_time:
 
-            # If phase start equals end time, this should only happen for inf == inf (i.e. between phases)
-            if phase_start_time == phase_end_time:
-                new_start = vxipc.get_time() + 0.1
+            # If any fork is still in an active phase, wait a turn
+            if not self._all_forks_in_state(STATE.PRCL_STC_PHASE_READY):
+                return
 
-                log.info(f'Set new new phase start to {new_start}')
+            new_start = vxipc.get_time() + 0.2
+            duration = self.current_protocol.current_phase.duration
 
-                vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = new_start
-                vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = new_start + self.current_protocol.current_phase.duration
+            log.info(f'Set new new phase start to {new_start:.3f}')
+
+            vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = new_start
+            vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = new_start + duration
 
         # If current time is between start and end time, a phase is currently running
         elif phase_start_time <= t < phase_end_time:
             pass
-
 
     def main(self):
         pass
@@ -661,7 +679,7 @@ class Controller(process.AbstractProcess):
         elif vxipc.in_state(STATE.PRCL_IN_PROGRESS):
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
             if prcl_type == vxprotocol.StaticPhasicProtocol:
-                self._process_static_phasic_protocol()
+                self._process_static_protocol()
             elif prcl_type == vxprotocol.ContinuousProtocol:
                 pass
             elif prcl_type == vxprotocol.TriggeredProtocol:
@@ -678,150 +696,32 @@ class Controller(process.AbstractProcess):
         elif vxipc.in_state(STATE.PRCL_STOP):
             self._stopped_protocol()
 
-    # def main_old(self):
-    #
-    #     ########
-    #     # First: handle log
-    #     while not logger.get_queue().empty():
-    #
-    #         # Fetch next record
-    #         record = logger.get_queue().get()
-    #
-    #         try:
-    #             logger.add_to_file(record)
-    #             logger.add_to_history(record)
-    #         except Exception:
-    #             import sys, traceback
-    #             print('Exception in Logger:', file=sys.stderr)
-    #             traceback.print_exc(file=sys.stderr)
-    #
-    #     ########
-    #     # PREPARE_PROTOCOL
-    #     if self.in_state(definitions.State.PREPARE_PROTOCOL):
-    #
-    #         protocol_path = ipc.Control.Protocol[ProtocolCtrl.name]
-    #         _protocol = get_protocol(protocol_path)
-    #         if _protocol is None:
-    #             log.error(f'Cannot get protocol {protocol_path}. Aborting ')
-    #             self.set_state(definitions.State.PROTOCOL_ABORT)
-    #             return
-    #
-    #         self.protocol = _protocol()
-    #
-    #         # Wait for processes to WAIT_FOR_PHASE (if they are not stopped)
-    #         check = [not (ipc.in_state(definitions.State.WAIT_FOR_PHASE, process_name))
-    #                  for process_name in self._active_protocols]
-    #         if any(check):
-    #             return
-    #
-    #         # Set next phase
-    #         self._start_protocol_phase()
-    #
-    #         # Set PREPARE_PHASE
-    #         self.set_state(definitions.State.PREPARE_PHASE)
-    #
-    #     ########
-    #     # PREPARE_PHASE
-    #     if self.in_state(definitions.State.PREPARE_PHASE):
-    #
-    #         # Wait for processes to be ready (have phase prepared)
-    #         check = [not ipc.in_state(definitions.State.READY, process_name)
-    #                  for process_name in self._active_protocols]
-    #         if any(check):
-    #             return
-    #
-    #         # Start phase
-    #         phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-    #         duration = self.protocol.fetch_phase_duration(phase_id)
-    #
-    #         # Set phase times
-    #         now = time.time()
-    #         fixed_delay = 0.01
-    #         phase_start = now + fixed_delay
-    #         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = phase_start
-    #         phase_stop = now + duration + fixed_delay if duration is not None else None
-    #         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = phase_stop
-    #
-    #         log.info(f'Run protocol phase {phase_id} at {(phase_start-self.program_start_time):.4f}')
-    #
-    #         # Set to running
-    #         self.set_state(definitions.State.RUNNING)
-    #
-    #     ########
-    #     # RUNNING
-    #     elif self.in_state(definitions.State.RUNNING):
-    #
-    #         # If stop time is reached, set PHASE_END
-    #         phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
-    #         if phase_stop is not None and phase_stop < time.time():
-    #             self.end_protocol_phase()
-    #             return
-    #
-    #     ########
-    #     # PHASE_END
-    #     elif self.in_state(definitions.State.PHASE_END):
-    #
-    #         # Reset phase start time
-    #         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
-    #
-    #         # If there are no further phases, end protocol
-    #         phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-    #         if (phase_id + 1) >= self.protocol.phase_count:
-    #             self.set_state(definitions.State.PROTOCOL_END)
-    #             return
-    #
-    #         # Else, continue with next phase
-    #         self._start_protocol_phase()
-    #
-    #         # Move to PREPARE_PHASE (again)
-    #         self.set_state(definitions.State.PREPARE_PHASE)
-    #
-    #     ########
-    #     # PROTOCOL_END
-    #     elif self.in_state(definitions.State.PROTOCOL_END):
-    #
-    #         # When all processes are in IDLE again, stop recording and
-    #         # move Controller to IDLE
-    #         check = [ipc.in_state(definitions.State.IDLE, process_name)
-    #                  for process_name in self._active_protocols]
-    #         if all(check):
-    #             self.stop_recording()
-    #
-    #             ipc.Control.Protocol[definitions.ProtocolCtrl.name] = None
-    #             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = None
-    #             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
-    #             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = None
-    #
-    #             self.set_state(definitions.State.IDLE)
-    #
-    #     else:
-    #         # If nothing's happning: sleep for a bit
-    #         pass
-    #         # time.sleep(0.05)
-
-    def _start_shutdown(self):
+    def commence_shutdown(self):
         log.debug('Shutdown requested. Checking.')
 
         # Check if any processes are still busy
         shutdown_state = True
         for p, _ in self._registered_processes:
-            shutdown_state &= self.in_state(definitions.State.IDLE, p.name) or self.in_state(definitions.State.NA, p.name)
+            shutdown_state &= vxipc.in_state(STATE.IDLE, p.name) or vxipc.in_state(STATE.NA, p.name)
 
-        # Check if recording is running
-        shutdown_state &= not (ipc.Control.Recording[definitions.RecCtrl.active])
+        # Check if recording or protocol is running
+        shutdown_state &= not (vxipc.CONTROL[CTRL_REC_ACTIVE] or vxipc.CONTROL[CTRL_PRCL_ACTIVE])
 
+        # If anything indicates that program is not ready for shutdown, ask for user confirmation
         if not shutdown_state:
             log.debug('Not ready for shutdown. Confirming.')
-            ipc.rpc(vxmodules.Gui.name, vxmodules.Gui.prompt_shutdown_confirmation)
+            vxipc.rpc(vxmodules.Gui.name, vxmodules.Gui.prompt_shutdown_confirmation)
             return
 
+        # Otherwise, shut down
         self._force_shutdown()
 
     def _force_shutdown(self):
         log.debug('Shut down processes')
         self._shutdown = True
-        for process_name in self._processes:
-            ipc.send(process_name, definitions.Signal.shutdown)
+        vxipc.set_state(STATE.SHUTDOWN)
+        # for process_name in self._processes:
+        #     ipc.send(process_name, definitions.Signal.shutdown)
 
     @staticmethod
     def _render_splashscreen(pngpath: str) -> None:

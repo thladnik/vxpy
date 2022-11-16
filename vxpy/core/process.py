@@ -17,19 +17,14 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
-import os
-
-import h5py
-import multiprocessing as mp
 import numpy as np
 import signal
 import sys
 import time
-from typing import Any, Callable, List, Union
+from typing import Any, Callable, List, Union, Tuple
 
 from vispy import gloo
 
-import vxpy.core.ipc
 from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.calibration as vxcalib
@@ -40,8 +35,8 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
+import vxpy.core.ui as vxui
 from vxpy.definitions import *
-# from vxpy.addons import core_widgets
 
 log = vxlogger.getLogger(__name__)
 
@@ -61,21 +56,21 @@ class AbstractProcess:
     _running: bool
     _shutdown: bool
     _disable_phases = True
+    program_start_time: float = None
 
     # Protocol related
     current_protocol: Union[vxprotocol.AbstractProtocol, None] = None
-    phase_start_time: float = None
+    phase_active: bool = False
     phase_time: float = None
-    program_start_time: float = None
 
     enable_idle_timeout: bool = True
-    _registered_callbacks: dict = dict()
-    _protocolized: List[str] = [PROCESS_CAMERA, PROCESS_DISPLAY, PROCESS_IO, PROCESS_WORKER]
+    _registered_callbacks: Dict[str, Tuple[object, Callable]] = {}
+    _protocolized: List[str] = [PROCESS_DISPLAY, PROCESS_IO]
 
     _routines: Dict[str, Dict[str, vxroutine.Routine]] = dict()
     file_container: Union[None, vxcontainer.H5File] = None
     record_group: int = -1
-    compression_args: Dict[str, Any] = dict()
+    compression_args: Dict[str, Any] = {}
 
     def __init__(self,
                  _program_start_time=None,
@@ -90,6 +85,10 @@ class AbstractProcess:
                  _attrs=None,
                  **kwargs):
 
+        # Reset logger to include process_name
+        global log
+        log = vxlogger.getLogger(f'{__name__}[{self.name}]')
+
         if _program_start_time is not None:
             self.program_start_time = _program_start_time
         else:
@@ -99,13 +98,10 @@ class AbstractProcess:
         vxlogger.add_handlers()
 
         # Set modules instance
-        vxipc.set_process(self)
-
-        # Build pipes
-        vxipc.build_pipes(_pipes)
+        vxipc.init(self, _pipes, _states, _proxies, _control, _controls)
 
         # Build attributes
-        vxattribute.build_attributes(_attrs)
+        vxattribute.init(_attrs)
 
         # Load configuration
         config_loaded = vxconfig.load_configuration(_configuration_path)
@@ -114,24 +110,7 @@ class AbstractProcess:
         # Load calibration
         vxcalib.load_calibration(config.CONF_CALIBRATION_PATH)
 
-        # Set controls
-        if _controls is not None:
-            for ckey, ctrl in _controls.items():
-                setattr(vxipc.Control, ckey, ctrl)
-
-        if _control is not None:
-            setattr(vxipc, 'CONTROL', _control)
-
-        if _proxies is not None:
-            for pkey, proxy in _proxies.items():
-                setattr(vxipc, pkey, proxy)
-
-        # Set states
-        if _states is not None:
-            for skey, state in _states.items():
-                setattr(vxipc.State, skey, state)
-
-        # Set additional attributes
+        # Set additional attributes to process instance
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -142,16 +121,15 @@ class AbstractProcess:
 
                 process_routines = self._routines[self.name]
 
-                for _routine in process_routines.values():
+                for routine in process_routines.values():
 
                     # Run local initialization for producer modules (this needs to happen before callback reg.)
-                    _routine._connect_triggers(_routines)
-                    _routine.initialize()
+                    routine.initialize()
 
-                    for fun in _routine._callbacks:
+                    for fun in routine.callback_ops:
 
                         try:
-                            self.register_rpc_callback(_routine, fun.__qualname__, fun)
+                            self.register_rpc_callback(routine, fun)
                         except:
                             # This is a workaround. Please do not remove or you'll break the GUI.
                             # In order for some IPC features to work the, AbstractProcess init has to be
@@ -179,11 +157,11 @@ class AbstractProcess:
             dt = np.diff(self.loop_times)
             mean_dt = np.mean(dt)
             std_dt = np.std(dt)
-            print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mean_dt * 1000, std_dt * 1000))
+            # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mean_dt * 1000, std_dt * 1000))
             self.loop_times = [self.loop_times[-1]]
             # print(f'{self.name} says {self.t}')
-            # vxpy.core.ipc.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval,
-            #                       self.name, self.interval, mean_dt, std_dt, _send_verbosely=False)
+            update_args = (self.name, self.interval, mean_dt, std_dt)
+            vxipc.gui_rpc(vxui.ProcessMonitorWidget.update_process_interval, *update_args, _send_verbosely=False)
 
     def run(self, interval: float, enable_idle_timeout: bool = True):
         """Event loop of process.
@@ -200,7 +178,7 @@ class AbstractProcess:
         """
 
         self.interval = interval
-        log.info(f'Process {self.name} started')
+        log.info(f'Process started')
 
         # Set state to running
         self._running = True
@@ -254,8 +232,15 @@ class AbstractProcess:
         """Event loop to be re-implemented in subclass"""
         raise NotImplementedError(f'Event loop of modules base class is not implemented in {self.name}.')
 
-    ################################
     # PROTOCOL RESPONSE
+
+    @property
+    def phase_start_time(self):
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+
+    @property
+    def phase_end_time(self):
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
 
     def _prepare_protocol(self):
 
@@ -309,20 +294,7 @@ class AbstractProcess:
         pass
 
     def _start_protocol_phase(self):
-
-        # Wait for go-time
-        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
-        while self.in_state(State.RUNNING, PROCESS_CONTROLLER):
-            now = time.time()
-            if vxipc.Control.Protocol[ProtocolCtrl.phase_start] <= now:
-                log.debug(f'Start phase {phase_id} in module {self.name} at {(now - self.program_start_time):.3f}')
-                break
-
-        self.set_state(State.RUNNING)
-        self.phase_start_time = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
-
-        # Immediately start phase now
-        self.start_protocol_phase()
+        pass
 
     def start_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
@@ -338,14 +310,14 @@ class AbstractProcess:
 
     def _start_recording(self):
         # DO START RECORDING STUFF
-        log.debug(f'Start recording to {vxipc.get_recording_path()}')
+        log.debug(f'{self.name} start recording to {vxipc.get_recording_path()}')
 
         # AND THEN, SWITCH STATE
         vxipc.set_state(STATE.REC_STARTED)
 
     def _stop_recording(self):
         # DO START RECORDING STUFF
-        log.debug(f'Stop recording to {vxipc.get_recording_path()}')
+        log.debug(f'{self.name} stop recording to {vxipc.get_recording_path()}')
 
         # AND THEN, SWITCH STATE
         vxipc.set_state(STATE.REC_STOPPED)
@@ -357,24 +329,70 @@ class AbstractProcess:
 
         vxipc.set_state(STATE.PRCL_STARTED)
 
+    def _started_protocol(self):
+        # Do stuff
+
+        # Set state
+        vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
+
     def _stop_protocol(self):
         self.current_protocol = None
         vxipc.set_state(STATE.PRCL_STOPPED)
 
-    def _eval_state(self):
+    def _stopped_protocol(self):
+        vxipc.set_state(STATE.IDLE)
 
-        if vxipc.in_state(STATE.PRCL_WAIT_FOR_PHASE_START):
-            t = vxipc.get_time()
-            dt_to_phase_start = t - vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
-            if dt_to_phase_start > 0:
-                time.sleep(dt_to_phase_start)
+    def _process_static_protocol(self):
 
-            # TODO: call method to start phase
-            log.info(f'{self.name} start protocol phase {vxipc.CONTROL[CTRL_PRCL_PHASE_ID]} at {t}')
+        t = vxipc.get_time()
+        phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
+        phase_start_time = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
 
-            vxipc.set_state(STATE.PRCL_RUN_PHASE)
+        if phase_end_time < t:
+            # TODO: call phase end function
+            log.info(f'Wait for new phase')
+            vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
+            return
+
+        # If phase start equals end time, this should only happen when controller sets both to inf
+        elif phase_start_time == phase_end_time:
+
+            # Set phase ID to controller-set one
+            self.current_protocol.current_phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
+            log.info(f'Ready phase {self.current_protocol.current_phase_id}')
+
+            # TODO: call method to prepare new phase in module
 
             return
+
+        # t = vxipc.get_time()
+        # dt_to_phase_start = t - vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+        #
+        # # If new phase start is imminent, wait to actual start
+        # if 0 < dt_to_phase_start <= 1.5 * self.interval:
+        #     time.sleep(self.interval)
+        #
+        #     # TODO: call method to start phase
+        #     log.info(f'{self.name} start protocol phase {vxipc.CONTROL[CTRL_PRCL_PHASE_ID]} at {t}')
+
+
+        # dt_to_phase_end = t - vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
+        #
+        #
+        #
+        # # If phase hasn't started yet
+        # elif dt_to_phase_start > 0:
+        #
+        #     # If dt_to_phase reaches module interval-defined threshold
+        #     #  go into busy loop for exact start timing
+        #     if dt_to_phase_start <= 1.5 * self.interval:
+        #         vxipc.set_state(STATE.PRCL_WAIT_FOR_PHASE_START)
+        #
+        # elif dt_to_phase_start <= 0:
+        #     if dt_to_phase_end > 0:
+        #         print('Keep running')
+
+    def _eval_state(self):
 
         # Controller is in idle
         if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
@@ -386,6 +404,8 @@ class AbstractProcess:
             # Ultimately, go into idle too
             if not vxipc.in_state(STATE.IDLE):
                 vxipc.set_state(STATE.IDLE)
+
+        # Recording states
 
         # Controller has started a recording
         elif vxipc.in_state(STATE.REC_START, PROCESS_CONTROLLER):
@@ -399,151 +419,48 @@ class AbstractProcess:
             if not vxipc.in_state(STATE.REC_STOPPED):
                 self._stop_recording()
 
+        # Shutdown
+
+        # Controller has started shutdown
+        elif vxipc.in_state(STATE.SHUTDOWN, PROCESS_CONTROLLER):
+            self._start_shutdown()
+
+        # The following states only apply to processes that may run a protocol
+        if not self.name in self._protocolized:
+            return
+
+        # Check fork's own protocol-related states
+
+        if vxipc.in_state(STATE.PRCL_STARTED):
+            self._started_protocol()
+
+        elif vxipc.in_state(STATE.PRCL_STOPPED):
+            self._stopped_protocol()
+
+        # Reaction to controller protocol states
+
         # Controller has started a protocol
-        elif vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
+        if vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
             # If fork hasn't reacted yet, do it
             if not vxipc.in_state(STATE.PRCL_STARTED):
                 self._start_protocol()
+
+        # Controller is currently running the protocol
+        elif vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
+
+            prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
+            if prcl_type == vxprotocol.StaticPhasicProtocol:
+                self._process_static_protocol()
+            elif prcl_type == vxprotocol.ContinuousProtocol:
+                pass
+            elif prcl_type == vxprotocol.TriggeredProtocol:
+                pass
 
         # Controller has stopped running protocol
         elif vxipc.in_state(STATE.PRCL_STOP, PROCESS_CONTROLLER):
             # If fork hasn't reacted yet, do it
             if not vxipc.in_state(STATE.PRCL_STOPPED):
                 self._stop_protocol()
-
-        # Controller is indicating that protocol is running now
-        elif vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
-            # This is only the StaticPhasicProtocl response for now
-            #  TODO: move all this to separate method
-            t = vxipc.get_time()
-            dt_to_phase_start = t - vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
-
-            # If current protocol ID doesn't match Controller-set protocol ID, update it.
-            #  It means a new phase has been set
-            if self.current_protocol.current_phase_id < vxipc.CONTROL[CTRL_PRCL_PHASE_ID]:
-
-                # Set phase ID to controller-set one
-                self.current_protocol.current_phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
-
-                # TODO: call method to prepare new phase in module
-
-            # If phase hasn't started yet
-            elif dt_to_phase_start > 0:
-
-                # If dt_to_phase reaches module interval-defined threshold
-                #  go into busy loop for exact start timing
-                if dt_to_phase_start <= 1.5 * self.interval:
-                    vxipc.set_state(STATE.PRCL_WAIT_FOR_PHASE_START)
-
-
-
-    def _handle_protocol_old(self):
-        """Method can be called by all processes that in some way respond to
-        the protocol control states.
-
-        Returns True of protocol is currently running and False if not.
-        """
-
-        if self.name not in self._protocolized:
-            return
-
-        ########
-        # RUNNING
-        if self.in_state(State.RUNNING):
-
-            # If phase stoptime is exceeded: end phase
-            phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
-            if phase_stop is not None and phase_stop < time.time():
-                phase_attributes = {'end_time': vxpy.core.ipc.get_time()}
-                # Leave this for compat (for now) # TODO: remove
-                self.set_record_group_attrs(phase_attributes)
-                # Add attributes with double underscores
-                self.set_record_group_attrs({f'__{key}': val for key, val in phase_attributes.items()})
-
-                # Call implementation of end_phase
-                self.end_protocol_phase()
-
-                # Reset record group
-                self.set_record_group(-1)
-
-                self.set_state(State.PHASE_END)
-
-                # Do NOT execute
-                return False
-
-            # Default: set phase time and execute protocol
-            self.phase_time = time.time() - self.phase_start_time
-
-            # Execute
-            return True
-
-        # IDLE
-        elif self.in_state(State.IDLE):
-
-            # Check if new protocol is set and prepare it on module-side
-            if self.in_state(State.PREPARE_PROTOCOL, PROCESS_CONTROLLER):
-
-                self._prepare_protocol()
-
-            # Do NOT execute
-            return False
-
-        # WAIT_FOR_PHASE
-        elif self.in_state(State.WAIT_FOR_PHASE):
-
-            if not self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER):
-                return False
-
-            self._prepare_protocol_phase()
-
-            # Do NOT execute
-            return False
-
-        # READY
-        elif self.in_state(State.READY):
-
-            # If Controller is not yet running, don't wait for go time, because there may be an abort
-            if not self.in_state(State.RUNNING, PROCESS_CONTROLLER):
-                return False
-
-            self._start_protocol_phase()
-
-            # Execute
-            return True
-
-        ########
-        # PHASE_END
-        elif self.in_state(State.PHASE_END):
-
-            # Ctrl in PREPARE_PHASE -> there's a next phase
-            if self.in_state(State.PREPARE_PHASE, PROCESS_CONTROLLER):
-                self.set_state(State.WAIT_FOR_PHASE)
-
-            # Ctrl in PROTOCOL_END -> clean up protocol remnants
-            elif self.in_state(State.PROTOCOL_END, PROCESS_CONTROLLER):
-
-                # Call implemented module method
-                self.end_protocol()
-
-                # Set protocol to none
-                self.current_protocol = None
-
-                # Reset state to idle
-                self.set_state(State.IDLE)
-
-            # Do NOT execute
-            return False
-
-        ########
-        # PROTOCOL_ABORT
-        elif self.in_state(State.PROTOCOL_ABORT, PROCESS_CONTROLLER):
-            self.end_protocol_phase()
-            self.end_protocol()
-        ########
-        # Fallback: timeout
-        else:
-            pass
-            # self.idle()
 
     def idle(self):
         if self.enable_idle_timeout:
@@ -571,17 +488,18 @@ class AbstractProcess:
             self._handle_inbox()
 
         # Set modules state
-        self.set_state(State.STOPPED)
+        vxipc.set_state(STATE.STOPPED)
 
         self._shutdown = True
 
     def _is_running(self):
-        return self._running and not (self._shutdown)
+        return self._running and not self._shutdown
 
-    def register_rpc_callback(self, instance, fun_str, fun):
+    def register_rpc_callback(self, obj, fun):
+        fun_str = fun.__qualname__
         if fun_str not in self._registered_callbacks:
-            log.debug(f'Register callback {instance.__class__.__qualname__}:{fun_str} in module {self.name}')
-            self._registered_callbacks[fun_str] = (instance, fun)
+            log.debug(f'Register callback {obj.__class__.__qualname__}:{fun_str} in module {self.name}')
+            self._registered_callbacks[fun_str] = (obj, fun)
         else:
             log.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
 
@@ -640,25 +558,22 @@ class AbstractProcess:
     def _handle_inbox(self, *args):
 
         # Poll pipe
-        if not (vxipc.Pipes[self.name][1].poll()):
+        if not vxipc.Pipes[self.name][1].poll():
             return
 
         # Receive
         msg = vxipc.Pipes[self.name][1].recv()
 
         # Unpack
-        signal, args, kwargs = msg
+        sig, sender_name, args, kwargs = msg
 
         # Log
         if kwargs.get('_send_verbosely'):
-            log.debug(f'{self.name} received message. Signal: {signal}, args: {args}, kwargs: {kwargs}')
-
-        # If shutdown signal
-        if signal == Signal.shutdown:
-            self._start_shutdown()
+            log.debug(f'{self.name} received message from {sender_name}. '
+                      f'Signal: {sig}, args: {args}, kwargs: {kwargs}')
 
         # If RPC
-        elif signal == Signal.rpc:
+        if sig == Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
     def _create_dataset(self, path: str, attr_shape: tuple, attr_dtype: Any):

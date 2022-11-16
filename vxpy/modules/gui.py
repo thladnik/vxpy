@@ -22,13 +22,13 @@ from qt_material import apply_stylesheet
 import sys
 
 import vxpy
+import vxpy.core.ui
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.ipc as vxipc
 import vxpy.core.ui as vxgui
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
-from vxpy.addons import core_widgets
 import vxpy.modules as vxmodules
 
 log = vxlogger.getLogger(__name__)
@@ -69,7 +69,7 @@ class Gui(vxprocess.AbstractProcess):
     def _start_shutdown(self):
         self.window.close()
 
-        vxipc.Process.set_state(State.STOPPED)
+        vxipc.LocalProcess.set_state(STATE.STOPPED)
 
 
 class Window(QtWidgets.QMainWindow):
@@ -113,27 +113,27 @@ class Window(QtWidgets.QMainWindow):
         self.centralWidget().layout().addWidget(self.monitoring_wdgt)
 
         # Process monitor
-        self.process_monitor = core_widgets.ProcessMonitorWidget(self)
+        self.process_monitor = vxpy.core.ui.ProcessMonitorWidget(self)
         self.process_monitor.create_hooks()
         self.monitoring_wdgt.layout().addWidget(self.process_monitor)
 
         # Recordings
-        self.recordings = core_widgets.RecordingWidget(self)
+        self.recordings = vxpy.core.ui.RecordingWidget(self)
         self.recordings.create_hooks()
         self.control_wdgt.layout().addWidget(self.recordings)
 
         # Protocols}
-        self.protocols = core_widgets.ProtocolWidget(self)
+        self.protocols = vxpy.core.ui.ProtocolWidget(self)
         self.protocols.create_hooks()
         self.control_wdgt.layout().addWidget(self.protocols)
 
         # Logger
-        self.log_display = core_widgets.LoggingWidget(self)
+        self.log_display = vxpy.core.ui.LoggingWidget(self)
         self.monitoring_wdgt.layout().addWidget(self.log_display)
 
         # Set geometry
         self.setMinimumHeight(500)
-        screen = vxipc.Process.app.screens()[config.CONF_GUI_SCREEN]
+        screen = vxipc.LocalProcess.app.screens()[config.CONF_GUI_SCREEN]
 
         self.screenGeo = screen.geometry()
         width, height = self.screenGeo.width(), self.screenGeo.height()
@@ -179,7 +179,7 @@ class Window(QtWidgets.QMainWindow):
             self.subwindows.append(self.addon_widget_window)
 
         # Add Plotter
-        self.plotter = core_widgets.PlottingWindow(self)
+        self.plotter = vxpy.core.ui.PlottingWindow(self)
         self.plotter.setMinimumHeight(300)
 
         # Place and resize
@@ -264,7 +264,7 @@ class Window(QtWidgets.QMainWindow):
 
         # Set theme
         extra = {'density_scale': '-2', }
-        apply_stylesheet(vxipc.Process.app, theme='dark_amber.xml', invert_secondary=False, extra=extra)
+        apply_stylesheet(vxipc.LocalProcess.app, theme='dark_amber.xml', invert_secondary=False, extra=extra)
         # apply_stylesheet(vxipc.Process.app, theme='dark_teal.xml', extra=extra)
 
     # @staticmethod
@@ -298,10 +298,7 @@ class Window(QtWidgets.QMainWindow):
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         if a0 is not None:
-            # TODO: postpone closing of GUI and keep GUI respponsive while other processes are still running.
-            # while len(ipc.Log.History) > 0:
-            #     ipc.Process.main()
 
             # Inform controller of close event
-            vxipc.send(PROCESS_CONTROLLER, Signal.shutdown)
+            vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.commence_shutdown)
             a0.setAccepted(False)

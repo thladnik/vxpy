@@ -17,7 +17,7 @@ from __future__ import annotations
 import multiprocessing as mp
 from multiprocessing.managers import SyncManager
 
-from vxpy.core import logger
+import vxpy.core.logger as vxlogger
 from vxpy.definitions import *
 
 # Type hinting
@@ -28,13 +28,13 @@ if TYPE_CHECKING:
     from vxpy.core.process import AbstractProcess
 
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 # Manager for shared objects
 Manager: SyncManager
 
 # Local modules reference
-Process: AbstractProcess
+LocalProcess: AbstractProcess
 
 # Callback routing
 
@@ -78,7 +78,7 @@ Worker: ProcessProxy = ProcessProxy(PROCESS_WORKER)
 
 def set_state(new_state: Union[State, STATE]):
     """Set state of local modules to new_state"""
-    getattr(State, Process.name).value = new_state
+    getattr(State, LocalProcess.name).value = new_state
 
 
 def get_state(process_name: str = None):
@@ -87,7 +87,7 @@ def get_state(process_name: str = None):
     By default, if process_name is None, the local modules's name is used
     """
     if process_name is None:
-        process_name = Process.name
+        process_name = LocalProcess.name
 
     return getattr(State, process_name).value
 
@@ -98,7 +98,7 @@ def in_state(state: Union[State, STATE], process_name: str = None):
     By default, if process_name is None, the local modules's name is used
     """
     if process_name is None:
-        process_name = Process.name
+        process_name = LocalProcess.name
 
     return get_state(process_name) == state
 
@@ -117,17 +117,37 @@ def in_state(state: Union[State, STATE], process_name: str = None):
 Pipes: Dict[str, Tuple[mp.connection.Connection, mp.connection.Connection]] = dict()
 
 
-def set_process(instance):
-    global Process
-    Process = instance
+def init(local_instance, pipes, proxies, states, control, controls):
+    global LocalProcess
+    LocalProcess = local_instance
 
+    # Reset logger to include process_name
+    global log
+    log = vxlogger.getLogger(f'{__name__}[{LocalProcess.name}]')
 
-def build_pipes(pipes):
-    if pipes is None:
-        return
+    if pipes is not None:
+        global Pipes
+        Pipes.update(pipes)
 
-    global Pipes
-    Pipes.update(pipes)
+    if proxies is not None:
+        for pkey, proxy in proxies.items():
+            locals()[pkey] = proxy
+
+    # Set states
+    if states is not None:
+        for skey, state in states.items():
+            locals()[skey] = state
+
+    # Set controls
+    # New
+    if control is not None:
+        globals()['CONTROL'] = control
+
+    # OLD CONTROLS
+    if controls is not None:
+        for ckey, ctrl in controls.items():
+            setattr(Control, ckey, ctrl)
+    # OLD CONTROLS
 
 
 def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs) -> None:
@@ -147,7 +167,7 @@ def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs)
 
     kwargs.update(_send_verbosely=_send_verbosely)
 
-    Pipes[process_name][0].send([signal, args, kwargs])
+    Pipes[process_name][0].send([signal, LocalProcess.name, args, kwargs])
 
 
 def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
@@ -186,7 +206,7 @@ class Control:
 
 
 def get_time():
-    return Process.global_t
+    return LocalProcess.global_t
 
 
 def camera_rpc(function, *args, **kwargs):
