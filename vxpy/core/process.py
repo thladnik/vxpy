@@ -169,21 +169,21 @@ class AbstractProcess:
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_sigint)
 
-        self.local_t: float = time.perf_counter()
-        self.global_t: float = 0.
+        self.global_t: float = 0.0
+        self.next_iter_global_t: float = 0.0
         self.loop_times: List[float] = [time.perf_counter()]
 
-    def _keep_time(self, target_interval):
+    def _keep_time(self):
         self.loop_times.append(time.perf_counter())
         if (self.loop_times[-1] - self.loop_times[0]) > 1.:
             dt = np.diff(self.loop_times)
             mean_dt = np.mean(dt)
             std_dt = np.std(dt)
-            # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mdt * 1000, sdt * 1000))
+            print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mean_dt * 1000, std_dt * 1000))
             self.loop_times = [self.loop_times[-1]]
             # print(f'{self.name} says {self.t}')
             # vxpy.core.ipc.gui_rpc(core_widgets.ProcessMonitorWidget.update_process_interval,
-            #                       self.name, target_interval, mean_dt, std_dt, _send_verbosely=False)
+            #                       self.name, self.interval, mean_dt, std_dt, _send_verbosely=False)
 
     def run(self, interval: float, enable_idle_timeout: bool = True):
         """Event loop of process.
@@ -218,24 +218,23 @@ class AbstractProcess:
 
             self._eval_state()
 
-            self._keep_time(interval)
+            self._keep_time()
 
             # Wait until interval time is up
-            dt = (self.local_t + interval) - time.perf_counter()
+            dt = self.next_iter_global_t - (time.time() - self.program_start_time)
             if self.enable_idle_timeout and dt > (1.2 * min_sleep_time):
                 # Sleep to reduce CPU usage
                 time.sleep(0.9 * dt)
 
             # Busy loop until next main execution for precise timing
             # while self.t + interval - time.perf_counter() >= 0:
-            while time.perf_counter() < (self.local_t + interval):
+            while (time.time() - self.program_start_time) < self.next_iter_global_t:
                 pass
-
-            # Set new modules time for this iteration
-            self.local_t = time.perf_counter()
 
             # Set new global time
             self.global_t = time.time() - self.program_start_time
+
+            self.next_iter_global_t = self.global_t + self.interval
 
             # Add record_group_id aand corresponding global time if anything is to be written to file from this process
             if len(vxattribute.Attribute.to_file) > 0:
@@ -352,12 +351,30 @@ class AbstractProcess:
         vxipc.set_state(STATE.REC_STOPPED)
 
     def _start_protocol(self):
+        protocol_path = vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
+        log.debug(f'Load protocol from importpath {protocol_path}')
+        self.current_protocol = vxprotocol.get_protocol(protocol_path)()
+
         vxipc.set_state(STATE.PRCL_STARTED)
 
     def _stop_protocol(self):
+        self.current_protocol = None
         vxipc.set_state(STATE.PRCL_STOPPED)
 
     def _eval_state(self):
+
+        if vxipc.in_state(STATE.PRCL_WAIT_FOR_PHASE_START):
+            t = vxipc.get_time()
+            dt_to_phase_start = t - vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+            if dt_to_phase_start > 0:
+                time.sleep(dt_to_phase_start)
+
+            # TODO: call method to start phase
+            log.info(f'{self.name} start protocol phase {vxipc.CONTROL[CTRL_PRCL_PHASE_ID]} at {t}')
+
+            vxipc.set_state(STATE.PRCL_RUN_PHASE)
+
+            return
 
         # Controller is in idle
         if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
@@ -393,6 +410,32 @@ class AbstractProcess:
             # If fork hasn't reacted yet, do it
             if not vxipc.in_state(STATE.PRCL_STOPPED):
                 self._stop_protocol()
+
+        # Controller is indicating that protocol is running now
+        elif vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
+            # This is only the StaticPhasicProtocl response for now
+            #  TODO: move all this to separate method
+            t = vxipc.get_time()
+            dt_to_phase_start = t - vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+
+            # If current protocol ID doesn't match Controller-set protocol ID, update it.
+            #  It means a new phase has been set
+            if self.current_protocol.current_phase_id < vxipc.CONTROL[CTRL_PRCL_PHASE_ID]:
+
+                # Set phase ID to controller-set one
+                self.current_protocol.current_phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
+
+                # TODO: call method to prepare new phase in module
+
+            # If phase hasn't started yet
+            elif dt_to_phase_start > 0:
+
+                # If dt_to_phase reaches module interval-defined threshold
+                #  go into busy loop for exact start timing
+                if dt_to_phase_start <= 1.5 * self.interval:
+                    vxipc.set_state(STATE.PRCL_WAIT_FOR_PHASE_START)
+
+
 
     def _handle_protocol_old(self):
         """Method can be called by all processes that in some way respond to

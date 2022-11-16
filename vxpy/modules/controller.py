@@ -19,6 +19,8 @@ from __future__ import annotations
 import ctypes
 import importlib
 import multiprocessing as mp
+
+import numpy as np
 import sys
 
 from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
@@ -242,7 +244,9 @@ class Controller(process.AbstractProcess):
                      CTRL_PRCL_ACTIVE: False,
                      CTRL_PRCL_IMPORTPATH: '',
                      CTRL_PRCL_TYPE: None,
-                     CTRL_PRCL_PHASE_ID: -1}
+                     CTRL_PRCL_PHASE_ID: -1,
+                     CTRL_PRCL_PHASE_START_TIME: np.inf,
+                     CTRL_PRCL_PHASE_END_TIME: -np.inf}
 
         return _controls
 
@@ -492,6 +496,13 @@ class Controller(process.AbstractProcess):
 
     def start_protocol(self, protocol_path: str):
 
+        if not vxipc.in_state(STATE.IDLE):
+            log.error('Protocol request failed. Controller is busy.')
+            return
+
+        # Reset everything to defaults
+        self._reset_protocol_ctrls()
+
         log.debug(f'Protocol start requested for importpath {protocol_path}')
         vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = protocol_path
 
@@ -504,6 +515,15 @@ class Controller(process.AbstractProcess):
             return
 
         vxipc.set_state(STATE.PRCL_STOP_REQ)
+
+    @staticmethod
+    def _reset_protocol_ctrls():
+        vxipc.CONTROL[CTRL_PRCL_ACTIVE] = False
+        vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
+        vxipc.CONTROL[CTRL_PRCL_TYPE] = None
+        vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = -1
+        vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = np.inf
+        vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = -np.inf
 
     def _start_protocol(self):
         protocol = vxprotocol.get_protocol(vxipc.CONTROL[CTRL_PRCL_IMPORTPATH])
@@ -532,6 +552,7 @@ class Controller(process.AbstractProcess):
 
         self.current_protocol = protocol()
 
+        log.info(f'Start {prcl_type.__name__} from importpath {self.current_protocol.__class__.__qualname__}')
         # Set state to PRCL_START
         vxipc.set_state(STATE.PRCL_START)
 
@@ -553,15 +574,43 @@ class Controller(process.AbstractProcess):
         if not self._all_forks_in_state(STATE.PRCL_STOPPED):
             return
 
-        vxipc.CONTROL[CTRL_PRCL_ACTIVE] = False
-        vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
-        vxipc.CONTROL[CTRL_PRCL_TYPE] = None
-        vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = -1
+        # Reset everything to defaults
+        self._reset_protocol_ctrls()
 
+        # Set back to idle
         vxipc.set_state(STATE.IDLE)
 
     def _process_static_phasic_protocol(self):
-        pass
+
+        t = vxipc.get_time()
+        phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
+        phase_start_time = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+
+        # If phase end time is below current time
+        #  - either protocol just started (end time = -inf)
+        #  - or the current phase just ended
+        if phase_end_time < t:
+            # Increment phase ID by 1 and set new phase end time to inf
+            vxipc.CONTROL[CTRL_PRCL_PHASE_ID] += 1
+            vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = np.inf
+
+        # If phase end time and start times are in the future,
+        # check if new start and end time need to be updated to run the next phase
+        elif phase_start_time > t and phase_end_time > t:
+
+            # If phase start equals end time, this should only happen for inf == inf (i.e. between phases)
+            if phase_start_time == phase_end_time:
+                new_start = vxipc.get_time() + 0.1
+
+                log.info(f'Set new new phase start to {new_start}')
+
+                vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = new_start
+                vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = new_start + self.current_protocol.current_phase.duration
+
+        # If current time is between start and end time, a phase is currently running
+        elif phase_start_time <= t < phase_end_time:
+            pass
+
 
     def main(self):
         pass
@@ -629,127 +678,126 @@ class Controller(process.AbstractProcess):
         elif vxipc.in_state(STATE.PRCL_STOP):
             self._stopped_protocol()
 
-
-    def main_old(self):
-
-        ########
-        # First: handle log
-        while not logger.get_queue().empty():
-
-            # Fetch next record
-            record = logger.get_queue().get()
-
-            try:
-                logger.add_to_file(record)
-                logger.add_to_history(record)
-            except Exception:
-                import sys, traceback
-                print('Exception in Logger:', file=sys.stderr)
-                traceback.print_exc(file=sys.stderr)
-
-        ########
-        # PREPARE_PROTOCOL
-        if self.in_state(definitions.State.PREPARE_PROTOCOL):
-
-            protocol_path = ipc.Control.Protocol[ProtocolCtrl.name]
-            _protocol = get_protocol(protocol_path)
-            if _protocol is None:
-                log.error(f'Cannot get protocol {protocol_path}. Aborting ')
-                self.set_state(definitions.State.PROTOCOL_ABORT)
-                return
-
-            self.protocol = _protocol()
-
-            # Wait for processes to WAIT_FOR_PHASE (if they are not stopped)
-            check = [not (ipc.in_state(definitions.State.WAIT_FOR_PHASE, process_name))
-                     for process_name in self._active_protocols]
-            if any(check):
-                return
-
-            # Set next phase
-            self._start_protocol_phase()
-
-            # Set PREPARE_PHASE
-            self.set_state(definitions.State.PREPARE_PHASE)
-
-        ########
-        # PREPARE_PHASE
-        if self.in_state(definitions.State.PREPARE_PHASE):
-
-            # Wait for processes to be ready (have phase prepared)
-            check = [not ipc.in_state(definitions.State.READY, process_name)
-                     for process_name in self._active_protocols]
-            if any(check):
-                return
-
-            # Start phase
-            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-            duration = self.protocol.fetch_phase_duration(phase_id)
-
-            # Set phase times
-            now = time.time()
-            fixed_delay = 0.01
-            phase_start = now + fixed_delay
-            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = phase_start
-            phase_stop = now + duration + fixed_delay if duration is not None else None
-            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = phase_stop
-
-            log.info(f'Run protocol phase {phase_id} at {(phase_start-self.program_start_time):.4f}')
-
-            # Set to running
-            self.set_state(definitions.State.RUNNING)
-
-        ########
-        # RUNNING
-        elif self.in_state(definitions.State.RUNNING):
-
-            # If stop time is reached, set PHASE_END
-            phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
-            if phase_stop is not None and phase_stop < time.time():
-                self.end_protocol_phase()
-                return
-
-        ########
-        # PHASE_END
-        elif self.in_state(definitions.State.PHASE_END):
-
-            # Reset phase start time
-            ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
-
-            # If there are no further phases, end protocol
-            phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
-            if (phase_id + 1) >= self.protocol.phase_count:
-                self.set_state(definitions.State.PROTOCOL_END)
-                return
-
-            # Else, continue with next phase
-            self._start_protocol_phase()
-
-            # Move to PREPARE_PHASE (again)
-            self.set_state(definitions.State.PREPARE_PHASE)
-
-        ########
-        # PROTOCOL_END
-        elif self.in_state(definitions.State.PROTOCOL_END):
-
-            # When all processes are in IDLE again, stop recording and
-            # move Controller to IDLE
-            check = [ipc.in_state(definitions.State.IDLE, process_name)
-                     for process_name in self._active_protocols]
-            if all(check):
-                self.stop_recording()
-
-                ipc.Control.Protocol[definitions.ProtocolCtrl.name] = None
-                ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = None
-                ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
-                ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = None
-
-                self.set_state(definitions.State.IDLE)
-
-        else:
-            # If nothing's happning: sleep for a bit
-            pass
-            # time.sleep(0.05)
+    # def main_old(self):
+    #
+    #     ########
+    #     # First: handle log
+    #     while not logger.get_queue().empty():
+    #
+    #         # Fetch next record
+    #         record = logger.get_queue().get()
+    #
+    #         try:
+    #             logger.add_to_file(record)
+    #             logger.add_to_history(record)
+    #         except Exception:
+    #             import sys, traceback
+    #             print('Exception in Logger:', file=sys.stderr)
+    #             traceback.print_exc(file=sys.stderr)
+    #
+    #     ########
+    #     # PREPARE_PROTOCOL
+    #     if self.in_state(definitions.State.PREPARE_PROTOCOL):
+    #
+    #         protocol_path = ipc.Control.Protocol[ProtocolCtrl.name]
+    #         _protocol = get_protocol(protocol_path)
+    #         if _protocol is None:
+    #             log.error(f'Cannot get protocol {protocol_path}. Aborting ')
+    #             self.set_state(definitions.State.PROTOCOL_ABORT)
+    #             return
+    #
+    #         self.protocol = _protocol()
+    #
+    #         # Wait for processes to WAIT_FOR_PHASE (if they are not stopped)
+    #         check = [not (ipc.in_state(definitions.State.WAIT_FOR_PHASE, process_name))
+    #                  for process_name in self._active_protocols]
+    #         if any(check):
+    #             return
+    #
+    #         # Set next phase
+    #         self._start_protocol_phase()
+    #
+    #         # Set PREPARE_PHASE
+    #         self.set_state(definitions.State.PREPARE_PHASE)
+    #
+    #     ########
+    #     # PREPARE_PHASE
+    #     if self.in_state(definitions.State.PREPARE_PHASE):
+    #
+    #         # Wait for processes to be ready (have phase prepared)
+    #         check = [not ipc.in_state(definitions.State.READY, process_name)
+    #                  for process_name in self._active_protocols]
+    #         if any(check):
+    #             return
+    #
+    #         # Start phase
+    #         phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+    #         duration = self.protocol.fetch_phase_duration(phase_id)
+    #
+    #         # Set phase times
+    #         now = time.time()
+    #         fixed_delay = 0.01
+    #         phase_start = now + fixed_delay
+    #         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = phase_start
+    #         phase_stop = now + duration + fixed_delay if duration is not None else None
+    #         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = phase_stop
+    #
+    #         log.info(f'Run protocol phase {phase_id} at {(phase_start-self.program_start_time):.4f}')
+    #
+    #         # Set to running
+    #         self.set_state(definitions.State.RUNNING)
+    #
+    #     ########
+    #     # RUNNING
+    #     elif self.in_state(definitions.State.RUNNING):
+    #
+    #         # If stop time is reached, set PHASE_END
+    #         phase_stop = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop]
+    #         if phase_stop is not None and phase_stop < time.time():
+    #             self.end_protocol_phase()
+    #             return
+    #
+    #     ########
+    #     # PHASE_END
+    #     elif self.in_state(definitions.State.PHASE_END):
+    #
+    #         # Reset phase start time
+    #         ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
+    #
+    #         # If there are no further phases, end protocol
+    #         phase_id = ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id]
+    #         if (phase_id + 1) >= self.protocol.phase_count:
+    #             self.set_state(definitions.State.PROTOCOL_END)
+    #             return
+    #
+    #         # Else, continue with next phase
+    #         self._start_protocol_phase()
+    #
+    #         # Move to PREPARE_PHASE (again)
+    #         self.set_state(definitions.State.PREPARE_PHASE)
+    #
+    #     ########
+    #     # PROTOCOL_END
+    #     elif self.in_state(definitions.State.PROTOCOL_END):
+    #
+    #         # When all processes are in IDLE again, stop recording and
+    #         # move Controller to IDLE
+    #         check = [ipc.in_state(definitions.State.IDLE, process_name)
+    #                  for process_name in self._active_protocols]
+    #         if all(check):
+    #             self.stop_recording()
+    #
+    #             ipc.Control.Protocol[definitions.ProtocolCtrl.name] = None
+    #             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_id] = None
+    #             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_start] = None
+    #             ipc.Control.Protocol[definitions.ProtocolCtrl.phase_stop] = None
+    #
+    #             self.set_state(definitions.State.IDLE)
+    #
+    #     else:
+    #         # If nothing's happning: sleep for a bit
+    #         pass
+    #         # time.sleep(0.05)
 
     def _start_shutdown(self):
         log.debug('Shutdown requested. Checking.')
@@ -764,7 +812,7 @@ class Controller(process.AbstractProcess):
 
         if not shutdown_state:
             log.debug('Not ready for shutdown. Confirming.')
-            ipc.rpc(modules.Gui.name, modules.Gui.prompt_shutdown_confirmation)
+            ipc.rpc(vxmodules.Gui.name, vxmodules.Gui.prompt_shutdown_confirmation)
             return
 
         self._force_shutdown()

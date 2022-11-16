@@ -774,7 +774,7 @@ class LoggingWidget(vxgui.IntegratedWidget):
                 self.txe_log.append(line)
 
 
-class Protocols(vxgui.IntegratedWidget):
+class ProtocolWidget(vxgui.IntegratedWidget):
 
     def __init__(self, *args, **kwargs):
         vxgui.IntegratedWidget.__init__(self, 'Protocols', *args, **kwargs)
@@ -870,7 +870,7 @@ class Protocols(vxgui.IntegratedWidget):
 
     def check_status(self):
 
-        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+        phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
         if self.current_protocol is None or phase_id is None:
             return
@@ -896,7 +896,7 @@ class Protocols(vxgui.IntegratedWidget):
 
     def update_ui(self):
         # Enable/Disable control elements
-        protocol_name = vxipc.Control.Protocol[ProtocolCtrl.name]
+        protocol_name = vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
         protocol_is_running = bool(protocol_name)
         phase_start = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
         phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
@@ -963,10 +963,16 @@ class Protocols(vxgui.IntegratedWidget):
             self.in_running_mode = False
 
     def start_protocol(self):
-        protocol_path = self.protocol_list.currentItem().data(QtCore.Qt.ItemDataRole.UserRole)
+        selected_protocol = self.protocol_list.currentItem()
+        if selected_protocol is None:
+            log.warning('Please select protocol from list to run')
+            return
+
+        # Get protocol path
+        protocol_path = selected_protocol.data(QtCore.Qt.ItemDataRole.UserRole)
         self.current_protocol = vxprotocol.get_protocol(protocol_path)()
 
-        # Start protocol
+        # Send start request to controller for selected protocol
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_protocol, protocol_path)
 
     def abort_protocol(self):

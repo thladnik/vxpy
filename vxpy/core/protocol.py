@@ -171,7 +171,7 @@ class PhaseNotSetError(Exception):
 class AbstractProtocol:
 
     def __init__(self):
-        self._current_phase_id = None
+        self._current_phase_id = -1
         self._phases: List[Phase] = []
 
     @property

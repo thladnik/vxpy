@@ -1,5 +1,5 @@
 """
-vxPy ./core/gui.py
+vxPy ./core/ui.py
 Copyright (C) 2022 Tim Hladnik
 
 This program is free software: you can redistribute it and/or modify
@@ -24,11 +24,10 @@ from typing import Callable, List, Union
 from vxpy import config
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
-from vxpy.addons import core_widgets
+# from vxpy.addons import core_widgets
 from vxpy.core import ipc
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
-from vxpy.definitions import PROCESS_GUI
 
 log = vxlogger.getLogger(__name__)
 
@@ -225,4 +224,5 @@ class AddonWindow(WindowTabWidget):
 
 
 def register_with_plotter(attr_name: str, *args, **kwargs):
-    ipc.rpc(PROCESS_GUI, core_widgets.PlottingWindow.add_buffer_attribute, attr_name, *args, **kwargs)
+    pass
+    # ipc.rpc(PROCESS_GUI, core_widgets.PlottingWindow.add_buffer_attribute, attr_name, *args, **kwargs)

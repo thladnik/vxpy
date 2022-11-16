@@ -123,7 +123,7 @@ class Window(QtWidgets.QMainWindow):
         self.control_wdgt.layout().addWidget(self.recordings)
 
         # Protocols}
-        self.protocols = core_widgets.Protocols(self)
+        self.protocols = core_widgets.ProtocolWidget(self)
         self.protocols.create_hooks()
         self.control_wdgt.layout().addWidget(self.protocols)
 
