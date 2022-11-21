@@ -169,7 +169,7 @@ class Controller(vxprocess.AbstractProcess):
                                                      ProtocolCtrl.phase_stop: None})
 
         # NEW UNIFIED CONTROL:
-        vxipc.CONTROL = vxipc.Manager.dict(self._shared_controls())
+        vxipc.CONTROL = vxipc.Manager.dict(self._create_shared_controls())
 
         # Set configured cameras
         if config.CONF_CAMERA_USE:
@@ -237,7 +237,7 @@ class Controller(vxprocess.AbstractProcess):
         self.record_group_counter = -1
 
     @staticmethod
-    def _shared_controls():
+    def _create_shared_controls():
         _controls = {CTRL_REC_ACTIVE: False,
                      CTRL_REC_BASE_PATH: os.path.join(os.getcwd(), PATH_RECORDING_OUTPUT),
                      CTRL_REC_FLDNAME: '',
@@ -255,7 +255,7 @@ class Controller(vxprocess.AbstractProcess):
         """Register new modules to be spawned.
 
         :param target: modules class
-        :param kwargs: optional keyword arguments for initalization of modules class
+        :param kwargs: optional keyword arguments for initialization of modules class
         """
         self._registered_processes.append((target, kwargs))
         vxipc.Pipes[target.name] = mp.Pipe()
@@ -450,8 +450,7 @@ class Controller(vxprocess.AbstractProcess):
         # Check recording path
         path = vxipc.get_recording_path()
         if os.path.exists(path):
-            log.error(f'Unable to start new recording to path {path}. '
-                      f'Path already exists')
+            log.error(f'Unable to start new recording to path {path}. Path already exists')
 
             # Reset folder name
             vxipc.CONTROL[CTRL_REC_FLDNAME] = ''
@@ -495,10 +494,21 @@ class Controller(vxprocess.AbstractProcess):
         # If all forks have signalled REC_STOPPED, return to IDLE
         vxipc.set_state(STATE.IDLE)
 
+    @vxprocess.AbstractProcess.phase_id.setter
+    def phase_id(self, val):
+        vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = val
 
-    @phase_start_time.setter
-    def phase_start_time(self, time):
-        vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = time
+    @vxprocess.AbstractProcess.phase_start_time.setter
+    def phase_start_time(self, val):
+        vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = val
+
+    @vxprocess.AbstractProcess.phase_active.setter
+    def phase_end_time(self, val):
+        vxipc.CONTROL[CTRL_PRCL_PHASE_ACTIVE] = val
+
+    @vxprocess.AbstractProcess.phase_end_time.setter
+    def phase_end_time(self, val):
+        vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = val
 
     def start_protocol(self, protocol_path: str):
 
@@ -537,7 +547,7 @@ class Controller(vxprocess.AbstractProcess):
 
         # Abort protocol start if protocol cannot be imported
         if protocol is None:
-            log.error(f'Failed to import protocol from importpath {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}')
+            log.error(f'Failed to import protocol from import path {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}')
             self._reset_protocol_ctrls()
             vxipc.set_state(STATE.IDLE)
             return
@@ -550,7 +560,7 @@ class Controller(vxprocess.AbstractProcess):
         elif issubclass(protocol, vxprotocol.TriggeredProtocol):
             prcl_type = vxprotocol.TriggeredProtocol
         else:
-            log.error(f'Failed to start protocol from importpath {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}. '
+            log.error(f'Failed to start protocol from import path {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}. '
                       f'Unknown type for protocol {protocol}')
             self._reset_protocol_ctrls()
             vxipc.set_state(STATE.IDLE)
@@ -563,7 +573,7 @@ class Controller(vxprocess.AbstractProcess):
         self.current_protocol = protocol()
 
         # Set state to PRCL_START
-        log.info(f'Start {prcl_type.__name__} from importpath {self.current_protocol.__class__.__qualname__}')
+        log.info(f'Start {prcl_type.__name__} from import path {self.current_protocol.__class__.__qualname__}')
         vxipc.set_state(STATE.PRCL_START)
 
     def _started_protocol(self):
@@ -633,7 +643,7 @@ class Controller(vxprocess.AbstractProcess):
     def main(self):
         pass
 
-    def _eval_state(self):
+    def _eval_process_state(self):
 
         # First, handle log
         self._handle_logging()

@@ -98,6 +98,9 @@ class Window(QtWidgets.QMainWindow):
         # Set up main window
         self.setWindowTitle('vxPy - vision experiments in Python')
 
+        # Make known to window manager
+        self.createWinId()
+
         # Setup central widget
         self.setCentralWidget(QtWidgets.QWidget(parent=self, f=QtCore.Qt.WindowType.Widget))
         self.centralWidget().setLayout(QtWidgets.QHBoxLayout())

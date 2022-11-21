@@ -60,7 +60,6 @@ class AbstractProcess:
 
     # Protocol related
     current_protocol: Union[vxprotocol.AbstractProtocol, None] = None
-    phase_active: bool = False
     phase_time: float = None
 
     enable_idle_timeout: bool = True
@@ -194,7 +193,10 @@ class AbstractProcess:
 
             self._open_file()
 
-            self._eval_state()
+            self._eval_process_state()
+
+            if self.name in self._protocolized:
+                self._eval_protocol_state()
 
             self._keep_time()
 
@@ -235,8 +237,16 @@ class AbstractProcess:
     # PROTOCOL RESPONSE
 
     @property
+    def phase_id(self):
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
+
+    @property
     def phase_start_time(self):
         return vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+
+    @property
+    def phase_active(self):
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_ACTIVE]
 
     @property
     def phase_end_time(self):
@@ -345,17 +355,17 @@ class AbstractProcess:
     def _process_static_protocol(self):
 
         t = vxipc.get_time()
-        phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
-        phase_start_time = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+        # phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
+        # phase_start_time = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
 
-        if phase_end_time < t:
+        if self.phase_end_time < t:
             # TODO: call phase end function
             log.info(f'Wait for new phase')
             vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
             return
 
         # If phase start equals end time, this should only happen when controller sets both to inf
-        elif phase_start_time == phase_end_time:
+        elif self.phase_start_time == self.phase_end_time:
 
             # Set phase ID to controller-set one
             self.current_protocol.current_phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
@@ -363,36 +373,9 @@ class AbstractProcess:
 
             # TODO: call method to prepare new phase in module
 
-            return
+    def _eval_process_state(self):
 
-        # t = vxipc.get_time()
-        # dt_to_phase_start = t - vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
-        #
-        # # If new phase start is imminent, wait to actual start
-        # if 0 < dt_to_phase_start <= 1.5 * self.interval:
-        #     time.sleep(self.interval)
-        #
-        #     # TODO: call method to start phase
-        #     log.info(f'{self.name} start protocol phase {vxipc.CONTROL[CTRL_PRCL_PHASE_ID]} at {t}')
-
-
-        # dt_to_phase_end = t - vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
-        #
-        #
-        #
-        # # If phase hasn't started yet
-        # elif dt_to_phase_start > 0:
-        #
-        #     # If dt_to_phase reaches module interval-defined threshold
-        #     #  go into busy loop for exact start timing
-        #     if dt_to_phase_start <= 1.5 * self.interval:
-        #         vxipc.set_state(STATE.PRCL_WAIT_FOR_PHASE_START)
-        #
-        # elif dt_to_phase_start <= 0:
-        #     if dt_to_phase_end > 0:
-        #         print('Keep running')
-
-    def _eval_state(self):
+        # Check controller states
 
         # Controller is in idle
         if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
@@ -404,8 +387,6 @@ class AbstractProcess:
             # Ultimately, go into idle too
             if not vxipc.in_state(STATE.IDLE):
                 vxipc.set_state(STATE.IDLE)
-
-        # Recording states
 
         # Controller has started a recording
         elif vxipc.in_state(STATE.REC_START, PROCESS_CONTROLLER):
@@ -419,25 +400,20 @@ class AbstractProcess:
             if not vxipc.in_state(STATE.REC_STOPPED):
                 self._stop_recording()
 
-        # Shutdown
-
         # Controller has started shutdown
         elif vxipc.in_state(STATE.SHUTDOWN, PROCESS_CONTROLLER):
             self._start_shutdown()
 
-        # The following states only apply to processes that may run a protocol
-        if not self.name in self._protocolized:
-            return
+    def _eval_protocol_state(self):
 
-        # Check fork's own protocol-related states
-
+        # Check own states
         if vxipc.in_state(STATE.PRCL_STARTED):
             self._started_protocol()
 
         elif vxipc.in_state(STATE.PRCL_STOPPED):
             self._stopped_protocol()
 
-        # Reaction to controller protocol states
+        # Reaction to controller states
 
         # Controller has started a protocol
         if vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
