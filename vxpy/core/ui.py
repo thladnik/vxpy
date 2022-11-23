@@ -1095,20 +1095,22 @@ class ProtocolWidget(IntegratedWidget):
         # Enable/Disable control elements
         protocol_name = vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
         protocol_is_running = bool(protocol_name)
-        phase_start = vxipc.Control.Protocol[ProtocolCtrl.phase_start]
-        phase_stop = vxipc.Control.Protocol[ProtocolCtrl.phase_stop]
-        phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
+        phase_start = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
+        phase_stop = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
+        phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
         # Protocol is running
         if protocol_is_running and self.in_running_mode:
-            self.abort_btn.setEnabled(phase_stop is not None and time.time() <= phase_stop - .2)
+            self.abort_btn.setEnabled(phase_stop is not None and vxipc.get_time() <= phase_stop - .2)
 
             if phase_start is None or phase_stop is None:
                 return
 
             # Update progress
-            phase_diff = time.time() - phase_start
+            phase_diff = vxipc.get_time() - phase_start
             phase_duration = phase_stop - phase_start
+            if np.isinf(phase_start):
+                return
 
             # Update protocol progress
             self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count * 100)
@@ -1170,10 +1172,11 @@ class ProtocolWidget(IntegratedWidget):
         self.current_protocol = vxprotocol.get_protocol(protocol_path)()
 
         # Send start request to controller for selected protocol
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_protocol, protocol_path)
+        vxipc.controller_rpc(vxmodules.Controller.start_protocol, protocol_path)
 
-    def abort_protocol(self):
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.stop_protocol)
+    @staticmethod
+    def abort_protocol():
+        vxipc.controller_rpc(vxmodules.Controller.stop_protocol)
 
 
 class ImageWidget(pg.GraphicsLayoutWidget):

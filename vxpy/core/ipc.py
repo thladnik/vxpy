@@ -78,6 +78,7 @@ Worker: ProcessProxy = ProcessProxy(PROCESS_WORKER)
 
 def set_state(new_state: Union[State, STATE]):
     """Set state of local modules to new_state"""
+    log.debug(f'Set state from {get_state()} to {new_state}')
     getattr(State, LocalProcess.name).value = new_state
 
 
@@ -102,17 +103,6 @@ def in_state(state: Union[State, STATE], process_name: str = None):
 
     return get_state(process_name) == state
 
-
-# Pipes
-# TODO: pipes have *limited buffer size*. This means if processes send
-#  messages more quickly than the consumer can sort them out, this will crash
-#  the producer modules (can happen e.g. for very frequent event triggered signals)
-#  ----
-#  -> One solution may be an arbitrary limit on how often a pipe can be used to send
-#  messages in a given time window. Although this would disregard the size of messages:
-#  Another proposal which checks the buffer size against a maxsize:
-#  https://stackoverflow.com/questions/45318798/how-to-detect-multiprocessing-pipe-is-full
-#  Question: Overhead?
 
 Pipes: Dict[str, Tuple[mp.connection.Connection, mp.connection.Connection]] = dict()
 

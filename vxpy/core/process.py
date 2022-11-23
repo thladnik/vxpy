@@ -237,6 +237,14 @@ class AbstractProcess:
     # PROTOCOL RESPONSE
 
     @property
+    def protocol_type(self):
+        return vxipc.CONTROL[CTRL_PRCL_TYPE]
+
+    @property
+    def protocol_import_path(self):
+        return vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
+
+    @property
     def phase_id(self):
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
@@ -320,27 +328,32 @@ class AbstractProcess:
 
     def _start_recording(self):
         # DO START RECORDING STUFF
-        log.debug(f'{self.name} start recording to {vxipc.get_recording_path()}')
+        log.debug(f'Start recording to {vxipc.get_recording_path()}')
 
         # AND THEN, SWITCH STATE
         vxipc.set_state(STATE.REC_STARTED)
 
     def _stop_recording(self):
         # DO START RECORDING STUFF
-        log.debug(f'{self.name} stop recording to {vxipc.get_recording_path()}')
+        log.debug(f'Stop recording to {vxipc.get_recording_path()}')
 
         # AND THEN, SWITCH STATE
         vxipc.set_state(STATE.REC_STOPPED)
 
     def _start_protocol(self):
-        protocol_path = vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
-        log.debug(f'Load protocol from importpath {protocol_path}')
-        self.current_protocol = vxprotocol.get_protocol(protocol_path)()
+        # If fork has already started/loaded protocol, ignore this
+        if vxipc.in_state(STATE.PRCL_STARTED):
+            return
+
+        # If fork hasn't reacted yet, do it
+        log.debug(f'Load protocol from import path {self.protocol_import_path}')
+        self.current_protocol = vxprotocol.get_protocol(self.protocol_import_path)()
 
         vxipc.set_state(STATE.PRCL_STARTED)
 
     def _started_protocol(self):
-        # Do stuff
+        if not vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
+            return
 
         # Set state
         vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
@@ -355,23 +368,28 @@ class AbstractProcess:
     def _process_static_protocol(self):
 
         t = vxipc.get_time()
-        # phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
-        # phase_start_time = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
 
         if self.phase_end_time < t:
+            if vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
+                return
+
             # TODO: call phase end function
-            log.info(f'Wait for new phase')
+            log.debug(f'Wait for phase')
             vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
             return
 
         # If phase start equals end time, this should only happen when controller sets both to inf
-        elif self.phase_start_time == self.phase_end_time:
+        elif vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
 
-            # Set phase ID to controller-set one
-            self.current_protocol.current_phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
-            log.info(f'Ready phase {self.current_protocol.current_phase_id}')
+            log.debug(f'Ready phase {self.phase_id}')
 
             # TODO: call method to prepare new phase in module
+            vxipc.set_state(STATE.PRCL_STC_PHASE_READY)
+
+        elif self.phase_start_time <= t < self.phase_end_time:
+            if not vxipc.in_state(STATE.PRCL_STC_RUN_PHASE):
+                log.info(f'Run phase {self.phase_id}')
+                vxipc.set_state(STATE.PRCL_STC_RUN_PHASE)
 
     def _eval_process_state(self):
 
@@ -417,9 +435,7 @@ class AbstractProcess:
 
         # Controller has started a protocol
         if vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
-            # If fork hasn't reacted yet, do it
-            if not vxipc.in_state(STATE.PRCL_STARTED):
-                self._start_protocol()
+            self._start_protocol()
 
         # Controller is currently running the protocol
         elif vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):

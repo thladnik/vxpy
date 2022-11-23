@@ -21,9 +21,10 @@ from abc import abstractmethod
 from inspect import isclass
 from typing import List, Union, Callable, Type
 
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
 import vxpy.core.visual as vxvisual
 from vxpy.definitions import *
-import vxpy.core.logger as vxlogger
 
 log = vxlogger.getLogger(__name__)
 
@@ -176,11 +177,7 @@ class AbstractProtocol:
 
     @property
     def current_phase_id(self):
-        return self._current_phase_id
-
-    @current_phase_id.setter
-    def current_phase_id(self, phase_id):
-        self._current_phase_id = phase_id
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
     @property
     def current_phase(self):

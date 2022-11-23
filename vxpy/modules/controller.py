@@ -543,11 +543,11 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = -np.inf
 
     def _start_protocol(self):
-        protocol = vxprotocol.get_protocol(vxipc.CONTROL[CTRL_PRCL_IMPORTPATH])
+        protocol = vxprotocol.get_protocol(self.protocol_import_path)
 
         # Abort protocol start if protocol cannot be imported
         if protocol is None:
-            log.error(f'Failed to import protocol from import path {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}')
+            log.error(f'Failed to import protocol from import path {self.protocol_import_path}')
             self._reset_protocol_ctrls()
             vxipc.set_state(STATE.IDLE)
             return
@@ -560,7 +560,7 @@ class Controller(vxprocess.AbstractProcess):
         elif issubclass(protocol, vxprotocol.TriggeredProtocol):
             prcl_type = vxprotocol.TriggeredProtocol
         else:
-            log.error(f'Failed to start protocol from import path {vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]}. '
+            log.error(f'Failed to start protocol from import path {self.protocol_import_path}. '
                       f'Unknown type for protocol {protocol}')
             self._reset_protocol_ctrls()
             vxipc.set_state(STATE.IDLE)
@@ -573,7 +573,7 @@ class Controller(vxprocess.AbstractProcess):
         self.current_protocol = protocol()
 
         # Set state to PRCL_START
-        log.info(f'Start {prcl_type.__name__} from import path {self.current_protocol.__class__.__qualname__}')
+        log.info(f'Start {prcl_type.__name__} from import path {self.protocol_import_path}')
         vxipc.set_state(STATE.PRCL_START)
 
     def _started_protocol(self):
@@ -616,10 +616,19 @@ class Controller(vxprocess.AbstractProcess):
             if not self._all_forks_in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
                 return
 
-            # When all forks are done with the last phase
-            # Increment phase ID by 1 and set new phase end time to inf
-            vxipc.CONTROL[CTRL_PRCL_PHASE_ID] += 1
-            vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = np.inf
+            # When all forks are done with the last phase (or if this is the first phase)
+
+            # Check if previous phase was the last one in protocol,
+            #  if so, request stop of protocol
+            if self.phase_id >= (self.current_protocol.phase_count - 1):
+                vxipc.set_state(STATE.PRCL_STOP_REQ)
+                return
+
+            # Increment phase ID by 1 and set new phase start/end time both to inf
+            self.phase_id = self.phase_id + 1
+            self.phase_start_time = np.inf
+            self.phase_end_time = np.inf
+            log.debug(f'Prepare phase {self.phase_id}')
 
         # If phase start equals end time, this should only happen for inf == inf (i.e. between phases)
         elif phase_start_time == phase_end_time:
@@ -628,16 +637,18 @@ class Controller(vxprocess.AbstractProcess):
             if not self._all_forks_in_state(STATE.PRCL_STC_PHASE_READY):
                 return
 
-            new_start = vxipc.get_time() + 0.2
+            start_time = vxipc.get_time() + 0.050
             duration = self.current_protocol.current_phase.duration
+            end_time = start_time + duration
 
-            log.info(f'Set new new phase start to {new_start:.3f}')
+            # Set for all
+            self.phase_start_time = start_time
+            self.phase_end_time = end_time
 
-            vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = new_start
-            vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = new_start + duration
+            log.info(f'Set phase {self.phase_id} to interval to [{start_time:.3f}, {end_time:.3f})')
 
         # If current time is between start and end time, a phase is currently running
-        elif phase_start_time <= t < phase_end_time:
+        elif self.phase_start_time <= t < self.phase_end_time:
             pass
 
     def main(self):
