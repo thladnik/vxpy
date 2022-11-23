@@ -20,14 +20,16 @@ from typing import Tuple, Union, List
 import numpy as np
 
 from vxpy import config
-from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import process, ipc, logger, camera_device
+import vxpy.core.process as vxprocess
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
+from vxpy.core import camera_device
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class Camera(process.AbstractProcess):
+class Camera(vxprocess.AbstractProcess):
     name = PROCESS_CAMERA
     _camera_threads: Dict[str, threading.Thread] = {}
     cameras: Dict[str, camera_device.AbstractCameraDevice] = {}
@@ -36,7 +38,7 @@ class Camera(process.AbstractProcess):
     _next_snap: Dict[str, float] = {}
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Set up cameras
         for device_id, device_config in config.CONF_CAMERA_DEVICES.items():
@@ -48,7 +50,7 @@ class Camera(process.AbstractProcess):
 
         target_interval = 1/200.
 
-        if ipc.Control.General[definitions.GenCtrl.min_sleep_time] > target_interval:
+        if vxipc.Control.General[GenCtrl.min_sleep_time] > target_interval:
             log.warning(f'Minimum sleep period ABOVE average target frame time of {target_interval:.5f}s.'
                         'This will cause increased CPU usage.')
 
@@ -115,22 +117,25 @@ class Camera(process.AbstractProcess):
         pass
 
     def _start_shutdown(self):
+
+        # Make sure camera streams are terminated before shutting down process
         for camera in self.cameras.values():
             camera.end_stream()
-        process.AbstractProcess._start_shutdown(self)
+
+        vxprocess.AbstractProcess._start_shutdown(self)
 
     def main(self):
 
         for camera_id, camera in self.cameras.items():
 
-            if self.global_t >= self._next_snap[camera_id]:
+            if vxipc.get_time() >= self._next_snap[camera_id]:
 
                 # Snap image and update routine
                 camera.snap_image()
                 self.update_routines(**{camera_id: camera.get_image()})
 
                 # Set next update time
-                self._next_snap[camera_id] = self.global_t + 1. / camera.framerate
+                self._next_snap[camera_id] = vxipc.get_time() + 1. / camera.framerate
 
         # # Snap image
         # for device_id, cam in self.cameras.items():

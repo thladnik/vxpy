@@ -603,14 +603,11 @@ class Controller(vxprocess.AbstractProcess):
 
     def _process_static_protocol(self):
 
-        t = vxipc.get_time()
-        phase_end_time = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
-        phase_start_time = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
 
         # If phase end time is below current time
         #  - either protocol just started (end time = -inf)
         #  - or the current phase just ended
-        if phase_end_time < t:
+        if self.phase_end_time < vxipc.get_time():
 
             # If any fork is still in an active phase, wait a turn
             if not self._all_forks_in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
@@ -631,7 +628,7 @@ class Controller(vxprocess.AbstractProcess):
             log.debug(f'Prepare phase {self.phase_id}')
 
         # If phase start equals end time, this should only happen for inf == inf (i.e. between phases)
-        elif phase_start_time == phase_end_time:
+        elif self.phase_start_time == self.phase_end_time:
 
             # If any fork is still in an active phase, wait a turn
             if not self._all_forks_in_state(STATE.PRCL_STC_PHASE_READY):
@@ -648,7 +645,7 @@ class Controller(vxprocess.AbstractProcess):
             log.info(f'Set phase {self.phase_id} to interval to [{start_time:.3f}, {end_time:.3f})')
 
         # If current time is between start and end time, a phase is currently running
-        elif self.phase_start_time <= t < self.phase_end_time:
+        elif self.phase_start_time <= vxipc.get_time() < self.phase_end_time:
             pass
 
     def main(self):

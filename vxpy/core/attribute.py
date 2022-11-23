@@ -301,7 +301,7 @@ class Attribute(ABC):
         #  Regular occurrences may indicate an underlying issue with the timing precision of the system
         #  or repeated erreneous calls to the write function of the attribute during a
         #  single event loop iteration of the corresponding producer module
-        if np.isclose(self._last_time, vxipc.LocalProcess.global_t, rtol=0., atol=vxipc.LocalProcess.interval / 4.):
+        if np.isclose(self._last_time, vxipc.get_time(), rtol=0., atol=vxipc.LocalProcess.interval / 4.):
             log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
                         f'in process {vxipc.LocalProcess.name} during same iteration. '
                         f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
@@ -309,7 +309,7 @@ class Attribute(ABC):
         internal_idx = self.index % self.length
 
         # Set time for this entry
-        self._time[internal_idx] = vxipc.LocalProcess.global_t
+        self._time[internal_idx] = vxipc.get_time()
 
         # Write data
         self._write(internal_idx, value)
@@ -318,7 +318,7 @@ class Attribute(ABC):
         self.set_new(True)
 
         # Update last time
-        self._last_time = vxipc.LocalProcess.global_t
+        self._last_time = vxipc.get_time()
 
         # Advance buffer
         self._next()

@@ -15,6 +15,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 import multiprocessing as mp
+import time
 from multiprocessing.managers import SyncManager
 
 import vxpy.core.logger as vxlogger
@@ -195,8 +196,17 @@ class Control:
     Protocol = None
 
 
+_local_time = 0.0
+
+
+def update_time():
+    global _local_time
+    _local_time = time.time() - LocalProcess.program_start_time
+
+
 def get_time():
-    return LocalProcess.global_t
+    global _local_time
+    return _local_time
 
 
 def camera_rpc(function, *args, **kwargs):

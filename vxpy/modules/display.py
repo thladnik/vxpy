@@ -69,6 +69,8 @@ class Display(vxprocess.AbstractProcess):
         self.run(interval=_interval)
 
     def prepare_protocol(self):
+        # Initialize all visuals during protocol preparation
+        #  This may come with some overhead, but reduces latency between stimulation phases
         self.current_protocol.initialize_visuals(self.canvas)
 
     def prepare_protocol_phase(self):

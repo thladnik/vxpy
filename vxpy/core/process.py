@@ -146,8 +146,7 @@ class AbstractProcess:
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_sigint)
 
-        self.global_t: float = 0.0
-        self.next_iter_global_t: float = 0.0
+        self.next_iteration_time: float = 0.0
         self.loop_times: List[float] = [time.perf_counter()]
 
     def _keep_time(self):
@@ -201,25 +200,19 @@ class AbstractProcess:
             self._keep_time()
 
             # Wait until interval time is up
-            dt = self.next_iter_global_t - (time.time() - self.program_start_time)
+            vxipc.update_time()
+            dt = self.next_iteration_time - vxipc.get_time()
             if self.enable_idle_timeout and dt > (1.2 * min_sleep_time):
                 # Sleep to reduce CPU usage
                 time.sleep(0.9 * dt)
 
             # Busy loop until next main execution for precise timing
             # while self.t + interval - time.perf_counter() >= 0:
-            while (time.time() - self.program_start_time) < self.next_iter_global_t:
-                pass
+            while vxipc.get_time() < self.next_iteration_time:
+                vxipc.update_time()
 
-            # Set new global time
-            self.global_t = time.time() - self.program_start_time
-
-            self.next_iter_global_t = self.global_t + self.interval
-
-            # Add record_group_id aand corresponding global time if anything is to be written to file from this process
-            if len(vxattribute.Attribute.to_file) > 0:
-                self._append_to_dataset('record_group_id', vxipc.Control.Recording[RecCtrl.record_group_counter])
-                self._append_to_dataset('global_time', self.global_t)
+            # Set new local time
+            vxipc.update_time()
 
             # Process triggers
             for trigger in vxevent.Trigger.all:
@@ -227,6 +220,13 @@ class AbstractProcess:
 
             # Execute main method
             self.main()
+
+            # Add record_group_id aand corresponding global time if anything is to be written to file from this process
+            if len(vxattribute.Attribute.to_file) > 0:
+                self._append_to_dataset('record_group_id', vxipc.CONTROL[CTRL_REC_GROUP_ID])
+                self._append_to_dataset('global_time', vxipc.get_time())
+
+            self.next_iteration_time = vxipc.get_time() + self.interval
 
             self._close_file()
 
@@ -367,9 +367,7 @@ class AbstractProcess:
 
     def _process_static_protocol(self):
 
-        t = vxipc.get_time()
-
-        if self.phase_end_time < t:
+        if self.phase_end_time < vxipc.get_time():
             if vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
                 return
 
@@ -378,7 +376,6 @@ class AbstractProcess:
             vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
             return
 
-        # If phase start equals end time, this should only happen when controller sets both to inf
         elif vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
 
             log.debug(f'Ready phase {self.phase_id}')
@@ -386,10 +383,17 @@ class AbstractProcess:
             # TODO: call method to prepare new phase in module
             vxipc.set_state(STATE.PRCL_STC_PHASE_READY)
 
-        elif self.phase_start_time <= t < self.phase_end_time:
-            if not vxipc.in_state(STATE.PRCL_STC_RUN_PHASE):
-                log.info(f'Run phase {self.phase_id}')
-                vxipc.set_state(STATE.PRCL_STC_RUN_PHASE)
+        # Leave some buffer time before actual phase start (based on process interval) to get timing right
+        elif (self.phase_start_time - 1.5 * self.interval) <= vxipc.get_time() < self.phase_end_time:
+            if not vxipc.in_state(STATE.PRCL_IN_PHASE):
+
+                # Busy loop to exactly get start time right
+                while vxipc.get_time() < self.phase_start_time:
+                    vxipc.update_time()
+
+                # When loop is through
+                log.info(f'Run phase {self.phase_id} at {vxipc.get_time():.3f}')
+                vxipc.set_state(STATE.PRCL_IN_PHASE)
 
     def _eval_process_state(self):
 
