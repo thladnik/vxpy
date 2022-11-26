@@ -275,7 +275,7 @@ class AbstractProcess:
         self.current_protocol = _protocol()
 
         # Call implemented preparation function of module
-        self.prepare_protocol()
+        self.prepare_static_protocol()
 
         # Let file container know that protocol was started
         self.file_container.start_protocol()
@@ -289,7 +289,7 @@ class AbstractProcess:
         # Set next state
         self.set_state(State.WAIT_FOR_PHASE)
 
-    def prepare_protocol(self):
+    def prepare_static_protocol(self):
         """Method is called when a new protocol has been started by Controller."""
         pass
 
@@ -302,27 +302,27 @@ class AbstractProcess:
         self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
 
         # Call implemented phase initialization
-        self.prepare_protocol_phase()
+        self.prepare_static_protocol_phase()
 
         # Set next state
         self.set_state(State.READY)
 
-    def prepare_protocol_phase(self):
+    def prepare_static_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         pass
 
     def _start_protocol_phase(self):
         pass
 
-    def start_protocol_phase(self):
+    def start_static_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         pass
 
-    def end_protocol_phase(self):
+    def end_static_protocol_phase(self):
         """Method is called at end of stimulation protocol phase."""
         pass
 
-    def end_protocol(self):
+    def end_static_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
         pass
 
@@ -349,6 +349,13 @@ class AbstractProcess:
         log.debug(f'Load protocol from import path {self.protocol_import_path}')
         self.current_protocol = vxprotocol.get_protocol(self.protocol_import_path)()
 
+        if self.protocol_type == vxprotocol.StaticPhasicProtocol:
+            self.prepare_static_protocol_phase()
+        elif self.protocol_type == vxprotocol.TriggeredProtocol:
+            log.error(f'{self.protocol_type.__name__} prepare method not implemented')
+        elif self.protocol_type == vxprotocol.ContinuousProtocol:
+            log.error(f'{self.protocol_type.__name__} prepare method not implemented')
+
         vxipc.set_state(STATE.PRCL_STARTED)
 
     def _started_protocol(self):
@@ -371,7 +378,7 @@ class AbstractProcess:
             if vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
                 return
 
-            # TODO: call phase end function
+            self.end_static_protocol_phase()
             log.debug(f'Wait for phase')
             vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
             return
@@ -380,7 +387,7 @@ class AbstractProcess:
 
             log.debug(f'Ready phase {self.phase_id}')
 
-            # TODO: call method to prepare new phase in module
+            self.prepare_static_protocol_phase()
             vxipc.set_state(STATE.PRCL_STC_PHASE_READY)
 
         # Leave some buffer time before actual phase start (based on process interval) to get timing right
@@ -393,6 +400,7 @@ class AbstractProcess:
 
                 # When loop is through
                 log.info(f'Run phase {self.phase_id} at {vxipc.get_time():.3f}')
+                self.start_static_protocol_phase()
                 vxipc.set_state(STATE.PRCL_IN_PHASE)
 
     def _eval_process_state(self):

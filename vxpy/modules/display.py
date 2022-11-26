@@ -68,12 +68,12 @@ class Display(vxprocess.AbstractProcess):
         self.enable_idle_timeout = False
         self.run(interval=_interval)
 
-    def prepare_protocol(self):
+    def prepare_static_protocol(self):
         # Initialize all visuals during protocol preparation
         #  This may come with some overhead, but reduces latency between stimulation phases
         self.current_protocol.initialize_visuals(self.canvas)
 
-    def prepare_protocol_phase(self):
+    def prepare_static_protocol_phase(self):
         # Prepare visual associated with phase
         self.prepare_visual()
 
@@ -88,19 +88,19 @@ class Display(vxprocess.AbstractProcess):
         else:
             self.current_visual = new_visual
 
-    def start_protocol_phase(self):
+    def start_static_protocol_phase(self):
         self.start_visual()
-        display_attrs = {'start_time': vxipc.get_time(),
-                         'visual_module': self.current_visual.__module__,
-                         'visual_name': str(self.current_visual.__class__.__qualname__),
-                         'target_duration': self.current_protocol.current_phase.duration,
-                         'target_sample_rate': config.CONF_DISPLAY_FPS}
-
-        # Old version. Leave in here for compatibility (for now) // TODO: remove
-        self.set_record_group_attrs(display_attrs)
-
-        # Use double underscores to set process-level attribute apart from visual-defined ones
-        self.set_record_group_attrs({f'__{key}': val for key, val in display_attrs.items()})
+        # display_attrs = {'start_time': vxipc.get_time(),
+        #                  'visual_module': self.current_visual.__module__,
+        #                  'visual_name': str(self.current_visual.__class__.__qualname__),
+        #                  'target_duration': self.current_protocol.current_phase.duration,
+        #                  'target_sample_rate': config.CONF_DISPLAY_FPS}
+        #
+        # # Old version. Leave in here for compatibility (for now) // TODO: remove
+        # self.set_record_group_attrs(display_attrs)
+        #
+        # # Use double underscores to set process-level attribute apart from visual-defined ones
+        # self.set_record_group_attrs({f'__{key}': val for key, val in display_attrs.items()})
 
     def start_visual(self, parameters: dict = None):
 
@@ -116,15 +116,15 @@ class Display(vxprocess.AbstractProcess):
         self.update_visual(parameters)
 
         # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
-        self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
+        # self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
 
         # Start visual
         self.current_visual.start()
 
-    def end_protocol_phase(self):
+    def end_static_protocol_phase(self):
         self.stop_visual()
 
-    def end_protocol(self):
+    def end_static_protocol(self):
         self.current_protocol = None
         self.canvas.current_visual = self.current_visual
 

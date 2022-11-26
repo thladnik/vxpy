@@ -21,7 +21,8 @@ import numpy as np
 
 from vxpy.definitions import *
 from vxpy import definitions
-from vxpy.core import ipc, logger
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
 from vxpy import modules
 
 # Type hinting
@@ -30,7 +31,7 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     pass
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
 class H5File(h5py.File):
@@ -47,7 +48,7 @@ class H5File(h5py.File):
         self._current_phase_idx = -1
 
     @property
-    def current_protocol(self) -> h5py.Group:
+    def current_protocol_group(self) -> h5py.Group:
         return self[f'{self._protocol_prefix}{self._current_protocol_idx}']
 
     def start_protocol(self):
@@ -63,7 +64,7 @@ class H5File(h5py.File):
             return
 
         # Update attribute list
-        self.current_protocol.attrs.update(attributes)
+        self.current_protocol_group.attrs.update(attributes)
 
     def add_protocol_data(self, data: Dict[str, np.ndarray]):
         if self._current_protocol_idx < 0:
@@ -72,7 +73,7 @@ class H5File(h5py.File):
 
         # Update attribute list
         for key, arr in data.items():
-            self.current_protocol.create_dataset(key, data=arr)
+            self.current_protocol_group.create_dataset(key, data=arr)
 
     def end_protocol(self):
         if self._current_protocol_idx < 0:

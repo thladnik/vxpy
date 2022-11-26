@@ -82,11 +82,11 @@ class Io(process.AbstractProcess):
         # Run event loop
         self.run(interval=1. / config.CONF_IO_MAX_SR)
 
-    def prepare_protocol(self):
+    def prepare_static_protocol(self):
         # Initialize actions related to protocol
         self.current_protocol.initialize_actions()
 
-    def start_protocol_phase(self):
+    def start_static_protocol_phase(self):
         self.phase_is_active = 1
 
     def end_protocol_phase(self):

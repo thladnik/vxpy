@@ -104,16 +104,16 @@ class Camera(vxprocess.AbstractProcess):
     #         idx = self._current_frame_index[device_id]
     #         self._frames[device_id][idx] = camera_device.get_image()
 
-    def prepare_protocol(self):
+    def prepare_static_protocol(self):
         pass
 
-    def start_protocol_phase(self):
+    def start_static_protocol_phase(self):
         pass
 
     def end_protocol_phase(self):
         pass
 
-    def end_protocol(self):
+    def end_static_protocol(self):
         pass
 
     def _start_shutdown(self):

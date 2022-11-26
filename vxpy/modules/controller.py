@@ -587,6 +587,7 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.set_state(STATE.PRCL_IN_PROGRESS)
 
     def _stop_protocol(self):
+        log.info(f'Stop protocol {self.protocol_import_path}')
         vxipc.set_state(STATE.PRCL_STOP)
 
     def _stopped_protocol(self):
@@ -595,6 +596,8 @@ class Controller(vxprocess.AbstractProcess):
         if not self._all_forks_in_state(STATE.PRCL_STOPPED):
             return
 
+        log.debug(f'Clean up protocol')
+
         # Reset everything to defaults
         self._reset_protocol_ctrls()
 
@@ -602,7 +605,6 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.set_state(STATE.IDLE)
 
     def _process_static_protocol(self):
-
 
         # If phase end time is below current time
         #  - either protocol just started (end time = -inf)
