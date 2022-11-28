@@ -52,7 +52,8 @@ class Controller(vxprocess.AbstractProcess):
     _processes: Dict[str, mp.Process] = dict()
     _registered_processes: List[Tuple[vxprocess.AbstractProcess, Dict]] = list()
 
-    _active_protocols: List[str] = list()
+    _active_process_list: List[str] = []
+    _active_protocol_list: List[str] = []
 
     def __init__(self, _configuration_path):
         # Set up manager
@@ -118,9 +119,9 @@ class Controller(vxprocess.AbstractProcess):
 
         # Select subset of registered processes which should implement
         # the _run_protocol method
-        _active_process_list = [p[0].__name__ for p in self._registered_processes]
-        self._active_protocols = list(set(_active_process_list) & set(self._protocolized))
-        log.info(f'Protocolized processes: {self._active_protocols}')
+        self._active_process_list = [p[0].__name__ for p in self._registered_processes]
+        self._active_protocol_list = list(set(self._active_process_list) & set(self._protocolized))
+        log.info(f'Protocolized processes: {self._active_protocol_list}')
 
         # TODO: check if recording routines contains any entries
         #  for inactive processes or inactive routines on active processes
@@ -226,14 +227,14 @@ class Controller(vxprocess.AbstractProcess):
         # Set up initial recording states
         self.set_compression_method(None)
         self.set_compression_opts(None)
-        self.record_group_counter = -1
 
     @staticmethod
     def _create_shared_controls():
         _controls = {CTRL_REC_ACTIVE: False,
                      CTRL_REC_BASE_PATH: os.path.join(os.getcwd(), PATH_RECORDING_OUTPUT),
                      CTRL_REC_FLDNAME: '',
-                     CTRL_REC_GROUP_ID: -1,
+                     CTRL_REC_PRCL_GROUP_ID: -1,
+                     CTRL_REC_PHASE_GROUP_ID: -1,
                      CTRL_PRCL_ACTIVE: False,
                      CTRL_PRCL_IMPORTPATH: '',
                      CTRL_PRCL_TYPE: None,
@@ -243,14 +244,17 @@ class Controller(vxprocess.AbstractProcess):
 
         return _controls
 
-    def _reset_recording_controls(self):
+    @staticmethod
+    def _reset_recording_controls():
+        """Reset all (shared) controls related to recording of data to file"""
         vxipc.CONTROL[CTRL_REC_FLDNAME] = ''
         vxipc.CONTROL[CTRL_REC_ACTIVE] = False
-        vxipc.CONTROL[CTRL_REC_GROUP_ID] = -1
-        self.record_group_counter = -1
+        vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID] = -1
+        vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] = -1
 
     @staticmethod
     def _reset_protocol_controls():
+        """Reset all (shared) controls related to protocol execution"""
         vxipc.CONTROL[CTRL_PRCL_ACTIVE] = False
         vxipc.CONTROL[CTRL_PRCL_IMPORTPATH] = ''
         vxipc.CONTROL[CTRL_PRCL_TYPE] = None
@@ -352,9 +356,13 @@ class Controller(vxprocess.AbstractProcess):
     def recording_active(self, val):
         vxipc.CONTROL[CTRL_REC_ACTIVE] = val
 
-    @vxprocess.AbstractProcess.record_group_id.setter
-    def record_group_id(self, val):
-        vxipc.CONTROL[CTRL_REC_GROUP_ID] = val
+    @vxprocess.AbstractProcess.record_phase_group_id.setter
+    def record_phase_group_id(self, val):
+        vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] = val
+
+    @vxprocess.AbstractProcess.record_protocol_group_id.setter
+    def record_protocol_group_id(self, val):
+        vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID] = val
 
     # Protocol
 
@@ -391,13 +399,25 @@ class Controller(vxprocess.AbstractProcess):
 
     def _all_forks_in_state(self, code: Union[State, STATE]):
 
-        check = [vxipc.in_state(code, pname) for pname in self._active_protocols]
+        check = [vxipc.in_state(code, pname) for pname in self._active_process_list]
+
+        return all(check)
+
+    def _all_protocol_forks_in_state(self, code: Union[State, STATE]):
+
+        check = [vxipc.in_state(code, pname) for pname in self._active_protocol_list]
 
         return all(check)
 
     def _any_forks_in_state(self, code: Union[State, STATE]):
 
-        check = [vxipc.in_state(code, pname) for pname in self._active_protocols]
+        check = [vxipc.in_state(code, pname) for pname in self._active_process_list]
+
+        return any(check)
+
+    def _any_protocol_forks_in_state(self, code: Union[State, STATE]):
+
+        check = [vxipc.in_state(code, pname) for pname in self._active_protocol_list]
 
         return any(check)
 
@@ -424,18 +444,21 @@ class Controller(vxprocess.AbstractProcess):
 
     @staticmethod
     def set_recording_folder(folder_name: str):
+        illegal_chars = ['/', '\\']
+        if not isinstance(folder_name, str) or any([s in folder_name for s in illegal_chars]):
+            log.error(f'Recording folder name contains illegal characters {illegal_chars}')
+            return
+
         log.info(f'Set recording folder to {folder_name}')
         vxipc.CONTROL[CTRL_REC_FLDNAME] = folder_name
 
     def start_recording(self):
+        """Public method that can be called to request a recording to be started"""
         log.debug('Controller was requested to start new recording')
         vxipc.set_state(STATE.REC_START_REQ)
 
-    def stop_recording(self):
-        log.debug('Controller was requested to stop recording')
-        vxipc.set_state(STATE.REC_STOP_REQ)
-
     def _start_recording(self):
+        """Method is called when REC_START_REQ"""
 
         # Only start recording if all forks are in idle
         if not self._all_forks_in_state(STATE.IDLE):
@@ -474,6 +497,10 @@ class Controller(vxprocess.AbstractProcess):
         # If all forks have signalled REC_STARTED, return to idle
         vxipc.set_state(STATE.IDLE)
 
+    def stop_recording(self):
+        log.debug('Controller was requested to stop recording')
+        vxipc.set_state(STATE.REC_STOP_REQ)
+
     def _stop_recording(self):
         # DO RECORDING STARTING STUFF
         log.info(f'Stop recording to {vxipc.get_recording_path()}')
@@ -508,13 +535,6 @@ class Controller(vxprocess.AbstractProcess):
         # Set state to PRCL_START_REQ
         vxipc.set_state(STATE.PRCL_START_REQ)
 
-    def stop_protocol(self):
-
-        if not vxipc.in_state(STATE.PRCL_IN_PROGRESS):
-            return
-
-        vxipc.set_state(STATE.PRCL_STOP_REQ)
-
     def _start_protocol(self):
         protocol = vxprotocol.get_protocol(self.protocol_import_path)
 
@@ -543,6 +563,9 @@ class Controller(vxprocess.AbstractProcess):
             vxipc.set_state(STATE.IDLE)
             return
 
+        # Increment record_protocol_group_id by 1
+        self.record_protocol_group_id = self.record_protocol_group_id + 1
+
         # Set protocol type for all to see
         vxipc.CONTROL[CTRL_PRCL_TYPE] = prcl_type
 
@@ -558,12 +581,21 @@ class Controller(vxprocess.AbstractProcess):
     def _started_protocol(self):
 
         # Only start protocol if all forks are in PRCL_STARTED
-        if not self._all_forks_in_state(STATE.PRCL_STARTED):
+        if not self._all_protocol_forks_in_state(STATE.PRCL_STARTED):
             return
 
         # Set protocol to active
         vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
         vxipc.set_state(STATE.PRCL_IN_PROGRESS)
+
+    # Protocol stop
+
+    def stop_protocol(self):
+
+        if not vxipc.in_state(STATE.PRCL_IN_PROGRESS):
+            return
+
+        vxipc.set_state(STATE.PRCL_STOP_REQ)
 
     def _stop_protocol(self):
         log.info(f'Stop protocol {self.protocol_import_path}')
@@ -572,7 +604,7 @@ class Controller(vxprocess.AbstractProcess):
     def _stopped_protocol(self):
 
         # Only return to idle if all forks are in PRCL_STOPPED
-        if not self._all_forks_in_state(STATE.PRCL_STOPPED):
+        if not self._all_protocol_forks_in_state(STATE.PRCL_STOPPED):
             return
 
         log.debug(f'Clean up protocol')
@@ -591,13 +623,8 @@ class Controller(vxprocess.AbstractProcess):
         if self.phase_end_time < vxipc.get_time():
 
             # If any fork is still in an active phase, wait a turn
-            if not self._all_forks_in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
+            if not self._all_protocol_forks_in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
                 return
-
-            # Reset record group ID between phases (but safe last record_group_id to counter)
-            if self.record_group_id > -1:
-                self.record_group_counter = self.record_group_id
-            self.record_group_id = -1
 
             # When all forks are done with the last phase (or if this is the first phase)
 
@@ -612,6 +639,10 @@ class Controller(vxprocess.AbstractProcess):
             self.phase_start_time = np.inf
             self.phase_end_time = np.inf
 
+            # Increment record_phase_group_id counter
+            self.record_phase_group_id = self.record_phase_group_id + 1
+            log.debug(f'Start record group {self.record_phase_group_id}')
+
             # Add debug info
             log.debug(f'Prepare phase {self.phase_id}')
 
@@ -619,7 +650,7 @@ class Controller(vxprocess.AbstractProcess):
         elif self.phase_start_time == self.phase_end_time:
 
             # If any fork is still in an active phase, wait a turn
-            if not self._all_forks_in_state(STATE.PRCL_STC_PHASE_READY):
+            if not self._all_protocol_forks_in_state(STATE.PRCL_STC_PHASE_READY):
                 return
 
             # TODO: the delay of start_time should be based on the slowest (protocolized) fork
@@ -632,13 +663,10 @@ class Controller(vxprocess.AbstractProcess):
             self.phase_end_time = end_time
             log.info(f'Set phase {self.phase_id} to interval to [{start_time:.3f}, {end_time:.3f})')
 
-            # Keep busy while waiting
-            while vxipc.get_time() < self.phase_start_time:
-                self._handle_logging()
-                vxipc.update_time()
-
-            # Increment record_group_id counter
-            self.record_group_id = self.record_group_counter + 1
+            # # Keep busy while waiting
+            # while vxipc.get_time() < self.phase_start_time:
+            #     self._handle_logging()
+            #     vxipc.update_time()
 
         # If current time is between start and end time, a phase is currently running
         elif self.phase_start_time <= vxipc.get_time() < self.phase_end_time:

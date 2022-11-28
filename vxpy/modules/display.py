@@ -28,9 +28,10 @@ from vxpy.core.ipc import get_time
 from vxpy import calib
 from vxpy import config
 from vxpy.definitions import *
-import vxpy.core.process as vxprocess
+import vxpy.core.container as vxcontainer
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
+import vxpy.core.process as vxprocess
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.visual as vxvisual
 
@@ -61,7 +62,7 @@ class Display(vxprocess.AbstractProcess):
 
         self.canvas = Canvas(_interval)
 
-        # Process vispy events once too avoid frozen screen at start
+        # Process vispy events once to avoid frozen screen at start
         app.process_events()
 
         # Run event loop
@@ -77,6 +78,19 @@ class Display(vxprocess.AbstractProcess):
         # Prepare visual associated with phase
         self.prepare_visual()
 
+    def start_static_protocol_phase(self):
+        self.start_visual()
+        display_attrs = {'start_time': vxipc.get_time(),
+                         'target_start_time': self.phase_start_time,
+                         'target_end_time': self.phase_end_time,
+                         'target_duration': self.current_protocol.current_phase.duration,
+                         'target_sample_rate': config.CONF_DISPLAY_FPS,
+                         'visual_module': self.current_visual.__module__,
+                         'visual_name': str(self.current_visual.__class__.__qualname__)}
+
+        # Use double underscores to set process-level attribute apart from visual-defined ones
+        vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
+
     def prepare_visual(self, new_visual: vxvisual.AbstractVisual = None) -> None:
         # If no visual is given, this should be a protocol-controlled run -> fetch current visual from phase
         if new_visual is None:
@@ -88,19 +102,9 @@ class Display(vxprocess.AbstractProcess):
         else:
             self.current_visual = new_visual
 
-    def start_static_protocol_phase(self):
-        self.start_visual()
-        # display_attrs = {'start_time': vxipc.get_time(),
-        #                  'visual_module': self.current_visual.__module__,
-        #                  'visual_name': str(self.current_visual.__class__.__qualname__),
-        #                  'target_duration': self.current_protocol.current_phase.duration,
-        #                  'target_sample_rate': config.CONF_DISPLAY_FPS}
-        #
-        # # Old version. Leave in here for compatibility (for now) // TODO: remove
-        # self.set_record_group_attrs(display_attrs)
-        #
-        # # Use double underscores to set process-level attribute apart from visual-defined ones
-        # self.set_record_group_attrs({f'__{key}': val for key, val in display_attrs.items()})
+        # Create datasets for all variable visual parameters
+        for parameter in self.current_visual.variable_parameters:
+            vxcontainer.create_phase_dataset(parameter.name, parameter.shape, parameter.dtype)
 
     def start_visual(self, parameters: dict = None):
 
@@ -116,7 +120,8 @@ class Display(vxprocess.AbstractProcess):
         self.update_visual(parameters)
 
         # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
-        # self.set_record_group_attrs({param.name: param.data for param in self.current_visual.static_parameters})
+        parameter_data = {param.name: param.data for param in self.current_visual.static_parameters}
+        vxcontainer.add_phase_attributes(parameter_data)
 
         # Start visual
         self.current_visual.start()
@@ -140,6 +145,9 @@ class Display(vxprocess.AbstractProcess):
         self.current_visual.update(parameters)
 
     def stop_visual(self):
+        if self.current_visual is None:
+            return
+
         self.current_visual.end()
         self.current_visual = None
         self.canvas.set_visual(self.current_visual)
@@ -244,6 +252,11 @@ class Canvas(app.Canvas):
             # If visual is the core's KeepLast visual, don't swap buffers
             if not isinstance(self.current_visual, vxvisual.KeepLast):
                 self.swap_buffers()
+
+            # Write variable display parameters to file
+            var_visual_parameters = {p.name: p.data for p in self.current_visual.variable_parameters}
+            for parameter in self.current_visual.variable_parameters:
+                vxcontainer.add_to_phase_dataset(parameter.name, parameter.data)
 
         # Update
         # WARNING: display is going to get stuck if update() is conditional,

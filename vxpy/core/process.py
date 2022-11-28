@@ -105,6 +105,9 @@ class AbstractProcess:
         # Build attributes
         vxattribute.init(_attrs)
 
+        # Initialize container module
+        vxcontainer.init()
+
         # Load configuration
         config_loaded = vxconfig.load_configuration(_configuration_path)
         assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
@@ -224,9 +227,11 @@ class AbstractProcess:
             # Execute main method
             self.main()
 
-            # Add record_group_id aand corresponding global time if anything is to be written to file from this process
+            # Add record_phase_group_id and corresponding global time if
+            # anything is to be written to file from this process
             if len(vxattribute.Attribute.to_file) > 0:
-                vxcontainer.add_to_dataset('__record_group_id', vxipc.CONTROL[CTRL_REC_GROUP_ID])
+                record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
+                vxcontainer.add_to_dataset('__record_group_id', record_phase_group_id)
                 vxcontainer.add_to_dataset('__time', vxipc.get_time())
 
             # Set next iteration time
@@ -253,8 +258,12 @@ class AbstractProcess:
         return vxipc.CONTROL[CTRL_REC_ACTIVE]
 
     @property
-    def record_group_id(self):
-        return vxipc.CONTROL[CTRL_REC_GROUP_ID]
+    def record_protocol_group_id(self):
+        return vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID]
+
+    @property
+    def record_phase_group_id(self):
+        return vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]
 
     # Protocol
 
@@ -282,64 +291,45 @@ class AbstractProcess:
     def phase_end_time(self):
         return vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
 
-    def _prepare_protocol(self):
+    @property
+    def phase_is_active(self):
+        return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
 
-        # Fetch protocol class
-        _protocol = vxprotocol.get_protocol(vxipc.Control.Protocol[ProtocolCtrl.name])
-        if _protocol is None:
-            # Controller should abort this
-            return
-
-        # Instantiate protocol
-        self.current_protocol = _protocol()
-
-        # Call implemented preparation function of module
-        self.prepare_static_protocol()
-
-        # Let file container know that protocol was started
-        self.file_container.start_protocol()
+    def _prepare_static_protocol(self):
+        """Method is called when a new protocol has been started by Controller."""
         protocol_attributes = {'__protocol_module': self.current_protocol.__class__.__module__,
                                '__protocol_name': self.current_protocol.__class__.__qualname__,
                                '__start_time': vxipc.get_time(),
                                '__target_phase_count': self.current_protocol.phase_count}
 
-        self.file_container.add_protocol_attributes(protocol_attributes)
+        vxcontainer.add_protocol_attributes(protocol_attributes)
 
-        # Set next state
-        self.set_state(State.WAIT_FOR_PHASE)
+        # Call fork's implementation
+        self.prepare_static_protocol()
 
     def prepare_static_protocol(self):
-        """Method is called when a new protocol has been started by Controller."""
+        """To be reimplemented in fork. Method is called by _prepare_static_protocol"""
         pass
-
-    def _prepare_protocol_phase(self):
-        # Set record group to write to in file
-        if not self._disable_phases:
-            self.set_record_group(vxipc.Control.Recording[RecCtrl.record_group_counter])
-
-        # Set current phase
-        self.current_protocol.current_phase_id = vxipc.Control.Protocol[ProtocolCtrl.phase_id]
-
-        # Call implemented phase initialization
-        self.prepare_static_protocol_phase()
-
-        # Set next state
-        self.set_state(State.READY)
 
     def prepare_static_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
         pass
 
-    def _start_protocol_phase(self):
+    def start_static_protocol_phase(self):
+        """To be reimplemented in fork. Method is called by _start_static_protocol_phase"""
         pass
 
-    def start_static_protocol_phase(self):
+    def _start_static_protocol_phase(self):
         """Method is called when the Controller has set the next protocol phase."""
-        pass
+        self.start_static_protocol_phase()
 
     def end_static_protocol_phase(self):
         """Method is called at end of stimulation protocol phase."""
         pass
+
+    def _end_static_protocol_phase(self):
+        """Method is called at end of stimulation protocol phase."""
+        self.end_static_protocol_phase()
 
     def end_static_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
@@ -354,6 +344,22 @@ class AbstractProcess:
         # Add record group and time datasets
         vxcontainer.create_dataset('__record_group_id', (1,), np.int32)
         vxcontainer.create_dataset('__time', (1,), np.float64)
+
+        # Add all shared attributes that have been selected to be written to file
+        attributes_to_file = vxattribute.Attribute.to_file.get(self.name)
+        if attributes_to_file is not None:
+            for attribute in attributes_to_file:
+
+                if isinstance(attribute, vxattribute.ArrayAttribute):
+                    # Add attribute dataset
+                    vxcontainer.create_dataset(attribute.name, attribute.shape, attribute.numpytype)
+                    # Add corresponding time dataset for attribute
+                    vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
+
+                elif isinstance(attribute, vxattribute.ObjectAttribute):
+                    # TODO: make object attributes declare their expected content beforehand?
+                    #  this would streamline dataset creation and prevent lag during recordings
+                    pass
 
         # Switch state to let controller know recording was started on fork
         vxipc.set_state(STATE.REC_STARTED)
@@ -377,7 +383,7 @@ class AbstractProcess:
         self.current_protocol = vxprotocol.get_protocol(self.protocol_import_path)()
 
         if self.protocol_type == vxprotocol.StaticPhasicProtocol:
-            self.prepare_static_protocol_phase()
+            self._prepare_static_protocol()
         elif self.protocol_type == vxprotocol.TriggeredProtocol:
             log.error(f'{self.protocol_type.__name__} prepare method not implemented')
         elif self.protocol_type == vxprotocol.ContinuousProtocol:
@@ -607,28 +613,6 @@ class AbstractProcess:
         if sig == Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
-    def _create_dataset(self, path: str, attr_shape: tuple, attr_dtype: Any):
-
-        # Skip if dataset exists already
-        if path in self.file_container:
-            log.warning(f'Tried to create existing attribute {self.name}/{path}')
-            return
-
-        try:
-            self.file_container.require_dataset(path,
-                                                shape=(0, *attr_shape,),
-                                                dtype=attr_dtype,
-                                                maxshape=(None, *attr_shape,),
-                                                chunks=(1, *attr_shape,),
-                                                **self.compression_args)
-            log.debug(f'Create record dataset {self.name}/{path}')
-
-        except Exception as exc:
-            import traceback
-            log.warning(f'Failed to create record dataset {self.name}/{path}'
-                        f' // Exception: {exc}')
-            traceback.print_exc()
-
     def _append_to_dataset(self, path: str, value: Any):
         # May need to be uncommented:
         if self.file_container is None:
@@ -702,32 +686,6 @@ class AbstractProcess:
                 # Otherwise, just write whole attribute data to attribute
                 grp.attrs[attr_name] = attr_data
 
-    def set_record_group(self, group_id: int):
-        if self.file_container is None:
-            return
-
-        # Save last results (this should also delete large temp. files)
-        self.file_container.save()
-
-        self.record_group = group_id
-
-        # Of record group is not set
-        if self.record_group < 0:
-            return
-
-        # Set group
-        self.file_container.require_group(self.record_group_name)
-        log.info(f'Set record group "{self.record_group_name}"')
-
-        # Create attributes in group
-        for attr in vxattribute.get_permanent_attributes():
-            if not isinstance(attr, vxattribute.ArrayAttribute):
-                continue
-
-            path = f'{self.record_group_name}/{attr.name}'
-            self._create_dataset(path, attr.shape, attr.numpytype[1])
-            self._create_dataset(f'{path}_time', (1,), np.float64)
-
     def update_routines(self, *args, **kwargs):
 
         # Call routine main functions
@@ -735,23 +693,18 @@ class AbstractProcess:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
 
-        return
         # Write attributes to file
         _iter = vxattribute.get_permanent_data()
         if _iter is None:
             return
 
-        for attr_name, attr_idx, attr_time, attr_data in _iter.__iter__():
+        for attribute in _iter.__iter__():
 
-            if attr_time is None or attr_data is None:
-                continue
-
-            path = f'{self.record_group_name}/{attr_name}'
-            self._append_to_dataset(path, attr_data)
-            # Keep for now for compatibility
-            self._append_to_dataset(f'{path}_attr_time', attr_time)
-            # New version: double leading underscores
-            self._append_to_dataset(f'__attr_time_{path}', attr_time)
+            _, attr_time, attr_data = [v[0] for v in attribute.read()]
+            # Add attribute data to dataset
+            vxcontainer.add_to_dataset(attribute.name, attr_data)
+            # Add attribute time to dataset
+            vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
     @property
     def routines(self):

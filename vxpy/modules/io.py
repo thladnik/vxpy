@@ -76,8 +76,6 @@ class Io(process.AbstractProcess):
         # Set timeout during idle
         self.enable_idle_timeout = True
 
-        self.phase_is_active = 0
-
         self.timetrack = []
         # Run event loop
         self.run(interval=1. / config.CONF_IO_MAX_SR)
@@ -85,12 +83,6 @@ class Io(process.AbstractProcess):
     def prepare_static_protocol(self):
         # Initialize actions related to protocol
         self.current_protocol.initialize_actions()
-
-    def start_static_protocol_phase(self):
-        self.phase_is_active = 1
-
-    def end_protocol_phase(self):
-        self.phase_is_active = 0
 
     def set_outpin_to_attr(self, pid, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""

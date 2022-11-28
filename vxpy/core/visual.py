@@ -750,6 +750,10 @@ class Parameter:
         self.data = self.data + other
 
     @property
+    def shape(self):
+        return self._shape
+
+    @property
     def static(self):
         return self._static
 

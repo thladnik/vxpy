@@ -160,7 +160,7 @@ def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
     return Attribute.to_file[process_name]
 
 
-def get_permanent_data(process_name: str = None) -> Iterator[Tuple[str, Any]]:
+def get_permanent_data(process_name: str = None) -> Iterator[Attribute]:
     """Returns all newly added attribute data to be written to file
     for the specified process.
 
@@ -172,8 +172,8 @@ def get_permanent_data(process_name: str = None) -> Iterator[Tuple[str, Any]]:
     """
     for attribute in get_permanent_attributes(process_name):
         if attribute.has_new_entry():
-            # Yield attribute data and time
-            yield attribute.name, *[v[0] for v in attribute.read()]
+            # Yield attribute
+            yield attribute
 
             # Reset "new" flag
             attribute.set_new(False)
@@ -456,6 +456,13 @@ class ArrayAttribute(Attribute):
 
         # Create list with time points
         self._make_time()
+
+    def __repr__(self):
+        return f"{ArrayAttribute.__name__}('{self.name}', {self.shape}, {self.dtype})"
+
+    @property
+    def dtype(self):
+        return self._dtype
 
     @property
     def numpytype(self):

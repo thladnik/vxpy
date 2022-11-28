@@ -727,7 +727,11 @@ class RecordingWidget(IntegratedWidget):
     @staticmethod
     def open_base_folder():
         output_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
-        QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path.replace('\\', '/')))
+        output_path = output_path.replace('\\', '/')
+        output_path = f'/{output_path}'
+        # output_path = 'https://google.com/'
+        print(output_path)
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(output_path))
 
     def show_lab_notebook(self):
         self.lab_nb_folder = os.path.join(vxipc.CONTROL[CTRL_REC_BASE_PATH], vxipc.CONTROL[CTRL_REC_FLDNAME])

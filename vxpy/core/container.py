@@ -38,6 +38,11 @@ _file_types: Dict[str, Type[H5File]] = {}
 _instance: Union[H5File, None] = None
 
 
+def init():
+    global log
+    log = vxlogger.getLogger(f'{__name__}[{vxipc.LocalProcess.name}]')
+
+
 def _noinstance():
     return _instance is None
 
@@ -73,8 +78,57 @@ def create_dataset(dataset_name: str, shape: Tuple[int, ...], data_type: Any):
     if _noinstance():
         return
 
+    log.debug(f'Create dataset {dataset_name}, shape {shape}, dtype {data_type}')
+
     # Call on instance
     _instance.create_dataset(dataset_name, shape, data_type)
+
+
+def create_phase_dataset(dataset_name: str, shape: Tuple[int, ...], data_type: Any):
+    global _instance
+    if _noinstance():
+        return
+
+    log.debug(f'Create phase dataset {dataset_name}, shape {shape}, dtype {data_type}')
+
+    # Call on instance
+    _instance.create_phase_dataset(dataset_name, shape, data_type)
+
+
+def add_attributes(attributes: Dict[str, Any]):
+    global _instance
+    if _noinstance():
+        return
+
+    # Call on instance
+    _instance.add_attributes(attributes)
+
+
+def add_protocol_attributes(attributes: Dict[str, Any]):
+    global _instance
+    if _noinstance():
+        return
+
+    # Call on instance
+    _instance.add_protocol_attributes(attributes)
+
+
+def add_phase_attributes(attributes: Dict[str, Any]):
+    global _instance
+    if _noinstance():
+        return
+
+    # Call on instance
+    _instance.add_phase_attributes(attributes)
+
+
+def add_to_phase_dataset(dataset_name: str, data: Any):
+    global _instance
+    if _noinstance():
+        return
+
+    # Call on instance
+    _instance.add_to_phase_dataset(dataset_name, data)
 
 
 def add_to_dataset(dataset_name: str, data: Any):
@@ -87,6 +141,8 @@ def add_to_dataset(dataset_name: str, data: Any):
 
 
 class H5File:
+    _protocol_prefix = 'protocol'
+    _phase_prefix = 'phase'
     _h5_handle: h5py.File
 
     def __init__(self, file_path):
@@ -96,21 +152,64 @@ class H5File:
         log.info(f'Open HDF5 file {self._file_path}')
         self._h5_handle = h5py.File(self._file_path, 'w')
 
+    @property
+    def _phase_str(self):
+        return f'{self._phase_prefix}{vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]}'
+
+    @property
+    def _protocol_str(self):
+        return f'{self._protocol_prefix}{vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID]}'
+
     def create_dataset(self, dataset_name: str, shape: Tuple[int, ...], data_type):
-        log.debug(f'Create record dataset {dataset_name}, shape {shape}, dtype {data_type}')
+        self._create_dataset(dataset_name, shape, data_type)
+
+    def create_phase_dataset(self, dataset_name: str, shape: Tuple[int, ...], data_type):
+        dataset_name = f'{self._phase_str}/{dataset_name}'
+        self._create_dataset(dataset_name, shape, data_type)
+
+    def _create_dataset(self, dataset_name: str, shape: Tuple[int, ...], data_type):
+        log.debug(f'Create dataset {dataset_name}, shape {shape}, data type {data_type}')
         self._h5_handle.create_dataset(dataset_name, shape=(0, *shape,),
                                        dtype=data_type,
                                        maxshape=(None, *shape,),
                                        chunks=(1, *shape,))
 
-    def add_to_dataset(self, path, value):
+    def _add_attributes(self, grp: h5py.Group, attributes: Dict[str, Any]):
+        log.debug(f'Write attributes to group {grp}')
+        grp.attrs.update(attributes)
+
+    def add_attributes(self, attributes: Dict[str, Any]):
+        self._add_attributes(self._h5_handle['/'], attributes)
+
+    def add_protocol_attributes(self, attributes: Dict[str, Any]):
+        # Get group path from current record_protocol_group_id
+        grp = self._h5_handle.require_group(self._protocol_str)
+
+        # Update protocol group attributes
+        self._add_attributes(grp, attributes)
+
+    def add_phase_attributes(self, attributes: Dict[str, Any]):
+        # Get group path from current record_group_id
+        grp = self._h5_handle.require_group(self._phase_str)
+
+        # Update phase group attributes
+        self._add_attributes(grp, attributes)
+
+    def add_to_dataset(self, dataset_name: str, data: Any):
+        self._add_to_dataset(dataset_name, data)
+
+    def add_to_phase_dataset(self, dataset_name: str, data: Any):
+        dataset_name = f'{self._phase_str}/{dataset_name}'
+        self._add_to_dataset(dataset_name, data)
+
+    def _add_to_dataset(self, path: str, data: Any):
         # Get dataset
         dataset = self._h5_handle[path]
         # Increase time dimension (0) size by 1
         try:
             dataset.resize((dataset.shape[0] + 1, *dataset.shape[1:]))
             # Write new value
-            dataset[dataset.shape[0] - 1] = value
+            dataset[dataset.shape[0] - 1] = data
         except:
             import traceback
             traceback.print_exc()
