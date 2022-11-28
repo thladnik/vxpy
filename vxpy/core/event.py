@@ -106,9 +106,6 @@ class OnTrigger(Trigger):
 
         data = np.squeeze(data)
 
-        if data.ndim != 1 or data.shape[0] < 2:
-            return False, []
-
         results = data.astype(bool)
         if np.any(results):
             return True, results
@@ -124,9 +121,6 @@ class RisingEdgeTrigger(Trigger):
             data = np.array(data)
 
         data = np.squeeze(data)
-
-        if data.ndim != 1 or data.shape[0] < 2:
-            return False, []
 
         results = np.diff(data) > 0
         results = np.append(results, [False])
@@ -144,10 +138,6 @@ class FallingEdgeTrigger(Trigger):
             data = np.array(data)
 
         data = np.squeeze(data)
-
-        if data.ndim != 1 or data.shape[0] < 2:
-            return False, []
-
         results = np.diff(data) < 0
         results = np.append(results, [False])
         if np.any(results):
