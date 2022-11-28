@@ -84,6 +84,9 @@ class AbstractProcess:
                  _attrs=None,
                  **kwargs):
 
+        # Register default file container types
+        vxcontainer.register_file_type(vxcontainer.H5File.__name__, vxcontainer.H5File)
+
         # Reset logger to include process_name
         global log
         log = vxlogger.getLogger(f'{__name__}[{self.name}]')
@@ -190,13 +193,14 @@ class AbstractProcess:
         while self._is_running():
             self._handle_inbox()
 
-            self._open_file()
-
+            # Evaluate basic operational states, such as idle, recording, etc
             self._eval_process_state()
 
+            # If particular fork implements protocol functionality, evaluate protocol states
             if self.name in self._protocolized:
                 self._eval_protocol_state()
 
+            # Calculate iteration time statistics
             self._keep_time()
 
             # Wait until interval time is up
@@ -207,7 +211,6 @@ class AbstractProcess:
                 time.sleep(0.9 * dt)
 
             # Busy loop until next main execution for precise timing
-            # while self.t + interval - time.perf_counter() >= 0:
             while vxipc.get_time() < self.next_iteration_time:
                 vxipc.update_time()
 
@@ -223,18 +226,37 @@ class AbstractProcess:
 
             # Add record_group_id aand corresponding global time if anything is to be written to file from this process
             if len(vxattribute.Attribute.to_file) > 0:
-                self._append_to_dataset('record_group_id', vxipc.CONTROL[CTRL_REC_GROUP_ID])
-                self._append_to_dataset('global_time', vxipc.get_time())
+                vxcontainer.add_to_dataset('__record_group_id', vxipc.CONTROL[CTRL_REC_GROUP_ID])
+                vxcontainer.add_to_dataset('__time', vxipc.get_time())
 
+            # Set next iteration time
             self.next_iteration_time = vxipc.get_time() + self.interval
-
-            self._close_file()
 
     def main(self):
         """Event loop to be re-implemented in subclass"""
         raise NotImplementedError(f'Event loop of modules base class is not implemented in {self.name}.')
 
-    # PROTOCOL RESPONSE
+    # Shared control properties
+
+    # Recording
+
+    @property
+    def record_base_path(self):
+        return vxipc.CONTROL[CTRL_REC_BASE_PATH]
+
+    @property
+    def recording_folder_name(self):
+        return vxipc.CONTROL[CTRL_REC_FLDNAME]
+
+    @property
+    def recording_active(self):
+        return vxipc.CONTROL[CTRL_REC_ACTIVE]
+
+    @property
+    def record_group_id(self):
+        return vxipc.CONTROL[CTRL_REC_GROUP_ID]
+
+    # Protocol
 
     @property
     def protocol_type(self):
@@ -267,9 +289,6 @@ class AbstractProcess:
         if _protocol is None:
             # Controller should abort this
             return
-
-        # Make sure recording is running
-        # self._open_file()
 
         # Instantiate protocol
         self.current_protocol = _protocol()
@@ -327,17 +346,25 @@ class AbstractProcess:
         pass
 
     def _start_recording(self):
-        # DO START RECORDING STUFF
-        log.debug(f'Start recording to {vxipc.get_recording_path()}')
 
-        # AND THEN, SWITCH STATE
+        # Open new file for recording
+        log.debug(f'Start recording to {vxipc.get_recording_path()}')
+        vxcontainer.new('H5File', os.path.join(vxipc.get_recording_path(), f'{self.name}'))
+
+        # Add record group and time datasets
+        vxcontainer.create_dataset('__record_group_id', (1,), np.int32)
+        vxcontainer.create_dataset('__time', (1,), np.float64)
+
+        # Switch state to let controller know recording was started on fork
         vxipc.set_state(STATE.REC_STARTED)
 
     def _stop_recording(self):
-        # DO START RECORDING STUFF
         log.debug(f'Stop recording to {vxipc.get_recording_path()}')
 
-        # AND THEN, SWITCH STATE
+        # Close any open file
+        vxcontainer.close()
+
+        # Switch state to let controller know recording was stopped on fork
         vxipc.set_state(STATE.REC_STOPPED)
 
     def _start_protocol(self):
@@ -701,54 +728,6 @@ class AbstractProcess:
             self._create_dataset(path, attr.shape, attr.numpytype[1])
             self._create_dataset(f'{path}_time', (1,), np.float64)
 
-    def _open_file(self) -> bool:
-        """Check if output file should be open and open one if it should be, but isn't.
-        """
-
-        if not vxipc.Control.Recording[RecCtrl.active]:
-            return True
-
-        if self.file_container is not None:
-            return True
-
-        if not bool(vxipc.Control.Recording[RecCtrl.folder]):
-            log.warning('Recording has been started but output folder is not set.')
-            return False
-
-        # If output folder is set: open file
-        filepath = os.path.join(config.CONF_REC_OUTPUT_FOLDER,
-                                vxipc.Control.Recording[RecCtrl.folder],
-                                f'{self.name}.hdf5')
-
-        # Open new file
-        log.debug(f'Open new file {filepath}')
-        self.file_container = vxcontainer.H5File(filepath, 'a')
-        self._create_dataset('record_group_id', (1,), np.int32)
-
-        # Set compression
-        compr_method = vxipc.Control.Recording[RecCtrl.compression_method]
-        compr_opts = vxipc.Control.Recording[RecCtrl.compression_opts]
-        self.compression_args = dict()
-        if compr_method is not None:
-            self.compression_args = {'compression': compr_method, **compr_opts}
-
-        # Set current group to root
-        self.set_record_group(-1)
-
-        return True
-
-    def _close_file(self) -> bool:
-        if vxipc.Control.Recording[RecCtrl.active]:
-            return True
-
-        if self.file_container is None:
-            return True
-
-        log.debug(f'Close file {self.file_container}')
-        self.file_container.close()
-        self.file_container = None
-        return True
-
     def update_routines(self, *args, **kwargs):
 
         # Call routine main functions
@@ -756,9 +735,7 @@ class AbstractProcess:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
 
-        if not vxipc.Control.Recording[RecCtrl.active] or self.file_container is None:
-            return
-
+        return
         # Write attributes to file
         _iter = vxattribute.get_permanent_data()
         if _iter is None:
