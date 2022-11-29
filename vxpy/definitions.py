@@ -86,7 +86,8 @@ CTRL_PRCL_PHASE_END_TIME = 'CTRL_PRCL_PHASE_END_TIME'
 
 class STATE(Enum):
     NA = 0
-    IDLE = 1
+    STARTING = 1
+    IDLE = 2
     REC_START_REQ = 10
     REC_START = 11
     REC_STARTED = 12

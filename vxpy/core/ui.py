@@ -904,6 +904,78 @@ class RecordingSettings(QtWidgets.QWidget):
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_compression_opts, self.get_compression_opts())
 
 
+class LogTextEdit(QtWidgets.QTextEdit):
+
+    default_stylesheet = 'font-family: Courier;'
+
+    def __init__(self, *args, **kwargs):
+        QtWidgets.QTextEdit.__init__(self, *args, **kwargs)
+
+        # Set initial log line count
+        self.logccount = 0
+
+        self.log_name_limit = 30
+
+        self.log_level = 20
+        self.last_high_level = 20
+
+        self.font = QtGui.QFont()
+        self.font.setPointSize(10)
+        self.setReadOnly(True)
+
+        # Set timer for updating of log
+        self.timer_logging = QtCore.QTimer()
+        self.timer_logging.timeout.connect(self.print_log)
+        self.timer_logging.start(50)
+
+    def print_log(self):
+        self.setFont(self.font)
+
+        if len(vxlogger.get_history()) > self.logccount:
+            for rec in vxlogger.get_history()[self.logccount:]:
+
+                self.logccount += 1
+
+                # Skip for debug and unset
+                if rec.levelno < self.log_level:
+                    continue
+
+                # Set log color
+                cur_color = 'white'
+                # Warning
+                if rec.levelno == 30:
+                    cur_color = 'orange'
+
+                # Error and critical
+                elif rec.levelno > 30:
+                    cur_color = 'red'
+
+                # Set line color
+                self.setTextColor(QtGui.QColor(cur_color))
+
+                # Increase color indicator if loglevel has increased
+                if self.last_high_level < rec.levelno:
+                    self.setStyleSheet(f'{self.default_stylesheet} border-color:{cur_color};')
+                    self.last_high_level = rec.levelno
+
+                # Crop name if necessary
+                name = rec.name
+                if len(name) > self.log_name_limit:
+                    name = name[:5] + '..' + name[-(self.log_name_limit - 7):]
+
+                # Format line
+                str_format = '{:7} {} {:' + str(self.log_name_limit) + '} {}'
+                line = str_format.format(rec.levelname, rec.asctime[-12:], name, rec.msg)
+
+                # Add line
+                self.append(line)
+
+    def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
+        self.last_high_level = self.log_level
+        self.setStyleSheet(self.default_stylesheet)
+        event.accept()
+
+
 class LoggingWidget(IntegratedWidget):
 
     def __init__(self, *args):
@@ -912,67 +984,9 @@ class LoggingWidget(IntegratedWidget):
         self.setLayout(QtWidgets.QHBoxLayout())
         self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
 
-        self.txe_log = QtWidgets.QTextEdit()
-        self.font = QtGui.QFont()
-        self.font.setPointSize(10)
-        self.font.setFamily('Courier')
-        self.txe_log.setReadOnly(True)
-        # self.format = QtGui.QTextBlockFormat()
-        # self.format.setIndent(10)
-        # self.txe_log.textCursor().setBlockFormat(self.format)
+        self.txe_log = LogTextEdit(parent=self)
         self.txe_log.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.layout().addWidget(self.txe_log)
-
-        # Set initial log line count
-        self.logccount = 0
-
-        self.loglevelname_limit = 30
-
-        # Set timer for updating of log
-        self.timer_logging = QtCore.QTimer()
-        self.timer_logging.timeout.connect(self.print_log)
-        self.timer_logging.start(50)
-
-    def print_log(self):
-        self.txe_log.setFont(self.font)
-
-        if len(vxlogger.get_history()) > self.logccount:
-            for rec in vxlogger.get_history()[self.logccount:]:
-
-                self.logccount += 1
-
-                # Skip for debug and unset
-                if rec.levelno < 20:
-                    continue
-
-                # Info
-                if rec.levelno == 20:
-                    self.txe_log.setTextColor(QtGui.QColor('white'))
-                    # self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
-                # Warning
-                elif rec.levelno == 30:
-                    self.txe_log.setTextColor(QtGui.QColor('orange'))
-                    # self.txe_log.setFontWeight(QtGui.QFont.Weight.Bold)
-                # Error and critical
-                elif rec.levelno > 30:
-                    self.txe_log.setTextColor(QtGui.QColor('red'))
-                    # self.txe_log.setFontWeight(QtGui.QFont.Weight.Bold)
-                # Fallback
-                else:
-                    self.txe_log.setTextColor(QtGui.QColor('white'))
-                    # self.txe_log.setFontWeight(QtGui.QFont.Weight.Normal)
-
-                # Crop name if necessary
-                name = rec.name
-                if len(name) > self.loglevelname_limit:
-                    name = name[:5] + '..' + name[-(self.loglevelname_limit - 7):]
-
-                # Format line
-                str_format = '{:7} {} {:' + str(self.loglevelname_limit) + '} {}'
-                line = str_format.format(rec.levelname, rec.asctime[-12:], name, rec.msg)
-
-                # Add line
-                self.txe_log.append(line)
 
 
 class ProtocolWidget(IntegratedWidget):

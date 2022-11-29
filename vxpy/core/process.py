@@ -95,6 +95,7 @@ class AbstractProcess:
             self.program_start_time = _program_start_time
         else:
             log.error(f'No program start time provided to {self.name}')
+            return
 
         # Add handlers to modules that were imported before process class initialization
         vxlogger.add_handlers()
@@ -146,8 +147,7 @@ class AbstractProcess:
                             pass
 
         # Set modules state
-        if getattr(vxipc.State, self.name) is not None:
-            vxipc.set_state(State.STARTING)
+        vxipc.set_state(STATE.STARTING)
 
         # Bind signals
         signal.signal(signal.SIGINT, self.handle_sigint)
@@ -357,9 +357,14 @@ class AbstractProcess:
                     vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
 
                 elif isinstance(attribute, vxattribute.ObjectAttribute):
-                    # TODO: make object attributes declare their expected content beforehand?
-                    #  this would streamline dataset creation and prevent lag during recordings
-                    pass
+
+                    # Read last entry to determine structure of object
+                    _, _, data = attribute.read()
+
+                    data = data[0]
+                    print(data)
+
+
 
         # Switch state to let controller know recording was started on fork
         vxipc.set_state(STATE.REC_STARTED)
@@ -405,7 +410,7 @@ class AbstractProcess:
     def _stopped_protocol(self):
         vxipc.set_state(STATE.IDLE)
 
-    def _process_static_protocol(self):
+    def _process_phase_protocol(self):
 
         if self.phase_end_time < vxipc.get_time():
             if vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
@@ -487,7 +492,7 @@ class AbstractProcess:
 
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
             if prcl_type == vxprotocol.StaticPhasicProtocol:
-                self._process_static_protocol()
+                self._process_phase_protocol()
             elif prcl_type == vxprotocol.ContinuousProtocol:
                 pass
             elif prcl_type == vxprotocol.TriggeredProtocol:

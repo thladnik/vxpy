@@ -615,7 +615,7 @@ class Controller(vxprocess.AbstractProcess):
         # Set back to idle
         vxipc.set_state(STATE.IDLE)
 
-    def _process_static_protocol(self):
+    def _process_phase_protocol(self):
 
         # If phase end time is below current time
         #  - either protocol just started (end time = -inf)
@@ -721,7 +721,7 @@ class Controller(vxprocess.AbstractProcess):
         elif vxipc.in_state(STATE.PRCL_IN_PROGRESS):
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
             if prcl_type == vxprotocol.StaticPhasicProtocol:
-                self._process_static_protocol()
+                self._process_phase_protocol()
             elif prcl_type == vxprotocol.ContinuousProtocol:
                 pass
             elif prcl_type == vxprotocol.TriggeredProtocol:
