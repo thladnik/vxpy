@@ -474,17 +474,16 @@ class AbstractProcess:
 
     def _eval_protocol_state(self):
 
-        # Check own states
-        if vxipc.in_state(STATE.PRCL_STARTED):
-            self._started_protocol()
+        if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
+            # Check own states
+            if vxipc.in_state(STATE.PRCL_STARTED):
+                self._started_protocol()
 
-        elif vxipc.in_state(STATE.PRCL_STOPPED):
-            self._stopped_protocol()
-
-        # Reaction to controller states
+            elif vxipc.in_state(STATE.PRCL_STOPPED):
+                self._stopped_protocol()
 
         # Controller has started a protocol
-        if vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
+        elif vxipc.in_state(STATE.PRCL_START, PROCESS_CONTROLLER):
             self._start_protocol()
 
         # Controller is currently running the protocol
@@ -618,78 +617,78 @@ class AbstractProcess:
         if sig == Signal.rpc:
             self._execute_rpc(*args, **kwargs)
 
-    def _append_to_dataset(self, path: str, value: Any):
-        # May need to be uncommented:
-        if self.file_container is None:
-            return
-
-        # Create dataset (if necessary)
-        if path not in self.file_container:
-            # Some datasets may not be created on record group creation
-            # (this is e.g. the the case for parameters of visuals,
-            # because unless the data types are specifically declared,
-            # there's no way to know them ahead of time)
-
-            # Iterate over dictionary contents
-            if isinstance(value, dict):
-                for k, v in value.items():
-                    self._append_to_dataset(f'{path}_{k}', v)
-                return
-
-            # Try to cast to numpy arrays
-            if isinstance(value, list):
-                value = np.array(value)
-            elif isinstance(value, np.ndarray):
-                pass
-            else:
-                value = np.array([value])
-
-            dshape = value.shape
-            dtype = value.dtype
-            assert np.issubdtype(dtype, np.number) or dtype == bool, \
-                f'Unable save non-numerical value "{value}" to dataset "{path}"'
-
-            self._create_dataset(path, dshape, dtype)
-
-        # Append to dataset
-        self.file_container.append(path, value)
+    # def _append_to_dataset(self, path: str, value: Any):
+    #     # May need to be uncommented:
+    #     if self.file_container is None:
+    #         return
+    #
+    #     # Create dataset (if necessary)
+    #     if path not in self.file_container:
+    #         # Some datasets may not be created on record group creation
+    #         # (this is e.g. the the case for parameters of visuals,
+    #         # because unless the data types are specifically declared,
+    #         # there's no way to know them ahead of time)
+    #
+    #         # Iterate over dictionary contents
+    #         if isinstance(value, dict):
+    #             for k, v in value.items():
+    #                 self._append_to_dataset(f'{path}_{k}', v)
+    #             return
+    #
+    #         # Try to cast to numpy arrays
+    #         if isinstance(value, list):
+    #             value = np.array(value)
+    #         elif isinstance(value, np.ndarray):
+    #             pass
+    #         else:
+    #             value = np.array([value])
+    #
+    #         dshape = value.shape
+    #         dtype = value.dtype
+    #         assert np.issubdtype(dtype, np.number) or dtype == bool, \
+    #             f'Unable save non-numerical value "{value}" to dataset "{path}"'
+    #
+    #         self._create_dataset(path, dshape, dtype)
+    #
+    #     # Append to dataset
+    #     self.file_container.append(path, value)
 
     @property
     def record_group_name(self):
         return f'phase{self.record_group}' if self.record_group >= 0 else ''
 
-    def set_record_group_attrs(self, group_attributes: Dict[str, Any] = None):
-        if self.file_container is None:
-            return
-
-        if self.record_group < 0:
-            return
-
-        grp = self.file_container.require_group(self.record_group_name)
-        if group_attributes is not None:
-            for attr_name, attr_data in group_attributes.items():
-
-                # For arrays there may be special rules
-                if isinstance(attr_data, np.ndarray):
-
-                    # There is a hard size limit on attributes of 64KB: store as dataset instead
-                    if attr_data.dtype.itemsize * attr_data.size >= 64 * 2 ** 10:
-                        grp.create_dataset(f'group_attr_{attr_name}', data=attr_data)
-                        continue
-
-                    # Unpack scalar attributes
-                    elif attr_data.shape == (1,):
-                        grp.attrs[attr_name] = attr_data[0]
-                        continue
-
-                elif isinstance(attr_data, gloo.buffer.DataBufferView):
-                    # TODO: this needs to work in the future
-                    #   problem: buffers can't be read, only set in vispy.
-                    #            How do I get the buffer contents after it's been set?
-                    continue
-
-                # Otherwise, just write whole attribute data to attribute
-                grp.attrs[attr_name] = attr_data
+    # def set_record_group_attrs(self, group_attributes: Dict[str, Any] = None):
+    #     if self.file_container is None:
+    #         return
+    #
+    #     if self.record_group < 0:
+    #         return
+    #
+    #     grp = self.file_container.require_group(self.record_group_name)
+    #     if group_attributes is not None:
+    #         for attr_name, attr_data in group_attributes.items():
+    #
+    #             # For arrays there may be special rules
+    #             if isinstance(attr_data, np.ndarray):
+    #
+    #                 # There is a hard size limit on attributes of 64KB: store as dataset instead
+    #                 if attr_data.dtype.itemsize * attr_data.size >= 64 * 2 ** 10:
+    #                     grp.create_dataset(f'group_attr_{attr_name}', data=attr_data)
+    #                     continue
+    #
+    #                 # Unpack scalar attributes
+    #                 elif attr_data.shape == (1,):
+    #                     grp.attrs[attr_name] = attr_data[0]
+    #                     continue
+    #
+    #             elif isinstance(attr_data, gloo.buffer.DataBufferView):
+    #                 # TODO: this needs to work in the future
+    #                 #   problem: buffers can't be read, only set in vispy.
+    #                 #            How do I get the buffer contents after it's been set?
+    #                 continue
+    #
+    #             # Otherwise, just write whole attribute data to attribute
+    #             grp.attrs[attr_name] = attr_data
 
     def update_routines(self, *args, **kwargs):
 

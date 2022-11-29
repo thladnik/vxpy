@@ -204,15 +204,16 @@ class H5File:
         self._add_to_dataset(dataset_name, data)
 
     def _add_to_dataset(self, path: str, data: Any):
-        # Get dataset
-        dataset = self._h5_handle[path]
-        # Increase time dimension (0) size by 1
         try:
+            # Get dataset
+            dataset = self._h5_handle[path]
+            # Increase time dimension (0) size by 1
             dataset.resize((dataset.shape[0] + 1, *dataset.shape[1:]))
             # Write new value
             dataset[dataset.shape[0] - 1] = data
 
         except Exception as exc:
+            log.error(f'Encountered problem while adding data to dataset {path}')
             import traceback
             traceback.print_exc()
             quit()

@@ -303,7 +303,7 @@ class Controller(vxprocess.AbstractProcess):
 
     def start(self):
 
-        # On windows systems, show splashscreen to show that something is happening
+        # On Windows systems, show splashscreen to show that something is happening
         if sys.platform == 'win32':
             self.splashscreen.close()
             self.qt_app.processEvents()
@@ -486,17 +486,6 @@ class Controller(vxprocess.AbstractProcess):
         log.info(f'Controller starts recording to {path}')
         vxipc.set_state(STATE.REC_START)
 
-    def _started_recording(self):
-
-        if not self._all_forks_in_state(STATE.REC_STARTED):
-            return
-
-        log.debug('All forks confirmed start of recording. Set recording to active.')
-        vxipc.CONTROL[CTRL_REC_ACTIVE] = True
-
-        # If all forks have signalled REC_STARTED, return to idle
-        vxipc.set_state(STATE.IDLE)
-
     def stop_recording(self):
         log.debug('Controller was requested to stop recording')
         vxipc.set_state(STATE.REC_STOP_REQ)
@@ -663,11 +652,6 @@ class Controller(vxprocess.AbstractProcess):
             self.phase_end_time = end_time
             log.info(f'Set phase {self.phase_id} to interval to [{start_time:.3f}, {end_time:.3f})')
 
-            # # Keep busy while waiting
-            # while vxipc.get_time() < self.phase_start_time:
-            #     self._handle_logging()
-            #     vxipc.update_time()
-
         # If current time is between start and end time, a phase is currently running
         elif self.phase_start_time <= vxipc.get_time() < self.phase_end_time:
             pass
@@ -692,7 +676,15 @@ class Controller(vxprocess.AbstractProcess):
         # Waiting until all forks have gone to REC_STARTED
         # Then return to IDLE
         elif vxipc.in_state(STATE.REC_START):
-            self._started_recording()
+
+            if not self._all_forks_in_state(STATE.REC_STARTED):
+                return
+
+            log.debug('All forks confirmed start of recording. Set recording to active.')
+            vxipc.CONTROL[CTRL_REC_ACTIVE] = True
+
+            # If all forks have signalled REC_STARTED, return to idle
+            vxipc.set_state(STATE.IDLE)
 
         # Controller received request to stop recording REC_STOP_REQ
         # Evaluate and go to REC_STOP
