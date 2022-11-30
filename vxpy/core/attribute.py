@@ -36,19 +36,19 @@ log = vxlogger.getLogger(__name__)
 
 def init(attrs: Dict[str, Attribute]) -> None:
     """Calls the build function of all specified attributes"""
-    if attrs is None:
-        return
 
     # Reset logger to include process_name
     global log
     log = vxlogger.getLogger(f'{__name__}[{vxipc.LocalProcess.name}]')
 
-    Attribute.all.update(attrs)
+    if attrs is not None:
+        Attribute.all.update(attrs)
+
     for attr in Attribute.all.values():
         attr.build()
 
 
-def read_attribute(attr_name: str, *args, **kwargs) -> Union[Tuple[List, List, Union[List, np.ndarray]], None]:
+def read_attribute(attr_name: str, *args, **kwargs) -> Union[Tuple[np.ndarray, np.ndarray, Iterable], None]:
     """Convenience method for calling an attribute's read function via its name"""
     if attr_name not in Attribute.all:
         return

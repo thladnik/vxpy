@@ -32,6 +32,7 @@ from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
+import vxpy.core.attribute as vxattribute
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
@@ -40,7 +41,6 @@ import vxpy.core.process as vxprocess
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import routine
 from vxpy.core import run_process
-from vxpy.core.attribute import Attribute
 
 log = vxlogger.getLogger(__name__)
 
@@ -205,6 +205,9 @@ class Controller(vxprocess.AbstractProcess):
                 r.require()
                 r.setup()
 
+        # Initialize attributes for Controller (no argument needed, attributes are already set)
+        vxattribute.init(None)
+
         self._init_params = dict(
             _program_start_time=self.program_start_time,
             _configuration_path=_configuration_path,
@@ -212,7 +215,6 @@ class Controller(vxprocess.AbstractProcess):
             _states={k: v for k, v
                      in vxipc.State.__dict__.items()
                      if not (k.startswith('_'))},
-            # _proxies=_proxies,
             _routines=self._routines,
             _controls={k: v for k, v
                        in vxipc.Control.__dict__.items()
@@ -220,7 +222,7 @@ class Controller(vxprocess.AbstractProcess):
             _control=vxipc.CONTROL,
             _log_queue=vxlogger._log_queue,
             _log_history=vxlogger.get_history(),
-            _attrs=Attribute.all
+            _attrs=vxattribute.Attribute.all
         )
 
         # Initialize all processes
@@ -523,7 +525,7 @@ class Controller(vxprocess.AbstractProcess):
         elif prcl_type == vxprotocol.TriggeredProtocol:
             print('Setup trigger protocol')
             # Connect the _advance_phase method to the provided trigger and activate trigger
-            self.phase_trigger = vxevent.OnTrigger('eyepos_saccade_trigger')
+            self.phase_trigger = vxevent.RisingEdgeTrigger('eyepos_saccade_trigger')
             self.phase_trigger.add_callback(self._trigger_protocol_advance_phase)
             self.phase_trigger.set_active(True)
 

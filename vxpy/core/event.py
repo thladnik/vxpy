@@ -31,8 +31,11 @@ class Trigger:
     attribute: vxattribute.Attribute = None
 
     @staticmethod
-    def condition(data) -> (bool, np.ndarray):
-        return False, None
+    def _return_empty() -> (bool, np.ndarray):
+        return False, np.array([])
+
+    def condition(self, data) -> (bool, np.ndarray):
+        return self._return_empty()
 
     def __init__(self, attr: Union[str, vxattribute.Attribute],
                  callback: Union[Callable, List[Callable]] = None):
@@ -81,68 +84,91 @@ class Trigger:
         if not self._active:
             return
 
-        # Read all new datasets in attribute
-        indices, times, data = self.attribute.read(from_idx=self._last_read_idx + 1)
+        # Read all new datasets in attribute (including the last read dataset)
+        indices, times, data = self.attribute.read(from_idx=self._last_read_idx)
+
+        # If empty, return
         if len(indices) == 0:
             return
 
-        print(self._last_read_idx)
-        print(indices, times, data)
+        print(indices)
 
         # Set new last index
         self._last_read_idx = indices[-1]
+
         # Evaluate condition
-        result, instances = self.condition(data)
-        if result:
-            for c in self.callbacks:
-                for i in np.where(instances)[0]:
-                    c(indices[i], times[i], data[i])
+        success, instances = self.condition(data)
+
+        # Return is no success
+        if not success:
+            return
+
+        # Call connected callbacks
+        for c in self.callbacks:
+            for i in np.where(instances)[0]:
+                c(indices[i], times[i], data[i])
 
 
 class OnTrigger(Trigger):
 
-    @staticmethod
-    def condition(data):
+    def condition(self, data):
+
+        # Convert if necessary
         if not isinstance(data, np.ndarray):
             data = np.array(data)
 
-        data = np.squeeze(data)
+        # Remove first dataset (otherwise this one would be evaluated again) and remove extra dimensions
+        data = np.squeeze(data[1:])
 
+        # Compute condition
         results = data.astype(bool)
+        results = np.append([False], results)
+
+        # Return results
         if np.any(results):
             return True, results
         else:
-            return False, []
+            return self._return_empty()
 
 
 class RisingEdgeTrigger(Trigger):
 
-    @staticmethod
-    def condition(data):
+    def condition(self, data):
+
+        # Convert if necessary
         if not isinstance(data, np.ndarray):
             data = np.array(data)
 
+        # Remove extra dimensions
         data = np.squeeze(data)
 
-        results = np.diff(data) > 0
-        results = np.append(results, [False])
+        if data.ndim == 0 or data.shape[0] < 2:
+            return self._return_empty()
+
+        # Compute condition: type of data CANNOT be bool, because np.diff on boolean arrays
+        #  always evaluates to True if there's any difference - regardless of sign
+        results = np.diff(data.astype(int)) > 0
+        # Prepend False to fix length
+        results = np.append([False], results)
+
+        # Return results
         if np.any(results):
             return True, results
         else:
-            return False, []
+            return self._return_empty()
 
 
-class FallingEdgeTrigger(Trigger):
-
-    @staticmethod
-    def condition(data):
-        if not isinstance(data, np.ndarray):
-            data = np.array(data)
-
-        data = np.squeeze(data)
-        results = np.diff(data) < 0
-        results = np.append(results, [False])
-        if np.any(results):
-            return True, results
-        else:
-            return False, []
+# class FallingEdgeTrigger(Trigger):
+#
+#     @staticmethod
+#     def condition(data):
+#         if not isinstance(data, np.ndarray):
+#             data = np.array(data)
+#
+#         data = np.squeeze(data)
+#         results = np.diff(data) < 0
+#         results = np.append(results, [False])
+#         if np.any(results):
+#             return True, results
+#         else:
+#             return False, []
