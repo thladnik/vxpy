@@ -57,19 +57,12 @@ class CalculatePSD(WorkerRoutine):
         if self.input_signal is None or self.integration_window_width is None:
             return
 
-        t1 = time.perf_counter()
         i, t, y = self.input_signal.read(self.integration_window_width)
-        if t[0] is None or not isinstance(y, np.ndarray):
+        if np.isnan(t[0]) or not isinstance(y, np.ndarray):
             return
-        t1 = time.perf_counter() - t1
 
-        t2 = time.perf_counter()
         y = y.flatten()
         f, p = signal.csd(y, y, fs=1./np.mean(np.diff(t)), nperseg=self.nperseg)
-
-        t2 = time.perf_counter() - t2
-
-        print(f'{t1:.4f} / {t2:.4f}')
 
         self.frequencies.write(f)
         self.power.write(p)

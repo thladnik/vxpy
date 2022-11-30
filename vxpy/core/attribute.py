@@ -210,8 +210,8 @@ class Attribute(ABC):
         self._last_time = np.inf
         self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
 
-        self._times: List[Union[float]] = []
-        self._indices: List[Union[int]] = []
+        self._times: np.ndarray = np.array([])
+        self._indices: np.ndarray = np.array([])
 
     @property
     def length(self):
@@ -219,11 +219,13 @@ class Attribute(ABC):
 
     def _make_times(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
-        self._times = vxipc.Manager.list([None] * self.length)
+        # self._times = vxipc.Manager.list([None] * self.length)
+        self._times_raw = mp.Array(ctypes.c_double, self.length)
 
     def _make_indices(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
-        self._indices = vxipc.Manager.list([None] * self.length)
+        # self._indices = vxipc.Manager.list([None] * self.length)
+        self._indices_raw = mp.Array(ctypes.c_int64, self.length)
 
     def _next(self):
         """Increment the (shared) current index value by one (only happens once per write operation)"""
@@ -234,34 +236,34 @@ class Attribute(ABC):
         """Return the (shared) current index value"""
         return self._index.value
 
-    def build(self):
+    def _build(self):
         """(Optional) method which is called after subprocess fork and which can be used to set up
         fork-specific parts of the attribute"""
         pass
+
+    def build(self):
+
+        indices = np.frombuffer(self._indices_raw.get_obj(), ctypes.c_int64)
+        self._indices = indices.reshape((self.length,))
+        self._indices[:] = -1
+
+        times = np.frombuffer(self._times_raw.get_obj(), ctypes.c_double)
+        self._times = times.reshape((self.length,))
+        self._times[:] = np.nan
+
+        # Call subclass build implementations
+        self._build()
 
     def _get_times(self, indices: List[int]):
         """Returns the list of time points corresponding to the indices in the interval [start_idx, end_idx)
         of datapoints written to the attribute """
 
-        t1 = time.perf_counter()
-        d = [self._times[i] for i in indices]
-        t1 = time.perf_counter() - t1
-        if self.name == 'sawtooth_analogin' and vxipc.LocalProcess.name == PROCESS_WORKER:
-            print(f'Times: {t1:.4f}')
-
-        return d
+        return self._times[indices]
 
     def _get_indices(self, indices: List[int]) -> List[int]:
         """Return list of indices, based on the 'last' number of datapoints specified"""
-        # return [self._indices[i] for i in indices]
 
-        t1 = time.perf_counter()
-        d = [self._indices[i] for i in indices]
-        t1 = time.perf_counter() - t1
-        if self.name == 'sawtooth_analogin' and vxipc.LocalProcess.name == PROCESS_WORKER:
-            print(f'Indices: {t1:.4f}')
-
-        return d
+        return self._indices[indices]
 
     def get_times(self, last):
         """Returns the list of time points corresponding to the <last> number of datapoints written to the attribute """
@@ -500,7 +502,7 @@ class ArrayAttribute(Attribute):
 
         return lock()
 
-    def build(self) -> None:
+    def _build(self) -> None:
         """Build method that is called upon initialization in the subprocess fork.
         """
         self._data = self._build_array(self._raw, self.length)
@@ -509,13 +511,9 @@ class ArrayAttribute(Attribute):
         """Read method of ArrayAttribute.
         Returns a numpy array with the datapoints in the interval [start_idx, end_idx)"""
 
-        t1 = time.perf_counter()
         with self._get_lock(True):
-            data = np.deepcopy(self._data[indices])
+            data = np.copy(self._data[indices])
 
-        t1 = time.perf_counter() - t1
-        if self.name == 'sawtooth_analogin' and vxipc.LocalProcess.name == PROCESS_WORKER:
-            print(f'Data: {t1:.4f}')
         return data
 
     def _read_empty_return(self) -> Tuple[List[int], List[float], np.ndarray]:

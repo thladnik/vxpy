@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import numpy as np
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 
@@ -83,7 +84,7 @@ class DisplayPSD(AddonWidget):
 
             # Check if it has values written to it
             i, t, f = read_attribute(attr_name)
-            if t[0] is None:
+            if np.isnan(t[0]):
                 continue
 
             self.attribute_names.append(attr_name)
