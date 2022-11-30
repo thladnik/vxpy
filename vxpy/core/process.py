@@ -59,7 +59,10 @@ class AbstractProcess:
     program_start_time: float = None
 
     # Protocol related
-    current_protocol: Union[vxprotocol.AbstractProtocol, None] = None
+    current_protocol: Union[vxprotocol.StaticPhasicProtocol,
+                            vxprotocol.TriggeredProtocol,
+                            vxprotocol.ContinuousProtocol,
+                            None] = None
     phase_time: float = None
 
     enable_idle_timeout: bool = True
@@ -295,18 +298,6 @@ class AbstractProcess:
     def phase_is_active(self):
         return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
 
-    def _prepare_static_protocol(self):
-        """Method is called when a new protocol has been started by Controller."""
-        protocol_attributes = {'__protocol_module': self.current_protocol.__class__.__module__,
-                               '__protocol_name': self.current_protocol.__class__.__qualname__,
-                               '__start_time': vxipc.get_time(),
-                               '__target_phase_count': self.current_protocol.phase_count}
-
-        vxcontainer.add_protocol_attributes(protocol_attributes)
-
-        # Call fork's implementation
-        self.prepare_static_protocol()
-
     def prepare_static_protocol(self):
         """To be reimplemented in fork. Method is called by _prepare_static_protocol"""
         pass
@@ -333,6 +324,10 @@ class AbstractProcess:
 
     def end_static_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
+        pass
+
+    def prepare_trigger_protocol(self):
+        """To be reimplemented in fork. Method is called during preparation of new protocol"""
         pass
 
     def _start_recording(self):
@@ -362,9 +357,7 @@ class AbstractProcess:
                     _, _, data = attribute.read()
 
                     data = data[0]
-                    print(data)
-
-
+                    # TODO: do this smartly...
 
         # Switch state to let controller know recording was started on fork
         vxipc.set_state(STATE.REC_STARTED)
@@ -388,9 +381,23 @@ class AbstractProcess:
         self.current_protocol = vxprotocol.get_protocol(self.protocol_import_path)()
 
         if self.protocol_type == vxprotocol.StaticPhasicProtocol:
-            self._prepare_static_protocol()
+
+            """Method is called when a new protocol has been started by Controller."""
+            protocol_attributes = {'__protocol_module': self.current_protocol.__class__.__module__,
+                                   '__protocol_name': self.current_protocol.__class__.__qualname__,
+                                   '__start_time': vxipc.get_time(),
+                                   '__target_phase_count': self.current_protocol.phase_count}
+
+            vxcontainer.add_protocol_attributes(protocol_attributes)
+
+            # Call fork's implementation
+            self.prepare_static_protocol()
+
         elif self.protocol_type == vxprotocol.TriggeredProtocol:
-            log.error(f'{self.protocol_type.__name__} prepare method not implemented')
+
+            # Call fork's implementation
+            self.prepare_trigger_protocol()
+
         elif self.protocol_type == vxprotocol.ContinuousProtocol:
             log.error(f'{self.protocol_type.__name__} prepare method not implemented')
 
@@ -410,7 +417,7 @@ class AbstractProcess:
     def _stopped_protocol(self):
         vxipc.set_state(STATE.IDLE)
 
-    def _process_phase_protocol(self):
+    def _process_static_protocol(self):
 
         if self.phase_end_time < vxipc.get_time():
             if vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
@@ -440,6 +447,9 @@ class AbstractProcess:
                 log.info(f'Run phase {self.phase_id} at {vxipc.get_time():.3f}')
                 self.start_static_protocol_phase()
                 vxipc.set_state(STATE.PRCL_IN_PHASE)
+
+    def _process_trigger_protocol(self):
+        pass
 
     def _eval_process_state(self):
 
@@ -491,10 +501,10 @@ class AbstractProcess:
 
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
             if prcl_type == vxprotocol.StaticPhasicProtocol:
-                self._process_phase_protocol()
-            elif prcl_type == vxprotocol.ContinuousProtocol:
-                pass
+                self._process_static_protocol()
             elif prcl_type == vxprotocol.TriggeredProtocol:
+                self._process_trigger_protocol()
+            elif prcl_type == vxprotocol.ContinuousProtocol:
                 pass
 
         # Controller has stopped running protocol

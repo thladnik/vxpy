@@ -32,10 +32,11 @@ from vxpy import config
 from vxpy import definitions
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
-import vxpy.core.protocol as vxprotocol
-import vxpy.core.process as vxprocess
+import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
+import vxpy.core.protocol as vxprotocol
+import vxpy.core.process as vxprocess
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
 from vxpy.core import routine
 from vxpy.core import run_process
@@ -54,6 +55,8 @@ class Controller(vxprocess.AbstractProcess):
 
     _active_process_list: List[str] = []
     _active_protocol_list: List[str] = []
+
+    protocol_trigger: vxevent.Trigger = None
 
     def __init__(self, _configuration_path):
         # Set up manager
@@ -457,57 +460,9 @@ class Controller(vxprocess.AbstractProcess):
         log.debug('Controller was requested to start new recording')
         vxipc.set_state(STATE.REC_START_REQ)
 
-    def _start_recording(self):
-        """Method is called when REC_START_REQ"""
-
-        # Only start recording if all forks are in idle
-        if not self._all_forks_in_state(STATE.IDLE):
-            return
-
-        # If foldername hasn't been set yet, use default format
-        if vxipc.CONTROL[CTRL_REC_FLDNAME] == '':
-            vxipc.CONTROL[CTRL_REC_FLDNAME] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
-            
-        # Check recording path
-        path = vxipc.get_recording_path()
-        if os.path.exists(path):
-            log.error(f'Unable to start new recording to path {path}. Path already exists')
-
-            # Reset folder name
-            self._reset_recording_controls()
-
-            return
-
-        # Create output folder
-        log.debug(f'Create folder on path {path}')
-        os.mkdir(path)
-
-        # Set state to REC_START
-        log.info(f'Controller starts recording to {path}')
-        vxipc.set_state(STATE.REC_START)
-
     def stop_recording(self):
         log.debug('Controller was requested to stop recording')
         vxipc.set_state(STATE.REC_STOP_REQ)
-
-    def _stop_recording(self):
-        # DO RECORDING STARTING STUFF
-        log.info(f'Stop recording to {vxipc.get_recording_path()}')
-        vxipc.set_state(STATE.REC_STOP)
-
-    def _stopped_recording(self):
-
-        # Only stop recording if all forks are in REC_STOPPED
-        if not self._all_forks_in_state(STATE.REC_STOPPED):
-            return
-
-        log.debug('All forks confirmed stop of recording. Set recording to inactive.')
-
-        # Reset controls once everyone is done
-        self._reset_recording_controls()
-
-        # If all forks have signalled REC_STOPPED, return to IDLE
-        vxipc.set_state(STATE.IDLE)
 
     def start_protocol(self, protocol_path: str):
 
@@ -537,10 +492,10 @@ class Controller(vxprocess.AbstractProcess):
         # Figure out protocol type
         if issubclass(protocol, vxprotocol.StaticPhasicProtocol):
             prcl_type = vxprotocol.StaticPhasicProtocol
-        elif issubclass(protocol, vxprotocol.ContinuousProtocol):
-            prcl_type = vxprotocol.ContinuousProtocol
         elif issubclass(protocol, vxprotocol.TriggeredProtocol):
             prcl_type = vxprotocol.TriggeredProtocol
+        elif issubclass(protocol, vxprotocol.ContinuousProtocol):
+            prcl_type = vxprotocol.ContinuousProtocol
         else:
             log.error(f'Failed to start protocol from import path {self.protocol_import_path}. '
                       f'Unknown type for protocol {protocol}')
@@ -561,21 +516,25 @@ class Controller(vxprocess.AbstractProcess):
         # Instantiate protocol
         self.current_protocol = protocol()
 
+        # Do protocol type specific initializations
+        prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
+        if prcl_type == vxprotocol.StaticPhasicProtocol:
+            pass
+        elif prcl_type == vxprotocol.TriggeredProtocol:
+            print('Setup trigger protocol')
+            # Connect the _advance_phase method to the provided trigger and activate trigger
+            self.phase_trigger = vxevent.OnTrigger('eyepos_saccade_trigger')
+            self.phase_trigger.add_callback(self._trigger_protocol_advance_phase)
+            self.phase_trigger.set_active(True)
+
+        elif prcl_type == vxprotocol.ContinuousProtocol:
+            pass
+
         # Set state to PRCL_START
         log.info(f'Start {prcl_type.__name__} from import path {self.protocol_import_path}')
 
         # Go to PRCL_START state, to indicate to forks that a protocol has been set and should be prepared
         vxipc.set_state(STATE.PRCL_START)
-
-    def _started_protocol(self):
-
-        # Only start protocol if all forks are in PRCL_STARTED
-        if not self._all_protocol_forks_in_state(STATE.PRCL_STARTED):
-            return
-
-        # Set protocol to active
-        vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
-        vxipc.set_state(STATE.PRCL_IN_PROGRESS)
 
     # Protocol stop
 
@@ -586,25 +545,7 @@ class Controller(vxprocess.AbstractProcess):
 
         vxipc.set_state(STATE.PRCL_STOP_REQ)
 
-    def _stop_protocol(self):
-        log.info(f'Stop protocol {self.protocol_import_path}')
-        vxipc.set_state(STATE.PRCL_STOP)
-
-    def _stopped_protocol(self):
-
-        # Only return to idle if all forks are in PRCL_STOPPED
-        if not self._all_protocol_forks_in_state(STATE.PRCL_STOPPED):
-            return
-
-        log.debug(f'Clean up protocol')
-
-        # Reset everything to defaults
-        self._reset_protocol_controls()
-
-        # Set back to idle
-        vxipc.set_state(STATE.IDLE)
-
-    def _process_phase_protocol(self):
+    def _process_static_protocol(self):
 
         # If phase end time is below current time
         #  - either protocol just started (end time = -inf)
@@ -656,6 +597,12 @@ class Controller(vxprocess.AbstractProcess):
         elif self.phase_start_time <= vxipc.get_time() < self.phase_end_time:
             pass
 
+    def _trigger_protocol_process(self):
+        pass
+
+    def _trigger_protocol_advance_phase(self, *args):
+        print('Next', args)
+
     def main(self):
         pass
 
@@ -670,7 +617,32 @@ class Controller(vxprocess.AbstractProcess):
 
         # Controller received request to start a recording
         elif vxipc.in_state(STATE.REC_START_REQ):
-            self._start_recording()
+
+            # Only start recording if all forks are in idle
+            if not self._all_forks_in_state(STATE.IDLE):
+                return
+
+            # If folder name hasn't been set yet, use default format
+            if vxipc.CONTROL[CTRL_REC_FLDNAME] == '':
+                vxipc.CONTROL[CTRL_REC_FLDNAME] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+
+            # Check recording path
+            path = vxipc.get_recording_path()
+            if os.path.exists(path):
+                log.error(f'Unable to start new recording to path {path}. Path already exists')
+
+                # Reset folder name
+                self._reset_recording_controls()
+
+                return
+
+            # Create output folder
+            log.debug(f'Create folder on path {path}')
+            os.mkdir(path)
+
+            # Set state to REC_START
+            log.info(f'Controller starts recording to {path}')
+            vxipc.set_state(STATE.REC_START)
 
         # Controller started recording REC_START
         # Waiting until all forks have gone to REC_STARTED
@@ -689,13 +661,25 @@ class Controller(vxprocess.AbstractProcess):
         # Controller received request to stop recording REC_STOP_REQ
         # Evaluate and go to REC_STOP
         elif vxipc.in_state(STATE.REC_STOP_REQ):
-            self._stop_recording()
+            log.info(f'Stop recording to {vxipc.get_recording_path()}')
+            vxipc.set_state(STATE.REC_STOP)
 
         # Controller stopped recording REC_STOP
         # Waiting until all forks have gone to REC_STOPPED
         # Then return to IDLE
         elif vxipc.in_state(STATE.REC_STOP):
-            self._stopped_recording()
+
+            # Only stop recording if all forks are in REC_STOPPED
+            if not self._all_forks_in_state(STATE.REC_STOPPED):
+                return
+
+            log.debug('All forks confirmed stop of recording. Set recording to inactive.')
+
+            # Reset controls once everyone is done
+            self._reset_recording_controls()
+
+            # If all forks have signalled REC_STOPPED, return to IDLE
+            vxipc.set_state(STATE.IDLE)
 
         # Controller received request to start a protocol
         # Evaluate and go to PRCL_START
@@ -706,29 +690,49 @@ class Controller(vxprocess.AbstractProcess):
         # Waiting until all forks have gone to PRCL_STARTED
         # Then go to PRCL_IN_PROGRESS
         elif vxipc.in_state(STATE.PRCL_START):
-            self._started_protocol()
+
+            # Only start protocol if all forks are in PRCL_STARTED
+            if not self._all_protocol_forks_in_state(STATE.PRCL_STARTED):
+                return
+
+            # Set protocol to active
+            vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
+            vxipc.set_state(STATE.PRCL_IN_PROGRESS)
 
         # Controller has activated protocol
         # While in PRCL_IN_PROGESS, choose appropriate method to process based on protocol type
         elif vxipc.in_state(STATE.PRCL_IN_PROGRESS):
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
             if prcl_type == vxprotocol.StaticPhasicProtocol:
-                self._process_phase_protocol()
-            elif prcl_type == vxprotocol.ContinuousProtocol:
-                pass
+                self._process_static_protocol()
             elif prcl_type == vxprotocol.TriggeredProtocol:
+                self._trigger_protocol_process()
+            elif prcl_type == vxprotocol.ContinuousProtocol:
                 pass
 
         # Controller received request to stop running protocol
-        # Evaluate and go to PRCL_STOP
+        # Evaluate request and go to PRCL_STOP
         elif vxipc.in_state(STATE.PRCL_STOP_REQ):
-            self._stop_protocol()
+
+            log.info(f'Stop protocol {self.protocol_import_path}')
+            vxipc.set_state(STATE.PRCL_STOP)
 
         # Controller stopped protocol
         # Waiting until all forks have gone to PRCL_STOPPED
         # Then return to IDLE
         elif vxipc.in_state(STATE.PRCL_STOP):
-            self._stopped_protocol()
+
+            # Only return to idle if all forks are in PRCL_STOPPED
+            if not self._all_protocol_forks_in_state(STATE.PRCL_STOPPED):
+                return
+
+            log.debug(f'Clean up protocol')
+
+            # Reset everything to defaults
+            self._reset_protocol_controls()
+
+            # Set back to idle
+            vxipc.set_state(STATE.IDLE)
 
     def commence_shutdown(self):
         log.debug('Shutdown requested. Checking.')

@@ -93,6 +93,7 @@ class EyePositionDetection(vxroutine.CameraRoutine):
     def initialize(self):
         # Set saccade trigger (LE and RE) signal to "saccade_trigger_out" channel by default
         vxio.set_digital_output('saccade_trigger_out', self.sacc_trigger_name)
+        vxui.register_with_plotter(self.sacc_trigger_name)
 
     @vxroutine.CameraRoutine.callback
     def set_threshold(self, thresh):

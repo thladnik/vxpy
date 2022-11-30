@@ -21,6 +21,7 @@ from abc import abstractmethod
 from inspect import isclass
 from typing import List, Union, Callable, Type
 
+import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.visual as vxvisual
@@ -257,4 +258,26 @@ class ContinuousProtocol(AbstractProtocol):
 
 
 class TriggeredProtocol(AbstractProtocol):
-    pass
+
+    phase_trigger: vxevent.Trigger = None
+
+    def set_phase_trigger(self, trigger: vxevent.Trigger):
+        self.phase_trigger = trigger
+
+    def initialize_actions(self):
+        pass
+
+    def initialize_visuals(self, canvas):
+        # Fetch all visuals from phases and identify unique ones
+        all_visuals = [phase.visual for phase in self._phases]
+        unique_visuals = list(set(all_visuals))
+
+        # Initialize unique visuals (one instance per visual class)
+        initialize_visuals = {}
+        for visual in unique_visuals:
+            initialize_visuals[visual] = visual(canvas, _protocol=self)
+
+        # Update all phases to unique visual instance
+        for phase in self._phases:
+            phase.set_initialize_visual(initialize_visuals[phase.visual])
+
