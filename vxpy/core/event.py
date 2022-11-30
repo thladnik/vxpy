@@ -53,11 +53,11 @@ class Trigger:
         self.all.append(self)
 
         # Find last index
-        self._last_read_idx: int = self.attribute.index - 1
+        self._last_read_idx: int = self.attribute.index
         self._active = False
 
     def __repr__(self):
-        return f"{self.__name__}('{self.attribute.name}', {self.callbacks})"
+        return f"{self.__class__.__name__}('{self.attribute.name}', {self.callbacks})"
 
     def set_active(self, active):
         self._active = active
@@ -82,13 +82,15 @@ class Trigger:
             return
 
         # Read all new datasets in attribute
-        indices, times, data = self.attribute.read(from_idx=self._last_read_idx)
+        indices, times, data = self.attribute.read(from_idx=self._last_read_idx + 1)
         if len(indices) == 0:
             return
 
-        # Set new last index
-        self._last_read_idx = indices[-1] + 1
+        print(self._last_read_idx)
+        print(indices, times, data)
 
+        # Set new last index
+        self._last_read_idx = indices[-1]
         # Evaluate condition
         result, instances = self.condition(data)
         if result:

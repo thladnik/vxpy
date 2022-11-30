@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
+import time
 from abc import ABC, abstractmethod
 import ctypes
 import multiprocessing as mp
@@ -208,13 +210,20 @@ class Attribute(ABC):
         self._last_time = np.inf
         self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
 
+        self._times: List[Union[float]] = []
+        self._indices: List[Union[int]] = []
+
     @property
     def length(self):
         return self._length
 
-    def _make_time(self):
+    def _make_times(self):
         """Generate the shared list of times corresponding to individual datapoints in the buffer"""
-        self._time: List[Union[float, None]] = vxipc.Manager.list([None] * self.length)
+        self._times = vxipc.Manager.list([None] * self.length)
+
+    def _make_indices(self):
+        """Generate the shared list of times corresponding to individual datapoints in the buffer"""
+        self._indices = vxipc.Manager.list([None] * self.length)
 
     def _next(self):
         """Increment the (shared) current index value by one (only happens once per write operation)"""
@@ -230,13 +239,29 @@ class Attribute(ABC):
         fork-specific parts of the attribute"""
         pass
 
-    def _get_times(self, start_idx, end_idx):
+    def _get_times(self, indices: List[int]):
         """Returns the list of time points corresponding to the indices in the interval [start_idx, end_idx)
         of datapoints written to the attribute """
-        if start_idx >= 0:
-            return self._time[start_idx:end_idx]
-        else:
-            return self._time[start_idx:] + self._time[:end_idx]
+
+        t1 = time.perf_counter()
+        d = [self._times[i] for i in indices]
+        t1 = time.perf_counter() - t1
+        if self.name == 'sawtooth_analogin' and vxipc.LocalProcess.name == PROCESS_WORKER:
+            print(f'Times: {t1:.4f}')
+
+        return d
+
+    def _get_indices(self, indices: List[int]) -> List[int]:
+        """Return list of indices, based on the 'last' number of datapoints specified"""
+        # return [self._indices[i] for i in indices]
+
+        t1 = time.perf_counter()
+        d = [self._indices[i] for i in indices]
+        t1 = time.perf_counter() - t1
+        if self.name == 'sawtooth_analogin' and vxipc.LocalProcess.name == PROCESS_WORKER:
+            print(f'Indices: {t1:.4f}')
+
+        return d
 
     def get_times(self, last):
         """Returns the list of time points corresponding to the <last> number of datapoints written to the attribute """
@@ -255,7 +280,7 @@ class Attribute(ABC):
         write_to_file(vxipc.LocalProcess, self.name)
 
     @abstractmethod
-    def _read(self, start_idx, end_idx, use_lock) -> Iterable:
+    def _get_data(self, indices: List[int]) -> Iterable:
         """Method that is called by read() method. Should return some kind of iterable"""
         pass
 
@@ -265,27 +290,52 @@ class Attribute(ABC):
         This method should return an empty version of the same types as _read()"""
         pass
 
-    def read(self, last: int = None, use_lock: bool = True, from_idx: int = None) -> Tuple[List[int], List[float], Any]:
-        """Read datapoints from the buffer.
-        By default, this returns the last written datapoint from the attribute buffer.
-        If from_idx is not None and a scalar integer value, this will return
-        all datapoints from (but not including) from_idx. """
-        if last is None:
-            # By default, set last to 1 if from_idx is not specified
-            if from_idx is None:
-                last = 1
+    def read(self, last: int = None, from_idx: int = None):
+        if last is not None:
+            return self[-last:]
+        elif from_idx is not None:
+            return self[from_idx:]
+        else:
+            return self[-1]
 
-            # Otherwise calculate number of elements to be read based on from_idx
+    def __getitem__(self, item):
+        # Determine what the index_list should be for the selected subset
+        #  Note that index_list should ultimately be a list of relative indices within the ring buffer
+        if isinstance(item, int):
+
+            # Positive/zero index: this can only be an absolute index
+            if item >= 0:
+                index = item % self.length
+
+            # Negative index
             else:
-                last = self.index - from_idx
-                # If this turns up 0, return nothing, as by default read(last=0)
-                # would be used in producer to read current value (which consumers should never do)
-                if last <= 0:
-                    return self._read_empty_return()
+                index = (self.index + item) % self.length
 
-        # Return indices, times, datasets
-        indices = self._get_index_list(last)
-        return indices, self.get_times(last), self._read(*self._get_range(last), use_lock)
+            index_list = [index]
+
+        elif isinstance(item, slice):
+            start, stop, step = item.start, item.stop, item.step
+
+            if stop is not None or step is not None:
+                raise KeyError('Stop and step are not supported right now')
+
+            # Get all indices from start to currently active (written to) index
+
+            # Positive/zero index start: can only be absolute index
+            if start >= 0:
+                indices = range(start, self.index)
+
+            # Negative index
+            else:
+                indices = range(self.index + start, self.index)
+
+            # Calculate relative indices
+            index_list = [i % self.length for i in indices]
+
+        else:
+            raise KeyError
+
+        return self._get_indices(index_list), self._get_times(index_list), self._get_data(index_list)
 
     @abstractmethod
     def _write(self, internal_idx: int, value: Any):
@@ -309,7 +359,10 @@ class Attribute(ABC):
         internal_idx = self.index % self.length
 
         # Set time for this entry
-        self._time[internal_idx] = vxipc.get_time()
+        self._times[internal_idx] = vxipc.get_time()
+
+        # Set time for this entry
+        self._indices[internal_idx] = self.index
 
         # Write data
         self._write(internal_idx, value)
@@ -342,10 +395,6 @@ class Attribute(ABC):
 
         # Return start and end of index range
         return start_idx, internal_idx
-
-    def _get_index_list(self, last: int) -> List[int]:
-        """Return list of indices, based on the 'last' number of datapoints specified"""
-        return list(range(self.index - last, self.index))
 
 
 class ArrayType:
@@ -402,9 +451,6 @@ class ArrayAttribute(Attribute):
         self._data: List[np.ndarray] = []
         self.shape = shape
         self._dtype = dtype
-        self._chunked = chunked
-        self._chunk_size = chunk_size
-        self._rising_edge_trigger_callbacks = vxipc.Manager.list([])
 
         # By default, calculate length based on dtype, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
         max_multiplier = 1.
@@ -417,45 +463,13 @@ class ArrayAttribute(Attribute):
 
         self._length = int((max_multiplier * DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
 
-        if self._chunked and self._chunk_size is not None:
-            assert self.length % self._chunk_size == 0, 'Chunk size of buffer does not match its length'
-
-        # Disable for short lengths
-        if self._chunked and self.length < 10:
-            self._chunked = False
-            log.warning('Automatic chunking disabled (auto)', 'Buffer length too small.')
-
-        if self._chunked and self._chunk_size is None:
-            for s in range(self.length // 10, self.length):
-                if self.length % s == 0:
-                    self._chunk_size = s
-                    break
-
-            if self._chunk_size is None:
-                self._chunk_size = self.length // 10
-                self._length = 10 * self._chunk_size
-                log.warning('Unable to find suitable chunk size.',
-                            f'Resize buffer to match closest length. {self._chunk_size}/{self.length}')
-
-        self._chunk_num = None
-        if self._chunked:
-            # This should be int
-            self._chunk_num = self.length // self._chunk_size
-
-        # Init data structures
-        if self._chunked:
-            init = int(np.product((self._chunk_size,) + self.shape))
-            self._raw = []
-            for i in range(self._chunk_num):
-                self._raw.append(mp.Array(self._dtype[0], init))
-            self._data = []
-        else:
-            init = int(np.product((self.length,) + self.shape))
-            self._raw = mp.Array(self._dtype[0], init)
-            self._data = []
+        init = int(np.product((self.length,) + self.shape))
+        self._raw = mp.Array(self._dtype[0], init)
+        self._data = np.array([])
 
         # Create list with time points
-        self._make_time()
+        self._make_times()
+        self._make_indices()
 
     def __repr__(self):
         return f"{ArrayAttribute.__name__}('{self.name}', {self.shape}, {self.dtype})"
@@ -477,62 +491,32 @@ class ArrayAttribute(Attribute):
         np_array = np.frombuffer(raw.get_obj(), self._dtype[1])
         return np_array.reshape((length,) + self.shape)
 
-    def _get_lock(self, chunk_idx: int, use_lock: bool) -> mp.Lock:
+    def _get_lock(self, use_lock: bool) -> mp.Lock:
         """Return lock to array object that corresponds"""
         if not use_lock:
             return DummyLockContext()
 
-        if chunk_idx is None:
-            lock = self._raw.get_lock
-        else:
-            lock = self._raw[chunk_idx].get_lock
+        lock = self._raw.get_lock
 
         return lock()
 
     def build(self) -> None:
         """Build method that is called upon initialization in the subprocess fork.
         """
-        if self._chunked:
-            for raw in self._raw:
-                self._data.append(self._build_array(raw, self._chunk_size))
-        else:
-            self._data = self._build_array(self._raw, self.length)
+        self._data = self._build_array(self._raw, self.length)
 
-    def _read(self, start_idx, end_idx, use_lock) -> np.ndarray:
+    def _get_data(self, indices: List[int]) -> np.ndarray:
         """Read method of ArrayAttribute.
         Returns a numpy array with the datapoints in the interval [start_idx, end_idx)"""
 
-        if self._chunked:
-            start_chunk = start_idx // self._chunk_size
-            chunk_start_idx = start_idx % self._chunk_size
-            end_chunk = end_idx // self._chunk_size
-            chunk_end_idx = end_idx % self._chunk_size
+        t1 = time.perf_counter()
+        with self._get_lock(True):
+            data = np.deepcopy(self._data[indices])
 
-            # Read within one chunk
-            if start_chunk == end_chunk:
-                with self._get_lock(start_chunk, use_lock):
-                    return self._data[start_chunk][chunk_start_idx:chunk_end_idx]
-
-            # Read across multiple chunks
-            np_arrays = list()
-            with self._get_lock(start_chunk, use_lock):
-                np_arrays.append(self._data[start_chunk][chunk_start_idx:])
-            for ci in range(start_chunk + 1, end_chunk):
-                with self._get_lock(ci, use_lock):
-                    np_arrays.append(self._data[ci][:])
-            with self._get_lock(end_chunk, use_lock):
-                np_arrays.append(self._data[end_chunk][:chunk_end_idx])
-
-            return np.concatenate(np_arrays)
-
-        else:
-            with self._get_lock(None, use_lock):
-                if start_idx >= 0:
-                    return self._data[start_idx:end_idx].copy()
-                else:
-                    ar1 = self._data[start_idx:]
-                    ar2 = self._data[:end_idx]
-                    return np.concatenate((ar1, ar2))
+        t1 = time.perf_counter() - t1
+        if self.name == 'sawtooth_analogin' and vxipc.LocalProcess.name == PROCESS_WORKER:
+            print(f'Data: {t1:.4f}')
+        return data
 
     def _read_empty_return(self) -> Tuple[List[int], List[float], np.ndarray]:
         """Method to be called when read() method determines that result should be empty.
@@ -543,16 +527,8 @@ class ArrayAttribute(Attribute):
         """Method that is called by write() method. Should handle the actual writing of the attribute datapoint
         at the given 'internal_idx' position in the buffer."""
 
-        # Set data
-        if self._chunked:
-            chunk_idx = internal_idx // self._chunk_size
-            idx = internal_idx % self._chunk_size
-
-            with self._get_lock(chunk_idx, True):
-                self._data[chunk_idx][idx] = value
-        else:
-            with self._get_lock(None, True):
-                self._data[internal_idx] = value
+        with self._get_lock(True):
+            self._data[internal_idx] = value
 
 
 class ObjectAttribute(Attribute):
@@ -571,14 +547,14 @@ class ObjectAttribute(Attribute):
         self._data = vxipc.Manager.list([None] * self.length)
 
         # Create list with time points
-        self._make_time()
+        self._make_times()
 
-    def _read(self, start_idx: int, end_idx: int, use_lock: int) -> List[Any]:
+        # Create list with indices
+        self._make_indices()
+
+    def _get_data(self, indices: List[int]) -> List[Any]:
         """use_lock not used, because manager handles locking"""
-        if start_idx >= 0:
-            return self._data[start_idx:end_idx]
-        else:
-            return self._data[start_idx:] + self._data[:end_idx]
+        return [self._data[i] for i in indices]
 
     def _read_empty_return(self) -> Tuple[List, List, List]:
         """Method to be called when read() method determines that result should be empty.

@@ -332,6 +332,8 @@ class PlottingWindow(WindowWidget):
                               f'If this warning persists, DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE is possibly set too low.'
                               f'// Exception: {exc}')
 
+                import traceback
+                print(traceback.print_exc())
                 # In case of exception, assume that GUI is lagging behind temporarily and reset last_idx
                 grp.attrs['last_idx'] = -1
 
