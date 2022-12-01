@@ -24,29 +24,29 @@ from vxpy.definitions import *
 import vxpy.core.process as vxprocess
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
-from vxpy.core import camera_device
+import vxpy.core.devices.camera as vxcamera
 
 log = vxlogger.getLogger(__name__)
 
 
 class Camera(vxprocess.AbstractProcess):
     name = PROCESS_CAMERA
-    _camera_threads: Dict[str, threading.Thread] = {}
-    cameras: Dict[str, camera_device.AbstractCameraDevice] = {}
-    _current_frame_index: Dict[str, Union[int, bool]] = {}
-    _frames: Dict[str, List[Union[np.ndarray, None]]] = {}
-    _next_snap: Dict[str, float] = {}
+    # _camera_threads: Dict[str, threading.Thread] = {}
+    cameras: Dict[str, vxcamera.CameraDevice] = {}
+    # _current_frame_index: Dict[str, Union[int, bool]] = {}
+    # _frames: Dict[str, List[Union[np.ndarray, None]]] = {}
+    # _next_snap: Dict[str, float] = {}
 
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Set up cameras
-        for device_id, device_config in config.CONF_CAMERA_DEVICES.items():
-            self._open_camera(device_id, device_config)
+        for device_id in config.CONF_CAMERA_DEVICES:
+            # cls = vxcamera.get_camera_interface(device_config['api'])
 
-            # self._camera_threads[device_id] = threading.Thread(target=self._run_camera_thread,
-            #                                                    args=(device_id, device_config))
-            # self._camera_threads[device_id].start()
+            self.cameras[device_id] = vxcamera.get_camera_by_id(device_id)
+            self.cameras[device_id].open()
+            self.cameras[device_id].start_stream()
 
         target_interval = 1/200.
 
@@ -57,52 +57,6 @@ class Camera(vxprocess.AbstractProcess):
         # Run event loop
         self.enable_idle_timeout = False
         self.run(interval=target_interval)
-
-    def _open_camera(self, camera_id, device_config):
-        device = camera_device.get_camera(device_config)
-
-        if device.start_stream():
-            log.info(f'Use {device} as \"{camera_id}\"')
-            self.cameras[camera_id] = device
-            self._next_snap[camera_id] = -np.inf
-        else:
-            # TODO: add more info for user
-            log.error(f'Unable to use {device} as \"{camera_id}\"')
-            return
-
-    # def _run_camera_thread(self, device_id, device_config):
-    #     camera_device = camera.open_device(device_id, device_config)
-    #     if camera_device.open():
-    #         log.info(f'Use {camera_device} as \"{device_id}\"')
-    #     else:
-    #         # TODO: add more info for user
-    #         log.warning(f'Unable to use {camera_device} as \"{device_id}\"')
-    #         return
-    #
-    #     # Save to dictionary and start
-    #     camera_device.start_stream()
-    #
-    #     self._frames[device_id] = [None, None]
-    #     self._current_frame_index[device_id] = 0
-    #
-    #     t = time.perf_counter()
-    #     interval = 1 / device_config['fps']
-    #     while True:
-    #         time.sleep((t + interval) - time.perf_counter())
-    #
-    #         # NOTE: NEVER PUT A BUSY LOOP IN A THREAD
-    #
-    #         # print(f'{(time.perf_counter()-t):.3f} snap {device_id}')
-    #         # Set new modules time for this iteration
-    #         t = time.perf_counter()
-    #
-    #         # Snap image on camera
-    #         camera_device.snap_image()
-    #
-    #         # Write frame to buffer
-    #         self._current_frame_index[device_id] = not(self._current_frame_index[device_id])
-    #         idx = self._current_frame_index[device_id]
-    #         self._frames[device_id][idx] = camera_device.get_image()
 
     def prepare_static_protocol(self):
         pass
@@ -121,38 +75,21 @@ class Camera(vxprocess.AbstractProcess):
         # Make sure camera streams are terminated before shutting down process
         for camera in self.cameras.values():
             camera.end_stream()
+            camera.close()
 
         vxprocess.AbstractProcess._start_shutdown(self)
 
     def main(self):
 
         for camera_id, camera in self.cameras.items():
+            camera.snap_image()
 
-            if vxipc.get_time() >= self._next_snap[camera_id]:
+            self.update_routines(**{camera_id: camera.get_image()})
 
-                # Snap image and update routine
-                camera.snap_image()
-                self.update_routines(**{camera_id: camera.get_image()})
-
-                # Set next update time
-                self._next_snap[camera_id] = vxipc.get_time() + 1. / camera.framerate
-
-        # # Snap image
-        # for device_id, cam in self.cameras.items():
-        #     cam.snap_image()
-        #
-        # # Update routines
-        # self.update_routines(**{device_id: cam.get_image() for device_id, cam in self.cameras.items()})
-
-        # Update routines
-        # current_frames = {}
-        # for device_id in self._frames:
-        #     idx = self._current_frame_index[device_id]
-        #     frame = self._frames[device_id][idx]
-        #     current_frames[device_id] = frame
-        #
-        #     if frame is not None:
-        #         self._frames[device_id][idx] = None
-        #
-        # print(f'Update {len(current_frames)}')
-        # self.update_routines(**current_frames)
+            # if vxipc.get_time() >= self._next_snap[camera_id]:
+            #
+            #     # Snap image and update routine
+            #     camera.snap_image()
+            #
+            #     # Set next update time
+            #     self._next_snap[camera_id] = vxipc.get_time() + 1. / camera.framerate

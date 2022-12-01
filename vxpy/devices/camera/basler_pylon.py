@@ -1,42 +1,57 @@
-import time
 from typing import List
 
 import numpy as np
 from pypylon import pylon
 
-from vxpy.core import camera_device, logger
-from vxpy.core.camera_device import AbstractCameraDevice, CameraFormat
+import vxpy.core.devices.camera as vxcamera
+import vxpy.core.logger as vxlogger
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class CameraDevice(camera_device.AbstractCameraDevice):
+class BaslerCamera(vxcamera.CameraDevice):
 
-    _exposure_unit = camera_device.ExposureUnit.microseconds
+    def __init__(self, **kwargs):
+        vxcamera.CameraDevice.__init__(self, **kwargs)
 
-    def get_format_list(self) -> List[CameraFormat]:
-        pass
+    @property
+    def exposure(self) -> float:
+        return self.properties['exposure']
 
-    def _framerate_list(self, _format: CameraFormat) -> List[float]:
-        pass
+    @property
+    def gain(self) -> float:
+        return self.properties['gain']
+
+    @property
+    def frame_rate(self) -> float:
+        return self.properties['frame_rate']
+
+    @property
+    def width(self) -> float:
+        return self.properties['width']
+
+    @property
+    def height(self) -> float:
+        return self.properties['height']
 
     @classmethod
-    def get_camera_list(cls) -> List[AbstractCameraDevice]:
-
+    def get_camera_list(cls) -> List[vxcamera.CameraDevice]:
         camera_list = []
         for cam_info in pylon.TlFactory.GetInstance().EnumerateDevices():
-            cam = CameraDevice(cam_info.GetSerialNumber(), cam_info.GetModelName())
+            props = {'serial': cam_info.GetSerialNumber(), 'model': cam_info.GetModelName()}
+            cam = BaslerCamera(**props)
             camera_list.append(cam)
 
         return camera_list
 
-    def _start_stream(self) -> bool:
+    def _open(self) -> bool:
         camera = None
         for cam_info in pylon.TlFactory.GetInstance().EnumerateDevices():
             serial = cam_info.GetSerialNumber()
             model = cam_info.GetModelName()
 
-            if str(serial) == str(self.serial) and model == self.model:
+            # Search for camera matching serial number and model name
+            if str(serial) == str(self.properties['serial']) and model == self.properties['model']:
                 camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateDevice(cam_info))
                 break
 
@@ -49,26 +64,31 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self._device = camera
         self._device.Open()
 
+        return True
+
+    def _start_stream(self) -> bool:
+
+        frame_rate = self.properties['frame_rate']
         # Set acquisition parameters
-        max_x = 3840
-        max_y = 2160
-        self._device.Width.SetValue(self.format.width)
-        self._device.Height.SetValue(self.format.height)
-        # self._device.Width.SetValue(max_x)
-        # self._device.Height.SetValue(max_y)
+
+        max_x, max_y = int(self._device.SensorWidth.GetValue()), int(self._device.SensorHeight.GetValue())
+
+        # print(self._device.Width.GetInc(), self._device.Height.GetInc())
+        self._device.Width.SetValue(self.width)
+        self._device.Height.SetValue(self.height)
         self._device.BinningHorizontalMode.SetValue('Average')
-        self._device.BinningHorizontal.SetValue(max_x // self.format.width)
+        self._device.BinningHorizontal.SetValue(max_x // self.width)
         self._device.BinningVerticalMode.SetValue('Average')
-        self._device.BinningVertical.SetValue(max_y // self.format.height)
+        self._device.BinningVertical.SetValue(max_y // self.height)
         self._device.GainAuto.SetValue('Off')
         self._device.Gain.SetValue(self.gain)
         self._device.ExposureAuto.SetValue('Off')
         self._device.ExposureTime.SetValue(self.exposure)
         self._device.AcquisitionFrameRateEnable.SetValue(True)
-        self._device.AcquisitionFrameRate.SetValue(self.framerate)
+        self._device.AcquisitionFrameRate.SetValue(frame_rate)
 
         # Start grabbing
-        camera.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
+        self._device.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)
 
         return True
 
@@ -76,22 +96,26 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         pass
 
     def get_image(self) -> np.ndarray:
-        t = time.perf_counter()
-        grab_result = self._device.RetrieveResult(1000, pylon.TimeoutHandling_ThrowException)
-        # print(self._device.ExposureTime.GetValue())
-        # print(f'{time.perf_counter()-t:.3f}')
-        # print(self._device.ExposureTime.GetValue())
-        # print(self._device.Gain.GetValue())
 
+        # Grab what's available
+        grab_result = self._device.RetrieveResult(1000, pylon.TimeoutHandling_ThrowException)
+
+        # Check result
         frame = None
         if grab_result.GrabSucceeded():
             frame = grab_result.Array
         else:
             log.error(f'Unable to grab frame from {self} // {grab_result.ErrorCode}, {grab_result.ErrorDescription}')
+
+        # Release resource
         grab_result.Release()
 
+        # Return frame
         return frame
 
-    def end_stream(self) -> bool:
+    def _end_stream(self) -> bool:
         self._device.StopGrabbing()
         self._device.Close()
+
+    def _close(self) -> bool:
+        pass

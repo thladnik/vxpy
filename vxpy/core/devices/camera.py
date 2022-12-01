@@ -1,0 +1,152 @@
+
+
+from __future__ import annotations
+import abc
+import importlib
+
+from typing import Dict, List, Any, Type, Union
+
+import numpy as np
+
+import vxpy.core.logger as vxlogger
+from vxpy import config
+
+log = vxlogger.getLogger(__name__)
+
+
+def get_camera_interface(api_path: str) -> Type[CameraDevice]:
+    """Fetch the specified camera API class from given path. API class should be subclass of CameraDevice"""
+
+    parts = api_path.split('.')
+    mod = importlib.import_module('.'.join(parts[:-1]))
+
+    return getattr(mod, parts[-1])
+
+
+def get_camera_by_id(camera_id) -> Union[CameraDevice, None]:
+    """Fetch the camera """
+    # Get camera properties from config
+    camera_props = config.CONF_CAMERA_DEVICES.get(camera_id)
+
+    # Camera not configured?
+    if camera_props is None:
+        return None
+
+    # Get camera api class
+    api_cls = get_camera_interface(camera_props['api'])
+
+    # Return the camera api object
+    return api_cls(**camera_props)
+
+
+class CameraDevice(abc.ABC):
+    """Abstract camera device class. Should be inherited by all camera devices"""
+
+    def __init__(self, **kwargs):
+        self.properties: Dict[str, Any] = kwargs
+
+    @property
+    @abc.abstractmethod
+    def exposure(self) -> float:
+        pass
+
+    @exposure.setter
+    @abc.abstractmethod
+    def exposure(self, value) -> bool:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def gain(self) -> float:
+        pass
+
+    @gain.setter
+    @abc.abstractmethod
+    def gain(self, value: float) -> bool:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def frame_rate(self) -> float:
+        pass
+
+    @frame_rate.setter
+    @abc.abstractmethod
+    def frame_rate(self, value: float) -> bool:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def width(self) -> float:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def height(self) -> float:
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def get_camera_list(cls) -> List[CameraDevice]:
+        pass
+
+    @abc.abstractmethod
+    def _open(self) -> bool:
+        pass
+
+    def open(self) -> bool:
+
+        try:
+            return self._open()
+
+        except Exception as exc:
+            log.error(f'Failed to open {self}: {exc}')
+            return False
+
+    @abc.abstractmethod
+    def _start_stream(self) -> bool:
+        pass
+
+    def start_stream(self) -> bool:
+
+        try:
+            return self._start_stream()
+
+        except Exception as exc:
+            log.error(f'Failed to start stream {self}: {exc}')
+            return False
+
+    @abc.abstractmethod
+    def snap_image(self) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def get_image(self) -> np.ndarray:
+        pass
+
+    @abc.abstractmethod
+    def _end_stream(self) -> bool:
+        pass
+
+    def end_stream(self) -> bool:
+
+        try:
+            return self._end_stream()
+
+        except Exception as exc:
+            log.error(f'Failed to end stream {self}: {exc}')
+            return False
+
+    @abc.abstractmethod
+    def _close(self) -> bool:
+        pass
+
+    def close(self) -> bool:
+
+        # Try connecting
+        try:
+            return self._close()
+
+        except Exception as exc:
+            log.error(f'Failed to close {self}: {exc}')
+            return False
