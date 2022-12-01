@@ -82,6 +82,7 @@ class Camera(vxprocess.AbstractProcess):
         for camera_id, camera in self.cameras.items():
             camera.snap_image()
 
+            # Update routine
             self.update_routines(**{camera_id: camera.get_image()})
 
             # if vxipc.get_time() >= self._next_snap[camera_id]:
