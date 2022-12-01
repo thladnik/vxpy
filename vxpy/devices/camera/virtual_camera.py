@@ -19,74 +19,14 @@ from typing import Any, List, Tuple, Union
 import h5py
 import numpy as np
 
-from vxpy.core import camera_device
-from vxpy.core.camera_device import AbstractCameraDevice, CameraFormat
+import vxpy.core.logger as vxlogger
+import vxpy.core.devices.camera as vxcamera
 from vxpy.definitions import *
-from vxpy.core import logger
 
-log = logger.getLogger(__name__)
-
-FORMAT_STR = 'format'
-FRAMERATE_RANGE_STR = 'framerate_range'
+log = vxlogger.getLogger(__name__)
 
 _sample_filename_full = 'samples.hdf5'
 _sample_filename_compressed = 'samples_compr.hdf5'
-
-_models: Dict[str, Dict[str, Any]] = {
-    'Multi_Fish_Eyes_Cam_20fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480),
-                     camera_device.CameraFormat('GRAY8', 640, 480)],
-        FRAMERATE_RANGE_STR: (1, 20)
-    },
-    'Single_Fish_Eyes_Cam_20fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480),
-                     camera_device.CameraFormat('GRAY16', 640, 480)],
-        FRAMERATE_RANGE_STR: (1, 20)
-    },
-    'Single_Fish_Spontaneous_1_115fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480)],
-        FRAMERATE_RANGE_STR: (20, 115)
-    },
-    'Single_Fish_Spontaneous_2_115fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480),
-                     camera_device.CameraFormat('RGB8', 640, 480),
-                     camera_device.CameraFormat('GRAY8', 752, 480),
-                     camera_device.CameraFormat('GRAY8', 640, 480)],
-        FRAMERATE_RANGE_STR: (5, 115)
-    },
-    'Single_Fish_Spontaneous_3_115fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480),
-                     camera_device.CameraFormat('RGB8', 640, 480),
-                     camera_device.CameraFormat('GRAY8', 752, 480),
-                     camera_device.CameraFormat('GRAY8', 640, 480)],
-        FRAMERATE_RANGE_STR: (5, 20)
-    },
-    'Single_Fish_Spontaneous_4_115fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480),
-                     camera_device.CameraFormat('RGB8', 640, 480),
-                     camera_device.CameraFormat('GRAY8', 752, 480),
-                     camera_device.CameraFormat('GRAY8', 640, 480)],
-        FRAMERATE_RANGE_STR: (5, 20)
-    },
-    'Single_Fish_Spontaneous_1_30fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480),
-                     camera_device.CameraFormat('RGB8', 640, 480), ],
-        FRAMERATE_RANGE_STR: (5, 20)
-    },
-    'Single_Fish_Free_Swim_Dot_Chased_50fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480)],
-        FRAMERATE_RANGE_STR: (5, 20)
-    },
-    'Single_Fish_Free_Swim_On_random_motion_100fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480)],
-        FRAMERATE_RANGE_STR: (5, 20)
-    },
-    'Single_Fish_OKR_embedded_30fps': {
-        FORMAT_STR: [camera_device.CameraFormat('RGB8', 752, 480)],
-        FRAMERATE_RANGE_STR: (5, 20)
-    }
-}
-
 
 def _get_filepath():
     uncompr_path = os.path.join(PATH_SAMPLE, _sample_filename_full)
@@ -94,20 +34,45 @@ def _get_filepath():
         return uncompr_path
     return os.path.join(PATH_SAMPLE, _sample_filename_compressed)
 
+"""
+Currently available datasets:
 
-class CameraDevice(camera_device.AbstractCameraDevice):
+'Multi_Fish_Eyes_Cam_20fps'
+'Single_Fish_Eyes_Cam_20fps'
+'Single_Fish_Spontaneous_1_115fps'
+'Single_Fish_Spontaneous_2_115fps'
+'Single_Fish_Spontaneous_3_115fps'
+'Single_Fish_Spontaneous_4_115fps'
+'Single_Fish_Spontaneous_1_30fps'
+'Single_Fish_Free_Swim_Dot_Chased_50fps'
+'Single_Fish_Free_Swim_On_random_motion_100fps'
+'Single_Fish_OKR_embedded_30fps'
+"""
 
-    manufacturer = 'Virtual'
+class VirtualCamera(vxcamera.CameraDevice):
 
-    _exposure_unit = 'ms'
+    @property
+    def exposure(self) -> float:
+        return 1
 
-    sink_formats = {'RGB8': (3, np.uint8),
-                    'Y800': (3, np.uint8),
-                    'GRAY8': (1, np.uint8),
-                    'GRAY16': (1, np.uint16)}
+    @property
+    def gain(self) -> float:
+        return 1
+
+    @property
+    def frame_rate(self) -> float:
+        return self.properties['frame_rate']
+
+    @property
+    def width(self) -> float:
+        return self.properties['width']
+
+    @property
+    def height(self) -> float:
+        return self.properties['height']
 
     def __init__(self, *args, **kwargs):
-        camera_device.AbstractCameraDevice.__init__(self, *args, **kwargs)
+        vxcamera.CameraDevice.__init__(self, *args, **kwargs)
 
         self.t_start = None
         self.t_last = None
@@ -121,26 +86,23 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self.index = None
         self._h5: Union[h5py.File, None] = None
 
-    def _start_stream(self):
+    def _open(self):
 
         log.debug(f'Open {_get_filepath()}')
         self._h5 = h5py.File(_get_filepath(), 'r')
 
-        self._cap = self._h5[self.model]
-        if self.info['preload_file']:
-            log.debug('Preload frame data')
-            _format = self.format.dtype
-            self._data = self._cap[:]
-        self.index = 0
-        self.res_x, self.res_y = self.format.width, self.format.height
+        if self.properties['data_source'] == 'HDF5':
+            self._cap = self._h5[self.properties['data_path']]
+            if self.properties['preload_data']:
+                log.debug('Preload frame data')
+                self._data = self._cap[:]
+            self.index = 0
+        else:
+            return False
 
         return True
 
-    def end_stream(self) -> bool:
-        if self._h5 is not None:
-            self._h5.close()
-            self._h5 = None
-
+    def _start_stream(self):
         return True
 
     def snap_image(self, *args, **kwargs):
@@ -151,8 +113,7 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         if self._cap.shape[0] <= self.index:
             self.index = 0
 
-        _format = self.sink_formats[self.format.dtype]
-        if self.info['preload_file']:
+        if self.properties['preload_data']:
             # From preloaded data
             frame = self._data[self.index][:self.res_y, :self.res_x]
 
@@ -164,23 +125,21 @@ class CameraDevice(camera_device.AbstractCameraDevice):
                 log.error(f'Error reading frame for device {self}')
                 return None
 
-        return np.asarray(frame, dtype=_format[1])
+        return np.asarray(frame, dtype=np.uint8)
 
-    def get_format_list(self) -> List[CameraFormat]:
-        return _models[self.model][FORMAT_STR]
+    def _end_stream(self) -> bool:
+        if self._h5 is not None:
+            self._h5.close()
+            self._h5 = None
 
-    def _framerate_list(self, _format: CameraFormat) -> Tuple[float, float]:
-        """Format not necessary for virtual camera framerate range"""
-        return _models[self.model][FRAMERATE_RANGE_STR]
+        return True
+
+    def _close(self) -> bool:
+        pass
 
     @classmethod
-    def get_camera_list(cls) -> List[AbstractCameraDevice]:
-        devices = []
-
-        for sn, m in enumerate(_models.keys()):
-            devices.append(CameraDevice(serial=f'{sn:05d}', model=m))
-
-        return devices
+    def get_camera_list(cls) -> List[vxcamera.CameraDevice]:
+        pass
 
 
 if __name__ == '__main__':
