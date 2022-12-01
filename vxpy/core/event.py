@@ -91,8 +91,6 @@ class Trigger:
         if len(indices) == 0:
             return
 
-        print(indices)
-
         # Set new last index
         self._last_read_idx = indices[-1]
 

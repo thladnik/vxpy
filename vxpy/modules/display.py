@@ -98,8 +98,10 @@ class Display(vxprocess.AbstractProcess):
 
         # If new_visual hasn't been instantiated yet, do it now
         if isclass(new_visual):
+            log.debug(f'Prepare new visual from class {new_visual.__name__}')
             self.current_visual = new_visual(self.canvas)
         else:
+            log.debug(f'Set visual from instance of {new_visual.__class__.__name__}')
             self.current_visual = new_visual
 
         # Create datasets for all variable visual parameters
@@ -107,6 +109,7 @@ class Display(vxprocess.AbstractProcess):
             vxcontainer.create_phase_dataset(parameter.name, parameter.shape, parameter.dtype)
 
     def start_visual(self, parameters: dict = None):
+        log.debug(f'Start new visual {self.current_visual.__class__.__name__}')
 
         # Initialize and update visual on canvas
         self.current_visual.initialize()
@@ -146,7 +149,10 @@ class Display(vxprocess.AbstractProcess):
 
     def stop_visual(self):
         if self.current_visual is None:
+            log.warning('Tried to stop visual while none was set')
             return
+
+        log.debug(f'Stop visual {self.current_visual.__class__.__name__}')
 
         self.current_visual.end()
         self.current_visual = None

@@ -492,8 +492,8 @@ class Controller(vxprocess.AbstractProcess):
             return
 
         # Figure out protocol type
-        if issubclass(protocol, vxprotocol.StaticPhasicProtocol):
-            prcl_type = vxprotocol.StaticPhasicProtocol
+        if issubclass(protocol, vxprotocol.StaticProtocol):
+            prcl_type = vxprotocol.StaticProtocol
         elif issubclass(protocol, vxprotocol.TriggeredProtocol):
             prcl_type = vxprotocol.TriggeredProtocol
         elif issubclass(protocol, vxprotocol.ContinuousProtocol):
@@ -520,14 +520,12 @@ class Controller(vxprocess.AbstractProcess):
 
         # Do protocol type specific initializations
         prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
-        if prcl_type == vxprotocol.StaticPhasicProtocol:
+        if prcl_type == vxprotocol.StaticProtocol:
             pass
         elif prcl_type == vxprotocol.TriggeredProtocol:
             print('Setup trigger protocol')
             # Connect the _advance_phase method to the provided trigger and activate trigger
-            self.phase_trigger = vxevent.RisingEdgeTrigger('eyepos_saccade_trigger')
-            self.phase_trigger.add_callback(self._trigger_protocol_advance_phase)
-            self.phase_trigger.set_active(True)
+            self.current_protocol.phase_trigger.add_callback(self._trigger_protocol_advance_phase)
 
         elif prcl_type == vxprotocol.ContinuousProtocol:
             pass
@@ -602,8 +600,10 @@ class Controller(vxprocess.AbstractProcess):
     def _trigger_protocol_process(self):
         pass
 
-    def _trigger_protocol_advance_phase(self, *args):
-        print('Next', args)
+    def _trigger_protocol_advance_phase(self, index, time, state):
+        self.phase_id = self.phase_id + 1
+        log.info(f'Move to triggered phase {self.phase_id} at {time}')
+        self.phase_start_time = time
 
     def main(self):
         pass
@@ -699,13 +699,22 @@ class Controller(vxprocess.AbstractProcess):
 
             # Set protocol to active
             vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
+
+            if self.protocol_type == vxprotocol.StaticProtocol:
+                pass
+            elif self.protocol_type == vxprotocol.TriggeredProtocol:
+                self.current_protocol.phase_trigger.set_active(True)
+            elif self.protocol_type == vxprotocol.ContinuousProtocol:
+                pass
+
+            # Advance to PRCL_IN_PROGRESS
             vxipc.set_state(STATE.PRCL_IN_PROGRESS)
 
         # Controller has activated protocol
         # While in PRCL_IN_PROGESS, choose appropriate method to process based on protocol type
         elif vxipc.in_state(STATE.PRCL_IN_PROGRESS):
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
-            if prcl_type == vxprotocol.StaticPhasicProtocol:
+            if prcl_type == vxprotocol.StaticProtocol:
                 self._process_static_protocol()
             elif prcl_type == vxprotocol.TriggeredProtocol:
                 self._trigger_protocol_process()

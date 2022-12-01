@@ -93,7 +93,7 @@ class AbstractVisual(ABC):
         self.custom_programs: Dict[str, gloo.Program] = dict()
         self.data_appendix: Dict[str, Any] = dict()
         self.transform_uniforms = dict()
-        self.protocol: protocol.AbstractProtocol = _protocol
+        self.protocol: protocol.BaseProtocol = _protocol
 
         self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT, calib.CALIB_DISP_WIN_SIZE_WIDTH)
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')

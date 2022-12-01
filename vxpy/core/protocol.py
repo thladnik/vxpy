@@ -57,10 +57,10 @@ def get_available_protocol_paths(reload=False) -> List[str]:
         for s in dir(mod):
             # Skip everything that's not a protocol class
             obj = getattr(mod, s)
-            if not isinstance(obj, type) or not issubclass(obj, AbstractProtocol):
+            if not isinstance(obj, type) or not issubclass(obj, BaseProtocol):
                 continue
             # Skip all base classses
-            if obj == StaticPhasicProtocol:
+            if obj == StaticProtocol:
                 continue
 
             fullpath = f'{path}.{s}'
@@ -70,7 +70,7 @@ def get_available_protocol_paths(reload=False) -> List[str]:
     return sorted(_available_protocols)
 
 
-def get_protocol(path: str) -> Union[Type[StaticPhasicProtocol], None]:
+def get_protocol(path: str) -> Union[Type[StaticProtocol], None]:
     if path not in get_available_protocol_paths():
         log.warning(f'Cannot get protocol {path}')
         return None
@@ -170,7 +170,7 @@ class PhaseNotSetError(Exception):
     pass
 
 
-class AbstractProtocol:
+class BaseProtocol:
 
     def __init__(self):
         self._current_phase_id = -1
@@ -208,12 +208,12 @@ class AbstractProtocol:
         pass
 
 
-class StaticPhasicProtocol(AbstractProtocol):
+class StaticProtocol(BaseProtocol):
     """Static experimental protocol which does NOT support closed-loop designs.
     """
 
     def __init__(self):
-        AbstractProtocol.__init__(self)
+        BaseProtocol.__init__(self)
 
     def initialize_actions(self):
         for phase in self._phases:
@@ -253,11 +253,7 @@ class StaticPhasicProtocol(AbstractProtocol):
         return None
 
 
-class ContinuousProtocol(AbstractProtocol):
-    pass
-
-
-class TriggeredProtocol(AbstractProtocol):
+class TriggeredProtocol(BaseProtocol):
 
     phase_trigger: vxevent.Trigger = None
 
@@ -281,3 +277,6 @@ class TriggeredProtocol(AbstractProtocol):
         for phase in self._phases:
             phase.set_initialize_visual(initialize_visuals[phase.visual])
 
+
+class ContinuousProtocol(BaseProtocol):
+    pass

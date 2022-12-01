@@ -59,7 +59,7 @@ class AbstractProcess:
     program_start_time: float = None
 
     # Protocol related
-    current_protocol: Union[vxprotocol.StaticPhasicProtocol,
+    current_protocol: Union[vxprotocol.StaticProtocol,
                             vxprotocol.TriggeredProtocol,
                             vxprotocol.ContinuousProtocol,
                             None] = None
@@ -380,7 +380,7 @@ class AbstractProcess:
         log.debug(f'Load protocol from import path {self.protocol_import_path}')
         self.current_protocol = vxprotocol.get_protocol(self.protocol_import_path)()
 
-        if self.protocol_type == vxprotocol.StaticPhasicProtocol:
+        if self.protocol_type == vxprotocol.StaticProtocol:
 
             """Method is called when a new protocol has been started by Controller."""
             protocol_attributes = {'__protocol_module': self.current_protocol.__class__.__module__,
@@ -500,7 +500,7 @@ class AbstractProcess:
         elif vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
 
             prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
-            if prcl_type == vxprotocol.StaticPhasicProtocol:
+            if prcl_type == vxprotocol.StaticProtocol:
                 self._process_static_protocol()
             elif prcl_type == vxprotocol.TriggeredProtocol:
                 self._process_trigger_protocol()

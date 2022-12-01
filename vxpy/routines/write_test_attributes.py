@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 
 import vxpy.api as vxapi
-import vxpy.core.ipc
+import vxpy.core.ipc as vxipc
 from vxpy.core.io import set_digital_output
 from vxpy.api.routine import IoRoutine
 import vxpy.api.attribute as vxattribute
@@ -31,44 +31,49 @@ class WriteRandoms(IoRoutine):
     """
 
     attr_name_sawtooth = 'test_sawtooth'
-    attr_name_poisson = 'test_poisson_1p200'
+    attr_name_poisson_1p200 = 'test_poisson_1p200'
+    test_poisson_p2Hz = 'test_poisson_p2Hz'  # poisson with mean frequency of .2Hz
 
     def __init__(self):
         super(WriteRandoms, self).__init__()
 
-        self.poisson_high_end = 0.
+        self.poisson_1p200_high_end = 0.
 
     @classmethod
     def require(cls):
         vxattribute.ArrayAttribute(cls.attr_name_sawtooth, (1, ), vxattribute.ArrayType.float32)
-        vxattribute.ArrayAttribute(cls.attr_name_poisson, (1,), vxattribute.ArrayType.bool)
+        vxattribute.ArrayAttribute(cls.test_poisson_p2Hz, (1,), vxattribute.ArrayType.bool)
 
     def initialize(self):
         # Add attributes to plotter
         register_with_plotter(self.attr_name_sawtooth, axis=WriteRandoms.__name__)
-        register_with_plotter(self.attr_name_poisson, axis=WriteRandoms.__name__)
+        register_with_plotter(self.test_poisson_p2Hz, axis=WriteRandoms.__name__)
 
         # Set binary signal to be written to output channel named "ch_do01"
-        set_digital_output('ch_do01', self.attr_name_poisson)
+        set_digital_output('ch_do01', self.test_poisson_p2Hz)
 
     def main(self, *args, **kwargs):
-        t = vxpy.core.ipc.get_time()
+        t = vxipc.get_time()
 
         # Update sawtooth
         sawtooth = - 2. / np.pi * np.arctan(1. / np.tan(np.pi * t / 2.))
         vxattribute.get_attribute(self.attr_name_sawtooth).write(sawtooth)
 
         # Update poisson_1p200
-        if self.poisson_high_end >= t:
-            new_state = True
-        else:
-            self.poisson_high_end = 0.
-            new_state = np.random.randint(200) == 0
-            if new_state:
-                # Show high state for 5ms
-                self.poisson_high_end = t + 0.005
 
-        vxattribute.get_attribute(self.attr_name_poisson).write(new_state)
+        interval = vxipc.LocalProcess.interval
+        state_p5Hz = np.random.rand() < interval * 0.2
+
+        # if self.poisson_1p200_high_end >= t:
+        #     new_state = True
+        # else:
+        #     self.poisson_1p200_high_end = 0.
+        #     new_state = np.random.randint(200) == 0
+        #     if new_state:
+        #         # Show high state for 5ms
+        #         self.poisson_1p200_high_end = t + 0.005
+
+        vxattribute.get_attribute(self.test_poisson_p2Hz).write(state_p5Hz)
 
 
 class OnOff(IoRoutine):
@@ -90,7 +95,7 @@ class OnOff(IoRoutine):
         set_digital_output('onoff_out', self.attr_name)
 
     def main(self, *args, **kwargs):
-        t = vxpy.core.ipc.get_time()
+        t = vxipc.get_time()
         sig = int(t / 2) % 2
         vxattribute.get_attribute(self.attr_name).write(sig)
 
@@ -122,5 +127,5 @@ class SinesAddedWhiteNoise(IoRoutine):
     def main(self, *args, **kwargs):
         y = np.random.normal()
         for p, f in zip(self.phases, self.frequencies):
-            y += np.sin(vxpy.core.ipc.get_time() * 2 * np.pi * f + p * f) / 5
+            y += np.sin(vxipc.get_time() * 2 * np.pi * f + p * f) / 5
         vxattribute.get_attribute(self.attr_name).write(y)
