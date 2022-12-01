@@ -38,10 +38,10 @@ def get_camera_interface(api_path: str) -> Type[CameraDevice]:
     return getattr(mod, parts[-1])
 
 
-def get_camera_by_id(camera_id) -> Union[CameraDevice, None]:
+def get_camera_by_id(device_id) -> Union[CameraDevice, None]:
     """Fetch the camera """
     # Get camera properties from config
-    camera_props = config.CONF_CAMERA_DEVICES.get(camera_id)
+    camera_props = config.CONF_CAMERA_DEVICES.get(device_id)
 
     # Camera not configured?
     if camera_props is None:
@@ -51,13 +51,14 @@ def get_camera_by_id(camera_id) -> Union[CameraDevice, None]:
     api_cls = get_camera_interface(camera_props['api'])
 
     # Return the camera api object
-    return api_cls(**camera_props)
+    return api_cls(device_id, **camera_props)
 
 
 class CameraDevice(abc.ABC):
     """Abstract camera device class. Should be inherited by all camera devices"""
 
-    def __init__(self, **kwargs):
+    def __init__(self, device_id, **kwargs):
+        self.device_id: str = device_id
         self.properties: Dict[str, Any] = kwargs
 
     @property

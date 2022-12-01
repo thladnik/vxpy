@@ -23,6 +23,7 @@ from scipy.spatial import distance
 from vxpy import config
 from vxpy.core.ipc import get_time
 import vxpy.core.attribute as vxattribute
+import vxpy.core.devices.camera as vxcamera
 import vxpy.core.io as vxio
 import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
@@ -64,11 +65,13 @@ class EyePositionDetection(vxroutine.CameraRoutine):
         vxdependency.require_camera_device(cls.camera_device_id)
 
         # Get camera specs
-        camera_config = config.CONF_CAMERA_DEVICES.get(cls.camera_device_id)
-        res_x = camera_config['width']
-        res_y = camera_config['height']
+        camera = vxcamera.get_camera_by_id(cls.camera_device_id)
+        if camera is None:
+            log.error(f'Camera {cls.camera_device_id} unavailable for eye position tracking')
+            return
 
-        vxattribute.ArrayAttribute(cls.frame_name, (res_x, res_y), vxattribute.ArrayType.uint8)
+        # Add frame
+        vxattribute.ArrayAttribute(cls.frame_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
 
         # Add saccade trigger buffer
         vxattribute.ArrayAttribute(cls.sacc_trigger_name, (1, ), vxattribute.ArrayType.bool)

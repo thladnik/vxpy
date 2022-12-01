@@ -28,8 +28,8 @@ log = vxlogger.getLogger(__name__)
 
 class BaslerCamera(vxcamera.CameraDevice):
 
-    def __init__(self, **kwargs):
-        vxcamera.CameraDevice.__init__(self, **kwargs)
+    def __init__(self, *args, **kwargs):
+        vxcamera.CameraDevice.__init__(self, *args, **kwargs)
 
     @property
     def exposure(self) -> float:

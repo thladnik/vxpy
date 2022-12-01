@@ -42,8 +42,6 @@ class Camera(vxprocess.AbstractProcess):
 
         # Set up cameras
         for device_id in config.CONF_CAMERA_DEVICES:
-            # cls = vxcamera.get_camera_interface(device_config['api'])
-
             self.cameras[device_id] = vxcamera.get_camera_by_id(device_id)
             self.cameras[device_id].open()
             self.cameras[device_id].start_stream()

@@ -16,16 +16,17 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-from typing import List, Tuple
+from typing import List
 
 from vxpy import config
-import vxpy.api.attribute as vxattribute
-import vxpy.api.routine as vxroutine
+import vxpy.core.attribute as vxattribute
+import vxpy.core.devices.camera as vxcamera
+import vxpy.core.routine as vxroutine
 
 
 class Frames(vxroutine.CameraRoutine):
 
-    device_list: List[Tuple[str, int, int]] = []
+    device_list: List[vxcamera.CameraDevice] = []
     frame_postfix = '_frame'
 
     def __init__(self, *args, **kwargs):
@@ -33,19 +34,23 @@ class Frames(vxroutine.CameraRoutine):
 
     @classmethod
     def require(cls):
-        for device_id, device_config in config.CONF_CAMERA_DEVICES.items():
-            cls.device_list.append((device_id, device_config['width'], device_config['height']))
+        # Fetch all cameras by device_id and append to list
+        for device_id in config.CONF_CAMERA_DEVICES:
+            cls.device_list.append(vxcamera.get_camera_by_id(device_id))
 
         # Set one array attribute per camera device
-        for device_id, res_x, res_y in cls.device_list:
-            vxattribute.ArrayAttribute(f'{device_id}{cls.frame_postfix}', (res_x, res_y), vxattribute.ArrayType.uint8)
+        for device in cls.device_list:
+            vxattribute.ArrayAttribute(f'{device.device_id}{cls.frame_postfix}',
+                                       (device.width, device.height),
+                                       vxattribute.ArrayType.uint8)
 
     def initialize(self):
         # Add all frame attributes to candidate list for save to disk
-        for device_id, _, _ in self.device_list:
-            vxattribute.get_attribute(f'{device_id}{self.frame_postfix}').add_to_file()
+        for device in self.device_list:
+            vxattribute.get_attribute(f'{device.device_id}{self.frame_postfix}').add_to_file()
 
     def main(self, **frames):
+
         for device_id, frame_data in frames.items():
 
             if frame_data is None:
