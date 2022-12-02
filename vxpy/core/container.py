@@ -168,7 +168,6 @@ class H5File:
         self._create_dataset(dataset_name, shape, data_type)
 
     def _create_dataset(self, dataset_name: str, shape: Tuple[int, ...], data_type):
-        log.debug(f'Create dataset {dataset_name}, shape {shape}, data type {data_type}')
         self._h5_handle.create_dataset(dataset_name, shape=(0, *shape,),
                                        dtype=data_type,
                                        maxshape=(None, *shape,),

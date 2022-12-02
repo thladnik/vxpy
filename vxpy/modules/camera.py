@@ -15,9 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-import threading
-from typing import Tuple, Union, List
-import numpy as np
 
 from vxpy import config
 from vxpy.definitions import *
@@ -47,6 +44,7 @@ class Camera(vxprocess.AbstractProcess):
             self.cameras[device_id].start_stream()
 
         target_interval = 1/200.
+        # target_interval = 1/5.
 
         if vxipc.Control.General[GenCtrl.min_sleep_time] > target_interval:
             log.warning(f'Minimum sleep period ABOVE average target frame time of {target_interval:.5f}s.'
