@@ -21,6 +21,7 @@ import numpy as np
 from pypylon import pylon
 
 import vxpy.core.devices.camera as vxcamera
+import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
 log = vxlogger.getLogger(__name__)
@@ -30,6 +31,8 @@ class BaslerCamera(vxcamera.CameraDevice):
 
     def __init__(self, *args, **kwargs):
         vxcamera.CameraDevice.__init__(self, *args, **kwargs)
+
+        self.next_time_get_image = vxipc.get_time()
 
     @property
     def exposure(self) -> float:
@@ -109,8 +112,14 @@ class BaslerCamera(vxcamera.CameraDevice):
 
         return True
 
+    def next_snap(self) -> bool:
+        return False
+
     def snap_image(self) -> bool:
         pass
+
+    def next_image(self) -> bool:
+        return vxipc.get_time() >= self.next_time_get_image
 
     def get_image(self) -> np.ndarray:
 
@@ -126,6 +135,9 @@ class BaslerCamera(vxcamera.CameraDevice):
 
         # Release resource
         grab_result.Release()
+
+        # Set next image time
+        self.next_time_get_image = vxipc.get_time() + 1. / self.frame_rate
 
         # Return frame
         return frame

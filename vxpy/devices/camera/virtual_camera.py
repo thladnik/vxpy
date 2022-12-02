@@ -19,6 +19,7 @@ from typing import Any, List, Tuple, Union
 import h5py
 import numpy as np
 
+import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.devices.camera as vxcamera
 from vxpy.definitions import *
@@ -49,6 +50,7 @@ Currently available datasets:
 'Single_Fish_OKR_embedded_30fps'
 """
 
+
 class VirtualCamera(vxcamera.CameraDevice):
 
     @property
@@ -74,17 +76,14 @@ class VirtualCamera(vxcamera.CameraDevice):
     def __init__(self, *args, **kwargs):
         vxcamera.CameraDevice.__init__(self, *args, **kwargs)
 
-        self.t_start = None
-        self.t_last = None
-        self.i_last = None
         self.f_last = None
         self.res_x = None
         self.res_y = None
         self._data = None
         self._cap = None
-        self._fps = None
         self.index = None
         self._h5: Union[h5py.File, None] = None
+        self.next_time_get_image = vxipc.get_time()
 
     def _open(self):
 
@@ -105,8 +104,14 @@ class VirtualCamera(vxcamera.CameraDevice):
     def _start_stream(self):
         return True
 
+    def next_snap(self) -> bool:
+        return False
+
     def snap_image(self, *args, **kwargs):
         pass
+
+    def next_image(self) -> bool:
+        return vxipc.get_time() >= self.next_time_get_image
 
     def get_image(self):
         self.index += 1
@@ -124,6 +129,9 @@ class VirtualCamera(vxcamera.CameraDevice):
             except:
                 log.error(f'Error reading frame for device {self}')
                 return None
+
+        # Set next frame time
+        self.next_time_get_image = vxipc.get_time() + 1./self.frame_rate
 
         return np.asarray(frame, dtype=np.uint8)
 

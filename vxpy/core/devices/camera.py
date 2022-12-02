@@ -133,7 +133,15 @@ class CameraDevice(abc.ABC):
             return False
 
     @abc.abstractmethod
+    def next_snap(self) -> bool:
+        pass
+
+    @abc.abstractmethod
     def snap_image(self) -> bool:
+        pass
+
+    @abc.abstractmethod
+    def next_image(self) -> bool:
         pass
 
     @abc.abstractmethod
