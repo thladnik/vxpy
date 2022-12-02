@@ -708,11 +708,12 @@ class AbstractProcess:
                 routine.main(*args, **kwargs)
 
         # Write attributes to file
-        _iter = vxattribute.get_permanent_data()
-        if _iter is None:
+        data = vxattribute.get_permanent_data()
+
+        if data is None:
             return
 
-        for attribute in _iter.__iter__():
+        for attribute in data:
 
             _, attr_time, attr_data = [v[0] for v in attribute.read()]
             # Add attribute data to dataset
