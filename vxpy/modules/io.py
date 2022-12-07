@@ -21,16 +21,16 @@ import numpy as np
 
 from vxpy.api.attribute import read_attribute
 from vxpy import config
-from vxpy import definitions
 from vxpy.definitions import *
-from vxpy.core import process, ipc, logger
-from vxpy.core.attribute import Attribute
-from vxpy.core.protocol import get_protocol
+import vxpy.core.ipc as vxipc
+import vxpy.core.process as vxprocess
+import vxpy.core.logger as vxlogger
+import vxpy.core.attribute as vxattribute
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-class Io(process.AbstractProcess):
+class Io(vxprocess.AbstractProcess):
     name = PROCESS_IO
 
     _pid_pin_map = dict()
@@ -38,7 +38,7 @@ class Io(process.AbstractProcess):
     _devices = dict()
 
     def __init__(self, **kwargs):
-        process.AbstractProcess.__init__(self, **kwargs)
+        vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
         for did, dev_config in config.CONF_IO_DEVICES.items():
@@ -103,7 +103,7 @@ class Io(process.AbstractProcess):
             return
 
         # Check if attribute exists
-        if not attr_name in Attribute.all:
+        if not attr_name in vxattribute.Attribute.all:
             log.warning(f'Pin "{pid}" cannot be set to attribute {attr_name}. Attribute does not exist.')
 
         if pid not in self._pid_attr_map:

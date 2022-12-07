@@ -29,13 +29,28 @@ from vxpy import config
 log = vxlogger.getLogger(__name__)
 
 
-def get_camera_interface(api_path: str) -> Type[CameraDevice]:
-    """Fetch the specified camera API class from given path. API class should be subclass of CameraDevice"""
+def get_camera_interface(api_path: str) -> Union[Type[CameraDevice], None]:
+    """Fetch the specified camera API class from given path.
+    API class should be a subclass of CameraDevice"""
 
-    parts = api_path.split('.')
-    mod = importlib.import_module('.'.join(parts[:-1]))
+    try:
+        parts = api_path.split('.')
+        mod = importlib.import_module('.'.join(parts[:-1]))
 
-    return getattr(mod, parts[-1])
+    except Exception as exc:
+        log.error(f'Unable to load interface from {api_path}')
+        import traceback
+        print(traceback.print_exc())
+
+        return None
+
+    device_cls = getattr(mod, parts[-1])
+
+    if not issubclass(device_cls, CameraDevice):
+        log.error(f'Device of interface {api_path} is not a {CameraDevice.__name__}')
+        return None
+
+    return device_cls
 
 
 def get_camera_by_id(device_id) -> Union[CameraDevice, None]:

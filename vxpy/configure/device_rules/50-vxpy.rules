@@ -1,0 +1,4 @@
+# Rules file for all devices to put at /lib/udev/rules.d/ or /etc/udev/rules.d/
+
+# Lightcrafter E4500 MKII
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="0451", ATTRS{idProduct}=="6401", TAG+="uaccess"

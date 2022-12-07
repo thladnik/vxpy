@@ -16,19 +16,33 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import time
+from typing import Dict, AnyStr, Union
+
 import numpy as np
 
-from vxpy.core import logger
-
-# Type hinting
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from typing import Dict, AnyStr, Union
-
-log = logger.getLogger(__name__)
+import vxpy.core.logger as vxlogger
+import vxpy.core.devices.serial as vxserial
 
 
-class Pin:
+log = vxlogger.getLogger(__name__)
+
+
+class VirtualDaqDevice(vxserial.SerialDevice):
+
+    def _open(self) -> bool:
+        return True
+
+    def _start(self) -> bool:
+        return True
+
+    def _end(self) -> bool:
+        return True
+
+    def _close(self) -> bool:
+        return True
+
+
+class Pin2:
 
     def __init__(self, pid, config):
         self.pid = pid
@@ -57,15 +71,15 @@ class Pin:
             log.warning(f'Trying to write to input pin {self.pid}')
 
 
-class VirtualDaqDevice:
+class VirtualDaqDevice2:
 
     def __init__(self, config):
         self.config = config
-        self.pins: Dict[AnyStr, Pin] = dict()
+        self.pins: Dict[AnyStr, Pin2] = dict()
         self.pin_data: Dict[AnyStr, Union[int,float]] = dict()
 
     def configure_pin(self, pin_id, pin_config):
-        self.pins[pin_id] = Pin(pin_id, pin_config)
+        self.pins[pin_id] = Pin2(pin_id, pin_config)
 
     def write(self, pid, data):
         """Write data to output pin"""

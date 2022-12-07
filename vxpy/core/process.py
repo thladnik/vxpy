@@ -667,39 +667,6 @@ class AbstractProcess:
     def record_group_name(self):
         return f'phase{self.record_group}' if self.record_group >= 0 else ''
 
-    # def set_record_group_attrs(self, group_attributes: Dict[str, Any] = None):
-    #     if self.file_container is None:
-    #         return
-    #
-    #     if self.record_group < 0:
-    #         return
-    #
-    #     grp = self.file_container.require_group(self.record_group_name)
-    #     if group_attributes is not None:
-    #         for attr_name, attr_data in group_attributes.items():
-    #
-    #             # For arrays there may be special rules
-    #             if isinstance(attr_data, np.ndarray):
-    #
-    #                 # There is a hard size limit on attributes of 64KB: store as dataset instead
-    #                 if attr_data.dtype.itemsize * attr_data.size >= 64 * 2 ** 10:
-    #                     grp.create_dataset(f'group_attr_{attr_name}', data=attr_data)
-    #                     continue
-    #
-    #                 # Unpack scalar attributes
-    #                 elif attr_data.shape == (1,):
-    #                     grp.attrs[attr_name] = attr_data[0]
-    #                     continue
-    #
-    #             elif isinstance(attr_data, gloo.buffer.DataBufferView):
-    #                 # TODO: this needs to work in the future
-    #                 #   problem: buffers can't be read, only set in vispy.
-    #                 #            How do I get the buffer contents after it's been set?
-    #                 continue
-    #
-    #             # Otherwise, just write whole attribute data to attribute
-    #             grp.attrs[attr_name] = attr_data
-
     def update_routines(self, *args, **kwargs):
 
         # Call routine main functions

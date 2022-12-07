@@ -10,6 +10,8 @@ with open('requirements.txt', 'r') as f:
 
 toolchain_deps = install_deps + ['vxpy-tools @ git+https://git@github.com/thladnik/vxPy-tools.git@main']
 
+lightcrafter_deps = install_deps + ['hidapi~=0.12.0.post2 ']
+
 setup(
     name='vxpy',
     version='0.0.1',
@@ -22,5 +24,6 @@ setup(
     author_email='tim.hladnik@gmail.com',
     description='vxPy - Vision experiments in Python',
     install_requires=install_deps,
-    extras_require={'toolchain': toolchain_deps}
+    extras_require={'toolchain': toolchain_deps,
+                    'lightcrafter': lightcrafter_deps}
 )
