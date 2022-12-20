@@ -22,10 +22,11 @@ import numpy as np
 from vxpy.api.attribute import read_attribute
 from vxpy import config
 from vxpy.definitions import *
+import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
 import vxpy.core.process as vxprocess
 import vxpy.core.logger as vxlogger
-import vxpy.core.attribute as vxattribute
+import vxpy.core.devices.serial as vxserial
 
 log = vxlogger.getLogger(__name__)
 
@@ -33,45 +34,71 @@ log = vxlogger.getLogger(__name__)
 class Io(vxprocess.AbstractProcess):
     name = PROCESS_IO
 
-    _pid_pin_map = dict()
-    _pid_attr_map = dict()
-    _devices = dict()
+    _pin_id_attr_map: Dict[str, str] = {}
+    _daq_pins: Dict[str, vxserial.DaqPin] = {}
+    _serial_devices: Dict[str, vxserial.SerialDevice] = {}
+    _daq_devices: Dict[str, vxserial.DaqDevice] = {}
 
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
-        for did, dev_config in config.CONF_IO_DEVICES.items():
-            if not all(k in dev_config for k in ("type", "model", "port")):
-                log.warning(f'Insufficient information to configure device {did}')
+        for device_id, dev_config in config.CONF_IO_DEVICES.items():
+
+            api_path = dev_config['api']
+            if api_path is None:
+                log.error(f'Could not configure device {device_id}. No API provided.')
                 continue
 
-            try:
-                log.info(f'Set up device {did}: {dev_config["model"]} on port {dev_config["port"]}')
-                device_type_module = importlib.import_module(f'{PATH_PACKAGE}.{PATH_DEVICE}.{dev_config["type"]}')
-                device_cls = getattr(device_type_module, dev_config["model"])
+            # Get device API
+            device = vxserial.get_serial_device_by_id(device_id)
+            log.info(f'Set up device {device_id}: {device}')
 
-                self._devices[did] = device_cls(dev_config)
+            # If device is a DAQ device
+            if isinstance(device, vxserial.DaqDevice):
+
+                # Add DAQ device
+                self._daq_devices[device_id] = device
+
+            # If device is a generic Serial device
+            elif isinstance(device, vxserial.SerialDevice):
+
+                # Add serial device
+                self._serial_devices[device_id] = device
+            else:
+                log.warning(f'Unknown device {device_id}. Device was set up but may not be usable.')
+
+            # Open device
+            try:
+                device.open()
 
             except Exception as exc:
-                log.warning(f'Failed to set up device {did} // Exc: {exc}')
+                log.error(f'Failed to open device {device_id} // Exc: {exc}')
+                import traceback
+                print(traceback.print_exc())
                 continue
 
-        # Configure pins
-        for pin_id, pin_config in config.CONF_IO_PINS.items():
-            device_id = pin_config['device']
+            # Configure pins
+            for daq_device in self._daq_devices.values():
 
-            if device_id not in self._devices:
-                log.warning(f'Pin {pin_id} could not be mapped to device {device_id}. Device not configured.')
+                # Add configured pins on device
+                for pin_id, pin in daq_device.get_pins():
+                    if pin_id in self._daq_pins:
+                        log.error(f'Pin {pin_id} is already configured. Unable to add to device {daq_device}')
+                        continue
+
+                    # Set pin
+                    self._daq_pins[pin_id] = pin
+
+            # Start device
+            try:
+                device.start()
+
+            except Exception as exc:
+                log.error(f'Failed to start device {device_id} // Exc: {exc}')
+                import traceback
+                print(traceback.print_exc())
                 continue
-
-            log.info(f'Set up pin {pin_id}:{pin_config["device"]}.{pin_config["map"]}')
-
-            self._devices[device_id].configure_pin(pin_id, pin_config)
-
-            # Map pins to flat dictionary
-            for pid, pin in self._devices[device_id].pins.items():
-                self._pid_pin_map[pid] = pin
 
         # Set timeout during idle
         self.enable_idle_timeout = True
@@ -84,55 +111,55 @@ class Io(vxprocess.AbstractProcess):
         # Initialize actions related to protocol
         self.current_protocol.initialize_actions()
 
-    def set_outpin_to_attr(self, pid, attr_name):
+    def set_outpin_to_attr(self, pin_id, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
 
-        log.info(f'Set attribute "{attr_name}" to write to pin {pid}')
+        log.info(f'Set attribute "{attr_name}" to write to pin {pin_id}')
 
         # Check of pid is actually configured
-        if pid not in self._pid_pin_map:
-            log.warning(f'Output "{pid}" is not configured. Cannot connect to attribute {attr_name}')
+        if pin_id not in self._daq_pins:
+            log.warning(f'Output "{pin_id}" is not configured. Cannot connect to attribute {attr_name}')
             return
 
         # Select pin
-        pin = self._pid_pin_map[pid]
+        pin = self._daq_pins[pin_id]
 
         # Check if pin is configured as output
-        if pin.config['type'] not in ('do', 'ao'):
-            log.warning(f'{pin.config["type"].upper()}/{pid} cannot be configured as output. Not an output channel.')
+        if pin.signal_direction != vxserial.PINDIR.OUT:
+            log.warning(f'Pin {pin} cannot be configured as output. Not an output channel.')
             return
 
         # Check if attribute exists
         if not attr_name in vxattribute.Attribute.all:
-            log.warning(f'Pin "{pid}" cannot be set to attribute {attr_name}. Attribute does not exist.')
+            log.warning(f'Pin "{pin_id}" cannot be set to attribute {attr_name}. Attribute does not exist.')
 
-        if pid not in self._pid_attr_map:
-
-            log.info(f'Set {pin.config["type"].upper()}/{pid} to attribute "{attr_name}"')
-            self._pid_attr_map[pid] = attr_name
+        if pin_id not in self._pin_id_attr_map:
+            log.info(f'Set pin {pin} to attribute "{attr_name}"')
+            self._pin_id_attr_map[pin_id] = attr_name
         else:
-            log.warning(f'{pin.config["type"].upper()}/{pid} is already set.')
+
+            log.warning(f'Pin {pin} is already set.')
 
     def main(self):
 
         tt = []
 
-        # Read data on pins once
-        t = time.perf_counter()
-        for pin in self._pid_pin_map.values():
-            pin._read_data()
-        tt.append(time.perf_counter()-t)
+        # # Read data on pins once
+        # t = time.perf_counter()
+        # for pin in self._daq_pins.values():
+        #     pin._read_data()
+        # tt.append(time.perf_counter()-t)
 
         # Write outputs from connected shared attributes
         t = time.perf_counter()
-        for pid, attr_name in self._pid_attr_map.items():
+        for pid, attr_name in self._pin_id_attr_map.items():
             _, _, vals = read_attribute(attr_name)
-            self._pid_pin_map[pid].write(vals[0][0])
+            self._daq_pins[pid].write(vals[0][0])
         tt.append(time.perf_counter()-t)
 
         # Update routines with data
         t = time.perf_counter()
-        self.update_routines(**self._pid_pin_map)
+        self.update_routines(**self._daq_pins)
         tt.append(time.perf_counter()-t)
 
         self.timetrack.append(tt)

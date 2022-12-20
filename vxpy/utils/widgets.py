@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import decimal
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
@@ -141,7 +141,7 @@ class DoubleSliderWidget(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,0,0,0)
+        self.layout().setContentsMargins(0, 0, 0, 0)
 
         # Add label
         self.label = None
@@ -171,14 +171,14 @@ class DoubleSliderWidget(QtWidgets.QWidget):
 
     def slider_value_changed(self, value):
         """Update spinner widget"""
-        new_val = value * 10**self.max_precision + self.spinner.minimum()
+        new_val = value * 10 ** self.max_precision + self.spinner.minimum()
         new_val = new_val // self.spinner.singleStep() * self.spinner.singleStep()
         self.spinner.setValue(new_val)
 
     def spinner_value_changed(self, value):
         """Update slider widget"""
         self.slider.blockSignals(True)
-        new_val = int((value - self.spinner.minimum()) / 10**self.max_precision)
+        new_val = int((value - self.spinner.minimum()) / 10 ** self.max_precision)
         self.slider.setValue(new_val)
         self.slider.blockSignals(False)
 
@@ -186,14 +186,14 @@ class DoubleSliderWidget(QtWidgets.QWidget):
         self.spinner.setRange(min_val, max_val)
 
         # Sliders can only be >= 0 integers, therefore range needs to be adjusted
-        self.slider.setRange(0, int((max_val - min_val) / 10**self.max_precision))
+        self.slider.setRange(0, int((max_val - min_val) / 10 ** self.max_precision))
 
     def set_step(self, step_size):
         decimal_places = abs(decimal.Decimal(str(step_size)).as_tuple().exponent)
         self.spinner.setDecimals(decimal_places)
         self.spinner.setSingleStep(step_size)
         # Sliders can only be integers
-        self.slider.setSingleStep(int(step_size / 10**self.max_precision))
+        self.slider.setSingleStep(int(step_size / 10 ** self.max_precision))
 
     def get_value(self):
         return self.spinner.value()
@@ -221,7 +221,7 @@ class IntSliderWidget(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,0,0,0)
+        self.layout().setContentsMargins(0, 0, 0, 0)
         self.setMaximumHeight(30)
 
         # Add label
@@ -291,7 +291,7 @@ class ComboBox(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().setContentsMargins(0,0,0,0)
+        self.layout().setContentsMargins(0, 0, 0, 0)
         self.setMaximumHeight(30)
 
         self.combobox = QtWidgets.QComboBox(self)
@@ -341,3 +341,25 @@ class Checkbox(QtWidgets.QWidget):
 
     def connect_callback(self, callback):
         self.checkbox.stateChanged.connect(callback)
+
+
+class ParameterWidget(QtWidgets.QWidget):
+
+    def __init__(self, label: Union[str, QLabel], widget: QtWidgets.QWidget, *args, **kwargs):
+        QtWidgets.QWidget.__init__(self, *args, **kwargs)
+
+        # Set layout
+        self.setLayout(QtWidgets.QHBoxLayout())
+        self.layout().setContentsMargins(0, 0, 0, 0)
+
+        # Add label
+        if isinstance(label, str):
+            self.label = QLabel(label)
+        else:
+            self.label = label
+        self.layout().addWidget(self.label)
+        self.setMaximumHeight(30)
+
+        # Set widget
+        self.widget = widget
+        self.layout().addWidget(self.widget)

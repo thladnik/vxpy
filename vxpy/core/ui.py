@@ -407,6 +407,9 @@ class PlottingWindow(WindowWidget):
             self.xmin = new_xmax - xrange
             self.xmax = new_xmax
 
+        if np.any([np.isnan(self.xmin), np.isnan(self.xmax)]):
+            return
+
         # Update x range for all subplots
         for plot_item in self.plot_items.values():
             plot_item.getViewBox().setXRange(self.xmin, self.xmax, padding=0.)
