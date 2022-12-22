@@ -39,7 +39,7 @@ _file_types: Dict[str, Type[H5File]] = {}
 _instance: Union[H5File, None] = None
 
 # Dictionary of open video stream containers
-_video_streams: Dict[str, VideoStream] = {}
+_video_writers: Dict[str, VideoWriter] = {}
 
 
 def init():
@@ -230,38 +230,38 @@ class H5File:
 
 
 def create_video_stream(recording_path: str, attribute: vxattribute.VideoStreamAttribute):
-    global _video_streams
-    if attribute.name in _video_streams:
+    global _video_writers
+    if attribute.name in _video_writers:
         log.error(f'Tried creating video stream {attribute.name}, which is already open')
         return
 
     log.info(f'Open video stream for {attribute} on path {recording_path}')
 
-    _video_streams[attribute.name] = VideoStream(recording_path, attribute)
+    _video_writers[attribute.name] = VideoWriter(recording_path, attribute)
 
 
 def add_to_video_stream(name: str, frame_data: np.ndarray):
-    global _video_streams
-    if name not in _video_streams:
+    global _video_writers
+    if name not in _video_writers:
         return
 
-    _video_streams[name].add_frame(frame_data)
+    _video_writers[name].add_frame(frame_data)
 
 
 def close_video_streams():
-    global _video_streams
-    for stream_name in list(_video_streams.keys()):
-        stream = _video_streams.get(stream_name)
+    global _video_writers
+    for stream_name in list(_video_writers.keys()):
+        stream = _video_writers.get(stream_name)
         if stream is None:
             continue
 
         log.info(f'Close video stream for {stream.attribute}')
         stream.close()
 
-        del _video_streams[stream_name]
+        del _video_writers[stream_name]
 
 
-class VideoStream:
+class VideoWriter:
 
     def __init__(self, recording_path: str, attribute: vxattribute.VideoStreamAttribute):
         self.attribute: vxattribute.VideoStreamAttribute = attribute

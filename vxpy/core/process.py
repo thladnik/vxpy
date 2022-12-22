@@ -389,11 +389,12 @@ class AbstractProcess:
 
         if self.protocol_type == vxprotocol.StaticProtocol:
 
-            """Method is called when a new protocol has been started by Controller."""
             protocol_attributes = {'__protocol_module': self.current_protocol.__class__.__module__,
                                    '__protocol_name': self.current_protocol.__class__.__qualname__,
                                    '__start_time': vxipc.get_time(),
-                                   '__target_phase_count': self.current_protocol.phase_count}
+                                   '__start_record_group_id': self.record_phase_group_id + 1,  # Next id in order
+                                   '__target_phase_count': self.current_protocol.phase_count,
+                                   '__target_repeat_interval_ids': self.current_protocol.repeat_intervals}
 
             vxcontainer.add_protocol_attributes(protocol_attributes)
 

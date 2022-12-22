@@ -175,6 +175,7 @@ class BaseProtocol:
     def __init__(self):
         self._current_phase_id = -1
         self._phases: List[Phase] = []
+        self._repeat_intervals: List[List[int]] = []
 
     @property
     def current_phase_id(self):
@@ -188,10 +189,25 @@ class BaseProtocol:
     def phase_count(self):
         return len(self._phases)
 
+    @property
+    def repeat_intervals(self):
+        return self._repeat_intervals
+
+    def start_repeat(self):
+        """Mark start of new repeat within the protocol"""
+        self._repeat_intervals.append([len(self._phases)])
+
+    def end_repeat(self):
+        """Mark end of repeat within the protocol"""
+        self._repeat_intervals[-1].append(len(self._phases))
+
     def add_phase(self, phase: Phase) -> None:
+        """Add a new phase to the protocol"""
         self._phases.append(phase)
 
     def keep_last_frame_for(self, seconds: float):
+        """Shortcut for adding a static KeepLast phase.
+        This will retain the last rendered frame for given number of seconds on the screen"""
         p = Phase(seconds)
         p.set_visual(vxvisual.KeepLast)
         self.add_phase(p)
