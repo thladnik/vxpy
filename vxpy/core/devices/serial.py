@@ -2,15 +2,20 @@ from __future__ import annotations
 import abc
 import importlib
 from enum import Enum
-from typing import Dict, Any, Type, Union, Iterator, Tuple
+from typing import Dict, Any, Type, Union, Iterator, Tuple, List
 
+import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 from vxpy import config
 
 log = vxlogger.getLogger(__name__)
 
+# Dictionary to hold all configured devices
+devices: Dict[str, Union[SerialDevice, DaqDevice]] = {}
+daq_pins: Dict[str, DaqPin] = {}
 
-def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], None]:
+
+def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], Type[DaqDevice], None]:
     """Fetch the specified serial device API class from given path.
     API class should be a subclass of CameraDevice"""
 
@@ -49,28 +54,40 @@ def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, DaqDevice, No
     return api_cls(device_id, **device_props)
 
 
-class PINDIR(Enum):
+class PINSIGDIR(Enum):
     IN = 1
     OUT = 2
 
 
-class PINSIGNAL(Enum):
+class PINSIGTYPE(Enum):
     ANALOG = 1
     DIGITAL = 2
 
 
 class DaqPin:
 
-    signal_direction: PINDIR = None
-    signal_type: PINSIGNAL = None
+    signal_direction: PINSIGDIR = None
+    signal_type: PINSIGTYPE = None
 
     def __init__(self, pin_id: str, board: DaqDevice, properties: Dict[str, Any]):
         self.pin_id: str = pin_id
         self._board: DaqDevice = board
         self.properties: Dict[str, Any] = properties
 
+        global daq_pins
+        # Checking if pin has been created does not work on Unix
+        # (forked subprocesses already get updated module with serial DAQ pin list from controller)
+        # if self.pin_id in daq_pins:
+        #     log.error(f'Tried setting up {self} more than once')
+        #     return
+        daq_pins[self.pin_id] = self
+
     def __repr__(self):
         return f'{self.__class__.__name__}(\'{self.pin_id}\', {self.signal_type}, {self.signal_direction})'
+
+    @abc.abstractmethod
+    def initialize(self):
+        pass
 
     @abc.abstractmethod
     def write(self, value) -> bool:
@@ -89,8 +106,17 @@ class DaqDevice:
         self.properties: Dict[str, Any] = kwargs
         self._pins: Dict[str, DaqPin] = {}
 
+        # Add device to global dictionary
+        global devices
+        # Checking if device has been created does not work on Unix
+        # (forked subprocesses already get updated module with serial device list from controller)
+        # if self.device_id in devices:
+        #     log.error(f'Tried setting up device {self} more than once')
+        #     return
+        devices[self.device_id] = self
+
     def __repr__(self):
-        return f'{DaqDevice.__name__}::{self.__class__.__name__}'
+        return f'{self.__class__.__name__}(\'{self.device_id}\')'
 
     @abc.abstractmethod
     def _open(self) -> bool:
@@ -105,8 +131,16 @@ class DaqDevice:
             log.error(f'Failed to open {self}: {exc}')
             return False
 
+    def get_pins(self) -> List[Tuple[str, DaqPin]]:
+        """"""
+        if len(self._pins) == 0:
+            log.info(f'Set up pins on {self}')
+            self._setup_pins()
+
+        return [(pin_id, pin) for pin_id, pin in self._pins.items()]
+
     @abc.abstractmethod
-    def get_pins(self) -> Iterator[Tuple[str, DaqPin]]:
+    def _setup_pins(self) -> None:
         pass
 
     @abc.abstractmethod
@@ -158,8 +192,17 @@ class SerialDevice:
         self.baud_rate: int = baud_rate
         self.properties: Dict[str, Any] = kwargs
 
+        # Add device to global dictionary
+        global devices
+        # Checking if device has been created does not work on Unix
+        # (forked subprocesses already get updated module with serial device list from controller)
+        # if self.device_id in devices:
+        #     log.error(f'Tried setting up device {self} more than once')
+        #     return
+        devices[self.device_id] = self
+
     def __repr__(self):
-        return f'{SerialDevice.__name__}::{self.__class__.__name__}'
+        return f'{SerialDevice.__name__}::{self.__class__.__name__}({self.device_id})'
 
     @abc.abstractmethod
     def _open(self) -> bool:
@@ -197,7 +240,7 @@ class SerialDevice:
             return self._end()
 
         except Exception as exc:
-            log.error(f'Failed to end stream {self}: {exc}')
+            log.error(f'Failed to end {self}: {exc}')
             return False
 
     @abc.abstractmethod

@@ -66,6 +66,17 @@ class Camera(vxprocess.AbstractProcess):
     def end_static_protocol(self):
         pass
 
+    def main(self):
+
+        for camera_id, camera in self.cameras.items():
+
+            if camera.next_snap():
+                camera.snap_image()
+
+            # Update routine with new image if available
+            if camera.next_image():
+                self.update_routines(**{camera_id: camera.get_image()})
+
     def _start_shutdown(self):
 
         # Make sure camera streams are terminated before shutting down process
@@ -74,23 +85,3 @@ class Camera(vxprocess.AbstractProcess):
             camera.close()
 
         vxprocess.AbstractProcess._start_shutdown(self)
-
-    def main(self):
-
-        for camera_id, camera in self.cameras.items():
-
-            if camera.next_snap():
-                camera.snap_image()
-
-            next_ = camera.next_image()
-            if next_:
-                # Update routine
-                self.update_routines(**{camera_id: camera.get_image()})
-
-            # if vxipc.get_time() >= self._next_snap[camera_id]:
-            #
-            #     # Snap image and update routine
-            #     camera.snap_image()
-            #
-            #     # Set next update time
-            #     self._next_snap[camera_id] = vxipc.get_time() + 1. / camera.framerate

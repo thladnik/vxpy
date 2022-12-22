@@ -213,6 +213,9 @@ class Attribute(ABC):
         self._times: np.ndarray = np.array([])
         self._indices: np.ndarray = np.array([])
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(\'{self.name}\')'
+
     @property
     def length(self):
         return self._length
@@ -527,6 +530,14 @@ class ArrayAttribute(Attribute):
 
         with self._get_lock(True):
             self._data[internal_idx] = value
+
+
+class VideoStreamAttribute(ArrayAttribute):
+
+    def __init__(self, target_framerate: float, *args, bitrate=3000*10**3, **kwargs):
+        ArrayAttribute.__init__(self, *args, **kwargs)
+        self.target_framerate: float = target_framerate
+        self.bitrate = bitrate  # bps, typical range 3000-5000 kbps
 
 
 class ObjectAttribute(Attribute):

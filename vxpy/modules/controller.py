@@ -33,13 +33,14 @@ from vxpy import definitions
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
+import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.process as vxprocess
+import vxpy.core.routine as vxroutine
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
-from vxpy.core import routine
 from vxpy.core import run_process
 
 log = vxlogger.getLogger(__name__)
@@ -99,7 +100,7 @@ class Controller(vxprocess.AbstractProcess):
             self.qt_app.processEvents()
 
         # Set up processes
-        _routines_to_load = dict()
+        _routines_to_load = {}
         # Camera
         if config.CONF_CAMERA_USE:
             self._register_process(vxmodules.Camera)
@@ -113,6 +114,13 @@ class Controller(vxprocess.AbstractProcess):
             self._register_process(vxmodules.Gui)
         # IO
         if config.CONF_IO_USE:
+
+            # Load IO devices without setting them up, so routines have a view on available connectivity
+            for device_id, device_config in config.CONF_IO_DEVICES.items():
+                device = vxserial.get_serial_device_by_id(device_id)
+                device.get_pins()
+
+            # Register process and get configured routines
             self._register_process(vxmodules.Io)
             _routines_to_load[PROCESS_IO] = config.CONF_IO_ROUTINES
         # Worker
@@ -178,9 +186,9 @@ class Controller(vxprocess.AbstractProcess):
                 register_io_device(device_id)
 
         # Load routine modules
-        self._routines = dict()
+        self._routines: Dict[str, Dict[str, vxroutine.Routine]] = {}
         for process_name, routine_list in _routines_to_load.items():
-            self._routines[process_name] = dict()
+            self._routines[process_name] = {}
             for path in routine_list:
                 log.info(f'Load routine {path}')
 
@@ -194,7 +202,7 @@ class Controller(vxprocess.AbstractProcess):
                     continue
 
                 # Instantiate
-                self._routines[process_name][routine_cls.__name__]: routine.Routine = routine_cls()
+                self._routines[process_name][routine_cls.__name__]: vxroutine.Routine = routine_cls()
 
         # Compare required vs registered devices
         assert_device_requirements()

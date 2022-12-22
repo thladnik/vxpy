@@ -78,18 +78,6 @@ class Io(vxprocess.AbstractProcess):
                 print(traceback.print_exc())
                 continue
 
-            # Configure pins
-            for daq_device in self._daq_devices.values():
-
-                # Add configured pins on device
-                for pin_id, pin in daq_device.get_pins():
-                    if pin_id in self._daq_pins:
-                        log.error(f'Pin {pin_id} is already configured. Unable to add to device {daq_device}')
-                        continue
-
-                    # Set pin
-                    self._daq_pins[pin_id] = pin
-
             # Start device
             try:
                 device.start()
@@ -99,6 +87,21 @@ class Io(vxprocess.AbstractProcess):
                 import traceback
                 print(traceback.print_exc())
                 continue
+
+        # Configure pins
+        for daq_device in self._daq_devices.values():
+
+            # Add configured pins on device
+            for pin_id, pin in daq_device.get_pins():
+                if pin_id in self._daq_pins:
+                    log.error(f'Pin {pin_id} is already configured. Unable to add to device {daq_device}')
+                    continue
+
+                # Initialize pin
+                pin.initialize()
+
+                # Save pin to dictionary
+                self._daq_pins[pin_id] = pin
 
         # Set timeout during idle
         self.enable_idle_timeout = True
@@ -125,7 +128,7 @@ class Io(vxprocess.AbstractProcess):
         pin = self._daq_pins[pin_id]
 
         # Check if pin is configured as output
-        if pin.signal_direction != vxserial.PINDIR.OUT:
+        if pin.signal_direction != vxserial.PINSIGDIR.OUT:
             log.warning(f'Pin {pin} cannot be configured as output. Not an output channel.')
             return
 
@@ -172,3 +175,12 @@ class Io(vxprocess.AbstractProcess):
             # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
             # print('----')
             self.timetrack = []
+
+    def _start_shutdown(self):
+
+        # Make sure devices are disconnected before shutting down process
+        for device in [*self._serial_devices.values(), *self._daq_devices.values()]:
+            device.end()
+            device.close()
+
+        vxprocess.AbstractProcess._start_shutdown(self)

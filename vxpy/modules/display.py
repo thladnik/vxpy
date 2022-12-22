@@ -34,6 +34,7 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.visual as vxvisual
+import vxpy.core.devices.serial as vxserial
 
 log = vxlogger.getLogger(__name__)
 

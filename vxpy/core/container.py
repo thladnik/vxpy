@@ -1,5 +1,5 @@
 """
-MappApp ./core/container.py
+vxPy ./core/container.py
 Custom file container formats to facilitate save builtin save-to-disk operations.
 Copyright (C) 2020 Tim Hladnik
 
@@ -21,21 +21,25 @@ from __future__ import annotations
 import abc
 from typing import Union, Type, Any, Tuple
 
+import ffmpeg
 import h5py
 import numpy as np
 
 from vxpy.definitions import *
-from vxpy import definitions
+import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
-from vxpy import modules
 
 log = vxlogger.getLogger(__name__)
 
+# Dictionary of valid file types for main file container
 _file_types: Dict[str, Type[H5File]] = {}
 
 # Handle of currently opened file container class
 _instance: Union[H5File, None] = None
+
+# Dictionary of open video stream containers
+_video_streams: Dict[str, VideoStream] = {}
 
 
 def init():
@@ -223,3 +227,68 @@ class H5File:
 
         # Close hdf5 file
         self._h5_handle.close()
+
+
+def create_video_stream(recording_path: str, attribute: vxattribute.VideoStreamAttribute):
+    global _video_streams
+    if attribute.name in _video_streams:
+        log.error(f'Tried creating video stream {attribute.name}, which is already open')
+        return
+
+    log.info(f'Open video stream for {attribute} on path {recording_path}')
+
+    _video_streams[attribute.name] = VideoStream(recording_path, attribute)
+
+
+def add_to_video_stream(name: str, frame_data: np.ndarray):
+    global _video_streams
+    if name not in _video_streams:
+        return
+
+    _video_streams[name].add_frame(frame_data)
+
+
+def close_video_streams():
+    global _video_streams
+    for stream_name in list(_video_streams.keys()):
+        stream = _video_streams.get(stream_name)
+        if stream is None:
+            continue
+
+        log.info(f'Close video stream for {stream.attribute}')
+        stream.close()
+
+        del _video_streams[stream_name]
+
+
+class VideoStream:
+
+    def __init__(self, recording_path: str, attribute: vxattribute.VideoStreamAttribute):
+        self.attribute: vxattribute.VideoStreamAttribute = attribute
+        self._filepath = os.path.join(recording_path, f'{self.attribute.name}.mp4')
+        w, h = self.attribute.shape[:2]
+
+        # Set pixel format based on attribute shape
+        pix_fmt = 'gray'
+        if len(self.attribute.shape) > 2 and self.attribute.shape[2] == 3:
+            pix_fmt = 'rgb24'
+
+        log.info(f'FFMPEG write to {self._filepath}')
+
+        # Create encoder pipe
+        self.process = (
+            ffmpeg
+            .input('pipe:', format='rawvideo', pix_fmt=pix_fmt, s=f'{w}x{h}')
+            .output(self._filepath, pix_fmt='yuv420p',
+                    vcodec='libx264', r=str(self.attribute.target_framerate),
+                    video_bitrate=f'{self.attribute.bitrate}')
+            .overwrite_output()
+            .run_async(pipe_stdin=True)
+        )
+
+    def add_frame(self, frame_data: np.ndarray):
+        self.process.stdin.write(frame_data.astype(np.uint8).T.tobytes())
+
+    def close(self):
+        self.process.stdin.close()
+        self.process.wait()

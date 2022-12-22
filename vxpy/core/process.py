@@ -345,7 +345,11 @@ class AbstractProcess:
         if attributes_to_file is not None:
             for attribute in attributes_to_file:
 
-                if isinstance(attribute, vxattribute.ArrayAttribute):
+                # VideoStreamAttribute need to be checked first, because it's also instance of ArrayAttribute
+                if isinstance(attribute, vxattribute.VideoStreamAttribute):
+                    vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute)
+
+                elif isinstance(attribute, vxattribute.ArrayAttribute):
                     # Add attribute dataset
                     vxcontainer.create_dataset(attribute.name, attribute.shape, attribute.numpytype)
                     # Add corresponding time dataset for attribute
@@ -367,6 +371,9 @@ class AbstractProcess:
 
         # Close any open file
         vxcontainer.close()
+
+        # Close any open video streams
+        vxcontainer.close_video_streams()
 
         # Switch state to let controller know recording was stopped on fork
         vxipc.set_state(STATE.REC_STOPPED)
@@ -683,6 +690,11 @@ class AbstractProcess:
         for attribute in data:
 
             _, attr_time, attr_data = [v[0] for v in attribute.read()]
+
+            if isinstance(attribute, vxattribute.VideoStreamAttribute):
+                vxcontainer.add_to_video_stream(attribute.name, attr_data)
+                continue
+
             # Add attribute data to dataset
             vxcontainer.add_to_dataset(attribute.name, attr_data)
             # Add attribute time to dataset

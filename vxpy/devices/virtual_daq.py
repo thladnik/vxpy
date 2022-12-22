@@ -15,19 +15,36 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import time
-from typing import Dict, AnyStr, Union
+from typing import Dict, AnyStr, Union, Iterator, Tuple, Callable, Any
 
 import numpy as np
 
+import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.devices.serial as vxserial
-
+from vxpy.core.devices.serial import DaqPin, PINSIGTYPE, PINSIGDIR
 
 log = vxlogger.getLogger(__name__)
 
 
-class VirtualDaqDevice(vxserial.SerialDevice):
+def on_off(t, freq, t_offset):
+    return np.sin(t_offset+t * 2 * np.pi * freq)
+
+
+class VirtualDaqDevice(vxserial.DaqDevice):
+
+    def get_pin_info(self) -> Iterator[Tuple[str, PINSIGTYPE, PINSIGDIR]]:
+        pass
+
+    def _setup_pins(self) -> None:
+
+        # Set up and yield if not done before
+        for pin_id, pin_config in self.properties['pins'].items():
+            pin = VirtualDaqPin(pin_id, self, pin_config)
+
+            self._pins[pin_id] = pin
 
     def _open(self) -> bool:
         return True
@@ -42,57 +59,36 @@ class VirtualDaqDevice(vxserial.SerialDevice):
         return True
 
 
-class Pin2:
+class VirtualDaqPin(vxserial.DaqPin):
 
-    def __init__(self, pid, config):
-        self.pid = pid
-        self.config = config
-        self.offset = np.random.randint(4)
-        self.fun = np.sin
-        self.value = None
-        self.is_out = self.config['type'] in ('do', 'ao')
+    _board: VirtualDaqDevice
+    _available_methods = {'on_off': on_off}
 
-        if 'sawtooth' in self.pid:
-            self.fun = lambda t: - 2 * 1. / np.pi * np.arctan(1. / np.tan(np.pi * t / 4.)) + np.random.rand() / 3.
-        elif 'rectangular' in self.pid:
-            self.fun = lambda t: float(np.sin(t) > 0) + np.random.rand() / 3.
+    def __init__(self, *args, **kwargs):
+        vxserial.DaqPin.__init__(self, *args, **kwargs)
 
-    def _read_data(self):
-        self.value = self.fun(time.time() + self.offset / 20 * 2 * np.pi * 1.0)
+        self.fun: Callable = self._available_methods[self.properties['fun']]
+        self.arguments: Dict[str, Any] = self.properties['args']
 
-    def read(self):
-        return self.value
-
-    def write(self, value):
-        if self.is_out:
-            self.value = value
-            # print(f'Write to pin {self.pid}:{value}')
+        # Set signal type and direction
+        sigal_type, signal_dir = list(self.properties['signal'])
+        if 'a' == sigal_type:
+            self.signal_type = PINSIGTYPE.ANALOG
         else:
-            log.warning(f'Trying to write to input pin {self.pid}')
+            self.signal_type = PINSIGTYPE.DIGITAL
+        if 'i' == signal_dir:
+            self.signal_direction = PINSIGDIR.IN
+        else:
+            self.signal_direction = PINSIGDIR.OUT
 
+    def initialize(self):
+        log.info(f'Initialize pin {self} on device {self._board}')
+        pass
 
-class VirtualDaqDevice2:
+    def write(self, value) -> bool:
+        """VirtualDaqPin has no write implementation"""
+        pass
 
-    def __init__(self, config):
-        self.config = config
-        self.pins: Dict[AnyStr, Pin2] = dict()
-        self.pin_data: Dict[AnyStr, Union[int,float]] = dict()
-
-    def configure_pin(self, pin_id, pin_config):
-        self.pins[pin_id] = Pin2(pin_id, pin_config)
-
-    def write(self, pid, data):
-        """Write data to output pin"""
-        self.pins[pid].write(data)
-
-    def read(self, pid):
-        """Read (stored) pin data for input pin"""
-        return self.pin_data[pid]
-
-    def read_all(self):
-        """Read (stored) pin data for all input pins"""
-        return self.pin_data
-
-    def read_device_data(self):
-        """Read current data on device's input pins and save data temporarily"""
-        self.pin_data.update({pid: pin.read() for pid, pin in self.pins.items() if pin.config['type'] in ('di', 'ai')})
+    def read(self) -> Union[bool, int, float]:
+        """Return value based on pin's function and configured arguments"""
+        return self.fun(vxipc.get_time(), **self.arguments)
