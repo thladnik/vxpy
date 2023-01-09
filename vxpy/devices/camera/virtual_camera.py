@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from typing import Any, List, Tuple, Union
+
+import cv2
 import h5py
 import numpy as np
 
@@ -96,6 +98,9 @@ class VirtualCamera(vxcamera.CameraDevice):
                 log.debug('Preload frame data')
                 self._data = self._cap[:]
             self.index = 0
+        elif self.properties['data_source'] == 'AVI':
+            self._cap = cv2.VideoCapture(self.properties['data_path'])
+            self.index = 0
         else:
             return False
 
@@ -115,20 +120,34 @@ class VirtualCamera(vxcamera.CameraDevice):
 
     def get_image(self):
         self.index += 1
-        if self._cap.shape[0] <= self.index:
-            self.index = 0
 
-        if self.properties['preload_data']:
-            # From preloaded data
-            frame = self._data[self.index][:self.res_y, :self.res_x]
+        if self.properties['data_source'] == 'HDF5':
+            if self._cap.shape[0] <= self.index:
+                self.index = 0
 
-        else:
-            # From dataset
-            try:
-                frame = self._cap[self.index][:self.res_y, :self.res_x]
-            except:
-                log.error(f'Error reading frame for device {self}')
-                return None
+            if self.properties['preload_data']:
+                # From preloaded data
+                frame = self._data[self.index][:self.res_y, :self.res_x]
+
+            else:
+                # From dataset
+                try:
+                    frame = self._cap[self.index][:self.res_y, :self.res_x]
+                except:
+                    log.error(f'Error reading frame for device {self}')
+                    return None
+
+        elif self.properties['data_source'] == 'AVI':
+            ret, frame = self._cap.read()
+            if not ret:
+                print('Reset')
+                self._cap = cv2.VideoCapture(self.properties['data_path'])
+                ret, frame = self._cap.read()
+
+            if frame is None:
+                return
+
+            frame = frame[:,:,0]
 
         # Set next frame time
         self.next_time_get_image = vxipc.get_time() + 1./self.frame_rate

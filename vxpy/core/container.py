@@ -21,6 +21,7 @@ from __future__ import annotations
 import abc
 from typing import Union, Type, Any, Tuple
 
+import cv2
 import ffmpeg
 import h5py
 import numpy as np
@@ -229,15 +230,17 @@ class H5File:
         self._h5_handle.close()
 
 
-def create_video_stream(recording_path: str, attribute: vxattribute.VideoStreamAttribute):
+def create_video_stream(recording_path: str, attribute: vxattribute.VideoStreamAttribute, codec):
     global _video_writers
     if attribute.name in _video_writers:
         log.error(f'Tried creating video stream {attribute.name}, which is already open')
         return
 
     log.info(f'Open video stream for {attribute} on path {recording_path}')
-
-    _video_writers[attribute.name] = VideoWriter(recording_path, attribute)
+    if codec in ['h264', 'h265']:
+        _video_writers[attribute.name] = MPEGVideoWriter(recording_path, attribute, codec)
+    elif codec in ['i420', 'xvid', 'mjpg']:
+        _video_writers[attribute.name] = AVIVideoWriter(recording_path, attribute, codec)
 
 
 def add_to_video_stream(name: str, frame_data: np.ndarray):
@@ -263,11 +266,29 @@ def close_video_streams():
 
 class VideoWriter:
 
-    def __init__(self, recording_path: str, attribute: vxattribute.VideoStreamAttribute):
-        self.attribute: vxattribute.VideoStreamAttribute = attribute
-        self._filepath = os.path.join(recording_path, f'{self.attribute.name}.mp4')
-        w, h = self.attribute.shape[:2]
+    container_ext: str = None
 
+    def __init__(self, recording_path: str, attribute: vxattribute.VideoStreamAttribute, codec: str):
+        self.attribute: vxattribute.VideoStreamAttribute = attribute
+        self._filepath = os.path.join(recording_path, f'{self.attribute.name}.{self.container_ext}')
+        self.codec = codec
+
+
+class MPEGVideoWriter(VideoWriter):
+
+    container_ext = 'mp4'
+
+    def __init__(self, *args, **kwargs):
+        VideoWriter.__init__(self, *args, **kwargs)
+
+        # Select codec
+        vcodec = 'libx264'
+        if self.codec == 'h264':
+            vcodec = 'libx264'
+        elif self.codec == 'h265':
+            vcodec = 'libx265'
+
+        w, h = self.attribute.shape[:2]
         # Set pixel format based on attribute shape
         pix_fmt = 'gray'
         if len(self.attribute.shape) > 2 and self.attribute.shape[2] == 3:
@@ -280,7 +301,7 @@ class VideoWriter:
             ffmpeg
             .input('pipe:', format='rawvideo', pix_fmt=pix_fmt, s=f'{w}x{h}')
             .output(self._filepath, pix_fmt='yuv420p',
-                    vcodec='libx264', r=str(self.attribute.target_framerate),
+                    vcodec=vcodec, r=str(self.attribute.target_framerate),
                     video_bitrate=f'{self.attribute.bitrate}')
             .overwrite_output()
             .run_async(pipe_stdin=True)
@@ -292,3 +313,40 @@ class VideoWriter:
     def close(self):
         self.process.stdin.close()
         self.process.wait()
+
+
+class AVIVideoWriter(VideoWriter):
+
+    container_ext = 'avi'
+
+    def __init__(self, *args, **kwargs):
+        VideoWriter.__init__(self, *args, **kwargs)
+
+        self.dsample = 2
+
+        # Select codec
+        vcodec = 'XVID'
+        if self.codec == 'xvid':
+            vcodec = 'XVID'
+        elif self.codec == 'i420':
+            vcodec = 'I420'
+        elif self.codec == 'mjpg':
+            vcodec = 'MJPG'
+
+        self.width, self.height = self.attribute.shape[:2]
+
+        log.info(f'AVI write to {self._filepath}')
+
+        # Create encoder pipe
+        self.writer = cv2.VideoWriter(self._filepath,
+                                      cv2.VideoWriter_fourcc(*vcodec),
+                                      float(self.attribute.target_framerate),
+                                      (self.width // self.dsample, self.height // self.dsample))
+
+    def add_frame(self, frame_data: np.ndarray):
+        self.writer.write(cv2.cvtColor(
+            cv2.resize(frame_data.T, (self.width // self.dsample, self.height // self.dsample)),
+            cv2.COLOR_GRAY2RGB))
+
+    def close(self):
+        self.writer.release()

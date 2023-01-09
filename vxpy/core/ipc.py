@@ -77,7 +77,7 @@ Io: ProcessProxy = ProcessProxy(PROCESS_IO)
 Worker: ProcessProxy = ProcessProxy(PROCESS_WORKER)
 
 
-def set_state(new_state: Union[State, STATE]):
+def set_state(new_state: STATE):
     """Set state of local modules to new_state"""
     log.debug(f'Set state from {get_state()} to {new_state}')
     getattr(State, LocalProcess.name).value = new_state
@@ -94,7 +94,7 @@ def get_state(process_name: str = None):
     return getattr(State, process_name).value
 
 
-def in_state(state: Union[State, STATE], process_name: str = None):
+def in_state(state: STATE, process_name: str = None):
     """Check if modules is in the given state.
 
     By default, if process_name is None, the local modules's name is used

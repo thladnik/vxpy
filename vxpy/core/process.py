@@ -347,7 +347,8 @@ class AbstractProcess:
 
                 # VideoStreamAttribute need to be checked first, because it's also instance of ArrayAttribute
                 if isinstance(attribute, vxattribute.VideoStreamAttribute):
-                    vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute)
+                    # TODO: in the future there should be a way to select encoding type and codec in app configuration
+                    vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute, codec='xvid')
 
                 elif isinstance(attribute, vxattribute.ArrayAttribute):
                     # Add attribute dataset
