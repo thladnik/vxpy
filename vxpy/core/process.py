@@ -310,24 +310,28 @@ class AbstractProcess:
         """To be reimplemented in fork. Method is called by _start_static_protocol_phase"""
         pass
 
-    def _start_static_protocol_phase(self):
-        """Method is called when the Controller has set the next protocol phase."""
-        self.start_static_protocol_phase()
-
     def end_static_protocol_phase(self):
         """Method is called at end of stimulation protocol phase."""
         pass
-
-    def _end_static_protocol_phase(self):
-        """Method is called at end of stimulation protocol phase."""
-        self.end_static_protocol_phase()
 
     def end_static_protocol(self):
         """Method is called after the last phase at the end of the protocol."""
         pass
 
     def prepare_trigger_protocol(self):
-        """To be reimplemented in fork. Method is called during preparation of new protocol"""
+        """To be reimplemented in fork"""
+        pass
+
+    def prepare_trigger_protocol_phase(self):
+        """To be reimplemented in fork"""
+        pass
+
+    def start_trigger_protocol_phase(self):
+        """To be reimplemented in fork"""
+        pass
+
+    def end_trigger_protocol_phase(self):
+        """To be reimplemented in fork"""
         pass
 
     def _start_recording(self):
@@ -404,6 +408,8 @@ class AbstractProcess:
 
         elif self.protocol_type == vxprotocol.TriggeredProtocol:
 
+            self.last_phase_id = -1
+
             # Call fork's implementation
             self.prepare_trigger_protocol()
 
@@ -458,7 +464,14 @@ class AbstractProcess:
                 vxipc.set_state(STATE.PRCL_IN_PHASE)
 
     def _process_trigger_protocol(self):
-        pass
+        # Check if protocol has not yet advanced to next phase (in Controller)
+        if self.last_phase_id == self.phase_id:
+            return
+
+        self.prepare_trigger_protocol_phase()
+        self.start_trigger_protocol_phase()
+
+        self.last_phase_id = self.phase_id
 
     def _eval_process_state(self):
 
@@ -635,42 +648,6 @@ class AbstractProcess:
         # If RPC
         if sig == Signal.rpc:
             self._execute_rpc(*args, **kwargs)
-
-    # def _append_to_dataset(self, path: str, value: Any):
-    #     # May need to be uncommented:
-    #     if self.file_container is None:
-    #         return
-    #
-    #     # Create dataset (if necessary)
-    #     if path not in self.file_container:
-    #         # Some datasets may not be created on record group creation
-    #         # (this is e.g. the the case for parameters of visuals,
-    #         # because unless the data types are specifically declared,
-    #         # there's no way to know them ahead of time)
-    #
-    #         # Iterate over dictionary contents
-    #         if isinstance(value, dict):
-    #             for k, v in value.items():
-    #                 self._append_to_dataset(f'{path}_{k}', v)
-    #             return
-    #
-    #         # Try to cast to numpy arrays
-    #         if isinstance(value, list):
-    #             value = np.array(value)
-    #         elif isinstance(value, np.ndarray):
-    #             pass
-    #         else:
-    #             value = np.array([value])
-    #
-    #         dshape = value.shape
-    #         dtype = value.dtype
-    #         assert np.issubdtype(dtype, np.number) or dtype == bool, \
-    #             f'Unable save non-numerical value "{value}" to dataset "{path}"'
-    #
-    #         self._create_dataset(path, dshape, dtype)
-    #
-    #     # Append to dataset
-    #     self.file_container.append(path, value)
 
     @property
     def record_group_name(self):

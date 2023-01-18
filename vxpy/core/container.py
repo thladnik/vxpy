@@ -94,7 +94,9 @@ def create_phase_dataset(dataset_name: str, shape: Tuple[int, ...], data_type: A
     if _noinstance():
         return
 
-    log.debug(f'Create phase dataset {dataset_name}, shape {shape}, dtype {data_type}')
+    log.debug(f'Create phase dataset {dataset_name}, '
+              f'shape {shape}, dtype {data_type}, '
+              f'phase_id {vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]}')
 
     # Call on instance
     _instance.create_phase_dataset(dataset_name, shape, data_type)

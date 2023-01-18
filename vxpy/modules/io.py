@@ -26,6 +26,7 @@ import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
 import vxpy.core.process as vxprocess
 import vxpy.core.logger as vxlogger
+import vxpy.core.ui as vxui
 import vxpy.core.devices.serial as vxserial
 
 log = vxlogger.getLogger(__name__)
@@ -38,6 +39,21 @@ class Io(vxprocess.AbstractProcess):
     _daq_pins: Dict[str, vxserial.DaqPin] = {}
     _serial_devices: Dict[str, vxserial.SerialDevice] = {}
     _daq_devices: Dict[str, vxserial.DaqDevice] = {}
+
+    @staticmethod
+    def get_pin_prefix(pin: vxserial.DaqPin) -> str:
+        if pin.signal_type == vxserial.PINSIGTYPE.ANALOG:
+            if pin.signal_direction == vxserial.PINSIGDIR.IN:
+                prefix = 'ai'
+            else:
+                prefix = 'ao'
+        else:
+            if pin.signal_direction == vxserial.PINSIGDIR.IN:
+                prefix = 'di'
+            else:
+                prefix = 'do'
+
+        return prefix
 
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
@@ -103,7 +119,14 @@ class Io(vxprocess.AbstractProcess):
                 # Save pin to dictionary
                 self._daq_pins[pin_id] = pin
 
-        # Set timeout during idle
+                # Add pin data to be written to file
+                prefix = self.get_pin_prefix(pin)
+                attr_name = f'{prefix}_{pin_id}'
+                vxattribute.write_to_file(self, attr_name)
+
+                vxui.register_with_plotter(attr_name, axis=prefix)
+
+        # Allow timeout during idle
         self.enable_idle_timeout = True
 
         self.timetrack = []
@@ -153,28 +176,26 @@ class Io(vxprocess.AbstractProcess):
         #     pin._read_data()
         # tt.append(time.perf_counter()-t)
 
-        # Write outputs from connected shared attributes
-        t = time.perf_counter()
-        for pid, attr_name in self._pin_id_attr_map.items():
-            _, _, vals = read_attribute(attr_name)
-            self._daq_pins[pid].write(vals[0][0])
-        tt.append(time.perf_counter()-t)
+        # Go through all configured pins
+        for pin_id, pin in self._daq_pins.items():
 
-        # Update routines with data
-        t = time.perf_counter()
+            prefix = self.get_pin_prefix(pin)
+
+            # Read input pins
+            if pin.signal_direction == vxserial.PINSIGDIR.IN:
+                input_attr_name = f'{prefix}_{pin_id}'
+                vxattribute.write_attribute(input_attr_name, pin.read())
+
+            # Write output pins
+            else:
+                # Write attribute data to output pins if mapped
+                if pin_id in self._pin_id_attr_map:
+                    output_attr_name = self._pin_id_attr_map[pin_id]
+                    _, _, vals = read_attribute(output_attr_name)
+                    self._daq_pins[pin_id].write(vals[0][0])
+
+        # Run routines
         self.update_routines(**self._daq_pins)
-        tt.append(time.perf_counter()-t)
-
-        self.timetrack.append(tt)
-        if len(self.timetrack) >= 5000:
-            dts = np.array(self.timetrack)
-            means = dts.mean(axis=0) * 1000
-            stds = dts.std(axis=0) * 1000
-            # print('Read data {:.2f} (+/- {:.2f}) ms'.format(means[0], stds[0]))
-            # print('Write data {:.2f} (+/- {:.2f}) ms'.format(means[1], stds[1]))
-            # print('Update routines {:.2f} (+/- {:.2f}) ms'.format(means[2], stds[2]))
-            # print('----')
-            self.timetrack = []
 
     def _start_shutdown(self):
 

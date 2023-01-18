@@ -94,9 +94,7 @@ class EyePositionDetection(vxroutine.CameraRoutine):
             vxattribute.ArrayAttribute(f'{cls.re_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
     def initialize(self):
-        # Set saccade trigger (LE and RE) signal to "saccade_trigger_out" channel by default
-        vxio.set_digital_output('saccade_trigger_out', self.sacc_trigger_name)
-        vxui.register_with_plotter(self.sacc_trigger_name)
+        pass
 
     @vxroutine.CameraRoutine.callback
     def set_threshold(self, thresh):
@@ -116,10 +114,17 @@ class EyePositionDetection(vxroutine.CameraRoutine):
             log.info(f'Create new ROI at {params}')
             self._create_roi(roi_id)
 
+        # For first ROI: also add the generic saccade trigger output
+        if len(self.rois) == 0:
+            # Set saccade trigger (LE and RE) signal to "saccade_trigger" channel by default
+            vxio.set_digital_output('saccade_trigger_output', self.sacc_trigger_name)
+            vxui.register_with_plotter(self.sacc_trigger_name)
+
         self.rois[roi_id] = params
 
     def _create_roi(self, roi_id: int):
-        # Send buffer attributes to plotter
+        # Resgister buffer attributes with plotter
+
         # Position
         vxui.register_with_plotter(f'{self.ang_le_pos_prefix}{roi_id}', name=f'eye_pos(LE {roi_id})', axis='eye_pos',
                                    units='deg')

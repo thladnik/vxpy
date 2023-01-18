@@ -293,6 +293,11 @@ class TriggeredProtocol(BaseProtocol):
         for phase in self._phases:
             phase.set_initialize_visual(initialize_visuals[phase.visual])
 
+    def get_phase(self, phase_id: int) -> Union[Phase, None]:
+        if -1 < phase_id < self.phase_count:
+            return self._phases[phase_id]
+        return None
+
 
 class ContinuousProtocol(BaseProtocol):
     pass

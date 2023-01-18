@@ -134,7 +134,6 @@ class DaqDevice:
     def get_pins(self) -> List[Tuple[str, DaqPin]]:
         """"""
         if len(self._pins) == 0:
-            log.info(f'Set up pins on {self}')
             self._setup_pins()
 
         return [(pin_id, pin) for pin_id, pin in self._pins.items()]

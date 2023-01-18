@@ -70,6 +70,18 @@ class Display(vxprocess.AbstractProcess):
         self.enable_idle_timeout = False
         self.run(interval=_interval)
 
+    def _write_default_visual_phase_attributes(self):
+        display_attrs = {'start_time': vxipc.get_time(),
+                         'target_start_time': self.phase_start_time,
+                         'target_end_time': self.phase_end_time,
+                         'target_duration': self.current_protocol.current_phase.duration,
+                         'target_sample_rate': config.CONF_DISPLAY_FPS,
+                         'visual_module': self.current_visual.__module__,
+                         'visual_name': str(self.current_visual.__class__.__qualname__)}
+
+        # Use double underscores to set process-level attribute apart from visual-defined ones
+        vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
+
     def prepare_static_protocol(self):
         # Initialize all visuals during protocol preparation
         #  This may come with some overhead, but reduces latency between stimulation phases
@@ -81,16 +93,24 @@ class Display(vxprocess.AbstractProcess):
 
     def start_static_protocol_phase(self):
         self.start_visual()
-        display_attrs = {'start_time': vxipc.get_time(),
-                         'target_start_time': self.phase_start_time,
-                         'target_end_time': self.phase_end_time,
-                         'target_duration': self.current_protocol.current_phase.duration,
-                         'target_sample_rate': config.CONF_DISPLAY_FPS,
-                         'visual_module': self.current_visual.__module__,
-                         'visual_name': str(self.current_visual.__class__.__qualname__)}
 
-        # Use double underscores to set process-level attribute apart from visual-defined ones
-        vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
+        # Write visual attributes for this phase (needs to happen after start of visual)
+        self._write_default_visual_phase_attributes()
+
+    def prepare_trigger_protocol(self):
+        # Initialize all visuals during protocol preparation
+        #  This may come with some overhead, but reduces latency between stimulation phases
+        self.current_protocol.initialize_visuals(self.canvas)
+
+    def prepare_trigger_protocol_phase(self):
+        # Prepare visual associated with phase
+        self.prepare_visual()
+
+    def start_trigger_protocol_phase(self):
+        self.start_visual()
+
+        # Write visual attributes for this phase (needs to happen after start of visual)
+        self._write_default_visual_phase_attributes()
 
     def prepare_visual(self, new_visual: vxvisual.AbstractVisual = None) -> None:
         # If no visual is given, this should be a protocol-controlled run -> fetch current visual from phase

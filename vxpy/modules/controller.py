@@ -117,12 +117,26 @@ class Controller(vxprocess.AbstractProcess):
 
             # Load IO devices without setting them up, so routines have a view on available connectivity
             for device_id, device_config in config.CONF_IO_DEVICES.items():
+
+                # Get device for device_id
                 device = vxserial.get_serial_device_by_id(device_id)
-                device.get_pins()
+
+                # Go through alle pins
+                for pin_id, pin in device.get_pins():
+
+                    # Determine signal type
+                    prefix = vxmodules.Io.get_pin_prefix(pin)
+                    if pin.signal_type == vxserial.PINSIGTYPE.ANALOG:
+                        datatype = vxattribute.ArrayType.float64
+                    else:
+                        datatype = vxattribute.ArrayType.bool
+
+                    vxattribute.ArrayAttribute(f'{prefix}_{pin_id}', (1,), datatype)
 
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
             _routines_to_load[PROCESS_IO] = config.CONF_IO_ROUTINES
+
         # Worker
         if config.CONF_WORKER_USE:
             self._register_process(vxmodules.Worker)
@@ -530,6 +544,7 @@ class Controller(vxprocess.AbstractProcess):
         prcl_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
         if prcl_type == vxprotocol.StaticProtocol:
             pass
+
         elif prcl_type == vxprotocol.TriggeredProtocol:
             print('Setup trigger protocol')
             # Connect the _advance_phase method to the provided trigger and activate trigger
@@ -605,13 +620,30 @@ class Controller(vxprocess.AbstractProcess):
         elif self.phase_start_time <= vxipc.get_time() < self.phase_end_time:
             pass
 
-    def _trigger_protocol_process(self):
+    def _process_trigger_protocol(self):
         pass
 
     def _trigger_protocol_advance_phase(self, index, time, state):
+
+        # If the minimum phase_end_time is in the future, then disregard this trigger
+        if self.phase_end_time > vxipc.get_time():
+            return
+
+        # Check if previous phase was the last one in protocol,
+        #  if so, request stop of protocol
+        if self.phase_id >= (self.current_protocol.phase_count - 1):
+            vxipc.set_state(STATE.PRCL_STOP_REQ)
+            return
+
+        # Continue if there are more phases in protocol
         self.phase_id = self.phase_id + 1
+        phase = self.current_protocol.get_phase(self.phase_id)
         log.info(f'Move to triggered phase {self.phase_id} at {time}')
         self.phase_start_time = time
+        self.phase_end_time = time + phase.duration
+
+        self.record_phase_group_id = self.record_phase_group_id + 1
+        log.debug(f'Start record group {self.record_phase_group_id}')
 
     def main(self):
         pass
@@ -725,7 +757,7 @@ class Controller(vxprocess.AbstractProcess):
             if prcl_type == vxprotocol.StaticProtocol:
                 self._process_static_protocol()
             elif prcl_type == vxprotocol.TriggeredProtocol:
-                self._trigger_protocol_process()
+                self._process_trigger_protocol()
             elif prcl_type == vxprotocol.ContinuousProtocol:
                 pass
 

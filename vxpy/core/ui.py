@@ -1117,6 +1117,7 @@ class ProtocolWidget(IntegratedWidget):
     def update_ui(self):
         # Enable/Disable control elements
         protocol_name = vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
+        protocol_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
         protocol_is_running = bool(protocol_name)
         phase_start = vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
         phase_stop = vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
@@ -1124,33 +1125,47 @@ class ProtocolWidget(IntegratedWidget):
 
         # Protocol is running
         if protocol_is_running and self.in_running_mode:
+            # Enable/disable abort button based on time within current phase
             self.abort_btn.setEnabled(phase_stop is not None and vxipc.get_time() <= phase_stop - .2)
 
             if phase_start is None or phase_stop is None:
                 return
 
-            # Update progress
-            phase_diff = vxipc.get_time() - phase_start
-            phase_duration = phase_stop - phase_start
-            if np.isinf(phase_start):
-                return
+            # For static protocols we can display exact time elapsed/remaining in phase and protocol
+            if protocol_type == vxprotocol.StaticProtocol:
 
-            # Update protocol progress
-            self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count * 100)
-            self.protocol_progress_bar.setValue(100 * phase_id + int(phase_diff / phase_duration * 100))
-            self.protocol_progress_bar.setFormat(f'Phase {phase_id + 1}/{self.current_protocol.phase_count}')
+                # Calculate progress
+                phase_diff = vxipc.get_time() - phase_start
+                phase_duration = phase_stop - phase_start
+                if np.isinf(phase_start):
+                    return
 
-            # Update phase progress
-            self.phase_progress_bar.setMaximum(int(phase_duration * 1000))
-            if phase_diff > 0.:
-                self.phase_progress_bar.setValue(int(phase_diff * 1000))
-                self.phase_progress_bar.setFormat(f'{phase_diff:.1f}/{phase_duration:.1f}s')
+                # Update protocol progress
+                self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count * 100)
+                self.protocol_progress_bar.setValue(100 * phase_id + int(phase_diff / phase_duration * 100))
+                self.protocol_progress_bar.setFormat(f'Phase {phase_id + 1}/{self.current_protocol.phase_count}')
 
-            # Update time info
-            total_time = int(self.current_protocol.duration)
-            elapsed_time = int(self.current_protocol.get_duration_until_phase(phase_id) + phase_diff)
-            self.time_info.setText(f'{elapsed_time // 60}:{elapsed_time % 60:02d} '
-                                   f'of {total_time // 60}:{total_time % 60:02d} min')
+                # Update phase progress
+                self.phase_progress_bar.setMaximum(int(phase_duration * 1000))
+                if phase_diff > 0.:
+                    self.phase_progress_bar.setValue(int(phase_diff * 1000))
+                    self.phase_progress_bar.setFormat(f'{phase_diff:.1f}/{phase_duration:.1f}s')
+
+                # Update time info
+                total_time = int(self.current_protocol.duration)
+                elapsed_time = int(self.current_protocol.get_duration_until_phase(phase_id) + phase_diff)
+                self.time_info.setText(f'{elapsed_time // 60}:{elapsed_time % 60:02d} '
+                                       f'of {total_time // 60}:{total_time % 60:02d} min')
+
+            # For triggered protocols, we can display the current phase and total phase count in protocol
+            elif protocol_type == vxprotocol.TriggeredProtocol:
+
+                # Update protocol progress
+                self.protocol_progress_bar.setMaximum(self.current_protocol.phase_count)
+                self.protocol_progress_bar.setValue(phase_id + 1)
+                self.protocol_progress_bar.setFormat(f'Phase {phase_id + 1}/{self.current_protocol.phase_count}')
+
+                self.time_info.setText('')
 
         # Protocol just started
         elif protocol_is_running and not self.in_running_mode:

@@ -482,10 +482,18 @@ class SphericalVisual(AbstractVisual, ABC):
         win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH
         win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
         # Set 2D scaling for aspect 1
-        if win_height > win_width:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
+        # Regular version
+        # if win_height > win_width:
+        #     u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
+        # else:
+        #     u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
+
+        fixed_aspect = 800 / 1280
+        if win_height < win_width:
+            u_mapcalib_aspectscale = np.eye(2) * np.array([1, fixed_aspect])
         else:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
+            u_mapcalib_aspectscale = np.eye(2) * np.array([fixed_aspect, 1])
+
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
         self.transform_uniforms['u_mapcalib_lateral_luminance_offset'] = calib.CALIB_DISP_SPH_LAT_LUM_OFFSET
         self.transform_uniforms['u_mapcalib_lateral_luminance_gradient'] = calib.CALIB_DISP_SPH_LAT_LUM_GRADIENT
