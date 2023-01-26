@@ -25,7 +25,6 @@ import vxpy.core.routine as vxroutine
 
 
 class Frames(vxroutine.CameraRoutine):
-
     device_list: List[vxcamera.CameraDevice] = []
     frame_postfix = '_frame'
 
@@ -40,9 +39,9 @@ class Frames(vxroutine.CameraRoutine):
 
         # Set one array attribute per camera device
         for device in cls.device_list:
-            vxattribute.ArrayAttribute(f'{device.device_id}{cls.frame_postfix}',
-                                       (device.width, device.height),
-                                       vxattribute.ArrayType.uint8)
+            vxattribute.VideoStreamAttribute(
+                device.frame_rate, f'{device.device_id}{cls.frame_postfix}',
+                (device.width, device.height), vxattribute.ArrayType.uint8)
 
     def initialize(self):
         # Add all frame attributes to candidate list for save to disk

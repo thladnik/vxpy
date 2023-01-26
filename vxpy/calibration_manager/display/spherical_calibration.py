@@ -297,7 +297,7 @@ class Mesh(QtWidgets.QGroupBox):
 
         # Horizontal SP
         self.azimuth_sp = DoubleSliderWidget(self, 'Azimuth SP [deg]',
-                                             limits=(1., 360.), default=15.,
+                                             limits=(1., 360.), default=22.5,
                                              step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
 
@@ -334,7 +334,7 @@ class Checker(QtWidgets.QGroupBox):
 
         # Horizontal SP
         self.azimuth_sp = DoubleSliderWidget(self, 'Azimuth SP [deg]',
-                                             limits=(1., 360.), default=15.,
+                                             limits=(1., 360.), default=22.5,
                                              step_size=0.1, decimals=1, label_width=label_width)
         self.layout().addWidget(self.azimuth_sp)
 

@@ -132,16 +132,17 @@ class Display(vxprocess.AbstractProcess):
     def start_visual(self, parameters: dict = None):
         log.debug(f'Start new visual {self.current_visual.__class__.__name__}')
 
+        # If a protocol is set, the phase information dictates the parameters to be used
+        # Setting of parameters need to happen BEFORE visual initialization in case initialize uses
+        # some parameters to derive fixed, internal variables
+        if self.current_protocol is not None:
+            parameters = self.current_protocol.current_phase.visual_parameters
+        # Update visual parameters
+        self.update_visual(parameters)
+
         # Initialize and update visual on canvas
         self.current_visual.initialize()
         self.canvas.set_visual(self.current_visual)
-
-        # If a protocol is set, the phase information dictates the parameters to be used
-        if self.current_protocol is not None:
-            parameters = self.current_protocol.current_phase.visual_parameters
-
-        # Update visual parameters
-        self.update_visual(parameters)
 
         # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
         parameter_data = {param.name: param.data for param in self.current_visual.static_parameters}

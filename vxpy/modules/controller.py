@@ -546,7 +546,7 @@ class Controller(vxprocess.AbstractProcess):
             pass
 
         elif prcl_type == vxprotocol.TriggeredProtocol:
-            print('Setup trigger protocol')
+            log.info(f'Setup trigger for protocol {self.current_protocol}')
             # Connect the _advance_phase method to the provided trigger and activate trigger
             self.current_protocol.phase_trigger.add_callback(self._trigger_protocol_advance_phase)
 
@@ -637,13 +637,14 @@ class Controller(vxprocess.AbstractProcess):
 
         # Continue if there are more phases in protocol
         self.phase_id = self.phase_id + 1
-        phase = self.current_protocol.get_phase(self.phase_id)
+        self.record_phase_group_id = self.record_phase_group_id + 1
         log.info(f'Move to triggered phase {self.phase_id} at {time}')
+        log.debug(f'Start record group {self.record_phase_group_id}')
+
+        phase = self.current_protocol.get_phase(self.phase_id)
         self.phase_start_time = time
         self.phase_end_time = time + phase.duration
 
-        self.record_phase_group_id = self.record_phase_group_id + 1
-        log.debug(f'Start record group {self.record_phase_group_id}')
 
     def main(self):
         pass
@@ -663,6 +664,9 @@ class Controller(vxprocess.AbstractProcess):
             # Only start recording if all forks are in idle
             if not self._all_forks_in_state(STATE.IDLE):
                 return
+
+            # Reset folder name
+            self._reset_recording_controls()
 
             # If folder name hasn't been set yet, use default format
             if vxipc.CONTROL[CTRL_REC_FLDNAME] == '':
@@ -740,6 +744,7 @@ class Controller(vxprocess.AbstractProcess):
             # Set protocol to active
             vxipc.CONTROL[CTRL_PRCL_ACTIVE] = True
 
+            # Run protocol specific routines
             if self.protocol_type == vxprotocol.StaticProtocol:
                 pass
             elif self.protocol_type == vxprotocol.TriggeredProtocol:
@@ -778,6 +783,17 @@ class Controller(vxprocess.AbstractProcess):
                 return
 
             log.debug(f'Clean up protocol')
+
+            # Run protocol specific routines
+            if self.protocol_type == vxprotocol.StaticProtocol:
+                pass
+            elif self.protocol_type == vxprotocol.TriggeredProtocol:
+                self.current_protocol.phase_trigger.set_active(False)
+            elif self.protocol_type == vxprotocol.ContinuousProtocol:
+                pass
+
+            # Set protocol to None
+            self.current_protocol = None
 
             # Reset everything to defaults
             self._reset_protocol_controls()

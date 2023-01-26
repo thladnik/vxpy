@@ -125,6 +125,10 @@ def add_phase_attributes(attributes: Dict[str, Any]):
     if _noinstance():
         return
 
+    # There are no negative phase ids
+    if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
+        return
+
     # Call on instance
     _instance.add_phase_attributes(attributes)
 
@@ -132,6 +136,10 @@ def add_phase_attributes(attributes: Dict[str, Any]):
 def add_to_phase_dataset(dataset_name: str, data: Any):
     global _instance
     if _noinstance():
+        return
+
+    # There are no negative phase ids
+    if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
         return
 
     # Call on instance
@@ -183,7 +191,11 @@ class H5File:
     @staticmethod
     def _add_attributes(grp: h5py.Group, attributes: Dict[str, Any]):
         log.debug(f'Write attributes to group {grp}')
-        grp.attrs.update(attributes)
+        for attr_name, value in attributes.items():
+            try:
+                grp.attrs[attr_name] = value
+            except:
+                print(attr_name, type(value))
 
     def add_attributes(self, attributes: Dict[str, Any]):
         self._add_attributes(self._h5_handle['/'], attributes)
@@ -210,6 +222,10 @@ class H5File:
         self._add_to_dataset(dataset_name, data)
 
     def _add_to_dataset(self, path: str, data: Any):
+        if path not in self._h5_handle:
+            print('WRONG, path does not exist yet', path, data)
+            return
+
         try:
             # Get dataset
             dataset = self._h5_handle[path]

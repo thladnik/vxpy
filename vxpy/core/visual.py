@@ -439,7 +439,7 @@ class SphericalVisual(AbstractVisual, ABC):
         self._mask_model = sphere.UVSphere(azim_lvls=50,
                                            elev_lvls=50,
                                            azimuth_range=np.pi / 2,
-                                           upper_elev=np.pi / 4,
+                                           upper_elev=np.pi / 4 + np.pi / 16,
                                            radius=1.0)
         self._mask_position_buffer = gloo.VertexBuffer(self._mask_model.a_position)
         self._mask_index_buffer = gloo.IndexBuffer(self._mask_model.indices)
@@ -488,6 +488,7 @@ class SphericalVisual(AbstractVisual, ABC):
         # else:
         #     u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
 
+        # TODO: make this adjustable; maybe there needs to be a special "Lightcrafter_native_res" flag
         fixed_aspect = 800 / 1280
         if win_height < win_width:
             u_mapcalib_aspectscale = np.eye(2) * np.array([1, fixed_aspect])
