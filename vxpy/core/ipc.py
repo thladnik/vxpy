@@ -37,50 +37,40 @@ Manager: SyncManager
 # Local modules reference
 LocalProcess: AbstractProcess
 
-# Callback routing
+# Controls
+CONTROL: Dict[str, Any]
 
-
-########
 # States
+STATE: Dict[str, Enum]
 
-class State:
-    Camera: mp.Value = None
-    Controller: mp.Value = None
-    Display: mp.Value = None
-    Gui: mp.Value = None
-    Io: mp.Value = None
-    Logger: mp.Value = None
-    Worker: mp.Value = None
+# Pipes
+Pipes: Dict[str, Tuple[mp.connection.Connection, mp.connection.Connection]] = dict()
 
 
-class ProcessProxy:
-    def __init__(self, name):
-        self.name = name
+def init(local_instance, pipes, states, controls):
+    global LocalProcess
+    LocalProcess = local_instance
 
-    @property
-    def state(self):
-        return get_state(self.name)
+    # Reset logger to include process_name
+    global log
+    log = vxlogger.getLogger(f'{__name__}[{LocalProcess.name}]')
 
-    def in_state(self, state):
-        return in_state(state, self.name)
+    if pipes is not None:
+        globals()['Pipes'] = pipes
 
-    def rpc(self, function: Callable, *args, **kwargs) -> None:
-        rpc(self.name, function, *args, **kwargs)
+    # Set states
+    if states is not None:
+        globals()['STATE'] = states
 
-
-# Proxies
-Controller: ProcessProxy = ProcessProxy(PROCESS_CONTROLLER)
-Camera: ProcessProxy = ProcessProxy(PROCESS_CAMERA)
-Display: ProcessProxy = ProcessProxy(PROCESS_DISPLAY)
-Gui: ProcessProxy = ProcessProxy(PROCESS_GUI)
-Io: ProcessProxy = ProcessProxy(PROCESS_IO)
-Worker: ProcessProxy = ProcessProxy(PROCESS_WORKER)
+    # Set controls
+    if controls is not None:
+        globals()['CONTROL'] = controls
 
 
 def set_state(new_state: STATE):
     """Set state of local modules to new_state"""
     log.debug(f'Set state from {get_state()} to {new_state}')
-    getattr(State, LocalProcess.name).value = new_state
+    STATE[LocalProcess.name] = new_state
 
 
 def get_state(process_name: str = None):
@@ -91,7 +81,7 @@ def get_state(process_name: str = None):
     if process_name is None:
         process_name = LocalProcess.name
 
-    return getattr(State, process_name).value
+    return STATE[process_name]
 
 
 def in_state(state: STATE, process_name: str = None):
@@ -103,42 +93,6 @@ def in_state(state: STATE, process_name: str = None):
         process_name = LocalProcess.name
 
     return get_state(process_name) == state
-
-
-Pipes: Dict[str, Tuple[mp.connection.Connection, mp.connection.Connection]] = dict()
-
-
-def init(local_instance, pipes, proxies, states, control, controls):
-    global LocalProcess
-    LocalProcess = local_instance
-
-    # Reset logger to include process_name
-    global log
-    log = vxlogger.getLogger(f'{__name__}[{LocalProcess.name}]')
-
-    if pipes is not None:
-        global Pipes
-        Pipes.update(pipes)
-
-    if proxies is not None:
-        for pkey, proxy in proxies.items():
-            locals()[pkey] = proxy
-
-    # Set states
-    if states is not None:
-        for skey, state in states.items():
-            locals()[skey] = state
-
-    # Set controls
-    # New
-    if control is not None:
-        globals()['CONTROL'] = control
-
-    # OLD CONTROLS
-    if controls is not None:
-        for ckey, ctrl in controls.items():
-            setattr(Control, ckey, ctrl)
-    # OLD CONTROLS
 
 
 def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs) -> None:
@@ -171,29 +125,11 @@ def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
     """
     if not (isinstance(function, str)):
         function = function.__qualname__
-    send(process_name, Signal.rpc, function, *args, **kwargs)
-
-
-class Log:
-    File = None
-    Queue = None
-    History = None
-
-
-########
-# Controls
-
-CONTROL: Dict[str, Any]
+    send(process_name, SIGNAL.rpc, function, *args, **kwargs)
 
 
 def get_recording_path():
     return os.path.join(CONTROL[CTRL_REC_BASE_PATH], CONTROL[CTRL_REC_FLDNAME])
-
-
-class Control:
-    General = None
-    Recording = None
-    Protocol = None
 
 
 _local_time = 0.0

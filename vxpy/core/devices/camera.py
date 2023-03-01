@@ -56,7 +56,7 @@ def get_camera_interface(api_path: str) -> Union[Type[CameraDevice], None]:
 def get_camera_by_id(device_id) -> Union[CameraDevice, None]:
     """Fetch the camera """
     # Get camera properties from config
-    camera_props = config.CONF_CAMERA_DEVICES.get(device_id)
+    camera_props = config.CAMERA_DEVICES.get(device_id)
 
     # Camera not configured?
     if camera_props is None:

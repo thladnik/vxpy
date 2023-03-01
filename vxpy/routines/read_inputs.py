@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from typing import Dict
 
 from vxpy import config
 from vxpy.definitions import *
@@ -29,7 +30,7 @@ class ReadAll(routine.IoRoutine):
 
         # Read all pins
         self.pin_configs: Dict[str, Dict] = {}
-        for pin_id, pin_config in config.CONF_IO_PINS.items():
+        for pin_id, pin_config in config.IO_PINS.items():
             self.pin_configs[pin_id] = pin_config
 
         # Set up buffer attributes

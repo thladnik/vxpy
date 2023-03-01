@@ -26,6 +26,7 @@ import vxpy.core.ipc as vxipc
 from vxpy.api.attribute import read_attribute
 import vxpy.core.ui as vxui
 from vxpy.routines import zf_tracking
+from vxpy.routines.zf_tracking import EyePositionDetection
 from vxpy.utils import geometry
 from vxpy.utils.widgets import IntSliderWidget, UniformWidth
 
@@ -37,36 +38,38 @@ class EyePositionDetector(vxui.CameraAddonWidget):
                                      QtWidgets.QSizePolicy.Policy.MinimumExpanding)
 
     def __init__(self, *args, **kwargs):
-
         vxui.CameraAddonWidget.__init__(self, *args, **kwargs)
-        self.setLayout(QtWidgets.QVBoxLayout())
+
+        self.routine = EyePositionDetection.instance
+
+        self.central_widget.setLayout(QtWidgets.QVBoxLayout())
 
         self.ctrl_panel = QtWidgets.QWidget(self)
         self.ctrl_panel.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
                                       QtWidgets.QSizePolicy.Policy.Maximum)
         self.ctrl_panel.setLayout(QtWidgets.QVBoxLayout())
-        self.layout().addWidget(self.ctrl_panel)
+        self.central_widget.layout().addWidget(self.ctrl_panel)
 
-        # Set up left control panel
+        # Set up control panel
         self.ctrl_panel.layout().addWidget(QLabel('<b>Eye detection</b>'))
 
         label_width = 125
         self.uniform_label_width = UniformWidth()
         # Image threshold
         self.image_threshold = IntSliderWidget(self, 'Threshold',
-                                               limits=(1, 255), default=60,
+                                               limits=(1, 255), default=self.routine.binary_threshold,
                                                label_width=label_width, step_size=1)
         self.image_threshold.connect_callback(self.update_image_threshold)
-        self.image_threshold.emit_current_value()
+        # self.image_threshold.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.image_threshold)
         self.uniform_label_width.add_widget(self.image_threshold.label)
 
         # Particle size
         self.particle_minsize = IntSliderWidget(self, 'Min. particle size',
-                                                limits=(1, 1000), default=60,
+                                                limits=(1, 1000), default=self.routine.min_particle_size,
                                                 label_width=label_width, step_size=1)
         self.particle_minsize.connect_callback(self.update_particle_minsize)
-        self.particle_minsize.emit_current_value()
+        # self.particle_minsize.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.particle_minsize)
         self.uniform_label_width.add_widget(self.particle_minsize.label)
 
@@ -74,10 +77,10 @@ class EyePositionDetector(vxui.CameraAddonWidget):
         self.ctrl_panel.layout().addItem(self._vspacer)
         self.ctrl_panel.layout().addWidget(QLabel('<b>Saccade detection</b>'))
         self.sacc_threshold = IntSliderWidget(self, 'Sacc. threshold [deg/s]',
-                                              limits=(1, 10000), default=2000,
+                                              limits=(1, 10000), default=self.routine.saccade_threshold,
                                               label_width=label_width, step_size=1)
         self.sacc_threshold.connect_callback(self.update_sacc_threshold)
-        self.sacc_threshold.emit_current_value()
+        # self.sacc_threshold.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.sacc_threshold)
         self.uniform_label_width.add_widget(self.sacc_threshold.label)
 
@@ -85,7 +88,7 @@ class EyePositionDetector(vxui.CameraAddonWidget):
         self.graphics_widget = FramePlot(parent=self)
         self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
                                            QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-        self.layout().addWidget(self.graphics_widget)
+        self.central_widget.layout().addWidget(self.graphics_widget)
 
         # Add button for new ROI creation
         self.ctrl_panel.layout().addItem(self._vspacer)
@@ -193,14 +196,20 @@ class FramePlot(pg.GraphicsLayoutWidget):
 
         # Draw rectangular ROIs
         routine_cls = zf_tracking.EyePositionDetection
-        for id in self.roi_rects:
-            idx, time, rect = read_attribute(f'{routine_cls.extracted_rect_prefix}{id}')
+        for roi_id in self.roi_rects:
+            rect_data = read_attribute(f'{routine_cls.extracted_rect_prefix}{roi_id}')
+
+            # If this rect does not exist, skip
+            if rect_data is None:
+                continue
+
+            idx, time, rect = rect_data
             rect = rect[0]
 
             if rect is None:
                 return
 
-            self.subplots[id]['imageitem'].setImage(np.rot90(rect, -1))
+            self.subplots[roi_id]['imageitem'].setImage(np.rot90(rect, -1))
 
 
 class Line(pg.LineSegmentROI):

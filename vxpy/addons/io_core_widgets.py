@@ -19,52 +19,45 @@ import numpy as np
 from PySide6 import QtCore, QtWidgets
 import pyqtgraph as pg
 
-from vxpy.core.ui import AddonWidget
+import vxpy.core.ui as vxui
 from vxpy.api.attribute import get_attribute_list, read_attribute
 from vxpy.core.ipc import worker_rpc
 from vxpy.routines.calculate_csd import CalculatePSD
 
 
-class DisplayPSD(AddonWidget):
+class DisplayPSD(vxui.IoAddonWidget):
 
     def __init__(self, *args, **kwargs):
-        AddonWidget.__init__(self, *args, **kwargs)
-        self.setLayout(QtWidgets.QGridLayout())
+        vxui.IoAddonWidget.__init__(self, *args, **kwargs)
+        self.central_widget.setLayout(QtWidgets.QGridLayout())
 
         self.attribute_names = []
         # Attribute selection
-        self.layout().addWidget(QtWidgets.QLabel('Attribute'), 0, 0)
+        self.central_widget.layout().addWidget(QtWidgets.QLabel('Attribute'), 0, 0)
         self.attribute_selection = QtWidgets.QComboBox(self)
         self.attribute_selection.currentTextChanged.connect(self.set_signal_attribute_name)
-        self.layout().addWidget(self.attribute_selection, 0, 1)
+        self.central_widget.layout().addWidget(self.attribute_selection, 0, 1)
 
         # Integration window width
-        self.layout().addWidget(QtWidgets.QLabel('Integration window size'), 1, 0)
+        self.central_widget.layout().addWidget(QtWidgets.QLabel('Integration window size'), 1, 0)
         self.integr_winwidth = QtWidgets.QComboBox()
-        for i in range(6):
+        for i in range(8):
             m = 2**i * CalculatePSD.nperseg
             self.integr_winwidth.addItem(str(m), userData=m)
         self.integr_winwidth.currentIndexChanged.connect(self.set_integration_window_width)
         self.integr_winwidth.currentIndexChanged.emit(0)
-        self.layout().addWidget(self.integr_winwidth, 1, 1)
+        self.central_widget.layout().addWidget(self.integr_winwidth, 1, 1)
 
         self.plot_widget = pg.PlotWidget()
         self.plot_item: pg.PlotItem = self.plot_widget.plotItem
         self.plot_item.setLabel('bottom', text='Frequency', units='Hz')
         self.plot_item.setLabel('left', text='PSD')
         self.data_item: pg.PlotDataItem = self.plot_item.plot([], [])
-        self.layout().addWidget(self.plot_widget, 2, 0, 1, 2)
+        self.central_widget.layout().addWidget(self.plot_widget, 2, 0, 1, 2)
 
         # Start timer
-        self.plot_timer = QtCore.QTimer()
-        self.plot_timer.setInterval(1000 // 10)
-        self.plot_timer.timeout.connect(self.update_plot)
-        self.plot_timer.start()
-
-        self.ui_timer = QtCore.QTimer()
-        self.ui_timer.setInterval(1000 // 2)
-        self.ui_timer.timeout.connect(self.update_ui)
-        self.ui_timer.start()
+        self.connect_to_timer(self.update_plot)
+        self.connect_to_timer(self.update_ui)
 
     def set_signal_attribute_name(self, a0):
         worker_rpc(CalculatePSD.set_input_signal, a0, force_overwrite=True)

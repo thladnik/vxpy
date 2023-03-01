@@ -1,19 +1,4 @@
-"""
-vxPy ./core/process.py
-Copyright (C) 2022 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Process core module
 """
 from __future__ import annotations
 
@@ -21,9 +6,7 @@ import numpy as np
 import signal
 import sys
 import time
-from typing import Any, Callable, List, Union, Tuple
-
-from vispy import gloo
+from typing import Any, Callable, List, Union, Tuple, Dict
 
 from vxpy import config
 import vxpy.core.attribute as vxattribute
@@ -36,26 +19,38 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
+from vxpy.core import logger as vxlogger
 from vxpy.definitions import *
 
 log = vxlogger.getLogger(__name__)
 
 
-##################################
-# Process BASE class
+def run_process(target, **kwargs):
+    """Initialization function for forked processes.
+
+    This function should be called from the Controller exclusively
+    """
+
+    # Set up logging
+    vxlogger.setup_log_queue(kwargs.get('_log_queue'))
+    log = vxlogger.getLogger(target.name)
+    # Bind logging functions
+    vxlogger.debug = log.debug
+    vxlogger.info = log.info
+    vxlogger.warning = log.warning
+    vxlogger.error = log.error
+    vxlogger.setup_log_history(kwargs.get('_log_history'))
+
+    return target(**kwargs)
+
 
 class AbstractProcess:
-    """AbstractProcess class, which is inherited by all modules.
 
-    All processes **need to** implement the "main" method, which is called once on
-    each iteration of the event loop.
-    """
     name: str
 
     interval: float
     _running: bool
     _shutdown: bool
-    _disable_phases = True
     program_start_time: float = None
 
     # Protocol related
@@ -78,9 +73,7 @@ class AbstractProcess:
                  _program_start_time=None,
                  _configuration_path=None,
                  _controls=None,
-                 _control=None,
                  _log=None,
-                 _proxies=None,
                  _pipes=None,
                  _routines=None,
                  _states=None,
@@ -104,7 +97,7 @@ class AbstractProcess:
         vxlogger.add_handlers()
 
         # Set modules instance
-        vxipc.init(self, _pipes, _states, _proxies, _control, _controls)
+        vxipc.init(self, pipes=_pipes, states=_states, controls=_controls)
 
         # Build attributes
         vxattribute.init(_attrs)
@@ -117,13 +110,13 @@ class AbstractProcess:
         assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
         # Load calibration
-        vxcalib.load_calibration(config.CONF_CALIBRATION_PATH)
+        vxcalib.load_calibration(config.CALIBRATION_PATH)
 
         # Set additional attributes to process instance
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-        # Set routines and let routine wrapper create hooks in modules instance and initialize buffers
+        # Set routines and let routine wrapper create hooks in modules instance
         if _routines is not None and isinstance(_routines, dict):
             self._routines = _routines
             if self.name in self._routines:
@@ -170,18 +163,8 @@ class AbstractProcess:
             update_args = (self.name, self.interval, mean_dt, std_dt)
             vxipc.gui_rpc(vxui.ProcessMonitorWidget.update_process_interval, *update_args, _send_verbosely=False)
 
-    def run(self, interval: float, enable_idle_timeout: bool = True):
+    def run(self, interval: float):
         """Event loop of process.
-        Event loop logic:
-        ---
-
-        ---
-
-        :param interval: Interval (in seconds) of this process' event loop
-        :type interval: float
-        :param enable_idle_timeout: Flag determines whether to allow sleep during idle times
-        :type enable_idle_timeout: bool
-        :return: None
         """
 
         self.interval = interval
@@ -194,7 +177,7 @@ class AbstractProcess:
         # Set modules state
         vxipc.set_state(STATE.IDLE)
 
-        min_sleep_time = vxipc.Control.General[GenCtrl.min_sleep_time]
+        min_sleep_time = vxipc.CONTROL[CTRL_MIN_SLEEP_TIME]
         # Run event loop
         while self._is_running():
             self._handle_inbox()
@@ -347,17 +330,22 @@ class AbstractProcess:
         # Add all shared attributes that have been selected to be written to file
         attributes_to_file = vxattribute.Attribute.to_file.get(self.name)
         if attributes_to_file is not None:
-            for attribute in attributes_to_file:
+            for attribute, record_ops in attributes_to_file:
 
-                # VideoStreamAttribute need to be checked first, because it's also instance of ArrayAttribute
-                if isinstance(attribute, vxattribute.VideoStreamAttribute):
-                    # TODO: in the future there should be a way to select encoding type and codec in app configuration
-                    vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute, codec='xvid')
+                if isinstance(attribute, vxattribute.ArrayAttribute):
 
-                elif isinstance(attribute, vxattribute.ArrayAttribute):
-                    # Add attribute dataset
-                    vxcontainer.create_dataset(attribute.name, attribute.shape, attribute.numpytype)
-                    # Add corresponding time dataset for attribute
+                    # Check if this array should be encoded as video
+                    if 'videoformat' in record_ops:
+                        vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute, **record_ops)
+
+                    # Otherwise just add attribute dataset
+                    else:
+                        vxcontainer.create_dataset(attribute.name, attribute.shape, attribute.numpytype)
+
+                    # Regardless, add corresponding time dataset for attribute
+                    #  note however that, for many compression algorithms,
+                    #  the frame numbers won't match the time numbers
+                    #  In order to get 1:1 correspondence, use something like avi:mjpeg
                     vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
 
                 elif isinstance(attribute, vxattribute.ObjectAttribute):
@@ -537,7 +525,7 @@ class AbstractProcess:
 
     def idle(self):
         if self.enable_idle_timeout:
-            time.sleep(vxipc.Control.General[GenCtrl.min_sleep_time])
+            time.sleep(vxipc.CONTROL[CTRL_MIN_SLEEP_TIME])
 
     @staticmethod
     def get_state(process_name: str = None):
@@ -549,10 +537,11 @@ class AbstractProcess:
         """Convenience function for access in modules class"""
         vxipc.set_state(code)
 
-    def in_state(self, code: State, process_name: str = None):
+    def in_state(self, code: STATE, process_name: str = None):
         """Convenience function for access in modules class"""
         if process_name is None:
             process_name = self.name
+
         return vxipc.in_state(code, process_name)
 
     def _start_shutdown(self):
@@ -646,7 +635,7 @@ class AbstractProcess:
                       f'Signal: {sig}, args: {args}, kwargs: {kwargs}')
 
         # If RPC
-        if sig == Signal.rpc:
+        if sig == SIGNAL.rpc:
             self._execute_rpc(*args, **kwargs)
 
     @property
@@ -666,11 +655,11 @@ class AbstractProcess:
         if data is None:
             return
 
-        for attribute in data:
+        for attribute, record_ops in data:
 
             _, attr_time, attr_data = [v[0] for v in attribute.read()]
 
-            if isinstance(attribute, vxattribute.VideoStreamAttribute):
+            if isinstance(attribute, vxattribute.ArrayAttribute) and 'videoformat' in record_ops:
                 vxcontainer.add_to_video_stream(attribute.name, attr_data)
                 continue
 

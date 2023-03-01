@@ -19,7 +19,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import abc
-from typing import Union, Type, Any, Tuple
+from typing import Union, Type, Any, Tuple, Dict
 
 import cv2
 import ffmpeg
@@ -248,17 +248,47 @@ class H5File:
         self._h5_handle.close()
 
 
-def create_video_stream(recording_path: str, attribute: vxattribute.VideoStreamAttribute, codec):
+def create_video_stream(recording_path: str, attribute: vxattribute.ArrayAttribute,
+                        videoformat: str, codec: str, **kwargs):
     global _video_writers
     if attribute.name in _video_writers:
         log.error(f'Tried creating video stream {attribute.name}, which is already open')
         return
 
+    # Define available codec
+    # TODO: in future this list should be compiled based on installed deps
+    avi_codecs = ['xvid', 'i420', 'mjpg']
+    mpeg_codecs = ['h264', 'h265']
+
+    # Determine format and codec and create writer
     log.info(f'Open video stream for {attribute} on path {recording_path}')
-    if codec in ['h264', 'h265']:
-        _video_writers[attribute.name] = MPEGVideoWriter(recording_path, attribute, codec)
-    elif codec in ['i420', 'xvid', 'mjpg']:
-        _video_writers[attribute.name] = AVIVideoWriter(recording_path, attribute, codec)
+    unknown_codec = False
+    use_codec = codec
+    if videoformat == 'mpeg':
+        if codec not in mpeg_codecs:
+            unknown_codec = True
+            use_codec = mpeg_codecs[0]
+
+        # Create writer
+        _writer = MP4VideoWriter(recording_path, attribute, use_codec, **kwargs)
+
+    elif videoformat == 'avi':
+        if codec not in avi_codecs:
+            unknown_codec = True
+            use_codec = avi_codecs[0]
+
+        # Create writer
+        _writer = AVIVideoWriter(recording_path, attribute, use_codec, **kwargs)
+
+    else:
+        log.error(f'Video format {videoformat} not available. Attribute {attribute.name} is not written to file.')
+        return
+
+    if unknown_codec:
+        log.warning(f'Video codec {codec} not available for format {videoformat}. Set to default {use_codec}')
+
+    # Add writer to dict
+    _video_writers[attribute.name] = _writer
 
 
 def add_to_video_stream(name: str, frame_data: np.ndarray):
@@ -282,22 +312,46 @@ def close_video_streams():
         del _video_writers[stream_name]
 
 
-class VideoWriter:
+class VideoWriter(abc.ABC):
 
     container_ext: str = None
 
-    def __init__(self, recording_path: str, attribute: vxattribute.VideoStreamAttribute, codec: str):
-        self.attribute: vxattribute.VideoStreamAttribute = attribute
+    def __init__(self, recording_path: str, attribute: vxattribute.ArrayAttribute, codec: str, **kwargs):
+        self.attribute: vxattribute.ArrayAttribute = attribute
         self._filepath = os.path.join(recording_path, f'{self.attribute.name}.{self.container_ext}')
         self.codec = codec
 
+        if len(kwargs) > 0:
+            for k, v in kwargs.items():
+                log.warning(f'{self.__class__.__name__} received extraneous argument {k}:{v}')
 
-class MPEGVideoWriter(VideoWriter):
+    @abc.abstractmethod
+    def add_frame(self, frame_data: np.ndarray):
+        pass
+
+    @abc.abstractmethod
+    def close(self):
+        pass
+
+
+class MP4VideoWriter(VideoWriter):
 
     container_ext = 'mp4'
 
     def __init__(self, *args, **kwargs):
         VideoWriter.__init__(self, *args, **kwargs)
+
+        # Set bitrate (usually 3000-5000)
+        bitrate = kwargs.pop('bitrate', None)
+        if bitrate is None:
+            bitrate = 5000
+        self.bitrate = bitrate
+
+        # Set framerate
+        fps = kwargs.pop('fps', None)
+        if fps is None:
+            fps = 20
+        self.fps = fps
 
         # Select codec
         vcodec = 'libx264'
@@ -318,9 +372,11 @@ class MPEGVideoWriter(VideoWriter):
         self.process = (
             ffmpeg
             .input('pipe:', format='rawvideo', pix_fmt=pix_fmt, s=f'{w}x{h}')
-            .output(self._filepath, pix_fmt='yuv420p',
-                    vcodec=vcodec, r=str(self.attribute.target_framerate),
-                    video_bitrate=f'{self.attribute.bitrate}')
+            .output(self._filepath,
+                    pix_fmt='yuv420p',
+                    vcodec=vcodec,
+                    r=str(self.fps),
+                    video_bitrate=f'{self.bitrate}')
             .overwrite_output()
             .run_async(pipe_stdin=True)
         )
@@ -340,7 +396,16 @@ class AVIVideoWriter(VideoWriter):
     def __init__(self, *args, **kwargs):
         VideoWriter.__init__(self, *args, **kwargs)
 
-        self.dsample = 2
+        # Set framerate
+        fps = kwargs.pop('fps', None)
+        if fps is None:
+            fps = 20
+        self.fps = fps
+
+        downsample = kwargs.pop('downsample', None)
+        if downsample is None:
+            downsample = 1
+        self.downsample = downsample
 
         # Select codec
         vcodec = 'XVID'
@@ -358,12 +423,12 @@ class AVIVideoWriter(VideoWriter):
         # Create encoder pipe
         self.writer = cv2.VideoWriter(self._filepath,
                                       cv2.VideoWriter_fourcc(*vcodec),
-                                      float(self.attribute.target_framerate),
-                                      (self.width // self.dsample, self.height // self.dsample))
+                                      float(self.fps),
+                                      (self.width // self.downsample, self.height // self.downsample))
 
     def add_frame(self, frame_data: np.ndarray):
         self.writer.write(cv2.cvtColor(
-            cv2.resize(frame_data.T, (self.width // self.dsample, self.height // self.dsample)),
+            cv2.resize(frame_data.T, (self.width // self.downsample, self.height // self.downsample)),
             cv2.COLOR_GRAY2RGB))
 
     def close(self):

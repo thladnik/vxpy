@@ -20,16 +20,14 @@ import ctypes
 import importlib
 import multiprocessing as mp
 
-import numpy as np
 import sys
-
-from PySide6 import QtCore, QtGui, QtSvg, QtWidgets
 import time
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
+
+import numpy as np
 
 import vxpy
 from vxpy import config
-from vxpy import definitions
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
@@ -41,7 +39,6 @@ import vxpy.core.protocol as vxprotocol
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
 from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
-from vxpy.core import run_process
 
 log = vxlogger.getLogger(__name__)
 
@@ -60,7 +57,7 @@ class Controller(vxprocess.AbstractProcess):
     protocol_trigger: vxevent.Trigger = None
 
     def __init__(self, _configuration_path):
-        # Set up manager
+        # Set up multiprocessing manager
         vxipc.Manager = mp.Manager()
 
         # Set up logging
@@ -71,52 +68,32 @@ class Controller(vxprocess.AbstractProcess):
         # Manually set up pipe for controller
         vxipc.Pipes[self.name] = mp.Pipe()
 
-        # Set up STATES
-        vxipc.State.Controller = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
-        vxipc.State.Camera = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
-        vxipc.State.Display = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
-        vxipc.State.Gui = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
-        vxipc.State.Io = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
-        vxipc.State.Worker = vxipc.Manager.Value(ctypes.c_int8, STATE.NA)
+        # Set up states
+        vxipc.STATE = vxipc.Manager.dict(self._create_shared_states())
 
         # Initialize process
-        vxprocess.AbstractProcess.__init__(self, _program_start_time=time.time(), _configuration_path=_configuration_path)
+        vxprocess.AbstractProcess.__init__(self, _program_start_time=time.time(),
+                                           _configuration_path=_configuration_path)
 
-        # Generate and show splash screen
-        # TODO: Splashscreen blocks display of GUI under linux
-        if sys.platform == 'win32':
-            self.qt_app = QtWidgets.QApplication([])
-            pngpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.png')
-
-            # Optionally re-render splash
-            self._render_splashscreen(pngpath)
-
-            self.splashscreen = QtWidgets.QSplashScreen(f=QtCore.Qt.WindowStaysOnTopHint,
-                                                        screen=self.qt_app.screens()[config.CONF_GUI_SCREEN])
-            self.splashscreen.setPixmap(QtGui.QPixmap(pngpath))
-            self.splashscreen.show()
-
-            # Process events once
-            self.qt_app.processEvents()
+        # Print version
+        log.info(f'Running vxPy {vxpy.__version__}')
 
         # Set up processes
         _routines_to_load = {}
         # Camera
-        if config.CONF_CAMERA_USE:
+        if config.CAMERA_USE:
             self._register_process(vxmodules.Camera)
-            _routines_to_load[PROCESS_CAMERA] = config.CONF_CAMERA_ROUTINES
         # Display
-        if config.CONF_DISPLAY_USE:
+        if config.DISPLAY_USE:
             self._register_process(vxmodules.Display)
-            _routines_to_load[PROCESS_DISPLAY] = config.CONF_DISPLAY_ROUTINES
         # GUI
-        if config.CONF_GUI_USE:
+        if config.GUI_USE:
             self._register_process(vxmodules.Gui)
         # IO
-        if config.CONF_IO_USE:
+        if config.IO_USE:
 
             # Load IO devices without setting them up, so routines have a view on available connectivity
-            for device_id, device_config in config.CONF_IO_DEVICES.items():
+            for device_id, device_config in config.IO_DEVICES.items():
 
                 # Get device for device_id
                 device = vxserial.get_serial_device_by_id(device_id)
@@ -135,12 +112,10 @@ class Controller(vxprocess.AbstractProcess):
 
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
-            _routines_to_load[PROCESS_IO] = config.CONF_IO_ROUTINES
 
         # Worker
-        if config.CONF_WORKER_USE:
+        if config.WORKER_USE:
             self._register_process(vxmodules.Worker)
-            _routines_to_load[PROCESS_WORKER] = config.CONF_WORKER_ROUTINES
 
         # Select subset of registered processes which should implement
         # the _run_protocol method
@@ -152,18 +127,15 @@ class Controller(vxprocess.AbstractProcess):
         #  for inactive processes or inactive routines on active processes
         #  print warning or just shut down completely in-case?
 
-        ################################
-        # Set up CONTROLS
-
-        # General
-        vxipc.Control.General = vxipc.Manager.dict()
-        # Set avg. minimum sleep period
+        # Set up session controls
+        vxipc.CONTROL = vxipc.Manager.dict(self._create_shared_controls())
+        # Check minimum sleep period
         times = list()
         for i in range(100):
             t = time.perf_counter()
             time.sleep(10 ** -10)
             times.append(time.perf_counter() - t)
-        vxipc.Control.General.update({definitions.GenCtrl.min_sleep_time: max(times)})
+        vxipc.CONTROL[CTRL_MIN_SLEEP_TIME] = max(times)
         log.info(f'Minimum sleep period is {(1000 * max(times)):.3f}ms')
 
         # Check time precision on system
@@ -180,43 +152,37 @@ class Controller(vxprocess.AbstractProcess):
         else:
             log.info(msg)
 
-        # Protocol
-        vxipc.Control.Protocol = vxipc.Manager.dict({ProtocolCtrl.name: None,
-                                                     ProtocolCtrl.phase_id: None,
-                                                     ProtocolCtrl.phase_start: None,
-                                                     ProtocolCtrl.phase_stop: None})
-
-        # NEW UNIFIED CONTROL:
-        vxipc.CONTROL = vxipc.Manager.dict(self._create_shared_controls())
-
         # Set configured cameras
-        if config.CONF_CAMERA_USE:
-            for device_id in config.CONF_CAMERA_DEVICES:
+        if config.CAMERA_USE:
+            for device_id in config.CAMERA_DEVICES:
                 register_camera_device(device_id)
 
         # Set configured io devices
-        if config.CONF_IO_USE:
-            for device_id in config.CONF_IO_DEVICES:
+        if config.IO_USE:
+            for device_id in config.IO_DEVICES:
                 register_io_device(device_id)
 
         # Load routine modules
         self._routines: Dict[str, Dict[str, vxroutine.Routine]] = {}
-        for process_name, routine_list in _routines_to_load.items():
-            self._routines[process_name] = {}
-            for path in routine_list:
-                log.info(f'Load routine {path}')
+        for routine_path, routine_ops in config.ROUTINES.items():
+            log.info(f'Load routine {routine_path}')
 
-                # TODO: search different paths for package structure redo
-                # Load routine
-                parts = path.split('.')
-                module = importlib.import_module('.'.join(parts[:-1]))
-                routine_cls = getattr(module, parts[-1])
-                if routine_cls is None:
-                    log.error(f'Routine {path} not found.')
-                    continue
+            # TODO: search different paths for package structure redo
+            # Load routine
+            parts = routine_path.split('.')
+            module = importlib.import_module('.'.join(parts[:-1]))
+            routine_cls = getattr(module, parts[-1])
+            if routine_cls is None:
+                log.error(f'Routine {routine_path} not found.')
+                continue
 
-                # Instantiate
-                self._routines[process_name][routine_cls.__name__]: vxroutine.Routine = routine_cls()
+            # Add process name to dictionary
+            process_name = routine_cls.process_name
+            if process_name not in self._routines:
+                self._routines[process_name] = {}
+
+            # Instantiate routine and add to dictionary
+            self._routines[process_name][routine_cls.__name__]: vxroutine.Routine = routine_cls(**routine_ops)
 
         # Compare required vs registered devices
         assert_device_requirements()
@@ -234,15 +200,10 @@ class Controller(vxprocess.AbstractProcess):
             _program_start_time=self.program_start_time,
             _configuration_path=_configuration_path,
             _pipes=vxipc.Pipes,
-            _states={k: v for k, v
-                     in vxipc.State.__dict__.items()
-                     if not (k.startswith('_'))},
+            _states=vxipc.STATE,
             _routines=self._routines,
-            _controls={k: v for k, v
-                       in vxipc.Control.__dict__.items()
-                       if not (k.startswith('_'))},
-            _control=vxipc.CONTROL,
-            _log_queue=vxlogger._log_queue,
+            _controls=vxipc.CONTROL,
+            _log_queue=vxlogger.get_queue(),
             _log_history=vxlogger.get_history(),
             _attrs=vxattribute.Attribute.all
         )
@@ -251,14 +212,12 @@ class Controller(vxprocess.AbstractProcess):
         for target, kwargs in self._registered_processes:
             self.initialize_process(target, **kwargs)
 
-        # Set up initial recording states
-        self.set_compression_method(None)
-        self.set_compression_opts(None)
-
     @staticmethod
     def _create_shared_controls():
-        _controls = {CTRL_REC_ACTIVE: False,
-                     CTRL_REC_BASE_PATH: os.path.join(os.getcwd(), PATH_RECORDING_OUTPUT),
+        _controls = {CTRL_TIME_PRECISION: np.inf,
+                     CTRL_MIN_SLEEP_TIME: np.inf,
+                     CTRL_REC_ACTIVE: False,
+                     CTRL_REC_BASE_PATH: config.REC_OUTPUT_FOLDER,  # os.path.join(os.getcwd(), PATH_RECORDING_OUTPUT),
                      CTRL_REC_FLDNAME: '',
                      CTRL_REC_PRCL_GROUP_ID: -1,
                      CTRL_REC_PHASE_GROUP_ID: -1,
@@ -272,9 +231,19 @@ class Controller(vxprocess.AbstractProcess):
         return _controls
 
     @staticmethod
+    def _create_shared_states():
+        _states = {PROCESS_CONTROLLER: STATE.NA,
+                   PROCESS_CAMERA: STATE.NA,
+                   PROCESS_DISPLAY: STATE.NA,
+                   PROCESS_GUI: STATE.NA,
+                   PROCESS_IO: STATE.NA,
+                   PROCESS_WORKER: STATE.NA}
+
+        return _states
+
+    @staticmethod
     def _reset_recording_controls():
         """Reset all (shared) controls related to recording of data to file"""
-        vxipc.CONTROL[CTRL_REC_FLDNAME] = ''
         vxipc.CONTROL[CTRL_REC_ACTIVE] = False
         vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID] = -1
         vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] = -1
@@ -290,7 +259,7 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = np.inf
         vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = -np.inf
 
-    def _register_process(self, target, **kwargs):
+    def _register_process(self, target: vxprocess.AbstractProcess, **kwargs):
         """Register new modules to be spawned.
 
         :param target: modules class
@@ -299,18 +268,18 @@ class Controller(vxprocess.AbstractProcess):
         self._registered_processes.append((target, kwargs))
         vxipc.Pipes[target.name] = mp.Pipe()
 
-    def initialize_process(self, target, **kwargs):
+    def initialize_process(self, target: vxprocess.AbstractProcess, **kwargs):
 
         process_name = target.name
 
         if process_name in self._processes:
-            # Terminate modules
-            log.info(f'Restart modules {process_name}')
+            # Terminate module
+            log.info(f'Restart module {process_name}')
             self._processes[process_name].terminate()
 
             # Set modules state
             # (this is the ONLY instance where a modules state may be set externally)
-            getattr(vxipc.State, process_name).value = definitions.State.STOPPED
+            vxipc.STATE[process_name] = STATE.STOPPED
 
             # Delete references
             del self._processes[process_name]
@@ -319,21 +288,19 @@ class Controller(vxprocess.AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
-        # ctx = mp.get_context('fork')
-        self._processes[process_name] = mp.Process(target=run_process, name=process_name, args=(target,), kwargs=kwargs)
+        # ctx = mp.get_context('fork')  # Currently, spawn does not work (possible serialization issues)
+        self._processes[process_name] = mp.Process(target=vxprocess.run_process,
+                                                    name=process_name,
+                                                    args=(target,),
+                                                    kwargs=kwargs)
 
         # Start subprocess
         self._processes[process_name].start()
 
         # Set state to IDLE
-        self.set_state(definitions.State.IDLE)
+        self.set_state(STATE.IDLE)
 
     def start(self):
-
-        # On Windows systems, show splashscreen to show that something is happening
-        if sys.platform == 'win32':
-            self.splashscreen.close()
-            self.qt_app.processEvents()
 
         # Run controller
         self.run(interval=0.001)
@@ -358,14 +325,6 @@ class Controller(vxprocess.AbstractProcess):
         self.set_state(STATE.STOPPED)
 
         return 0
-
-    @staticmethod
-    def set_compression_method(method):
-        pass
-
-    @staticmethod
-    def set_compression_opts(opts):
-        pass
 
     # Shared control properties
 
@@ -424,39 +383,38 @@ class Controller(vxprocess.AbstractProcess):
                 print('Exception in Logger:', file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
 
-    def _all_forks_in_state(self, code: Union[State, STATE]):
+    def _all_forks_in_state(self, code: STATE):
 
         check = [vxipc.in_state(code, pname) for pname in self._active_process_list]
 
         return all(check)
 
-    def _all_protocol_forks_in_state(self, code: Union[State, STATE]):
+    def _all_protocol_forks_in_state(self, code: STATE):
 
         check = [vxipc.in_state(code, pname) for pname in self._active_protocol_list]
 
         return all(check)
 
-    def _any_forks_in_state(self, code: Union[State, STATE]):
+    def _any_forks_in_state(self, code: STATE):
 
         check = [vxipc.in_state(code, pname) for pname in self._active_process_list]
 
         return any(check)
 
-    def _any_protocol_forks_in_state(self, code: Union[State, STATE]):
+    def _any_protocol_forks_in_state(self, code: STATE):
 
         check = [vxipc.in_state(code, pname) for pname in self._active_protocol_list]
 
         return any(check)
 
-    @staticmethod
-    def set_recording_path(path: str):
+    def set_recording_base_path(self, path: str):
         if not vxipc.in_state(STATE.IDLE):
             log.warning(f'Failed to set new recording path to {path}. Controller busy.')
             return
 
-        if vxipc.CONTROL[CTRL_REC_ACTIVE]:
-            log.warning(f'Failed to set new recording path to {path}. Recording active.')
-            return
+        # if vxipc.CONTROL[CTRL_REC_ACTIVE]:
+        #     log.warning(f'Failed to set new recording path to {path}. Recording active.')
+        #     return
 
         if os.path.exists(path) and os.path.isfile(path):
             log.warning(f'Failed to set new recording path to {path}. Path is existing file.')
@@ -467,7 +425,7 @@ class Controller(vxprocess.AbstractProcess):
             log.info(f'Create new folder at {path}')
             os.mkdir(path)
 
-        vxipc.CONTROL[CTRL_REC_BASE_PATH] = path
+        self.record_base_path = path
 
     @staticmethod
     def set_recording_folder(folder_name: str):
@@ -645,7 +603,6 @@ class Controller(vxprocess.AbstractProcess):
         self.phase_start_time = time
         self.phase_end_time = time + phase.duration
 
-
     def main(self):
         pass
 
@@ -665,12 +622,12 @@ class Controller(vxprocess.AbstractProcess):
             if not self._all_forks_in_state(STATE.IDLE):
                 return
 
-            # Reset folder name
+            # Reset recording controls
             self._reset_recording_controls()
 
             # If folder name hasn't been set yet, use default format
-            if vxipc.CONTROL[CTRL_REC_FLDNAME] == '':
-                vxipc.CONTROL[CTRL_REC_FLDNAME] = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+            if self.recording_folder_name == '':
+                self.recording_folder_name = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
 
             # Check recording path
             path = vxipc.get_recording_path()
@@ -679,6 +636,8 @@ class Controller(vxprocess.AbstractProcess):
 
                 # Reset folder name
                 self._reset_recording_controls()
+
+                self.set_state(STATE.IDLE)
 
                 return
 
@@ -723,6 +682,7 @@ class Controller(vxprocess.AbstractProcess):
 
             # Reset controls once everyone is done
             self._reset_recording_controls()
+            self.recording_folder_name = ''
 
             # If all forks have signalled REC_STOPPED, return to IDLE
             vxipc.set_state(STATE.IDLE)
@@ -827,15 +787,3 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.set_state(STATE.SHUTDOWN)
         # for process_name in self._processes:
         #     ipc.send(process_name, definitions.Signal.shutdown)
-
-    @staticmethod
-    def _render_splashscreen(pngpath: str) -> None:
-        # Render SVG to PNG (qt's svg renderer has issues with blurred elements)
-        iconpath = os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')
-        renderer = QtSvg.QSvgRenderer(iconpath)
-        image = QtGui.QImage(256, 256, QtGui.QImage.Format.Format_RGBA64)
-        painter = QtGui.QPainter(image)
-        image.fill(QtGui.QColor(0, 0, 0, 0))
-        renderer.render(painter)
-        image.save(pngpath)
-        painter.end()

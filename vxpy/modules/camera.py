@@ -15,11 +15,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from typing import Dict
 
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.process as vxprocess
-import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.devices.camera as vxcamera
 
@@ -28,30 +28,20 @@ log = vxlogger.getLogger(__name__)
 
 class Camera(vxprocess.AbstractProcess):
     name = PROCESS_CAMERA
-    # _camera_threads: Dict[str, threading.Thread] = {}
     cameras: Dict[str, vxcamera.CameraDevice] = {}
-    # _current_frame_index: Dict[str, Union[int, bool]] = {}
-    # _frames: Dict[str, List[Union[np.ndarray, None]]] = {}
-    # _next_snap: Dict[str, float] = {}
 
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Set up cameras
-        for device_id in config.CONF_CAMERA_DEVICES:
+        for device_id in config.CAMERA_DEVICES:
             self.cameras[device_id] = vxcamera.get_camera_by_id(device_id)
             self.cameras[device_id].open()
             self.cameras[device_id].start_stream()
 
         target_interval = 1/200.
-        # target_interval = 1/5.
-
-        if vxipc.Control.General[GenCtrl.min_sleep_time] > target_interval:
-            log.warning(f'Minimum sleep period ABOVE average target frame time of {target_interval:.5f}s.'
-                        'This will cause increased CPU usage.')
 
         # Run event loop
-        self.enable_idle_timeout = False
         self.run(interval=target_interval)
 
     def prepare_static_protocol(self):

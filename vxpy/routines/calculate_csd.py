@@ -61,8 +61,9 @@ class CalculatePSD(WorkerRoutine):
         if np.isnan(t[0]) or not isinstance(y, np.ndarray):
             return
 
+        fs = 1./np.mean(np.diff(t))
         y = y.flatten()
-        f, p = signal.csd(y, y, fs=1./np.mean(np.diff(t)), nperseg=self.nperseg)
+        f, p = signal.csd(y, y, fs=fs, nperseg=self.nperseg)
 
         self.frequencies.write(f)
         self.power.write(p)

@@ -16,11 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-import importlib
 import time
 from abc import abstractmethod
 from collections import OrderedDict
-from enum import Enum
 
 import h5gview
 import h5py
@@ -28,7 +26,7 @@ import numpy as np
 import pyqtgraph as pg
 
 from PySide6 import QtCore, QtWidgets, QtGui
-from typing import Callable, List, Union, Dict
+from typing import Callable, List, Union, Dict, Tuple, Any
 
 from PySide6.QtWidgets import QLabel
 
@@ -44,13 +42,6 @@ from vxpy.utils import widgets
 log = vxlogger.getLogger(__name__)
 
 
-class Widget:
-    """Base widget"""
-
-    def __init__(self, main):
-        self.main: vxmodules.Gui = main
-
-
 class ExposedWidget:
     """Widget base class for widgets which expose bound methods to be called from external sources"""
 
@@ -64,27 +55,197 @@ class ExposedWidget:
             vxipc.LocalProcess.register_rpc_callback(self, fun)
 
 
-class RoutineParameter:
+class WindowWidget(QtWidgets.QWidget):
+    """Widget that should be displayed as a separate window"""
 
-    def __init__(self, addon_cls: AddonWidget, update_fun: Callable):
-        self.addon_class = addon_cls
-        self.routine_update_fun = update_fun
+    display_name: str = None
 
-    def update(self, *args, **kwargs):
-        vxipc.rpc(self.addon_class.name, self.routine_update_fun, *args, **kwargs)
+    def __init__(self, main_window: vxmodules.Window):
+        self.main_window = main_window
+        QtWidgets.QWidget.__init__(self, parent=main_window, f=QtCore.Qt.WindowType.Window)
+
+        # Set title
+        self.setWindowTitle(self.display_name if self.display_name is not None else self.__class__.__name__)
+
+        # Make known to window manager
+        self.createWinId()
+
+        # Open/show
+        self.show()
+
+    def toggle_visibility(self):
+        """Switch visibility based on current visibility"""
+
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+
+        if self.isMinimized():
+            self.showNormal()
+
+    def event(self, event):
+        """Catch all events and execute custom responses"""
+
+        if self.windowType() != QtCore.Qt.WindowType.Window:
+            return False
+
+        # If window is activated (e.g. brought to front),
+        # this also raises all other windows
+        if event.type() == QtCore.QEvent.Type.WindowActivate:
+            # Raise main window
+            self.main_window.raise_()
+            # Raise all subwindows
+            self.main_window.raise_subwindows()
+            # Raise this window last
+            self.raise_()
+            return True
+
+        return QtWidgets.QWidget.event(self, event)
 
 
-class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
+class AddonWindow(WindowWidget, ExposedWidget):
+    timer = QtCore.QTimer()
+
+    display_name = 'Addons'
+
+    def __init__(self, main_window: vxmodules.Window):
+        ExposedWidget.__init__(self)
+        WindowWidget.__init__(self, main_window)
+        self.setLayout(QtWidgets.QHBoxLayout())
+
+        # Add tab widget
+        self.tab_widget = QtWidgets.QTabWidget()
+        self.tab_widget.setMovable(True)
+        self.layout().addWidget(self.tab_widget)
+
+        # Add timer
+        self.timer.setInterval(int(1000 / config.GUI_FPS))
+        self.timer.start()
+
+    def attach_tab(self, widget: AddonWidget):
+
+        if not isinstance(widget, AddonWidget):
+            log.error(f'Unable to attach widget {widget.__class__.__name__}. Type must be {AddonWidget.__name__}')
+            return
+
+        if self.tab_widget.indexOf(widget) == -1:
+            widget.set_attached()
+            widget.setWindowFlags(QtCore.Qt.WindowType.Widget)
+            self.tab_widget.addTab(widget, widget.windowTitle())
+            self.tab_widget.setCurrentWidget(widget)
+
+    def detach_tab(self, widget: AddonWidget):
+
+        if not isinstance(widget, AddonWidget):
+            log.error(f'Unable to detach widget {widget.__class__.__name__}. Type must be {AddonWidget.__name__}')
+            return
+
+        # Remove widget from tab widget, present
+        index = self.tab_widget.indexOf(widget)
+        if index != -1:
+            self.tab_widget.removeTab(index)
+
+        # Detach
+        widget.set_detached()
+
+        # Set flag correctly
+        widget.setWindowFlags(QtCore.Qt.WindowType.Window)
+        widget.show()
+
+
+# class AddonWidget(QtWidgets.QWidget, ExposedWidget):
+class AddonWidget(WindowWidget, ExposedWidget):
     """Addon widget which should be subclassed by custom widgets in plugins, etc"""
 
     name = None
-    display_name = None
+    is_attached = True
+    preferred_size: Tuple[int, int] = None
+    preferred_pos: Tuple[int, int] = None
 
-    def __init__(self, main):
-        Widget.__init__(self, main=main)
+    def __init__(self, addon_window: AddonWindow, main_window: vxmodules.Window,
+                 preferred_size: Tuple[int, int] = None, preferred_pos: Tuple[int, int] = None,
+                 **kwargs):
+
         ExposedWidget.__init__(self)
-        QtWidgets.QWidget.__init__(self, parent=main)
-        self.module_active = True
+        WindowWidget.__init__(self, main_window)
+
+        # Set addon window
+        self.addon_window: AddonWindow = addon_window
+
+        # Set size
+        if preferred_size is not None:
+            self.preferred_size = preferred_size
+        if self.preferred_size is None:
+            self.preferred_size = (512, 512)
+
+        # Set position
+        if preferred_pos is not None:
+            self.preferred_pos = preferred_pos
+
+        # Set layout
+        self.setLayout(QtWidgets.QVBoxLayout())
+
+        hspacer = QtWidgets.QWidget()
+        hspacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Minimum)
+
+        # Create topbar
+        self.topbar = QtWidgets.QToolBar()
+        self.topbar.addWidget(hspacer)
+        self.detach_button = QtGui.QAction('Detach')
+        self.detach_button.triggered.connect(self.detach)
+        self.topbar.addAction(self.detach_button)
+        self.attach_button = QtGui.QAction('Attach')
+        self.attach_button.triggered.connect(self.attach)
+        self.topbar.addAction(self.attach_button)
+        self.layout().addWidget(self.topbar)
+
+        # Create central widget
+        self.central_widget = QtWidgets.QWidget()
+        self.layout().addWidget(self.central_widget)
+
+    @property
+    def display_props(self) -> Dict[str, Any]:
+        return {'detached': not self.is_attached,
+                'preferred_size': (self.size().width(), self.size().height()),
+                'preferred_pos': (self.pos().x() - self.main_window.sx, self.pos().y() - self.main_window.sy)}
+
+    def detach(self):
+
+        # Detach first
+        self.addon_window.detach_tab(self)
+
+        # Then restore size and position
+
+        # Resize
+        self.resize(*self.preferred_size)
+
+        # Move
+        if self.preferred_pos is None:
+            pos = self.addon_window.pos().x(), self.addon_window.pos().y()
+        else:
+            pos = self.main_window.sx + self.preferred_pos[0], self.main_window.sy + self.preferred_pos[1]
+        self.move(*pos)
+
+    def attach(self):
+        # Save size and position
+        if not self.is_attached:
+            props = self.display_props
+            self.preferred_size = props['preferred_size']
+            self.preferred_pos = props['preferred_pos']
+
+        # Attach now
+        self.addon_window.attach_tab(self)
+
+    def set_attached(self):
+        self.attach_button.setVisible(False)
+        self.detach_button.setVisible(True)
+        self.is_attached = True
+
+    def set_detached(self):
+        self.attach_button.setVisible(True)
+        self.detach_button.setVisible(False)
+        self.is_attached = False
 
     @staticmethod
     def connect_to_timer(fun: Callable):
@@ -93,6 +254,10 @@ class AddonWidget(QtWidgets.QWidget, ExposedWidget, Widget):
     @classmethod
     def call_routine(cls, fun, *args, **kwargs):
         vxipc.rpc(cls.name, fun, *args, **kwargs)
+
+    def closeEvent(self, event: QtCore.QEvent):
+        self.addon_window.attach_tab(self)
+        event.ignore()
 
 
 class CameraAddonWidget(AddonWidget):
@@ -127,118 +292,19 @@ class WorkerAddonWidget(AddonWidget):
         AddonWidget.__init__(self, *args, **kwargs)
 
 
-class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget, Widget):
-    """Integrated widgets which are part of the  main window"""
+class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget):
+    """Integrated widgets which are part of the main window"""
 
     def __init__(self, group_name: str, main):
-        Widget.__init__(self, main=main)
         ExposedWidget.__init__(self)
         QtWidgets.QGroupBox.__init__(self, group_name, parent=main)
-
-
-class WindowWidget(QtWidgets.QWidget, ExposedWidget, Widget):
-    """Widget that should be displayed as a separate window"""
-
-    def __init__(self, title: str, main):
-        Widget.__init__(self, main=main)
-        ExposedWidget.__init__(self)
-        QtWidgets.QWidget.__init__(self, parent=main, f=QtCore.Qt.WindowType.Window)
-
-        # Set title
-        self.setWindowTitle(title)
-
-        # Make known to window manager
-        self.createWinId()
-
-        # Open/show
-        self.show()
-
-    def toggle_visibility(self):
-        """Switch visibility based on current visibility"""
-
-        if self.isVisible():
-            self.hide()
-        else:
-            self.show()
-
-        if self.isMinimized():
-            self.showNormal()
-
-    def event(self, event):
-        """Catch all events and execute custom responses"""
-
-        # If window is activated (e.g. brought to front),
-        # this also raises all other windows
-        if event.type() == QtCore.QEvent.Type.WindowActivate:
-            # Raise main window
-            vxipc.LocalProcess.window.raise_()
-            # Raise all subwindows
-            vxipc.LocalProcess.window.raise_subwindows()
-            # Raise this window last
-            self.raise_()
-
-        return QtWidgets.QWidget.event(self, event)
-
-
-class WindowTabWidget(WindowWidget, ExposedWidget):
-    """Windowed widget which implements a central tab widget that is used to display addon widgets"""
-
-    def __init__(self, *args, **kwargs):
-        WindowWidget.__init__(self, *args, **kwargs)
-
-        # Add tab widget
-        self.tab_widget = QtWidgets.QTabWidget()
-        self.setLayout(QtWidgets.QHBoxLayout())
-        self.layout().addWidget(self.tab_widget)
-
-    def create_addon_tabs(self, process_name: str) -> None:
-        """Read UI addons for local given process and add them to central tab widget.
-
-        :param process_name: name of process for which to add the addons to the tab widget
-        """
-        # Select ui addons for this local
-        used_addons = config.CONF_GUI_ADDONS[process_name]
-
-        # Add all addons as individual tabs to tab widget
-        for path in used_addons:
-            log.info(f'Load UI addon {path}')
-
-            # Load routine
-            parts = path.split('.')
-            module = importlib.import_module('.'.join(parts[:-1]))
-            addon_cls = getattr(module, parts[-1])
-
-            if addon_cls is None:
-                log.error(f'UI addon {path} not found.')
-                continue
-
-            wdgt = addon_cls(self.main)
-
-            if addon_cls.display_name is None:
-                display_name = parts[-1]
-            else:
-                display_name = addon_cls.display_name
-
-            self.tab_widget.addTab(wdgt, f'{process_name}:{display_name}')
-
-
-class AddonWindow(WindowTabWidget):
-    timer = QtCore.QTimer()
-    timer_interval = 50  # ms
-
-    def __init__(self, *args):
-        WindowTabWidget.__init__(self, 'Addon widgets', *args)
-        self.setLayout(QtWidgets.QHBoxLayout())
-        self.stream_fps = 20
-        self.timer.setInterval(self.timer_interval)
-        self.timer.start()
 
 
 def register_with_plotter(attr_name: str, *args, **kwargs):
     vxipc.rpc(PROCESS_GUI, PlottingWindow.add_buffer_attribute, attr_name, *args, **kwargs)
 
 
-class PlottingWindow(WindowWidget):
+class PlottingWindow(WindowWidget, ExposedWidget):
     # Colormap is tab10 from matplotlib:
     # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
     cmap = (np.array([(0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
@@ -254,8 +320,11 @@ class PlottingWindow(WindowWidget):
 
     cache_chunk_size = 10 ** 4
 
-    def __init__(self, *args):
-        WindowWidget.__init__(self, 'Plotter', *args)
+    display_name = 'Plotter'
+
+    def __init__(self, main_window: vxmodules.Window):
+        ExposedWidget.__init__(self)
+        WindowWidget.__init__(self, main_window)
 
         self.starttime = time.perf_counter()
 
@@ -607,15 +676,13 @@ class ProcessMonitorWidget(IntegratedWidget):
         le.setText(state.name)
 
         # Set style
-        if state == State.IDLE:
+        if state == STATE.IDLE:
             le.setStyleSheet('color: #3bb528; font-weight:bold;')
-        elif state == State.STARTING:
+        elif state == STATE.STARTING:
             le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif state == State.READY:
-            le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif state == State.STOPPED:
+        elif state == STATE.STOPPED:
             le.setStyleSheet('color: #d43434; font-weight:bold;')
-        elif state == State.RUNNING:
+        elif state == STATE.PRCL_IN_PROGRESS:
             le.setStyleSheet('color: #deb737; font-weight:bold;')
         else:
             le.setStyleSheet('color: #FFFFFF')
@@ -647,7 +714,7 @@ class RecordingWidget(IntegratedWidget):
         # Basic properties
         self.folder_wdgt_width = 300
         self.notebook_width = 300
-        self.setFixedWidth(400)
+        self.setFixedWidth(500)
 
         # Create folder widget and add to widget
         self.folder_wdgt = QtWidgets.QWidget()
@@ -655,16 +722,28 @@ class RecordingWidget(IntegratedWidget):
         self.folder_wdgt.layout().setContentsMargins(0, 0, 0, 0)
         self.layout().addWidget(self.folder_wdgt)
 
+        # Add label
+        self.folder_wdgt.layout().addWidget(QLabel('Base folder'), 0, 0)
         # Current base folder for recordings
+        self.base_folder_widget = QtWidgets.QWidget()
+        self.base_folder_widget.setLayout(QtWidgets.QHBoxLayout())
+        # Add lineedit
         self.base_folder = QtWidgets.QLineEdit('')
         self.base_folder.setReadOnly(True)
-        self.folder_wdgt.layout().addWidget(QLabel('Base folder'), 0, 0)
-        self.folder_wdgt.layout().addWidget(self.base_folder, 0, 1, 1, 2)
+        self.base_folder_widget.layout().addWidget(self.base_folder)
+        # Select button
+        self.base_folder_select = QtWidgets.QPushButton('...')
+        self.base_folder_select.clicked.connect(self._select_base_folder)
+        self.base_folder_widget.layout().addWidget(self.base_folder_select)
+        self.folder_wdgt.layout().addWidget(self.base_folder_widget, 0, 1, 1, 2)
 
         # Current recording folder
         self.rec_folder = QtWidgets.QLineEdit()
+        self.recname_model = QtCore.QStringListModel()
+        completer = QtWidgets.QCompleter()
+        completer.setModel(self.recname_model)
+        self.rec_folder.setCompleter(completer)
         self.rec_folder.editingFinished.connect(self.set_recording_folder)
-        # self.rec_folder.setReadOnly(True)
         self.folder_wdgt.layout().addWidget(QLabel('Folder'), 1, 0)
         self.folder_wdgt.layout().addWidget(self.rec_folder, 1, 1, 1, 2)
 
@@ -678,9 +757,6 @@ class RecordingWidget(IntegratedWidget):
         self.btn_open_recording.setDisabled(True)
         self.btn_open_recording.clicked.connect(self._open_last_recording)
         self.folder_wdgt.layout().addWidget(self.btn_open_recording, 2, 2)
-
-        # GroupBox
-        self.clicked.connect(self.toggle_enable)
 
         # Controls widget
         self.controls = QtWidgets.QWidget()
@@ -699,13 +775,9 @@ class RecordingWidget(IntegratedWidget):
         self.btn_start = QtWidgets.QPushButton('Start')
         self.btn_start.clicked.connect(self.start_recording)
         self.interact_widget.layout().addWidget(self.btn_start)
-        # Pause
-        self.btn_pause = QtWidgets.QPushButton('Pause')
-        self.btn_pause.clicked.connect(self.pause_recording)
-        self.interact_widget.layout().addWidget(self.btn_pause)
         # Stop
         self.btn_stop = QtWidgets.QPushButton('Stop')
-        self.btn_stop.clicked.connect(self.finalize_recording)
+        self.btn_stop.clicked.connect(self.stop_recording)
         self.interact_widget.layout().addWidget(self.btn_stop)
         self.interact_widget.layout().addItem(v_spacer)
 
@@ -729,14 +801,15 @@ class RecordingWidget(IntegratedWidget):
         self.tmr_update_gui.timeout.connect(self.update_ui)
         self.tmr_update_gui.start()
 
+        # Previously used recording foldernames (and suggestions
+        self._previous_recnames: List[str] = []
+
     @staticmethod
     def open_base_folder():
         output_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
         output_path = output_path.replace('\\', '/')
         output_path = f'/{output_path}'
-        # output_path = 'https://google.com/'
-        print(output_path)
-        QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(output_path))
+        QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path))
 
     def show_lab_notebook(self):
         self.lab_nb_folder = os.path.join(vxipc.CONTROL[CTRL_REC_BASE_PATH], vxipc.CONTROL[CTRL_REC_FLDNAME])
@@ -754,27 +827,34 @@ class RecordingWidget(IntegratedWidget):
         self.lab_notebook.setEnabled(False)
 
     def set_recording_folder(self):
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_recording_folder, self.rec_folder.text())
+        text = self.rec_folder.text()
+        if text not in self._previous_recnames:
+            self._previous_recnames.append(text)
+        self.recname_model.setStringList(self._previous_recnames)
+        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_recording_folder, text)
 
-    def start_recording(self):
+    @staticmethod
+    def start_recording():
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_recording)
 
     @staticmethod
-    def pause_recording():
-        pass
-        # vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.pause_recording)
-
-    @staticmethod
-    def finalize_recording():
-        # # First: pause recording
-        # vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.pause_recording)
-
-        # Finally: stop recording
+    def stop_recording():
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.stop_recording)
 
-    @staticmethod
-    def toggle_enable(newstate):
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_enable_recording, newstate)
+    def _select_base_folder(self):
+        dialog = QtWidgets.QFileDialog(parent=self)
+        dialog.setWindowTitle('Select recording base directory')
+        dialog.setFileMode(QtWidgets.QFileDialog.FileMode.Directory)
+        dialog.setOption(QtWidgets.QFileDialog.Option.ShowDirsOnly, True)
+
+        ret = dialog.exec()
+
+        if not ret:
+            return
+
+        new_path = dialog.directoryUrl().path()
+
+        vxipc.controller_rpc(vxmodules.Controller.set_recording_base_path, new_path)
 
     def _open_last_recording(self):
         base_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
@@ -816,10 +896,6 @@ class RecordingWidget(IntegratedWidget):
         else:
             self.setStyleSheet('QGroupBox#RecordingWidgetComboBox{}')
 
-        # Set enabled
-        self.setCheckable(not rec_active and not bool(current_folder))
-        self.setChecked(enabled)
-
         # Base folder
         self.base_folder.setText(base_path)
 
@@ -830,83 +906,10 @@ class RecordingWidget(IntegratedWidget):
         # Buttons
         # Start
         self.btn_start.setEnabled(not rec_active and enabled)
-        self.btn_pause.setEnabled(False)
         # Stop
         self.btn_stop.setEnabled(rec_active and enabled and not protocol_active)
 
         self.btn_open_recording.setEnabled(bool(os.listdir(base_path)) and not rec_active)
-
-
-class RecordingSettings(QtWidgets.QWidget):
-
-    def __init__(self, *args, **kwargs):
-        QtWidgets.QWidget.__init__(self, *args, **kwargs)
-
-        # Show recorded routines
-        self.recorded_attributes = QtWidgets.QGroupBox('Recorded attributes')
-        self.recorded_attributes.setLayout(QtWidgets.QVBoxLayout())
-        self.recorded_attributes.setFixedWidth(250)
-        self.rec_attribute_list = QtWidgets.QListWidget()
-
-        self.recorded_attributes.layout().addWidget(self.rec_attribute_list)
-        # Update recorded attributes
-        for match_string in config.CONF_REC_ATTRIBUTES:
-            self.rec_attribute_list.addItem(QtWidgets.QListWidgetItem(match_string))
-        # self.layout().addWidget(self.recorded_attributes)
-
-        # Data compression
-        self.layout().addWidget(QLabel('Compression'))
-        self.compression_method = QtWidgets.QComboBox()
-        self.compression_opts = QtWidgets.QComboBox()
-        self.compression_method.addItems(['None', 'GZIP', 'LZF'])
-        self.layout().addWidget(self.compression_method)
-        self.layout().addWidget(self.compression_opts)
-        self.compression_method.currentTextChanged.connect(self.set_compression_method)
-        self.compression_method.currentTextChanged.connect(self.update_compression_opts)
-        self.compression_opts.currentTextChanged.connect(self.set_compression_opts)
-
-    def get_compression_opts(self):
-        method = self.compression_method.currentText()
-        opts = self.compression_opts.currentText()
-
-        shuffle = opts.lower().find('shuffle') >= 0
-        if len(opts) > 0 and method == 'GZIP':
-            opts = dict(shuffle=shuffle,
-                        compression_opts=int(opts[0]))
-        elif method == 'LZF':
-            opts = dict(shuffle=shuffle)
-        else:
-            opts = dict()
-
-        return opts
-
-    def update_compression_opts(self):
-        self.compression_opts.clear()
-
-        compr = self.compression_method.currentText()
-        if compr == 'None':
-            self.compression_opts.addItem('None')
-        elif compr == 'GZIP':
-            levels = range(10)
-            self.compression_opts.addItems([f'{i} (shuffle)' for i in levels])
-            self.compression_opts.addItems([str(i) for i in levels])
-        elif compr == 'LZF':
-            self.compression_opts.addItems(['None', 'Shuffle'])
-
-    def get_compression_method(self):
-        method = self.compression_method.currentText()
-        if method == 'None':
-            method = None
-        else:
-            method = method.lower()
-
-        return method
-
-    def set_compression_method(self):
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_compression_method, self.get_compression_method())
-
-    def set_compression_opts(self):
-        vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.set_compression_opts, self.get_compression_opts())
 
 
 class LogTextEdit(QtWidgets.QTextEdit):
@@ -1008,7 +1011,6 @@ class ProtocolWidget(IntegratedWidget):
         self.selection.setLayout(QtWidgets.QVBoxLayout())
         self.tab_widget.addTab(self.selection, 'Selection')
 
-        self.protocol_list = QtWidgets.QListWidget()
         self.protocol_list = widgets.SearchableListWidget(self.selection)
         self.selection.layout().addWidget(self.protocol_list)
 

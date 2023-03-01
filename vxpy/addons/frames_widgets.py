@@ -24,21 +24,21 @@ import vxpy.core.ui as vxgui
 import vxpy.core.attribute as vxattribute
 
 
-class FrameStream(vxgui.AddonWidget):
+class FrameStream(vxgui.CameraAddonWidget):
 
     def __init__(self, *args, **kwargs):
-        vxgui.AddonWidget.__init__(self, *args, **kwargs)
+        vxgui.CameraAddonWidget.__init__(self, *args, **kwargs)
 
-        self.setLayout(QtWidgets.QHBoxLayout())
+        self.central_widget.setLayout(QtWidgets.QHBoxLayout())
 
         # Add tab widget
         self.tab_camera_views = QtWidgets.QTabWidget()
         self.tab_camera_views.setTabPosition(QtWidgets.QTabWidget.TabPosition.West)
-        self.layout().addWidget(self.tab_camera_views)
+        self.central_widget.layout().addWidget(self.tab_camera_views)
 
         # Add one view per camera device
         self.view_wdgts = {}
-        for device_id in config.CONF_CAMERA_DEVICES:
+        for device_id in config.CAMERA_DEVICES:
             self.view_wdgts[device_id] = CameraWidget(self, device_id, parent=self)
             self.tab_camera_views.addTab(self.view_wdgts[device_id], device_id.upper())
 

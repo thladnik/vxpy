@@ -31,15 +31,15 @@ import vxpy.core.visual as vxvisual
 from vxpy.utils import widgets
 
 
-class VisualInteractor(vxui.AddonWidget):
+class VisualInteractor(vxui.DisplayAddonWidget):
     """Widget which allows for independent display of visual stimuli and interactive manipulation of parameters"""
 
     def __init__(self, *args, **kwargs):
-        vxui.AddonWidget.__init__(self, *args, **kwargs)
-        self.setLayout(QtWidgets.QHBoxLayout())
+        vxui.DisplayAddonWidget.__init__(self, *args, **kwargs)
+        self.central_widget.setLayout(QtWidgets.QHBoxLayout())
 
         self.tab_widget = QtWidgets.QTabWidget()
-        self.layout().addWidget(self.tab_widget)
+        self.central_widget.layout().addWidget(self.tab_widget)
 
         # Available visuals widget
         self.overview_tab = QtWidgets.QWidget(self)

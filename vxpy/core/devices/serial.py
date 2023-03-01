@@ -41,7 +41,7 @@ def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], Type[DaqDev
 def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, DaqDevice, None]:
     """Fetch the device by its string identifier"""
     # Get camera properties from config
-    device_props = config.CONF_IO_DEVICES.get(device_id)
+    device_props = config.IO_DEVICES.get(device_id)
 
     # Camera not configured?
     if device_props is None:

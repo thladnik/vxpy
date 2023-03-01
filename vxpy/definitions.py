@@ -17,23 +17,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import os
 from enum import Enum
-from typing import Dict
 
 
-################################
 # Environment settings
 
-# Number of bytes reserved for array attribute buffers
+# Max number of bytes reserved for array attribute buffers
+#  This number determines the maximum memory size a shared attribute
+#  may get allotted to it
 DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE = 2 * 10**8  # Default ~200MB
 
-
-class EnvTypes(Enum):
-    PRODUCTION = 1
-    DEBUG = 2
-    DEV = 3
-
-
-Env = EnvTypes.DEV
 
 # Default paths
 PATH_PACKAGE = 'vxpy'
@@ -69,7 +61,9 @@ CMD_MIGRATE = 'migrate'
 CMD_HELP = 'help'
 CMD_MOD_NOSAMPLES = '--nosamples'
 
-# Controls
+# Session controls
+CTRL_TIME_PRECISION = 'CTRL_TIME_PRECISION'
+CTRL_MIN_SLEEP_TIME = 'CTRL_MIN_SLEEP_TIME'
 CTRL_REC_ACTIVE = 'CTRL_REC_ACTIVE'
 CTRL_REC_BASE_PATH = 'CTRL_REC_BASE_PATH'
 CTRL_REC_FLDNAME = 'CTRL_REC_FLDNAME'
@@ -85,6 +79,7 @@ CTRL_PRCL_PHASE_END_TIME = 'CTRL_PRCL_PHASE_END_TIME'
 
 
 class STATE(Enum):
+    """Process states"""
     NA = 0
     STARTING = 1
     IDLE = 2
@@ -108,27 +103,8 @@ class STATE(Enum):
     STOPPED = 99
 
 
-# Process states
-class State(Enum):
-    NA = 0
-    SYNC = 1
-    STOPPED = 99
-    STARTING = 10
-    PREPARE_PROTOCOL = 30
-    WAIT_FOR_PHASE = 31
-    PREPARE_PHASE = 32
-    READY = 33
-    PHASE_END = 37
-    PROTOCOL_ABORT = 38
-    PROTOCOL_END = 39
-    IDLE = 20
-    RUNNING = 41
-    STANDBY = 42
-
-
-# IPC signals
-class Signal(Enum):
-    update_property = 10
+class SIGNAL(Enum):
+    """IPC signals"""
     rpc = 20
     query = 30
     post_event = 40
@@ -140,34 +116,3 @@ class Signal(Enum):
 class DeviceType(Enum):
     Camera = 1
     Io = 2
-
-
-# Controls
-
-# General
-
-class GenCtrl:
-    min_sleep_time = 'min_sleep_time'
-    # process_null_time = 'process_null_time'
-    process_syn_barrier = 'process_sync_barrier'
-
-
-# Recording
-
-class RecCtrl:
-    enabled = 'recording_enable'
-    active = 'recording_active'
-    folder = 'current_folder'
-    use_compression = 'use_compression'
-    compression_method = 'compression_method'
-    compression_opts = 'compression_opts'
-    record_group_counter = 'record_group_counter'
-
-
-# Protocol
-
-class ProtocolCtrl:
-    name = 'current_protocol'
-    phase_id = 'current_phase'
-    phase_start = 'phase_start_time'
-    phase_stop = 'phase_stop_time'

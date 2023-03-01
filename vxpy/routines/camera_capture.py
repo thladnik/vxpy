@@ -31,17 +31,15 @@ class Frames(vxroutine.CameraRoutine):
     def __init__(self, *args, **kwargs):
         vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
 
-    @classmethod
-    def require(cls):
+    def require(self):
         # Fetch all cameras by device_id and append to list
-        for device_id in config.CONF_CAMERA_DEVICES:
-            cls.device_list.append(vxcamera.get_camera_by_id(device_id))
+        for device_id in config.CAMERA_DEVICES:
+            self.device_list.append(vxcamera.get_camera_by_id(device_id))
 
         # Set one array attribute per camera device
-        for device in cls.device_list:
-            vxattribute.VideoStreamAttribute(
-                device.frame_rate, f'{device.device_id}{cls.frame_postfix}',
-                (device.width, device.height), vxattribute.ArrayType.uint8)
+        for device in self.device_list:
+            vxattribute.ArrayAttribute(f'{device.device_id}{self.frame_postfix}',
+                                       (device.width, device.height), vxattribute.ArrayType.uint8)
 
     def initialize(self):
         # Add all frame attributes to candidate list for save to disk

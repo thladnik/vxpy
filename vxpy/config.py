@@ -18,31 +18,22 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from typing import List, Dict, Any
 
 PRESERVED_ORDER: List[str] = []
-
-CONF_CALIBRATION_PATH: str = ''
-
-CONF_CAMERA_USE: bool = True
-CONF_CAMERA_DEVICES: Dict[str, Dict[str, Any]] = {}
-CONF_CAMERA_ROUTINES: List[str] = []
-
-CONF_DISPLAY_USE: bool = True
-
-CONF_DISPLAY_FPS: int = 60
-CONF_DISPLAY_ROUTINES: List[str] = []
-
-CONF_GUI_USE: bool = True
-CONF_GUI_SCREEN: int = 0
-CONF_GUI_ADDONS: Dict[str, List[str]] = {}
-
-CONF_IO_USE: bool = True
-CONF_IO_PINS: Dict[str, Dict[str, Any]] = {}
-CONF_IO_MAX_SR: int = 500
-CONF_IO_DEVICES: Dict[str, Dict[str, Any]]
-CONF_IO_ROUTINES: List[str] = []
-
-CONF_WORKER_USE: bool = True
-CONF_WORKER_ROUTINES: List[str] = []
-
-CONF_REC_ENABLE: bool = True
-CONF_REC_OUTPUT_FOLDER: str = ''
-CONF_REC_ATTRIBUTES: List[str] = []
+CALIBRATION_PATH: str = ''
+CAMERA_USE: bool = True
+CAMERA_DEVICES: Dict[str, Dict[str, Any]] = {}
+DISPLAY_USE: bool = True
+DISPLAY_FPS: int = 60
+GUI_USE: bool = True
+GUI_REFRESH: int = 30
+GUI_FPS: int = 20
+GUI_SCREEN: int = 0
+GUI_ADDONS: Dict[str, Dict[str, Any]] = {}
+IO_USE: bool = True
+IO_PINS: Dict[str, Dict[str, Any]] = {}
+IO_MAX_SR: int = 500
+IO_DEVICES: Dict[str, Dict[str, Any]]
+WORKER_USE: bool = True
+REC_ENABLE: bool = True
+REC_OUTPUT_FOLDER: str = ''
+REC_ATTRIBUTES: Dict[str, Dict[str, Any]] = {}
+ROUTINES: Dict[str, Dict[str, Any]] = {}

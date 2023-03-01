@@ -30,7 +30,15 @@ log = vxlogger.getLogger(__name__)
 
 
 def on_off(t, freq, t_offset):
+    return int(np.sin(t_offset+t * 2 * np.pi * freq) > 0.)
+
+
+def sinewave(t, freq, t_offset):
     return np.sin(t_offset+t * 2 * np.pi * freq)
+
+
+def whitenoise_sinewave(t, freq, t_offset, nlvl):
+    return sinewave(t, freq, t_offset) / 2 + (np.random.rand() - 0.5) * 2 * nlvl
 
 
 class VirtualDaqDevice(vxserial.DaqDevice):
@@ -62,7 +70,9 @@ class VirtualDaqDevice(vxserial.DaqDevice):
 class VirtualDaqPin(vxserial.DaqPin):
 
     _board: VirtualDaqDevice
-    _available_methods = {'on_off': on_off}
+    _available_methods = {'on_off': on_off,
+                          'sinewave': sinewave,
+                          'whitenoise_sinewave': whitenoise_sinewave}
 
     def __init__(self, *args, **kwargs):
         vxserial.DaqPin.__init__(self, *args, **kwargs)

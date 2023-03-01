@@ -32,8 +32,8 @@ class Routine(ABC):
     """Abstract routine base class - to be inherited by all routines.
     """
 
-    name: str = None
-    _instance: Routine = None
+    process_name: str = None
+    instance: Routine = None
     callback_ops: List[Callable] = None
 
     def __init__(self, *args, **kwargs):
@@ -47,10 +47,11 @@ class Routine(ABC):
 
     def __new__(cls, *args, **kwargs):
         """Ensure each routine can only be used as Singleton"""
-        if cls._instance is None:
-            cls._instance = super(Routine, cls).__new__(cls)
+        if cls.instance is None:
+            cls.instance = super(Routine, cls).__new__(cls)
 
-        return cls._instance
+        return cls.instance
+
 
     @classmethod
     def callback(cls, fun: Callable):
@@ -64,9 +65,8 @@ class Routine(ABC):
 
         return fun
 
-    @classmethod
-    def require(cls):
-        pass
+    def require(self) -> bool:
+        return True
 
     @deprecated(details='Use require method instead', deprecated_in='0.1.0', removed_in='0.2.0')
     def setup(self):
@@ -87,7 +87,7 @@ class Routine(ABC):
 
 class CameraRoutine(Routine, ABC):
 
-    name = PROCESS_CAMERA
+    process_name = PROCESS_CAMERA
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
@@ -95,7 +95,7 @@ class CameraRoutine(Routine, ABC):
 
 class DisplayRoutine(Routine, ABC):
 
-    name = PROCESS_DISPLAY
+    process_name = PROCESS_DISPLAY
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
@@ -103,7 +103,7 @@ class DisplayRoutine(Routine, ABC):
 
 class IoRoutine(Routine, ABC):
 
-    name = PROCESS_IO
+    process_name = PROCESS_IO
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
@@ -111,7 +111,7 @@ class IoRoutine(Routine, ABC):
 
 class WorkerRoutine(Routine, ABC):
 
-    name = PROCESS_WORKER
+    process_name = PROCESS_WORKER
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)

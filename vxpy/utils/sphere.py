@@ -29,8 +29,8 @@ from vxpy.utils import geometry
 class UVSphere:
 
     def __init__(self,
-                 azim_lvls: int,
-                 elev_lvls: int,
+                 azim_lvls: int = 60,
+                 elev_lvls: int = 30,
                  azimuth_range: float = 2 * np.pi,
                  upper_elev: float = np.pi / 4,
                  radius: float = 1.0):

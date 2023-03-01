@@ -1,6 +1,4 @@
-"""
-vxPy ./__init__.py
-Copyright (C) 2022 Tim Hladnik
+"""Package for visual stimulation and concurrent behavioral analysis
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,12 +13,35 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-__version__ = '0.0.1-alpha'
-__author__ = 'Tim Hladnik'
 
+__author__ = 'Tim Hladnik'
+__contact__ = "tim.hladnik@gmail.com"
+__copyright__ = "Copyright 2022, Tim Hladnik"
+__credits__ = ["Yue Zhang"]
+__date__ = "YYYY/MM/DD"
+__deprecated__ = False
+__email__ = "tim.hladnik@gmail.com"
+__license__ = "GPLv3"
+__maintainer__ = "developer"
+__status__ = "Production"
+__version__ = '0.1.0'
+
+import os
 import sys
+import git
 
 from vxpy.modules import Controller
+
+# Check this version is a cloned repo and add commit hash to version
+try:
+    path = os.path.join(*__path__[0].split(os.sep)[:-1])
+    repo = git.Repo(f'{os.sep}{path}')
+
+    commit_hash = repo.git.rev_parse('HEAD')
+    __version__ += f'-{commit_hash[-7:]}'
+
+except:
+    pass
 
 
 def main(configfile):

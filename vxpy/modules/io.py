@@ -17,6 +17,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import time
+from typing import Dict
+
 import numpy as np
 
 from vxpy.api.attribute import read_attribute
@@ -59,7 +61,7 @@ class Io(vxprocess.AbstractProcess):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
-        for device_id, dev_config in config.CONF_IO_DEVICES.items():
+        for device_id, dev_config in config.IO_DEVICES.items():
 
             api_path = dev_config['api']
             if api_path is None:
@@ -127,11 +129,11 @@ class Io(vxprocess.AbstractProcess):
                 vxui.register_with_plotter(attr_name, axis=prefix)
 
         # Allow timeout during idle
-        self.enable_idle_timeout = True
+        # self.enable_idle_timeout = True
 
         self.timetrack = []
         # Run event loop
-        self.run(interval=1. / config.CONF_IO_MAX_SR)
+        self.run(interval=1. / config.IO_MAX_SR)
 
     def prepare_static_protocol(self):
         # Initialize actions related to protocol

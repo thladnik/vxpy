@@ -1,23 +1,10 @@
-"""
-vxPy ./core/attribute.py
-Copyright (C) 2022 Tim Hladnik
+# -*- coding: utf-8 -*-
+"""Attribute module for data acquisition and inter-process data synchronization
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
-import time
 from abc import ABC, abstractmethod
 import ctypes
 import multiprocessing as mp
@@ -62,13 +49,13 @@ def write_attribute(attr_name: str, *args, **kwargs) -> None:
         return Attribute.all[attr_name].write(*args, **kwargs)
 
 
-def match_to_record_attributes(attr_name: str) -> Tuple[int, bool]:
+def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
     """Method matches a given attribute name to a list of attribute name templates to determine whether
      the attribute should be included for recording to file"""
-    attribute_filters = config.CONF_REC_ATTRIBUTES
+    attribute_filters = config.REC_ATTRIBUTES
 
-    matched = False
-    for filt_string in attribute_filters:
+    # matched = False
+    for filt_string, record_ops in attribute_filters.items():
 
         # Check if filter is negated
         neg = False
@@ -91,19 +78,27 @@ def match_to_record_attributes(attr_name: str) -> Tuple[int, bool]:
             if attr_name.startswith(filt_string.strip('*')):
                 match = True
 
-        # Return if negative match result was found
-        if match and neg:
-            return -1, False
+        # Return if match was found
+        if match:
+            if neg:
+                return True, False, {}
+            return True, True, record_ops
 
-        # Update
-        matched = matched or match
-
+    #     # Update
+    #     matched = matched or match
+    #
     # No matches
-    return 1, matched
+    return True, False, {}
 
 
 def write_to_file(instance: Union[vxprocess.AbstractProcess, vxroutine.Routine], attr_name: str) -> None:
-    process_name = instance.name
+    if isinstance(instance, vxprocess.AbstractProcess):
+        process_name = instance.name
+    elif isinstance(instance, vxroutine.Routine):
+        process_name = instance.process_name
+    else:
+        log.error(f'Could not find corresponding process for attribute {attr_name}. Will not save attribute.')
+        return
 
     # If provided process name is not listed in attribute's to-file dictionary, create the associated list
     if process_name not in Attribute.to_file:
@@ -114,12 +109,12 @@ def write_to_file(instance: Union[vxprocess.AbstractProcess, vxroutine.Routine],
         msg = 'Attribute does not exist.'
     else:
         # Check attribute name against templates
-        found, included = match_to_record_attributes(attr_name)
+        found, include, record_ops = match_to_record_attributes(attr_name)
 
         # If attribute name is included by template list, append to the to_file list
-        if included:
+        if include:
             log.info(f'Set attribute "{attr_name}" to be written to file. ')
-            Attribute.to_file[process_name].append(Attribute.all[attr_name])
+            Attribute.to_file[process_name].append((Attribute.all[attr_name], record_ops))
             return
 
         # If not included: is it actively exluded by list or not in template list at all
@@ -150,7 +145,7 @@ def get_attribute(attr_name: str) -> Union[Attribute, None]:
     return Attribute.all[attr_name]
 
 
-def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
+def get_permanent_attributes(process_name: str = None) -> List[Tuple[Attribute, Dict]]:
     """Method returns a list of all attributes that are marked to be saved to file
     """
     if process_name is None:
@@ -162,7 +157,7 @@ def get_permanent_attributes(process_name: str = None) -> List[Attribute]:
     return Attribute.to_file[process_name]
 
 
-def get_permanent_data(process_name: str = None) -> Iterator[Attribute]:
+def get_permanent_data(process_name: str = None) -> Iterator[Tuple[Attribute, Dict]]:
     """Returns all newly added attribute data to be written to file
     for the specified process.
 
@@ -172,18 +167,19 @@ def get_permanent_data(process_name: str = None) -> Iterator[Attribute]:
     :return A
     :rtype Iterator[Tuple[str, Any]
     """
-    for attribute in get_permanent_attributes(process_name):
+    for attribute, record_ops in get_permanent_attributes(process_name):
         if attribute.has_new_entry():
             # Yield attribute
-            yield attribute
+            yield attribute, record_ops
 
             # Reset "new" flag
             attribute.set_new(False)
 
 
 class Attribute(ABC):
-    """Abstract Attribute class at the core of vxPy's data management structure.
-    Attributes act as ring buffers and are, by default, shared and synchronized
+    """Attribute class at the core of vxPy's data management structure.
+
+    Attributes act as ring buffers and are shared and synchronized
     across all different modules.
     They are written to by one particular module (producer module)
     and can be read by all modules (consumer modules, including producer).
@@ -196,7 +192,7 @@ class Attribute(ABC):
     """
 
     all: Dict[str, Attribute] = {}
-    to_file: Dict[str, List[Attribute]] = {}
+    to_file: Dict[str, List[Tuple[Attribute, Dict]]] = {}
     _instance: ArrayAttribute = None
 
     def __init__(self, name: str, length: int = None):
@@ -257,22 +253,22 @@ class Attribute(ABC):
         # Call subclass build implementations
         self._build()
 
-    def _get_times(self, indices: List[int]):
+    def _get_times(self, indices: List[int]) -> np.ndarray:
         """Returns the list of time points corresponding to the indices in the interval [start_idx, end_idx)
         of datapoints written to the attribute """
 
         return self._times[indices]
 
-    def _get_indices(self, indices: List[int]) -> List[int]:
+    def _get_indices(self, indices: List[int]) -> np.ndarray:
         """Return list of indices, based on the 'last' number of datapoints specified"""
 
         return self._indices[indices]
 
-    def get_times(self, last):
+    def get_times(self, last) -> np.ndarray:
         """Returns the list of time points corresponding to the <last> number of datapoints written to the attribute """
         return self._get_times(*self._get_range(last))
 
-    def has_new_entry(self):
+    def has_new_entry(self) -> bool:
         return self._new_data_flag.value
 
     def set_new(self, state: bool) -> None:
@@ -382,7 +378,10 @@ class Attribute(ABC):
         self._next()
 
     def _get_range(self, last: int) -> Tuple[int, int]:
-        """Return the internal index range based on the specified 'last' number of datapoints in the attribute buffer"""
+        """Return the internal index range based on the specified 'last' number of datapoints in the attribute buffer
+
+
+        """
 
         # Make sure nothing weird is happening
         assert last < self.length, 'Trying to read more values than stored in buffer'
@@ -422,35 +421,26 @@ class ArrayType:
 
 
 class ArrayAttribute(Attribute):
-    """Array buffer attribute for synchronization of large datasets.
-    Uses a shared array for fast read and write of large amounts of data.
+    """Array buffer attribute for synchronization of datasets.
 
-    Optionally supports chunking of buffer into independent segments. This is
-    particularly useful when long read operations are expected (e.g. when
-    reading multiple frames of RGB video data), as these tend to block writing
-    by producer when use_lock=True is set
+    Uses a shared array for fast read and write of large amounts of data
+    or strictly numeric data that can be mapped to a C array.
 
-    :param shape: Tuple of dimension size of the buffered array
-    :type shape: tuple
-    :param dtype: Datatype of ArrayAttribute
-    :type dtype: class.`vxpy.core.attribute.ArrayType`
-    :param chunked: Flag to indicate whether chunking should be used
-    :type chunked: bool, optional
-    :param chunk_size: Length of chunks if chunked=True. If chunk_size is not
-        set, but chunked=True, chunk_size will be determined based on
-        dtype and length
-    :type chunk_size: int, optional
+    Parameters
+    ----------
+    shape: tuple of int
+        size of the dataset to be mapped to the array buffered array
+    dtype: `vxpy.core.attribute.ArrayType`
+        Datatype of the attribute
     """
 
     # TODO: chunked and un-chunked data structures can be unified (un-chunked attributes are chunked with chunk_num 1)
 
-    def __init__(self, name, shape, dtype: Tuple[object, np.number], chunked=False, chunk_size=None, **kwargs):
+    def __init__(self, name, shape, dtype: Tuple[object, np.number], **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
         assert isinstance(shape, tuple), 'size must be tuple with dimension sizes'
         assert isinstance(dtype, tuple), 'dtype must be tuple with (ctype,np-type)'
-        assert isinstance(chunked, bool), 'chunked has to be bool'
-        assert isinstance(chunk_size, int) or chunk_size is None, 'chunk_size must be int or None'
 
         self._raw: List[mp.Array] = []
         self._data: List[np.ndarray] = []
@@ -459,8 +449,8 @@ class ArrayAttribute(Attribute):
 
         # By default, calculate length based on dtype, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
         max_multiplier = 1.
-        itemsize = np.dtype(self._dtype[1]).itemsize
-        attr_el_size = np.product(self.shape)
+        itemsize = np.dtype(self._dtype[1]).itemsize  # number of bytes for datatype
+        attr_el_size = np.product(self.shape)  # number of elements
 
         # Significantly reduce max attribute buffer size in case element size is < 1KB
         if (itemsize * attr_el_size) < 10 ** 3:
@@ -530,14 +520,6 @@ class ArrayAttribute(Attribute):
 
         with self._get_lock(True):
             self._data[internal_idx] = value
-
-
-class VideoStreamAttribute(ArrayAttribute):
-
-    def __init__(self, target_framerate: float, *args, bitrate=3000*10**3, **kwargs):
-        ArrayAttribute.__init__(self, *args, **kwargs)
-        self.target_framerate: float = target_framerate
-        self.bitrate = bitrate  # bps, typical range 3000-5000 kbps
 
 
 class ObjectAttribute(Attribute):

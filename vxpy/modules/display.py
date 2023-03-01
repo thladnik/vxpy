@@ -46,20 +46,16 @@ class Display(vxprocess.AbstractProcess):
 
     current_visual: Union[vxvisual.AbstractVisual, None] = None
 
-    _uniform_maps = dict()
-    _disable_phases = False
-
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         self.app = app.use_app()
 
         self.visual_is_displayed = False
-        self.enable_idle_timeout = False
         self.times = []
 
         # Create canvas
-        _interval = 1. / config.CONF_DISPLAY_FPS
+        _interval = 1. / config.DISPLAY_FPS
 
         self.canvas = Canvas(_interval)
 
@@ -67,7 +63,7 @@ class Display(vxprocess.AbstractProcess):
         app.process_events()
 
         # Run event loop
-        self.enable_idle_timeout = False
+        # self.enable_idle_timeout = False
         self.run(interval=_interval)
 
     def _write_default_visual_phase_attributes(self):
@@ -75,7 +71,7 @@ class Display(vxprocess.AbstractProcess):
                          'target_start_time': self.phase_start_time,
                          'target_end_time': self.phase_end_time,
                          'target_duration': self.current_protocol.current_phase.duration,
-                         'target_sample_rate': config.CONF_DISPLAY_FPS,
+                         'target_sample_rate': config.DISPLAY_FPS,
                          'visual_module': self.current_visual.__module__,
                          'visual_name': str(self.current_visual.__class__.__qualname__)}
 
