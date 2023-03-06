@@ -8,6 +8,7 @@ import sys
 import time
 from typing import Any, Callable, List, Union, Tuple, Dict
 
+import vxpy
 from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.calibration as vxcalib
@@ -317,11 +318,20 @@ class AbstractProcess:
         """To be reimplemented in fork"""
         pass
 
+    def _recording_attributes(self):
+        """To be reimplemented in fork"""
+        return {}
+
     def _start_recording(self):
 
         # Open new file for recording
         log.debug(f'Start recording to {vxipc.get_recording_path()}')
         vxcontainer.new('H5File', os.path.join(vxipc.get_recording_path(), f'{self.name}'))
+
+        # Add recording attributes
+        vxcontainer.add_attributes({'__vxpy_version': vxpy.__version__,
+                                    '__vxpy_status': vxpy.__status__,
+                                    **self._recording_attributes()})
 
         # Add record group and time datasets
         vxcontainer.create_dataset('__record_group_id', (1,), np.int32)

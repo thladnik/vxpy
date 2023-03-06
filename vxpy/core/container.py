@@ -223,7 +223,7 @@ class H5File:
 
     def _add_to_dataset(self, path: str, data: Any):
         if path not in self._h5_handle:
-            print('WRONG, path does not exist yet', path, data)
+            # print('WRONG, path does not exist yet', path, data)
             return
 
         try:

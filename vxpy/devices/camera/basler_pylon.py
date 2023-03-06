@@ -15,7 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import List
+from collections import OrderedDict
+from typing import List, Dict, Tuple, Any, Union, Type
 
 import numpy as np
 from pypylon import pylon
@@ -34,13 +35,14 @@ class BaslerCamera(vxcamera.CameraDevice):
 
         self.next_time_get_image = vxipc.get_time()
 
-    @property
-    def exposure(self) -> float:
-        return self.properties['exposure']
+        self.settings = {}
+        self.metadata = {}
 
-    @property
-    def gain(self) -> float:
-        return self.properties['gain']
+    def get_metadata(self) -> Dict[str, Any]:
+        return self.metadata
+
+    def get_settings(self) -> Dict[str, Any]:
+        return self.settings
 
     @property
     def frame_rate(self) -> float:
@@ -86,26 +88,100 @@ class BaslerCamera(vxcamera.CameraDevice):
 
         return True
 
+    def _read_pfs_file(self, path: str) -> Tuple[List, Dict[str, Any]]:
+        """Read a persistence file with Basler camera properties
+
+        Persistence files (*.pfs) can be exported/saved in the pylon Viewer under Camera > Save features...
+        """
+        meta = []
+        ops = {}
+        i = 0
+        with open(path, 'r') as pfs_file:
+            for line in pfs_file:
+                line = line.strip('\n')
+                if i < 3:
+                    meta.append(line)
+                    i += 1
+                    continue
+
+                key, val = line.split('\t')
+                ops[key] = val
+
+        return meta, ops
+
+    def get_prop(self, key: str) -> Union[Any, None]:
+        if self._device is None:
+            return
+
+        try:
+            value = self._device.__getattr__(key).GetValue()
+        except Exception as exc:
+            log.error(f'Unable to get camera property {key}')
+        else:
+            return value
+        return None
+
+    def get_prop_type(self, key: str) -> Union[Type, None]:
+        if self._device is None:
+            return
+
+        value = self.get_prop(key)
+        if value is not None:
+            return type(value)
+        return None
+
+    def set_prop(self, key: str, value: Any):
+        if self._device is None:
+            return
+
+        log.debug(f'Set property {key}: {value}')
+        try:
+            # Fix off/on false/true pyyaml/pylon issue
+            if key in ['GainAuto', 'ExposureAuto']:
+                value = 'On' if value else 'Off'
+            # Set property
+            self._device.__getattr__(key).SetValue(value)
+        except Exception as exc:
+            log.error(f'Unable to set camera property {key} to {value}')
+
     def _start_stream(self) -> bool:
 
-        frame_rate = self.properties['frame_rate']
         # Set acquisition parameters
+        settings = OrderedDict({})
 
-        max_x, max_y = int(self._device.SensorWidth.GetValue()), int(self._device.SensorHeight.GetValue())
+        # TODO:
+        #  PyYAML (very smartly) by default, parses Off/On values as False/True booleans
+        #  Pylon (again, very smartly), uses Off/On string values for flags like GainAuto/ExposureAuto
+        #  > Fix this someday, but not today
 
-        # print(self._device.Width.GetInc(), self._device.Height.GetInc())
-        self._device.Width.SetValue(self.width)
-        self._device.Height.SetValue(self.height)
-        self._device.BinningHorizontalMode.SetValue('Average')
-        self._device.BinningHorizontal.SetValue(max_x // self.width)
-        self._device.BinningVerticalMode.SetValue('Average')
-        self._device.BinningVertical.SetValue(max_y // self.height)
-        self._device.GainAuto.SetValue('Off')
-        self._device.Gain.SetValue(self.gain)
-        self._device.ExposureAuto.SetValue('Off')
-        self._device.ExposureTime.SetValue(self.exposure)
+        # Look for full persistance file
+        if 'pfs_file' in self.properties:
+            meta, props = self._read_pfs_file(self.properties['pfs_file'])
+            # Properties from pfs file need to be cast to correct type
+            for key, value in props.items():
+                prop_type = self.get_prop_type(key)
+                if prop_type is None:
+                    continue
+                settings[key] = prop_type(value)
+
+        # Update with directly configures props
+        if 'basler_props' in self.properties:
+            settings.update(self.properties['basler_props'])
+
+        # Make sure right dimensions are used
+        settings.update({'Width': self.width,
+                         'Height': self.height})
+
+        # Save settings
+        self.settings = settings
+
+        # Set all
+        for key, value in self.settings.items():
+            self.set_prop(key, value)
+
+        # Set frame rate
         self._device.AcquisitionFrameRateEnable.SetValue(True)
-        self._device.AcquisitionFrameRate.SetValue(frame_rate)
+        self._device.AcquisitionFrameRate.SetValue(self.frame_rate)
 
         # Start grabbing
         self._device.StartGrabbing(pylon.GrabStrategy_LatestImageOnly)

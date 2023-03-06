@@ -76,25 +76,31 @@ class CameraDevice(abc.ABC):
         self.device_id: str = device_id
         self.properties: Dict[str, Any] = kwargs
 
-    @property
-    @abc.abstractmethod
-    def exposure(self) -> float:
-        pass
+    def get_metadata(self) -> Dict[str, Any]:
+        return {}
 
-    @exposure.setter
-    @abc.abstractmethod
-    def exposure(self, value) -> bool:
-        pass
+    def get_settings(self) -> Dict[str, Any]:
+        return {}
 
-    @property
-    @abc.abstractmethod
-    def gain(self) -> float:
-        pass
-
-    @gain.setter
-    @abc.abstractmethod
-    def gain(self, value: float) -> bool:
-        pass
+    # @property
+    # @abc.abstractmethod
+    # def exposure(self) -> float:
+    #     pass
+    #
+    # @exposure.setter
+    # @abc.abstractmethod
+    # def exposure(self, value) -> bool:
+    #     pass
+    #
+    # @property
+    # @abc.abstractmethod
+    # def gain(self) -> float:
+    #     pass
+    #
+    # @gain.setter
+    # @abc.abstractmethod
+    # def gain(self, value: float) -> bool:
+    #     pass
 
     @property
     @abc.abstractmethod

@@ -56,6 +56,21 @@ class Camera(vxprocess.AbstractProcess):
     def end_static_protocol(self):
         pass
 
+    def _recording_attributes(self):
+        metadata = {'__camera_device_list': list(config.CAMERA_DEVICES.keys())}
+
+        for device_id, cam_props in config.CAMERA_DEVICES.items():
+            for key, val in cam_props.items():
+                metadata[f'__{device_id}_{key}'] = val
+
+            for key, val in self.cameras[device_id].get_metadata().items():
+                metadata[f'__{device_id}_meta_{key}'] = val
+
+            for key, val in self.cameras[device_id].get_settings().items():
+                metadata[f'__{device_id}_settings_{key}'] = val
+
+        return metadata
+
     def main(self):
 
         for camera_id, camera in self.cameras.items():

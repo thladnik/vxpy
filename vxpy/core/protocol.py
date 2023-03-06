@@ -45,6 +45,10 @@ def get_available_protocol_paths(reload=False) -> List[str]:
 
         # Load protocol module
         path = '.'.join([*basepath.split(os.sep), filename.replace('.py', '')])
+
+        if os.path.isdir(path):
+            continue
+
         try:
             mod = importlib.import_module(path)
         except Exception as exc:

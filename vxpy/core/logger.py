@@ -56,18 +56,22 @@ def get_history():
     return _log_history
 
 
-def setup_log_to_file(filename):
+def setup_log_to_file(filepath) -> logging.Handler:
     global _file_logger
-    _file_logger = logging.getLogger('filelogger')
-
-    # Create logs folder if necessary
-    if not os.path.exists(PATH_LOG):
-        os.mkdir(PATH_LOG)
+    if _file_logger is None:
+        _file_logger = logging.getLogger('filelogger')
 
     # Set file handler
-    h = logging.handlers.TimedRotatingFileHandler(os.path.join(PATH_LOG, filename), 'd')
+    h = logging.handlers.TimedRotatingFileHandler(filepath, 'd')
     h.setFormatter(logging.Formatter('%(levelname)-7s %(asctime)s %(name)-40s %(message)s'))
     _file_logger.addHandler(h)
+    return h
+
+
+def remove_log_to_file(h: logging.Handler):
+    global _file_logger
+
+    _file_logger.removeHandler(h)
 
 
 def getLogger(name) -> logging.Logger:

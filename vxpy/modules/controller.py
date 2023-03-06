@@ -18,11 +18,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 import ctypes
 import importlib
+import logging
 import multiprocessing as mp
 
 import sys
 import time
-from typing import List, Tuple, Union, Dict
+from typing import List, Tuple, Union, Dict, Type
 
 import numpy as np
 
@@ -49,21 +50,25 @@ class Controller(vxprocess.AbstractProcess):
     configfile: str = None
 
     _processes: Dict[str, mp.Process] = dict()
-    _registered_processes: List[Tuple[vxprocess.AbstractProcess, Dict]] = list()
+    _registered_processes: List[Tuple[Type[vxprocess.AbstractProcess], Dict]] = list()
 
     _active_process_list: List[str] = []
     _active_protocol_list: List[str] = []
 
     protocol_trigger: vxevent.Trigger = None
+    record_log_handler: logging.Handler = None
 
     def __init__(self, _configuration_path):
         # Set up multiprocessing manager
         vxipc.Manager = mp.Manager()
 
         # Set up logging
+        if not os.path.exists(PATH_LOG):
+            # Create log folder if necessary
+            os.mkdir(PATH_LOG)
         vxlogger.setup_log_queue(vxipc.Manager.Queue())
         vxlogger.setup_log_history(vxipc.Manager.list())
-        vxlogger.setup_log_to_file(f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log')
+        vxlogger.setup_log_to_file(os.path.join(PATH_LOG, f'{time.strftime("%Y-%m-%d-%H-%M-%S")}.log'))
 
         # Manually set up pipe for controller
         vxipc.Pipes[self.name] = mp.Pipe()
@@ -259,7 +264,7 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = np.inf
         vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = -np.inf
 
-    def _register_process(self, target: vxprocess.AbstractProcess, **kwargs):
+    def _register_process(self, target: Type[vxprocess.AbstractProcess], **kwargs):
         """Register new modules to be spawned.
 
         :param target: modules class
@@ -332,10 +337,20 @@ class Controller(vxprocess.AbstractProcess):
 
     @vxprocess.AbstractProcess.record_base_path.setter
     def record_base_path(self, val):
+
+        if self.recording_active:
+            log.error(f'Failed to set recording base path to {val}. Recording running.')
+            return
+
         vxipc.CONTROL[CTRL_REC_BASE_PATH] = val
 
     @vxprocess.AbstractProcess.recording_folder_name.setter
     def recording_folder_name(self, val):
+
+        if self.recording_active:
+            log.error(f'Failed to set recording folder to {val}. Recording running.')
+            return
+
         vxipc.CONTROL[CTRL_REC_FLDNAME] = val
 
     @vxprocess.AbstractProcess.recording_active.setter
@@ -409,12 +424,8 @@ class Controller(vxprocess.AbstractProcess):
 
     def set_recording_base_path(self, path: str):
         if not vxipc.in_state(STATE.IDLE):
-            log.warning(f'Failed to set new recording path to {path}. Controller busy.')
+            log.error(f'Failed to set new recording path to {path}. Controller busy.')
             return
-
-        # if vxipc.CONTROL[CTRL_REC_ACTIVE]:
-        #     log.warning(f'Failed to set new recording path to {path}. Recording active.')
-        #     return
 
         if os.path.exists(path) and os.path.isfile(path):
             log.warning(f'Failed to set new recording path to {path}. Path is existing file.')
@@ -579,7 +590,10 @@ class Controller(vxprocess.AbstractProcess):
             pass
 
     def _process_trigger_protocol(self):
-        pass
+
+        # End protocol after phase_end_time is reached during the last stimulation phase
+        if self.phase_id >= (self.current_protocol.phase_count - 1) and self.phase_end_time < vxipc.get_time():
+            vxipc.set_state(STATE.PRCL_STOP_REQ)
 
     def _trigger_protocol_advance_phase(self, index, time, state):
 
@@ -626,8 +640,9 @@ class Controller(vxprocess.AbstractProcess):
             self._reset_recording_controls()
 
             # If folder name hasn't been set yet, use default format
+            recording_start_str = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
             if self.recording_folder_name == '':
-                self.recording_folder_name = f'{time.strftime("%Y-%m-%d-%H-%M-%S")}'
+                self.recording_folder_name = recording_start_str
 
             # Check recording path
             path = vxipc.get_recording_path()
@@ -644,6 +659,8 @@ class Controller(vxprocess.AbstractProcess):
             # Create output folder
             log.debug(f'Create folder on path {path}')
             os.mkdir(path)
+
+            self.record_log_handler = vxlogger.setup_log_to_file(os.path.join(path, f'{recording_start_str}.log'))
 
             # Set state to REC_START
             log.info(f'Controller starts recording to {path}')
@@ -666,6 +683,10 @@ class Controller(vxprocess.AbstractProcess):
         # Controller received request to stop recording REC_STOP_REQ
         # Evaluate and go to REC_STOP
         elif vxipc.in_state(STATE.REC_STOP_REQ):
+
+            # Remove handler from logging again
+            vxlogger.remove_log_to_file(self.record_log_handler)
+
             log.info(f'Stop recording to {vxipc.get_recording_path()}')
             vxipc.set_state(STATE.REC_STOP)
 
