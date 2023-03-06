@@ -808,7 +808,12 @@ class RecordingWidget(IntegratedWidget):
     def open_base_folder():
         output_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
         output_path = output_path.replace('\\', '/')
-        output_path = f'/{output_path}'
+
+        # Absolute path needs another leading slash
+        if output_path.startswith('/'):
+            output_path = f'/{output_path}'
+
+        # Open in default file explorer
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path))
 
     def show_lab_notebook(self):
