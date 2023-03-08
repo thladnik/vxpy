@@ -15,36 +15,40 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = 'Tim Hladnik'
-__contact__ = "tim.hladnik@gmail.com"
-__copyright__ = "Copyright 2022, Tim Hladnik"
-__credits__ = ["Yue Zhang"]
-__date__ = "YYYY/MM/DD"
+__contact__ = 'tim.hladnik@gmail.com'
+__copyright__ = 'Copyright 2022, Tim Hladnik'
+__credits__ = ['Yue Zhang']
 __deprecated__ = False
-__email__ = "tim.hladnik@gmail.com"
-__license__ = "GPLv3"
-__maintainer__ = "developer"
-__status__ = "Production"
+__email__ = 'tim.hladnik@gmail.com'
+__license__ = 'GPLv3'
+__maintainer__ = 'developer'
+__status__ = 'Production'
 __version__ = '0.1.0'
 
 import os
 import sys
-import git
 
-from vxpy.modules import Controller
 
 # Check this version is a cloned repo and add commit hash to version
 try:
+    # Import gitpython here, because dependency is not installed during setup
+    import git
+
+    # Get current HEAD
     path = os.path.join(*__path__[0].split(os.sep)[:-1])
     repo = git.Repo(f'{os.sep}{path}')
-
     commit_hash = repo.git.rev_parse('HEAD')
-    __version__ += f'-{commit_hash[-7:]}'
+
+    # Append to version
+    __version__ += f'-{commit_hash[:8]}'
 
 except:
     pass
 
 
 def main(configfile):
+
+    from vxpy.modules import Controller
 
     if sys.platform == 'win32':
         # Set windows timer precision as high as possible
