@@ -15,8 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from vxpy import calib
+import numpy as np
 
+from vxpy import calib
 import vxpy.api.attribute as vxattribute
 import vxpy.api.routine as vxroutine
 import vxpy.core.visual as vxvisual
@@ -25,13 +26,13 @@ import vxpy.core.visual as vxvisual
 
 class Frames(vxroutine.DisplayRoutine):
 
-    def setup(self, *args, **kwargs):
+    def require(self, *args, **kwargs):
 
         # Set up shared variables
         self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH
         self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
         self.frame = vxattribute.ArrayAttribute('display_frame',
-                                                (self.height, self.width, 3),
+                                                (self.width, self.height, 3),
                                                 vxattribute.ArrayType.uint8)
 
     def initialize(self):
@@ -41,6 +42,6 @@ class Frames(vxroutine.DisplayRoutine):
         if visual is None:
             return
 
-        frame = visual.frame.read('color', alpha=False)
+        frame = np.swapaxes(visual.frame.read('color', alpha=False), 0, 1)
 
         self.frame.write(frame)

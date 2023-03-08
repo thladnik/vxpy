@@ -418,18 +418,30 @@ class AVIVideoWriter(VideoWriter):
 
         self.width, self.height = self.attribute.shape[:2]
 
+
+        self.colorplanes = 1
+        if len(self.attribute.shape) > 2:
+            if self.attribute.shape[2] == 3:
+                self.colorplanes = 3
+            else:
+                # TODO: this should probably raise an error. Currently there's no way to check
+                #  whether a file stream has been opened correctly...
+                pass
+
+
         log.info(f'AVI write to {self._filepath}')
 
         # Create encoder pipe
         self.writer = cv2.VideoWriter(self._filepath,
                                       cv2.VideoWriter_fourcc(*vcodec),
                                       float(self.fps),
-                                      (self.width // self.downsample, self.height // self.downsample))
+                                      (self.width // self.downsample, self.height // self.downsample),
+                                      isColor=self.colorplanes == 3)
 
     def add_frame(self, frame_data: np.ndarray):
-        self.writer.write(cv2.cvtColor(
-            cv2.resize(frame_data.T, (self.width // self.downsample, self.height // self.downsample)),
-            cv2.COLOR_GRAY2RGB))
+        shape = (self.width // self.downsample, self.height // self.downsample)
+        self.writer.write(cv2.resize(np.swapaxes(frame_data, 0, 1), shape))
+
 
     def close(self):
         self.writer.release()
