@@ -22,23 +22,6 @@ import vxpy.api.routine as vxroutine
 import vxpy.core.visual as vxvisual
 
 
-class Parameters(vxroutine.DisplayRoutine):
-    """This routine buffers the visual parameters,
-    but doesn't register them to be written to file continuously"""
-
-    def setup(self):
-
-        # Set up shared variables
-        self.variable_parameters = vxattribute.ObjectAttribute('var_param')
-
-    def initialize(self):
-        self.variable_parameters.add_to_file()
-
-    def main(self, visual: vxvisual.AbstractVisual):
-        # Update variable parameters
-        variable = {p.name: p.data for p in visual.variable_parameters}
-        self.variable_parameters.write(variable)
-
 
 class Frames(vxroutine.DisplayRoutine):
 
