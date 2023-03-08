@@ -19,20 +19,25 @@ import importlib
 import inspect
 
 import numpy as np
+import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
 from typing import Any, Dict, List, Tuple, Union, Type
 
+from vxpy import calib
 from vxpy.definitions import *
-from vxpy import modules
+import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
-import vxpy.core.ui as vxui
 import vxpy.core.visual as vxvisual
+import vxpy.core.ui as vxui
+import vxpy.modules as vxmodules
 from vxpy.utils import widgets
 
 
 class VisualInteractor(vxui.DisplayAddonWidget):
     """Widget which allows for independent display of visual stimuli and interactive manipulation of parameters"""
+
+    display_name = 'Visual control'
 
     def __init__(self, *args, **kwargs):
         vxui.DisplayAddonWidget.__init__(self, *args, **kwargs)
@@ -183,7 +188,7 @@ class VisualInteractor(vxui.DisplayAddonWidget):
 
         # Run visual
         defaults = {name: wdgt.get_value() for name, wdgt in self._parameter_widgets.items()}
-        vxipc.rpc(PROCESS_DISPLAY, modules.Display.run_visual, visual_class, defaults)
+        vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.run_visual, visual_class, defaults)
         self.tab_widget.setTabEnabled(1, True)
         self.tab_widget.setCurrentWidget(self.parameter_tab)
 
@@ -289,20 +294,20 @@ class VisualInteractor(vxui.DisplayAddonWidget):
     @staticmethod
     def update_parameter(name):
         def _update(value):
-            vxipc.rpc(PROCESS_DISPLAY, modules.Display.update_visual, {name: value})
+            vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.update_visual, {name: value})
         return _update
 
     @staticmethod
     def trigger_visual_function(function):
         def _trigger():
-            vxipc.rpc(PROCESS_DISPLAY, modules.Display.trigger_visual, function.__name__)
+            vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.trigger_visual, function.__name__)
         return _trigger
 
     def stop_visual(self):
         self.clear_layout(self.tuner.layout())
         self.tab_widget.setCurrentWidget(self.overview_tab)
         self.tab_widget.setTabEnabled(1, False)
-        vxipc.rpc(PROCESS_DISPLAY, modules.Display.stop_visual)
+        vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         self._parameter_widgets = {}
@@ -314,3 +319,45 @@ class VisualInteractor(vxui.DisplayAddonWidget):
                 child.widget().setParent(None)
             elif child.layout() is not None:
                 self.clear_layout(child.layout())
+
+
+
+class VisualStreamAddon(vxui.DisplayAddonWidget):
+
+    display_name = 'Visual view'
+
+    def __init__(self, *args, **kwargs):
+        vxui.DisplayAddonWidget.__init__(self, *args, **kwargs)
+
+        self.central_widget.setLayout(QtWidgets.QHBoxLayout())
+
+        # Add visual widget
+        self.graphics_widget = GraphicsWidget(self, parent=self)
+        self.central_widget.layout().addWidget(self.graphics_widget)
+
+        self.connect_to_timer(self.update_frame)
+
+    def update_frame(self):
+
+        idx, time, frame = vxattribute.read_attribute('display_frame')
+
+        if frame is None:
+            return
+
+        self.graphics_widget.image_item.setImage(frame[0])
+
+class GraphicsWidget(pg.GraphicsLayoutWidget):
+
+    def __init__(self, main, **kwargs):
+        pg.GraphicsLayoutWidget.__init__(self, **kwargs)
+
+        # Add plot
+        self.image_plot = self.addPlot(0, 0, 1, 10)
+
+        # Set up plot image item
+        self.image_item = pg.ImageItem()
+        self.image_plot.invertY(True)
+        self.image_plot.hideAxis('left')
+        self.image_plot.hideAxis('bottom')
+        self.image_plot.setAspectLocked(True)
+        self.image_plot.addItem(self.image_item)

@@ -24,7 +24,9 @@ import vxpy.core.ui as vxgui
 import vxpy.core.attribute as vxattribute
 
 
-class FrameStream(vxgui.CameraAddonWidget):
+class CameraStreamAddon(vxgui.CameraAddonWidget):
+
+    display_name = 'Cameras'
 
     def __init__(self, *args, **kwargs):
         vxgui.CameraAddonWidget.__init__(self, *args, **kwargs)
