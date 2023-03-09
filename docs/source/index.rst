@@ -3,13 +3,19 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to vxPy's documentation!
-================================
+vxPy - vision experiments in Python
+===================================
+
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+   :caption: Quickstart
 
+   installation
+   create_visual
+   create_protocol
+   create_routine
+   create_visual_base_advanced
 
 
 Indices and tables
