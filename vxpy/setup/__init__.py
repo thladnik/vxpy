@@ -70,7 +70,8 @@ def setup_resources(use_path: str = None):
 
         # Download ressource files from repository
         print('Get app files')
-        src_addrs = [f'https://github.com/thladnik/vxPy_app/archive/refs/tags/v{vxpy.__version__}.zip', 'https://github.com/thladnik/vxPy_app/archive/refs/heads/main.zip']
+        src_addrs = [f'https://github.com/thladnik/vxpy-app/archive/refs/tags/v{vxpy.__version__}.zip',
+                     'https://github.com/thladnik/vxpy-app/archive/refs/heads/main.zip']
         dst_file = 'vxPy_app.zip'
 
         # Try source address order
@@ -122,7 +123,7 @@ def download_samples(use_path: str = None):
     with WorkInDirectory(use_path):
 
         # Check availability
-        source_url = f'https://github.com/thladnik/vxPy/releases/download/v{vxpy.__version__}/samples_compr.h5'
+        source_url = f'https://github.com/thladnik/vxpy/releases/download/v{vxpy.__version__}/samples_compr.h5'
         local_path = os.path.join(PATH_SAMPLE, 'samples_compr.hdf5')
 
         # Connect

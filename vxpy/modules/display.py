@@ -278,7 +278,6 @@ class Canvas(app.Canvas):
                 self.swap_buffers()
 
             # Write variable display parameters to file
-            var_visual_parameters = {p.name: p.data for p in self.current_visual.variable_parameters}
             for parameter in self.current_visual.variable_parameters:
                 vxcontainer.add_to_phase_dataset(parameter.name, parameter.data)
 

@@ -16,7 +16,7 @@ ops_deps = {
 setup(
     name='vxpy',
     version=vxpy.__version__,
-    python_requires='>=3.10',
+    python_requires='>=3.8',
     packages=find_packages(include=['vxpy', 'vxpy.*']),
     include_package_data=True,
     url='https://github.com/thladnik/vxpy',
