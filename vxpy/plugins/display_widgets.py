@@ -25,6 +25,7 @@ from PySide6.QtWidgets import QLabel
 from typing import Any, Dict, List, Tuple, Union, Type
 
 from vxpy import calib
+import vxpy.visuals
 from vxpy.definitions import *
 import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
@@ -57,7 +58,7 @@ class VisualInteractor(vxui.DisplayAddonWidget):
         self.overview_tab.layout().addWidget(self.visual_list, 0, 0, 2, 1)
 
         self.append_path_to_list(PATH_VISUALS)
-        # self.append_directory_to_tree(vxpy.visuals)
+        # self.append_path_to_list(vxpy.visuals)
 
         # Visual parameters widget
         self.parameter_tab = QtWidgets.QWidget(self)
@@ -96,21 +97,23 @@ class VisualInteractor(vxui.DisplayAddonWidget):
 
         # Add application visuals
         if not isinstance(path, str):
-            path = path.__path__[0]  # DOES NOT WORK YET. PATH ISSUES
+            path = path.__path__[0]
         module_list = os.listdir(path)
+
+        # Split
+        path = path.split(os.sep)
 
         # Scan all available containers on path
         for _container_name in module_list:
             _container_name = str(_container_name)
-            base_path = (path, _container_name)
             if _container_name.startswith('_'):
                 continue
 
             # Import module
-            if os.path.isdir(os.path.join(*base_path)):
-                module = importlib.import_module('.'.join(base_path))
+            if os.path.isdir(os.path.join(*[*path, _container_name])):
+                module = importlib.import_module('.'.join([path, _container_name]))
             else:
-                module = importlib.import_module('.'.join([*base_path[:-1], base_path[-1].split('.')[0]]))
+                module = importlib.import_module('.'.join([path, _container_name.split('.')[0]]))
 
             # Add an item per visual class
             for _classname, _class in inspect.getmembers(module, inspect.isclass):

@@ -23,7 +23,7 @@ import sys
 
 import numpy as np
 from numpy.typing import DTypeLike
-from typing import List, Tuple, Any, Union, Callable
+from typing import List, Tuple, Any, Union, Callable, Dict
 from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
