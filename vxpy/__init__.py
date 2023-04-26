@@ -50,7 +50,6 @@ try:
 
     # Append to version
     __version__ += f'-{commit_hash[:8]}'
-    print(__version__)
 
 except:
     pass
