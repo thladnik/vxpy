@@ -17,6 +17,8 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import inspect
+import logging
+from types import ModuleType
 
 import numpy as np
 import pyqtgraph as pg
@@ -32,7 +34,10 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.visual as vxvisual
 import vxpy.core.ui as vxui
 import vxpy.modules as vxmodules
+import vxpy.visuals
 from vxpy.utils import widgets
+
+log = logging.getLogger(__name__)
 
 
 class VisualInteractor(vxui.DisplayAddonWidget):
@@ -57,8 +62,8 @@ class VisualInteractor(vxui.DisplayAddonWidget):
         self.visual_list.itemDoubleClicked.connect(self.start_visual)
         self.overview_tab.layout().addWidget(self.visual_list, 0, 0, 2, 1)
 
-        self.append_path_to_list(PATH_VISUALS)
-        # self.append_path_to_list(vxpy.visuals)
+        self.find_on_path(PATH_VISUALS)
+        self.find_in_module(vxpy.visuals)
 
         # Visual parameters widget
         self.parameter_tab = QtWidgets.QWidget(self)
@@ -92,16 +97,20 @@ class VisualInteractor(vxui.DisplayAddonWidget):
         self._parameter_widgets = {}
         self._uniform_label_width = widgets.UniformWidth()
 
-    def append_path_to_list(self, path: Union[str, object]):
+    def find_in_module(self, _module: ModuleType):
+        for _submodule_name in _module.__all__:
+            try:
+                self._scan_module(importlib.import_module(f'{_module.__name__}.{_submodule_name}'))
+            except Exception as exc:
+                logging.warning(f'Failed {_submodule_name} // {exc}')
+
+    def find_on_path(self, path: str):
         """Add all visuals on path to the list"""
 
-        # Add application visuals
-        if not isinstance(path, str):
-            path = path.__path__[0]
+        # Import from files on a relative given path
         module_list = os.listdir(path)
-
         # Split
-        path = path.split(os.sep)
+        path_parts = path.split(os.sep)
 
         # Scan all available containers on path
         for _container_name in module_list:
@@ -110,22 +119,28 @@ class VisualInteractor(vxui.DisplayAddonWidget):
                 continue
 
             # Import module
-            if os.path.isdir(os.path.join(*[*path, _container_name])):
-                module = importlib.import_module('.'.join([path, _container_name]))
+            if os.path.isdir(os.path.join(*[*path_parts, _container_name])):
+                _module = importlib.import_module('.'.join([*path_parts, _container_name]))
             else:
-                module = importlib.import_module('.'.join([path, _container_name.split('.')[0]]))
+                _module = importlib.import_module('.'.join([*path_parts, _container_name.split('.')[0]]))
 
-            # Add an item per visual class
-            for _classname, _class in inspect.getmembers(module, inspect.isclass):
-                if not issubclass(_class, vxvisual.AbstractVisual) or _class in vxvisual.visual_bases:
-                    continue
+            self._scan_module(_module)
 
-                # Create item which references the visual class
-                item = self.visual_list.add_item()
-                item.setText(f'{_container_name}.{_classname}')
-                item.setData(QtCore.Qt.ItemDataRole.ToolTipRole, _class.description)
-                # Set visual class to UserRole
-                item.setData(QtCore.Qt.ItemDataRole.UserRole, (_class.__module__, _class.__name__))
+    def _scan_module(self, _module: ModuleType):
+        # Go through all classes in _module
+        for _classname, _class in inspect.getmembers(_module, inspect.isclass):
+            if not issubclass(_class, vxvisual.AbstractVisual) or _class in vxvisual.visual_bases:
+                continue
+
+            # Create item which references the visual class
+            self._add_visual_item(f'{_module.__name__}.{_classname}', _class)
+
+    def _add_visual_item(self, name: str, _class: Type[vxvisual.AbstractVisual]):
+        item = self.visual_list.add_item()
+        item.setText(name)
+        item.setData(QtCore.Qt.ItemDataRole.ToolTipRole, _class.description)
+        # Set visual class information to UserRole
+        item.setData(QtCore.Qt.ItemDataRole.UserRole, (_class.__module__, _class.__name__))
 
     def start_visual(self, item=False):
         # Reset label list
