@@ -19,7 +19,7 @@ from __future__ import annotations
 import importlib
 from abc import abstractmethod
 from inspect import isclass
-from typing import List, Union, Callable, Type
+from typing import List, Union, Callable, Type, Dict, Any
 
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -180,6 +180,7 @@ class BaseProtocol:
         self._current_phase_id = -1
         self._phases: List[Phase] = []
         self._repeat_intervals: List[List[int]] = []
+        self.global_visual_props: Dict[str, Any] = {}
 
     @property
     def current_phase_id(self):
