@@ -16,6 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
+import sys
 import time
 from abc import abstractmethod
 from collections import OrderedDict
@@ -858,6 +860,9 @@ class RecordingWidget(IntegratedWidget):
             return
 
         new_path = dialog.directoryUrl().path()
+
+        if sys.platform == 'win32':
+            new_path = new_path.lstrip('/')
 
         vxipc.controller_rpc(vxmodules.Controller.set_recording_base_path, new_path)
 

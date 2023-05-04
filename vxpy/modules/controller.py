@@ -671,7 +671,11 @@ class Controller(vxprocess.AbstractProcess):
         # Then return to IDLE
         elif vxipc.in_state(STATE.REC_START):
 
-            if not self._all_forks_in_state(STATE.REC_STARTED):
+            if self._any_forks_in_state(STATE.REC_START_FAIL):
+                log.error('Failed to start recording')
+                self.set_state(STATE.REC_STOP)
+
+            if not self._all_forks_in_state(STATE.REC_START_SUCCESS):
                 return
 
             log.debug('All forks confirmed start of recording. Set recording to active.')

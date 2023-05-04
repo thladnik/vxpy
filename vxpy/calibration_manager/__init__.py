@@ -1,8 +1,8 @@
 import os.path
 from typing import Union
 
+import qdarktheme
 from PySide6 import QtCore, QtGui, QtWidgets
-from qt_material import apply_stylesheet
 
 from vxpy.calibration_manager import access
 from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
@@ -15,6 +15,9 @@ def run_calibration(filepath: str = None):
         if _app is None:
             _app = QtWidgets.QApplication([])
         access.application = _app
+
+    # Set theme
+    qdarktheme.setup_theme('dark')
 
     if access.window is None:
         access.window = CalibrationWindow(filepath)
@@ -57,9 +60,6 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.widget.layout().addWidget(self.display)
 
         self.resize(1400, 900)
-
-        extra = {'density_scale': '-3', }
-        apply_stylesheet(access.application, theme='dark_amber.xml', invert_secondary=False, extra=extra)
 
         self.show()
         self.sig_reload_calibration.emit()

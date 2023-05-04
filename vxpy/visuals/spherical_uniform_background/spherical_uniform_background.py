@@ -17,15 +17,15 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from vispy import gloo
 
-from vxpy.core import visual
+import vxpy.core.visual as vxvisual
 from vxpy.utils import sphere
 
 
-class SphereUniformBackground(visual.SphericalVisual):
-    u_color = visual.Vec3Parameter('u_color', static=True)
+class SphereUniformBackground(vxvisual.SphericalVisual):
+    u_color = vxvisual.Vec3Parameter('u_color', static=True)
 
     def __init__(self, *args, **kwargs):
-        visual.SphericalVisual.__init__(self, *args, **kwargs)
+        vxvisual.SphericalVisual.__init__(self, *args, **kwargs)
 
         self.sphere = sphere.UVSphere(azim_lvls=50, elev_lvls=25)
         self.index_buffer = gloo.IndexBuffer(self.sphere.indices)

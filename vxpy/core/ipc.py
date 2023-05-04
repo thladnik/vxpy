@@ -115,13 +115,8 @@ def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs)
     Pipes[process_name][0].send([signal, LocalProcess.name, args, kwargs])
 
 
-def rpc(process_name: str, function: Callable, *args, **kwargs) -> None:
+def rpc(process_name: str, function: Union[Callable, str], *args, **kwargs) -> None:
     """Send a remote procedure call of given function to another modules.
-
-    @param process_name:
-    @param function:
-    @param args:
-    @param kwargs:
     """
     if not (isinstance(function, str)):
         function = function.__qualname__
