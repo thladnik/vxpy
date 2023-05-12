@@ -1,23 +1,8 @@
-"""
-vxpy ./modules/display.py
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Display process module
 """
 from __future__ import annotations
 from inspect import isclass
-from typing import Callable, Union
+from typing import Callable, Dict, Union
 import glfw
 import time
 
@@ -33,6 +18,7 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.core.protocol as vxprotocol
+import vxpy.core.transform as vxtransform
 import vxpy.core.visual as vxvisual
 import vxpy.core.devices.serial as vxserial
 
@@ -56,8 +42,14 @@ class Display(vxprocess.AbstractProcess):
 
         # Create canvas
         _interval = 1. / config.DISPLAY_FPS
+        self.canvas = Canvas()
 
-        self.canvas = Canvas(_interval)
+        # Get transform from config and set it to process and canvas
+        _transform = vxtransform.get_config_transform()
+        if _transform is not None:
+            _transform = _transform()
+        self.current_transform: vxtransform.BaseTransform = _transform
+        self.canvas.set_transform(self.current_transform)
 
         # Process vispy events once to avoid frozen screen at start
         app.process_events()
@@ -81,7 +73,7 @@ class Display(vxprocess.AbstractProcess):
     def prepare_static_protocol(self):
         # Initialize all visuals during protocol preparation
         #  This may come with some overhead, but reduces latency between stimulation phases
-        self.current_protocol.initialize_visuals(self.canvas)
+        self.current_protocol.initialize_visuals(self.canvas, _transform=self.current_transform)
 
     def prepare_static_protocol_phase(self):
         # Prepare visual associated with phase
@@ -116,7 +108,7 @@ class Display(vxprocess.AbstractProcess):
         # If new_visual hasn't been instantiated yet, do it now
         if isclass(new_visual):
             log.debug(f'Prepare new visual from class {new_visual.__name__}')
-            self.current_visual = new_visual(self.canvas)
+            self.current_visual = new_visual(self.canvas, _transform=self.current_transform)
         else:
             log.debug(f'Set visual from instance of {new_visual.__class__.__name__}')
             self.current_visual = new_visual
@@ -126,7 +118,7 @@ class Display(vxprocess.AbstractProcess):
             vxcontainer.create_phase_dataset(parameter.name, parameter.shape, parameter.dtype)
 
     def start_visual(self, parameters: dict = None):
-        log.debug(f'Start new visual {self.current_visual.__class__.__name__}')
+        log.info(f'Start new visual {self.current_visual.__class__.__name__}')
 
         # If a protocol is set, the phase information dictates the parameters to be used
         # Setting of parameters need to happen BEFORE visual initialization in case initialize uses
@@ -198,7 +190,7 @@ class Display(vxprocess.AbstractProcess):
 
 class Canvas(app.Canvas):
 
-    def __init__(self, _interval, **kwargs):
+    def __init__(self, **kwargs):
 
         # DONT EVER REMOVE THIS
         # NOTE: GLFW has to be initialized, otherwise canvas positioning is not going to work properly
@@ -226,6 +218,9 @@ class Canvas(app.Canvas):
         app.Canvas.__init__(self, **canvas_kwargs, backend_kwargs=backend_kwargs)
 
         self.current_visual: vxvisual.AbstractVisual = None
+        self.current_transform: vxtransform.BaseTransform = None
+
+        # Set display transform
         self.t: float = time.perf_counter()
         self.new_t: float = time.perf_counter()
 
@@ -240,6 +235,9 @@ class Canvas(app.Canvas):
 
         # Clear after show
         self.clear()
+
+    def set_transform(self, _transform: vxtransform.BaseTransform):
+        self.current_transform = _transform
 
     def clear(self):
         gloo.clear()
@@ -271,7 +269,7 @@ class Canvas(app.Canvas):
         if self.current_visual is not None and self.current_visual.is_active:
 
             # Draw visual
-            drawn = self.current_visual.draw(self.new_t - self.t)
+            self.current_transform.apply(self.current_visual, self.new_t - self.t)
 
             # If visual is the core's KeepLast visual, don't swap buffers
             if not isinstance(self.current_visual, vxvisual.KeepLast):

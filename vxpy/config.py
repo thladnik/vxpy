@@ -23,6 +23,7 @@ CAMERA_USE: bool = True
 CAMERA_DEVICES: Dict[str, Dict[str, Any]] = {}
 DISPLAY_USE: bool = True
 DISPLAY_FPS: int = 60
+DISPLAY_TRANSFORM: str = 'DirectTransform'
 GUI_USE: bool = True
 GUI_REFRESH: int = 30
 GUI_FPS: int = 20

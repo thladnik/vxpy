@@ -15,6 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+from typing import Tuple
+
 import numpy as np
 
 from vxpy.utils import geometry
@@ -25,6 +27,61 @@ from vxpy.utils import geometry
 # Any changes will affect all visuals associated with the models!
 #
 ########
+
+class SimpleUVSphere:
+
+    def __init__(self,
+                 azimuth_levels: int = 60,
+                 elevation_levels: int = 30):
+
+        self.azimuth_levels = azimuth_levels
+        self.elevation_levels = elevation_levels
+
+        # Spherical coordinates in azimuth and elevation
+        self.azimuth_space = np.linspace(-np.pi, np.pi, self.azimuth_levels, endpoint=True)
+        self.elevation_space = np.linspace(-np.pi / 2, np.pi / 2, self.elevation_levels, endpoint=True)
+        self.mesh_azimuths, self.mesh_elevations = np.meshgrid(self.azimuth_space, self.elevation_space)
+
+        self.azimuths = np.ascontiguousarray(self.mesh_azimuths.flatten(), dtype=np.float32)
+        self.elevations = np.ascontiguousarray(self.mesh_elevations.flatten(), dtype=np.float32)
+
+        # 3D coordinates
+        pos = geometry.sph2cart(self.azimuths, self.elevations, 1.)
+        self.positions = np.ascontiguousarray(pos.T, dtype=np.float32)
+
+        # Face indices
+        faces = list()
+        for i in np.arange(elevation_levels):
+            for j in np.arange(azimuth_levels):
+                faces.append([i * azimuth_levels + j, i * azimuth_levels + j + 1, (i + 1) * azimuth_levels + j + 1])
+                faces.append([i * azimuth_levels + j, (i + 1) * azimuth_levels + j, (i + 1) * azimuth_levels + j + 1])
+        self.faces = np.array(faces)
+        self.indices = np.ascontiguousarray(self.faces.flatten(), dtype=np.uint32)
+
+    @staticmethod
+    def get_uv_coordinates(positions: np.ndarray) -> np.ndarray:
+        """Return 2d UV coordinates for given 3d spherical coordinate set of shape (N x 3)"""
+        u = 0.5 + np.arctan2(positions[:, 0], positions[:, 1]) / np.pi / 2.0
+        v = 0.5 + np.arcsin(-positions[:, 2]) / np.pi
+
+        return np.stack([u, v]).T
+
+    def get_subset(self, lower_azimuth: float, upper_azimuth: float,
+                   lower_elevation: float, upper_elevation: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get a subset of positions and corresponding faces based on upper and lower azimuth/elevation bounds"""
+        mask_selection = (lower_azimuth <= self.azimuths) & (self.azimuths <= upper_azimuth) \
+                         & (lower_elevation <= self.elevations) & (self.elevations <= upper_elevation)
+        selection_indices = np.where(mask_selection)[0]
+        selection_set = set(selection_indices)
+        positions = self.positions[mask_selection]
+        faces = np.array([face for face in self.faces if len(set(face) & selection_set) == 3])
+
+        # Fix face indices
+        while faces.max() >= positions.shape[0]:
+            faces -= faces.min()
+
+        return selection_indices, positions, faces
+
 
 class UVSphere:
 

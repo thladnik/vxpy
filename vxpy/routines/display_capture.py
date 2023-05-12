@@ -23,7 +23,6 @@ import vxpy.api.routine as vxroutine
 import vxpy.core.visual as vxvisual
 
 
-
 class Frames(vxroutine.DisplayRoutine):
 
     def require(self, *args, **kwargs):
@@ -42,6 +41,6 @@ class Frames(vxroutine.DisplayRoutine):
         if visual is None:
             return
 
-        frame = np.swapaxes(visual.frame.read('color', alpha=False), 0, 1)
+        frame = np.swapaxes(visual.transform.frame.read('color', alpha=False), 0, 1)
 
         self.frame.write(frame)
