@@ -380,16 +380,13 @@ class AbstractProcess:
                     # Check if this array should be encoded as video
                     if 'videoformat' in record_ops:
                         vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute, **record_ops)
-
+                        vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
+                    elif 'save_plaintext' in record_ops:
+                        vxcontainer.create_text_stream(vxipc.get_recording_path(), attribute)
                     # Otherwise just add attribute dataset
                     else:
                         vxcontainer.create_dataset(attribute.name, attribute.shape, attribute.numpytype)
-
-                    # Regardless, add corresponding time dataset for attribute
-                    #  note however that, for many compression algorithms,
-                    #  the frame numbers won't match the time numbers
-                    #  In order to get 1:1 correspondence, use something like avi:mjpeg
-                    vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
+                        vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
 
                 elif isinstance(attribute, vxattribute.ObjectAttribute):
 
@@ -410,6 +407,12 @@ class AbstractProcess:
 
         # Close any open video streams
         vxcontainer.close_video_streams()
+
+        # Close any open text streams
+        vxcontainer.close_text_streams()
+
+        # Switch state to let controller know recording was stopped on fork
+        vxipc.set_state(STATE.REC_STOPPED)
 
         return True
 
@@ -719,14 +722,16 @@ class AbstractProcess:
 
             _, attr_time, attr_data = [v[0] for v in attribute.read()]
 
+            # Add attribute data to dataset and time dataset
             if isinstance(attribute, vxattribute.ArrayAttribute) and 'videoformat' in record_ops:
                 vxcontainer.add_to_video_stream(attribute.name, attr_data)
-                continue
+                vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
-            # Add attribute data to dataset
-            vxcontainer.add_to_dataset(attribute.name, attr_data)
-            # Add attribute time to dataset
-            vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
+            elif 'save_plaintext' in record_ops and record_ops['save_plaintext']:
+                vxcontainer.add_to_text_stream(attribute.name, f'{attr_time},{attr_data}')
+            else:
+                vxcontainer.add_to_dataset(attribute.name, attr_data)
+                vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
     def handle_sigint(self, sig, frame):
         """Method called on system interrupt.
