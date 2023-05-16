@@ -198,7 +198,8 @@ class AbstractVisual(ABC):
 class SphericalVisual(AbstractVisual, ABC):
 
     available_transforms = [vxtransforms.PerspectiveTransform,
-                            vxtransforms.Spherical4ChannelProjectionTransform]
+                            vxtransforms.Spherical4ChannelProjectionTransform,
+                            vxtransforms.Spherical4ScreenCylindricalTransform]
 
     def __init__(self, *args, **kwargs):
         AbstractVisual.__init__(self, *args, **kwargs)

@@ -55,8 +55,8 @@ class SimpleUVSphere:
             for j in np.arange(azimuth_levels):
                 faces.append([i * azimuth_levels + j, i * azimuth_levels + j + 1, (i + 1) * azimuth_levels + j + 1])
                 faces.append([i * azimuth_levels + j, (i + 1) * azimuth_levels + j, (i + 1) * azimuth_levels + j + 1])
-        self.faces = np.array(faces)
-        self.indices = np.ascontiguousarray(self.faces.flatten(), dtype=np.uint32)
+        self.faces = np.array(faces, dtype=np.uint32)
+        self.indices = np.ascontiguousarray(self.faces.flatten())
 
     @staticmethod
     def get_uv_coordinates(positions: np.ndarray) -> np.ndarray:
