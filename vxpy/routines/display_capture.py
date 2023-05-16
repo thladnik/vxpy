@@ -13,8 +13,8 @@ class Frames(vxroutine.DisplayRoutine):
     def require(self, *args, **kwargs):
 
         # Set up shared variables
-        self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH
-        self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
+        self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
+        self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
         self.frame = vxattribute.ArrayAttribute('display_frame',
                                                 (self.width, self.height, 3),
                                                 vxattribute.ArrayType.uint8)

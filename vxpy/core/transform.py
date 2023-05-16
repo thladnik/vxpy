@@ -60,7 +60,7 @@ class BaseTransform:
 
         self.transform_uniforms: Dict[str, Any] = {}
 
-        self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT, calib.CALIB_DISP_WIN_SIZE_WIDTH)
+        self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX, calib.CALIB_DISP_WIN_SIZE_WIDTH_PX)
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
         self.frame = self._out_fb
@@ -72,7 +72,11 @@ class BaseTransform:
         self._display_prog['u_texture'] = self._out_texture
 
     def parse_vertex_shader(self, vert: str):
-        return f'{self.vertex_map}\n{vert}'
+        return f'#version {config.DISPLAY_GL_VERSION}\n{self.vertex_map}\n{vert}'
+
+    @staticmethod
+    def parse_fragment_shader(frag: str):
+        return f'#version {config.DISPLAY_GL_VERSION}\n{frag}'
 
     def apply_transforms_to_all(self, visual):
         for program in visual.get_programs().values():
@@ -187,8 +191,8 @@ class PlanarTransform(BaseTransform):
 
         gloo.clear()
 
-        height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
-        width = calib.CALIB_DISP_WIN_SIZE_WIDTH
+        height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
+        width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
 
         # Set aspect scale to square
         if width > height:
@@ -240,8 +244,6 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
 
     # Standard transforms of sphere for 4-way display configuration
     vertex_map = """
-        #version 300 es
-
         uniform mat2 u_mapcalib_aspectscale;
         uniform vec2 u_mapcalib_scale;
         uniform mat4 u_mapcalib_translation;
@@ -427,8 +429,8 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
 
         gloo.clear()
 
-        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH
-        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
+        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
+        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
         # Set 2D scaling for aspect 1
         # Regular version
         # if win_height > win_width:
@@ -543,8 +545,6 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
 class Spherical4ScreenCylindricalTransform(BaseTransform):
 
     vertex_map = """
-        #version 300 es
-        
         uniform mat4 u_mapcalib_model;
         uniform mat4 u_mapcalib_view;
         uniform mat4 u_mapcalib_projection;
@@ -567,13 +567,13 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
 
         gloo.clear()
 
-        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH
+        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
         viewport_width = win_width // 4
-        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
+        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
 
-        side_width = calib.CALIB_DISP_CYL_SIDE_WIDTH
-        screen_width = calib.CALIB_DISP_CYL_SCREEN_WIDTH
-        screen_height = calib.CALIB_DISP_CYL_SCREEN_HEIGHT
+        side_width = calib.CALIB_DISP_CYL_SIDE_WIDTH_MM
+        screen_width = calib.CALIB_DISP_CYL_SCREEN_WIDTH_MM
+        screen_height = calib.CALIB_DISP_CYL_SCREEN_HEIGHT_MM
 
         azim_orientation = calib.CALIB_DISP_CYL_VIEW_AZIM_ORIENT
 

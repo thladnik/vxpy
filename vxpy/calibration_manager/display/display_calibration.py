@@ -39,7 +39,7 @@ class DisplayCalibration(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         # Create canvas
-        self.canvas = Canvas(1 / 60, always_on_top=False)
+        self.canvas = Canvas(always_on_top=False)
 
         self.canvas_timer = QtCore.QTimer(self)
         self.canvas_timer.setInterval(50)
@@ -271,12 +271,12 @@ class GlobalSettings(QtWidgets.QGroupBox):
 
     @staticmethod
     def update_window_width(value):
-        calib.CALIB_DISP_WIN_SIZE_WIDTH = value
+        calib.CALIB_DISP_WIN_SIZE_WIDTH_PX = value
         access.window.display.update_canvas()
 
     @staticmethod
     def update_window_height(value):
-        calib.CALIB_DISP_WIN_SIZE_HEIGHT = value
+        calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX = value
         access.window.display.update_canvas()
 
     @staticmethod
@@ -307,8 +307,8 @@ class GlobalSettings(QtWidgets.QGroupBox):
     def update_ui(self):
         self.win_x_pos.set_value(calib.CALIB_DISP_WIN_POS_X)
         self.win_y_pos.set_value(calib.CALIB_DISP_WIN_POS_Y)
-        self.win_width.set_value(calib.CALIB_DISP_WIN_SIZE_WIDTH)
-        self.win_height.set_value(calib.CALIB_DISP_WIN_SIZE_HEIGHT)
+        self.win_width.set_value(calib.CALIB_DISP_WIN_SIZE_WIDTH_PX)
+        self.win_height.set_value(calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX)
         self.x_pos.set_value(calib.CALIB_DISP_GLOB_POS_X)
         self.y_pos.set_value(calib.CALIB_DISP_GLOB_POS_Y)
 

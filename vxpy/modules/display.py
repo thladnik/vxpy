@@ -253,7 +253,7 @@ class Canvas(app.Canvas):
         self.position = pos
 
         # Update size
-        size = (calib.CALIB_DISP_WIN_SIZE_WIDTH, calib.CALIB_DISP_WIN_SIZE_HEIGHT)
+        size = (calib.CALIB_DISP_WIN_SIZE_WIDTH_PX, calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX)
         log.debug(f'Set canvas size to {size}')
         self.size = size
 
