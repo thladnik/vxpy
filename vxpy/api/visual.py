@@ -1,1 +1,1 @@
-from vxpy.core.visual import BaseVisual, PlanarVisual, SphericalVisual
+from vxpy.core.visual import PlanarVisual, SphericalVisual

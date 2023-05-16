@@ -85,7 +85,8 @@ class STATE(Enum):
     IDLE = 2
     REC_START_REQ = 10
     REC_START = 11
-    REC_STARTED = 12
+    REC_START_SUCCESS = 12
+    REC_START_FAIL = 13
     REC_STOP_REQ = 17
     REC_STOP = 18
     REC_STOPPED = 19

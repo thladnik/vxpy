@@ -1,19 +1,4 @@
-"""
-MappApp ./core/protocol.py
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.l
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Core protocol module
 """
 from __future__ import annotations
 import importlib
@@ -21,9 +6,12 @@ from abc import abstractmethod
 from inspect import isclass
 from typing import List, Union, Callable, Type, Dict, Any
 
+import vispy.app
+
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
+import vxpy.core.transform as vxtranform
 import vxpy.core.visual as vxvisual
 from vxpy.definitions import *
 
@@ -110,11 +98,11 @@ class Phase:
         self._action = value
 
     @property
-    def visual(self):
+    def visual(self) -> Type[vxvisual.AbstractVisual]:
         return self._visual
 
     @visual.setter
-    def visual(self, value):
+    def visual(self, value) -> None:
         self._visual = value
 
     @property
@@ -153,7 +141,9 @@ class Phase:
     def set_initialize_visual(self, visual: vxvisual.AbstractVisual):
         self._visual = visual
 
-    def initialize_visual(self, canvas, _protocol):
+    def initialize_visual(self, canvas: vispy.app.Canvas,
+                          _protocol: BaseProtocol,
+                          _transform: vxtranform.BaseTransform) -> bool:
         if self._visual is None:
             return False
 
@@ -220,13 +210,23 @@ class BaseProtocol:
     def get_phase(self, phase_id: int) -> Union[Phase, None]:
         pass
 
-    @abstractmethod
     def initialize_actions(self):
-        pass
+        for phase in self._phases:
+            phase.initialize_action()
 
-    @abstractmethod
-    def initialize_visuals(self, canvas):
-        pass
+    def initialize_visuals(self, canvas: vispy.app.Canvas, _transform: vxtranform.BaseTransform):
+        # Fetch all visuals from phases and identify unique ones
+        all_visuals = [phase.visual for phase in self._phases]
+        unique_visuals = list(set(all_visuals))
+
+        # Initialize unique visuals (one instance per visual class)
+        initialize_visuals = {}
+        for visual in unique_visuals:
+            initialize_visuals[visual] = visual(canvas=canvas, _protocol=self, _transform=_transform)
+
+        # Update all phases to unique visual instance
+        for phase in self._phases:
+            phase.set_initialize_visual(initialize_visuals[phase.visual])
 
 
 class StaticProtocol(BaseProtocol):
@@ -235,24 +235,6 @@ class StaticProtocol(BaseProtocol):
 
     def __init__(self):
         BaseProtocol.__init__(self)
-
-    def initialize_actions(self):
-        for phase in self._phases:
-            phase.initialize_action()
-
-    def initialize_visuals(self, canvas):
-        # Fetch all visuals from phases and identify unique ones
-        all_visuals = [phase.visual for phase in self._phases]
-        unique_visuals = list(set(all_visuals))
-
-        # Initialize unique visuals (one instance per visual class)
-        initialize_visuals = {}
-        for visual in unique_visuals:
-            initialize_visuals[visual] = visual(canvas, _protocol=self)
-
-        # Update all phases to unique visual instance
-        for phase in self._phases:
-            phase.set_initialize_visual(initialize_visuals[phase.visual])
 
     @property
     def progress(self):
@@ -280,23 +262,6 @@ class TriggeredProtocol(BaseProtocol):
 
     def set_phase_trigger(self, trigger: vxevent.Trigger):
         self.phase_trigger = trigger
-
-    def initialize_actions(self):
-        pass
-
-    def initialize_visuals(self, canvas):
-        # Fetch all visuals from phases and identify unique ones
-        all_visuals = [phase.visual for phase in self._phases]
-        unique_visuals = list(set(all_visuals))
-
-        # Initialize unique visuals (one instance per visual class)
-        initialize_visuals = {}
-        for visual in unique_visuals:
-            initialize_visuals[visual] = visual(canvas, _protocol=self)
-
-        # Update all phases to unique visual instance
-        for phase in self._phases:
-            phase.set_initialize_visual(initialize_visuals[phase.visual])
 
     def get_phase(self, phase_id: int) -> Union[Phase, None]:
         if -1 < phase_id < self.phase_count:

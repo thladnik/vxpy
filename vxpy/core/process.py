@@ -6,7 +6,7 @@ import numpy as np
 import signal
 import sys
 import time
-from typing import Any, Callable, List, Union, Tuple, Dict
+from typing import Any, Callable, List, Union, Tuple, Dict, Type
 
 import vxpy
 from vxpy import config
@@ -19,17 +19,20 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.routine as vxroutine
-import vxpy.core.ui as vxui
-from vxpy.core import logger as vxlogger
 from vxpy.definitions import *
 
 log = vxlogger.getLogger(__name__)
 
 
-def run_process(target, **kwargs):
-    """Initialization function for forked processes.
+def run_process(target: AbstractProcess, **kwargs):
+    """Initialization function for forked processes
 
-    This function should be called from the Controller exclusively
+    This function should only be used in the Controller and constructs the AbstractProcess
+    implementation within the respective subprocess.
+
+    Args:
+        target: A reimplementation of AbstractProcess
+        kwargs: Arguments to be provided to the constructor of AbstractProcess implementation
     """
 
     # Set up logging
@@ -46,6 +49,7 @@ def run_process(target, **kwargs):
 
 
 class AbstractProcess:
+    """Class which is reimplemented by every process implementation"""
 
     name: str
 
@@ -162,10 +166,13 @@ class AbstractProcess:
             self.loop_times = [self.loop_times[-1]]
             # print(f'{self.name} says {self.t}')
             update_args = (self.name, self.interval, mean_dt, std_dt)
-            vxipc.gui_rpc(vxui.ProcessMonitorWidget.update_process_interval, *update_args, _send_verbosely=False)
+            vxipc.gui_rpc('ProcessMonitorWidget.update_process_interval', *update_args, _send_verbosely=False)
 
     def run(self, interval: float):
-        """Event loop of process.
+        """Function to run the event loop of the process
+
+        Args:
+            interval: the target interval at which the event loop should run
         """
 
         self.interval = interval
@@ -233,53 +240,68 @@ class AbstractProcess:
     # Recording
 
     @property
-    def record_base_path(self):
+    def record_base_path(self) -> str:
+        """Recording base folder path"""
         return vxipc.CONTROL[CTRL_REC_BASE_PATH]
 
     @property
-    def recording_folder_name(self):
+    def recording_folder_name(self) -> str:
+        """Folder name of current recording"""
         return vxipc.CONTROL[CTRL_REC_FLDNAME]
 
     @property
-    def recording_active(self):
+    def recording_active(self) -> bool:
+        """Flag which indicates if recording is currently active"""
         return vxipc.CONTROL[CTRL_REC_ACTIVE]
 
     @property
-    def record_protocol_group_id(self):
+    def record_protocol_group_id(self) -> int:
+        """Record ID of the currently active protocol"""
         return vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID]
 
     @property
-    def record_phase_group_id(self):
+    def record_phase_group_id(self) -> int:
+        """Record ID of the currently active protocol phase"""
         return vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]
 
     # Protocol
 
     @property
-    def protocol_type(self):
+    def protocol_type(self) -> Type[vxprotocol.BaseProtocol]:
+        """Type of the currently active protocol
+        """
         return vxipc.CONTROL[CTRL_PRCL_TYPE]
 
     @property
-    def protocol_import_path(self):
+    def protocol_import_path(self) -> str:
+        """The full import path to the currently active protocol"""
         return vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
 
     @property
-    def phase_id(self):
+    def phase_id(self) -> int:
+        """The current phase ID within the currently active protocol"""
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
     @property
-    def phase_start_time(self):
+    def phase_start_time(self) -> float:
+        """Start time in application time (seconds since start of app) of the currently active protocol phase"""
         return vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
 
     @property
-    def phase_active(self):
+    def phase_active(self) -> bool:
+        """Flag whether protocol phase is currently active"""
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ACTIVE]
 
     @property
-    def phase_end_time(self):
+    def phase_end_time(self) -> float:
+        """End time in application time (seconds since start of app) of the currently active protocol phase"""
         return vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
 
     @property
-    def phase_is_active(self):
+    def phase_is_active(self) -> bool:
+        """Flag which is True if the current local time is within
+        the defined start and end times of of the currently active protocol phase
+        """
         return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
 
     def prepare_static_protocol(self):
@@ -318,11 +340,22 @@ class AbstractProcess:
         """To be reimplemented in fork"""
         pass
 
-    def _recording_attributes(self):
-        """To be reimplemented in fork"""
+    def _recording_attributes(self) -> Dict[str, Any]:
+        """To be reimplemented in fork.
+
+        Returns a dictionary of key-value pairs with session data that should
+        be saved to the process's record file.
+        """
         return {}
 
     def _start_recording(self):
+        """Start a new recording to disk
+
+        Method opens a new file container and adds basic version and debug information.
+        It also creates the ``__record_group_id`` and corresponding ``__time`` datasets in file
+        and datasets for all ``vxpy.core.attribute.Attribute`` instances that have been marked
+        to be saved to disk via a call to ``vxpy.core.attribute.write_to_file``
+        """
 
         # Open new file for recording
         log.debug(f'Start recording to {vxipc.get_recording_path()}')
@@ -363,10 +396,10 @@ class AbstractProcess:
                     data = data[0]
                     # TODO: do this smartly...
 
-        # Switch state to let controller know recording was started on fork
-        vxipc.set_state(STATE.REC_STARTED)
+        return True
 
-    def _stop_recording(self):
+    def _stop_recording(self) -> bool:
+        """"""
         log.debug(f'Stop recording to {vxipc.get_recording_path()}')
 
         # Close any open file
@@ -381,7 +414,10 @@ class AbstractProcess:
         # Switch state to let controller know recording was stopped on fork
         vxipc.set_state(STATE.REC_STOPPED)
 
+        return True
+
     def _start_protocol(self):
+        """"""
         # If fork has already started/loaded protocol, ignore this
         if vxipc.in_state(STATE.PRCL_STARTED):
             return
@@ -417,6 +453,7 @@ class AbstractProcess:
         vxipc.set_state(STATE.PRCL_STARTED)
 
     def _started_protocol(self):
+        """"""
         if not vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
             return
 
@@ -424,10 +461,12 @@ class AbstractProcess:
         vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
 
     def _stop_protocol(self):
+        """"""
         self.current_protocol = None
         vxipc.set_state(STATE.PRCL_STOPPED)
 
     def _stopped_protocol(self):
+        """"""
         vxipc.set_state(STATE.IDLE)
 
     def _process_static_protocol(self):
@@ -489,14 +528,24 @@ class AbstractProcess:
         # Controller has started a recording
         elif vxipc.in_state(STATE.REC_START, PROCESS_CONTROLLER):
             # If fork hasn't reacted yet, do it
-            if not vxipc.in_state(STATE.REC_STARTED):
-                self._start_recording()
+            if not vxipc.in_state(STATE.REC_START_SUCCESS):
+                started = self._start_recording()
+
+                if started:
+                    # Switch state to let controller know recording was started on fork
+                    vxipc.set_state(STATE.REC_START_SUCCESS)
+                else:
+                    vxipc.set_state(STATE.REC_START_FAIL)
 
         # Controller has stopped a recording
         elif vxipc.in_state(STATE.REC_STOP, PROCESS_CONTROLLER):
             # If fork hasn't reacted yet, do it
             if not vxipc.in_state(STATE.REC_STOPPED):
-                self._stop_recording()
+                stopped = self._stop_recording()
+
+                if stopped:
+                    # Switch state to let controller know recording was stopped on fork
+                    vxipc.set_state(STATE.REC_STOPPED)
 
         # Controller has started shutdown
         elif vxipc.in_state(STATE.SHUTDOWN, PROCESS_CONTROLLER):
@@ -573,19 +622,15 @@ class AbstractProcess:
             log.debug(f'Register callback {obj.__class__.__qualname__}:{fun_str} in module {self.name}')
             self._registered_callbacks[fun_str] = (obj, fun)
         else:
-            log.warning('Trying to register callback \"{}\" more than once'.format(fun_str))
+            log.warning('Trying to register callback {} more than once'.format(fun_str))
 
     ################################
     # Private functions
 
     def _execute_rpc(self, fun_str: str, *args, **kwargs):
-        """Execute a remote call to the specified function and pass *args, **kwargs
-
-        :param fun_str: function name
-        :param args: list of arguments
-        :param kwargs: dictionary of keyword arguments
-        :return:
+        """Execute a remote call to the specified function and pass args, kwargs
         """
+
         fun_path = fun_str.split('.')
 
         _send_verbosely = kwargs.pop('_send_verbosely')
@@ -653,6 +698,14 @@ class AbstractProcess:
         return f'phase{self.record_group}' if self.record_group >= 0 else ''
 
     def update_routines(self, *args, **kwargs):
+        """Method updates the routines of the local process and saves new attribute data to file.
+
+
+
+        Args:
+            args: List of arguments that depend on the type of the local process
+            kwargs: Dict of named arguments that depend on the type of the local process
+        """
 
         # Call routine main functions
         if self.name in self._routines:
@@ -680,10 +733,11 @@ class AbstractProcess:
                 vxcontainer.add_to_dataset(attribute.name, attr_data)
                 vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
-    @property
-    def routines(self):
-        return self._routines
-
     def handle_sigint(self, sig, frame):
+        """Method called on system interrupt.
+
+        Ensures that, when the program crashes or is insterrupted,
+        the process exists by itself.
+        """
         print(f'> SIGINT handled in  {self.__class__}')
         sys.exit(0)
