@@ -20,7 +20,8 @@ class Frames(vxroutine.DisplayRoutine):
                                                 vxattribute.ArrayType.uint8)
 
     def initialize(self):
-        self.frame.add_to_file()
+        pass
+        # self.frame.add_to_file()
 
     def main(self, visual: vxvisual.AbstractVisual):
         if visual is None:
