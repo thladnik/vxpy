@@ -21,8 +21,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 import numpy as np
 import warnings
 
-
-def createUVSphere(azi, elv, azitile=30, elvtile=30):
+def createUVSphere(azi, elv, azitile = 30, elvtile = 30):
     sph_azi = np.exp(1.j * np.linspace(-azi / 2, azi / 2, azitile + 1))
     sph_elv = np.linspace(-elv / 2, elv / 2, elvtile + 1)
     sph_xz, sph_yz = np.meshgrid(sph_azi, sph_elv)
@@ -39,10 +38,8 @@ def createUVSphere(azi, elv, azitile=30, elvtile=30):
 
     return p3, imgV_conn.reshape(-1, 3)
 
-
 def rotation2D(theta):
     return np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-
 
 def cen2tri(cen_x=np.array([0]), cen_y=np.array([0]), triangle_size=np.array([1])):
     """
@@ -93,19 +90,17 @@ def vecNorm(vec, Norm_axis=-1):  # Comput the norm of the vectors or tensors in 
 def vecNormalize(vec, Norm_axis=-1):  # Normalize the ndarray vectors or tensors to norm = 1
     return vec / np.expand_dims(np.sqrt(np.sum(vec ** 2, Norm_axis)), Norm_axis)
 
-
 def sphAngle(vec, r):  # Compute the angle between two spherical coordinates as their distances on a unit sphere
     return np.arcsin(vecNorm(vec[:, np.newaxis, :] - vec[np.newaxis, :, :], 2) / (2 * r)) * 2
-
 
 def cart2sph1(cx, cy, cz):
     cxy = cx + cy * 1.j
     azi = np.angle(cxy)
-    elv = np.angle(np.abs(cxy) + cz * 1.j)
+    elv = np.angle(np.abs(cxy)+cz * 1.j)
     return azi, elv
 
+class qn (np.ndarray) :
 
-class qn(np.ndarray):
     qn_dtype = [('w', np.double), ('x', np.double), ('y', np.double), ('z', np.double)]
 
     def __new__(cls, compact_mat):
@@ -120,7 +115,7 @@ class qn(np.ndarray):
         :return: M x ... x N quaternion structured array.
         """
         mattype = type(compact_mat)
-        if mattype == list or mattype == tuple:  # Check if input is ndarray or list, else return uv_facet type error
+        if mattype == list or mattype == tuple :  # Check if input is ndarray or list, else return uv_facet type error
             compact_mat = np.asarray(compact_mat)
         elif mattype == np.ndarray:
             pass
@@ -158,8 +153,7 @@ class qn(np.ndarray):
             warningmsg = "Input array %s is set to %s" % (matshape, tuple(targetshape))
             # warnings.warn(warningmsg)
         else:
-            raise Exception(
-                'Input array should be uv_facet N x ... x 4 matrix, instead its shape is %s\n' % (matshape,))
+            raise Exception('Input array should be uv_facet N x ... x 4 matrix, instead its shape is %s\n' % (matshape,))
         obj = qn_compact.view(cls)  # Convert to quaternion ndarray object
         if obj.shape == ():  # Convert 1 element array (has 0 dim) to 1-d array
             obj = np.expand_dims(obj, -1)
@@ -178,9 +172,9 @@ class qn(np.ndarray):
             return sub_self.view(qn)
 
         if type(keys) == str:
-            concat = np.concatenate([sub_self[i][..., np.newaxis] for i in keys], axis=-1)
+            concat = np.concatenate([sub_self[i][...,np.newaxis] for i in keys],axis=-1)
             if concat.shape[-1] == 1:
-                concat = concat[..., 0]
+                concat = concat[...,0]
             return concat
 
         else:
@@ -210,7 +204,7 @@ class qn(np.ndarray):
     def __add__(self, qn2):
         # Elementary arithmetic: qn1 + qn2 or qn1 + r (real number). Same as the elementary arithmetic for real number
         if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
-            compact_product = np.concatenate([self['w'] + qn2, self['xyz']], -1)
+            compact_product = np.concatenate([self['w']+qn2,self['xyz']],-1)
         elif qn2.__class__ == self.__class__:
             compact_product = self.matrixform + qn2.matrixform
         else:
@@ -320,18 +314,14 @@ class qn(np.ndarray):
             else:
                 compact_product = np.zeros([*temp_shape], dtype=self.qn_dtype)
             compact_product = np.full_like(compact_product, np.nan)
-            compact_product['w'] = self['w'] * inv_qn2['w'] - self['x'] * inv_qn2['x'] - self['y'] * inv_qn2['y'] - \
-                                   self[
-                                       'z'] * inv_qn2['z']
-            compact_product['x'] = self['w'] * inv_qn2['x'] + self['x'] * inv_qn2['w'] + self['y'] * inv_qn2['z'] - \
-                                   self[
-                                       'z'] * inv_qn2['y']
-            compact_product['y'] = self['w'] * inv_qn2['y'] - self['x'] * inv_qn2['z'] + self['y'] * inv_qn2['w'] + \
-                                   self[
-                                       'z'] * inv_qn2['x']
-            compact_product['z'] = self['w'] * inv_qn2['z'] + self['x'] * inv_qn2['y'] - self['y'] * inv_qn2['x'] + \
-                                   self[
-                                       'z'] * inv_qn2['w']
+            compact_product['w'] = self['w'] * inv_qn2['w'] - self['x'] * inv_qn2['x'] - self['y'] * inv_qn2['y'] - self[
+                'z'] * inv_qn2['z']
+            compact_product['x'] = self['w'] * inv_qn2['x'] + self['x'] * inv_qn2['w'] + self['y'] * inv_qn2['z'] - self[
+                'z'] * inv_qn2['y']
+            compact_product['y'] = self['w'] * inv_qn2['y'] - self['x'] * inv_qn2['z'] + self['y'] * inv_qn2['w'] + self[
+                'z'] * inv_qn2['x']
+            compact_product['z'] = self['w'] * inv_qn2['z'] + self['x'] * inv_qn2['y'] - self['y'] * inv_qn2['x'] + self[
+                'z'] * inv_qn2['w']
         else:
             raise ValueError('Invalid type of input')
         return compact_product.view(qn)
@@ -512,7 +502,7 @@ class qn(np.ndarray):
     @property
     def angle(self):
         # Return the rotation angle
-        return np.arccos(self.w / self.norm) * 2
+        return np.arccos(self.w / self.norm)*2
 
     @property
     def normalize(self):
@@ -678,9 +668,8 @@ def anglebtw(qn1, qn2):
     # Calculate the angle between 3d vectors represented with two quaternions whose real part = 0
     distbtw = (qn1.normalize - qn2.normalize).norm / 2
     errdist = np.abs(distbtw)
-    if (errdist > 1).any():
-        warningmsg = "Setting the distance between the normalized points back to 1. Max. error:{err:.4f}".format(
-            err=errdist.max() - 1)
+    if (errdist>1).any():
+        warningmsg = "Setting the distance between the normalized points back to 1. Max. error:{err:.4f}".format(err=errdist.max()-1)
         warnings.warn(warningmsg)
         distbtw = np.minimum(np.maximum(distbtw, -1), 1)
     return np.arcsin(distbtw) * 2
@@ -763,10 +752,10 @@ def rotTo(fromQn, toQn):
         the rotation quaternion for the rotation transform
     """
     toQn_normalized = toQn.normalize
-    realpart = qdot(fromQn, toQn_normalized)
-    imagpart = qcross(fromQn, toQn_normalized)
-    realpart += (realpart + imagpart).norm
-    trans_vec = imagpart + realpart
+    realpart = qdot(fromQn,toQn_normalized)
+    imagpart = qcross(fromQn,toQn_normalized)
+    realpart += (realpart+imagpart).norm
+    trans_vec = imagpart+realpart
     return trans_vec.normalize
 
 
@@ -821,13 +810,12 @@ def projection_matrix(projection_normal, flat_output=True):
         else:
             return projection_mat
 
+def lerp(pnt1:qn,pnt2:qn,num_pnt=10):
+    grad = np.linspace(0,1,num_pnt)[:,np.newaxis]
+    return pnt1*(1-grad)+pnt2*grad
 
-def lerp(pnt1: qn, pnt2: qn, num_pnt=10):
-    grad = np.linspace(0, 1, num_pnt)[:, np.newaxis]
-    return pnt1 * (1 - grad) + pnt2 * grad
 
-
-def slerp(pnt1: qn, pnt2: qn, center: qn = qn([0, 0, 0]), num_pnt=10):
+def slerp(pnt1:qn,pnt2:qn,center:qn = qn([0,0,0]),num_pnt=10):
     pnt1v = pnt1 - center
     pnt2v = pnt2 - center
     pnt1v_norm = pnt1v.norm
@@ -838,6 +826,7 @@ def slerp(pnt1: qn, pnt2: qn, center: qn = qn([0, 0, 0]), num_pnt=10):
     arc_pnt = rotate(rotation_vec.imag.normalize, pnt1v, np.linspace(0, rotation_vec.angle, num_pnt))
     arc_pnt += center
     return arc_pnt
+
 
 
 class SphereHelper:
@@ -856,14 +845,12 @@ class SphereHelper:
 
         return mask
 
-
 def cart2sph(x, y, z):
     hxy = np.hypot(x, y)
     r = np.hypot(hxy, z)
     el = np.arctan2(z, hxy)
     az = np.arctan2(y, x)
     return az, el, r
-
 
 def sph2cart(theta, phi, r):
     rcos_theta = r * np.cos(phi)
@@ -874,6 +861,8 @@ def sph2cart(theta, phi, r):
 
 
 def sph2cart1(theta, phi, r):
-    return np.array([r * np.sin(theta) * np.cos(phi),
-                     r * np.cos(theta) * np.cos(phi),
-                     r * np.sin(phi)])
+    rcos_phi = r * np.cos(phi)
+    x = np.sin(theta) * rcos_phi
+    y = np.cos(theta) * rcos_phi
+    z = r * np.sin(phi)
+    return np.array([x, y, z])

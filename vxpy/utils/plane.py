@@ -23,6 +23,7 @@ import numpy as np
 #
 ########
 
+
 class XYPlane:
 
     def __init__(self, sample_rate=10, **kwargs):
@@ -36,7 +37,7 @@ class XYPlane:
 
         self.a_position = np.ascontiguousarray(np.array([coordsX, coordsY, np.zeros(sample_rate**2)], dtype=np.float32).T)
 
-        ### Set indices
+        # Set indices
         idcs = list()
         for i in np.arange(sample_rate):
             for j in np.arange(sample_rate):

@@ -204,6 +204,9 @@ class Window(QtWidgets.QMainWindow):
         if sh < 1500:
             mwh = 500
         self.resize(sw, mwh)
+        if sys.platform == 'win32':
+            # TODO: test this on Ubuntu
+            self.move(self.sx, self.sy)
         Gui.app.processEvents()
 
         # Resize and place addon window

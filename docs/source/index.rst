@@ -16,6 +16,7 @@ vxPy - vision experiments in Python
    create_protocol
    create_routine
    create_visual_base_advanced
+   api_reference
 
 
 Indices and tables

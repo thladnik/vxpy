@@ -1,20 +1,5 @@
-"""
-vxPy ./routines/display/display_capture.py
-Copyright (C) 2022 Tim Hladnik
+"""vxPy core display capture routine"""
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
-"""
 import numpy as np
 
 from vxpy import calib
@@ -23,14 +8,13 @@ import vxpy.api.routine as vxroutine
 import vxpy.core.visual as vxvisual
 
 
-
 class Frames(vxroutine.DisplayRoutine):
 
     def require(self, *args, **kwargs):
 
         # Set up shared variables
-        self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH
-        self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT
+        self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
+        self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
         self.frame = vxattribute.ArrayAttribute('display_frame',
                                                 (self.width, self.height, 3),
                                                 vxattribute.ArrayType.uint8)
@@ -43,6 +27,6 @@ class Frames(vxroutine.DisplayRoutine):
         if visual is None:
             return
 
-        frame = np.swapaxes(visual.frame.read('color', alpha=False), 0, 1)
+        frame = np.swapaxes(visual.transform.frame.read('color', alpha=False), 0, 1)
 
         self.frame.write(frame)
