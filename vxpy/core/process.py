@@ -1,4 +1,6 @@
 """Process core module
+
+Contains base class for all process modules, including controller and submodules.
 """
 from __future__ import annotations
 
@@ -76,7 +78,7 @@ class AbstractProcess:
 
     def __init__(self,
                  _program_start_time=None,
-                 _configuration_path=None,
+                 _configuration_data=None,
                  _controls=None,
                  _log=None,
                  _pipes=None,
@@ -111,8 +113,9 @@ class AbstractProcess:
         vxcontainer.init()
 
         # Load configuration
-        config_loaded = vxconfig.load_configuration(_configuration_path)
-        assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
+        vxconfig.set_configuration_data(_configuration_data)
+        # config_loaded = vxconfig.load_configuration(_configuration_path)
+        # assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
         # Load calibration
         vxcalib.load_calibration(config.CALIBRATION_PATH)

@@ -1,17 +1,7 @@
-"""Package for visual stimulation and concurrent behavioral analysis
+"""vxPy - vision Experiments in Python
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+Python package for visual stimulation in different display settings,
+aquisition of multiple data streams and online data analysis.
 """
 
 __author__ = 'Tim Hladnik'
@@ -21,13 +11,13 @@ __credits__ = ['Yue Zhang']
 __deprecated__ = False
 __email__ = 'tim.hladnik@gmail.com'
 __license__ = 'GPLv3'
-__maintainer__ = 'developer'
+__maintainer__ = 'Tim Hladnik'
 __status__ = 'Production'
 __version__ = '0.1.0'
 
 import os
 import sys
-
+from typing import Dict, Union
 
 # Check this version is a cloned repo and add commit hash to version
 try:
@@ -55,9 +45,19 @@ except:
     pass
 
 
-def main(configfile):
+def main(_config: Union[str, Dict]):
 
+    from vxpy import config
+    import vxpy.core.configuration as vxconfig
     from vxpy.modules import Controller
+
+    if isinstance(_config, str):
+        _config_data = vxconfig.load_configuration(_config)
+    elif isinstance(_config, dict):
+        _config_data = _config
+    else:
+        print(f'ERROR: invalid configuration of type {type(_config)}')
+        sys.exit(-1)
 
     if sys.platform == 'win32':
         # Set windows timer precision as high as possible
@@ -66,19 +66,25 @@ def main(configfile):
         except ImportError as exc:
             print(f'Unable to import wres. '
                   f'Please consider installing wres for better performance on {sys.platform} platform')
+            ctrl = Controller(_config_data)
         else:
             minres, maxres, curres = wres.query_resolution()
             with wres.set_resolution(maxres):
-                ctrl = Controller(configfile)
-
-        ctrl = Controller(configfile)
+                ctrl = Controller(_config_data)
 
     elif sys.platform == 'linux':
-        ctrl = Controller(configfile)
+        ctrl = Controller(_config_data)
 
     else:
         print(f'Platform {sys.platform} not supported')
         sys.exit(1)
 
     # Run controller
-    sys.exit(ctrl.start())
+    ctrl.start()
+
+    # Save config if persistent
+    if isinstance(_config, str):
+        vxconfig.save_configuration(_config)
+
+    # Exit
+    sys.exit(0)
