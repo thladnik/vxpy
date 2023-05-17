@@ -347,3 +347,29 @@ class Insta360Calibrated:
 
 
         self.createBuffers()
+
+
+if __name__ == '__main__':
+
+    from mpl_toolkits.mplot3d.art3d import Line3DCollection, Poly3DCollection
+
+    from vxpy.utils import sphere
+    import numpy as np
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.pyplot as plt
+
+    s = sphere.SimpleUVSphere()
+    idcs, pos, faces = s.get_subset(-np.pi, np.pi, -np.pi / 4, np.pi / 4)
+
+    ax = plt.subplot(projection='3d')
+
+    ax.scatter(*pos.T)
+
+    poly3d = []
+    for face in faces:
+        poly3d.append(pos[[*face, face[0]]])
+    ax.add_collection3d(Poly3DCollection(poly3d, facecolors='b', linewidths=1, alpha=0.5))
+    ax.add_collection3d(Line3DCollection(poly3d, colors='k', linewidths=1, linestyles=':'))
+    # f = [*face, face[0]]
+    # ax.plot(*pos[f, :].T, color='blue', linestyle='--')
+    plt.show()

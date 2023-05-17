@@ -52,6 +52,7 @@ PROCESS_IO = 'Io'
 PROCESS_WORKER = 'Worker'
 
 # Setup commands
+CMD_RUN = 'run'
 CMD_PATCHDIR = 'patchdir'
 CMD_SETUP = 'setup'
 CMD_GETSAMPLES = 'getsamples'

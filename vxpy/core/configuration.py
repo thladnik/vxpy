@@ -1,53 +1,51 @@
-"""
-vxPy ./core/configuration.py
-Copyright (C) 2022 Tim Hladnik
+"""Core configuration module
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+Provides methods for loading, setting and saving configurations
 """
 import os
+from typing import Any, Dict, Union
+
 import yaml
 
 from vxpy import config
-from vxpy.core import logger
+import vxpy.core.ipc as vxipc
+import vxpy.core.logger as vxlogger
 
-log = logger.getLogger(__name__)
+log = vxlogger.getLogger(__name__)
 
 
-def load_configuration(filepath: str):
+def load_configuration(filepath: str) -> Union[None, Dict[str, Any]]:
 
     log.debug(f'Load configuration file {filepath}')
     if not os.path.exists(filepath):
         log.error('Failed to load configuration. File does not exist.')
-        return False
+        return None
 
     with open(filepath, 'r') as f:
-        _configuration = yaml.safe_load(f)
-        config.PRESERVED_ORDER = list(_configuration.keys())
-        config.__dict__.update(_configuration)
+        _config_data = yaml.safe_load(f)
 
-    return True
+        # Preserve order of configuration items in file
+        config.PRESERVED_ORDER = list(_config_data.keys())
+
+    return _config_data
 
 
-def save_configuration(filepath: str):
+def set_configuration_data(_config_data: Dict[str, Any]):
+    config.__dict__.update(_config_data)
+
+
+def save_configuration(filepath: str, _config_data: Union[None, Dict] = None):
     log.info(f'Save current configuration to file {filepath}')
 
     if not filepath.endswith('.yaml'):
         log.error('Abort saving configuration. File path may be wrong. Use .yaml extension.')
         return False
 
+    # If _config_data is None, save currently set environment config
+    if _config_data is None:
+        _config_data = {k: getattr(config, k) for k in config.PRESERVED_ORDER}
+
     with open(filepath, 'w') as f:
-        _configuration = {k: getattr(config, k) for k in config.PRESERVED_ORDER}
-        yaml.safe_dump(_configuration, f, sort_keys=False)
+        yaml.safe_dump(_config_data, f, sort_keys=False)
 
     return True

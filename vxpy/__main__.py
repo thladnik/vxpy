@@ -1,4 +1,4 @@
-"""
+"""CLI utility for vxPy
 """
 import sys
 
@@ -11,7 +11,17 @@ def path_from_args():
 
 if __name__ == '__main__':
 
-    if CMD_PATCHDIR in sys.argv:
+    if CMD_RUN in sys.argv:
+
+        if len(sys.argv) < 3:
+            print('ERROR: no configuration path specified')
+            exit()
+
+        from vxpy import main
+
+        main(sys.argv[2])
+
+    elif CMD_PATCHDIR in sys.argv:
         from vxpy import setup
 
         setup.patch_dir(use_path=path_from_args())
@@ -44,25 +54,29 @@ if __name__ == '__main__':
 
     elif CMD_HELP in sys.argv:
 
-        print('\nAvailable commands:')
+        print('vxPy - vision experiments in Python')
+        print('Available commands:')
 
-        print(f'\n{CMD_SETUP}'
-              f'\n\tcreate a new, clean application directory in the '
+        print(f'{CMD_SETUP}'
+              f'\n  create a new, clean application directory in the '
               f'specified base folder (uses current folder by default)'
-              f'\n\n\tOptions'
-              f'\n\t\t{CMD_MOD_NOSAMPLES}: skip download of binary sample files')
+              f'\n  Options:'
+              f'\n    {CMD_MOD_NOSAMPLES}: skip download of binary sample files')
 
-        print(f'\n{CMD_PATCHDIR}'
-              f'\n\tcreate missing folders in specified application base folder (uses current folder by default)')
+        print(f'{CMD_RUN}'
+              f'\n  Run vxPy for specified configuration file')
 
-        print(f'\n{CMD_GETSAMPLES}'
-              f'\n\tdownload binary sample files to specified base folder (uses current folder by default)')
+        print(f'{CMD_PATCHDIR}'
+              f'\n  create missing folders in specified application base folder (uses current folder by default)')
 
-        print(f'\n{CMD_CONFIGURE}'
-              f'\n\tRun configuration UI for specified configuration file')
+        print(f'{CMD_GETSAMPLES}'
+              f'\n  download binary sample files to specified base folder (uses current folder by default)')
 
-        print(f'\n{CMD_CALIBRATE}'
-              f'\n\tRun display calibration UI for specified configuration file')
+        print(f'{CMD_CONFIGURE}'
+              f'\n  Run configuration UI for specified configuration file')
+
+        print(f'{CMD_CALIBRATE}'
+              f'\n  Run display calibration UI for specified configuration file')
 
     elif CMD_MIGRATE in sys.argv:
         pass
