@@ -20,6 +20,8 @@ import os
 import sys
 from typing import Any, Dict, Union
 
+import vxpy.core.configuration as vxconfig
+
 
 # Check this version is a cloned repo and add commit hash to version
 def get_version():
@@ -50,44 +52,43 @@ def get_version():
         return f'{__version__}-{commit_hash[:8]}'
 
 
-def get_cli_config():
-    # CLI start requires at least a configuration file path
-    if len(sys.argv) < 2:
-        print('ERROR: no configuration provided')
-        sys.exit(1)
+def load_config_data_from_string(_config):
 
-    print(f'Script path: {sys.argv[0]}')
-    print(f'Add {os.getcwd()} to path')
-    sys.path.append(os.getcwd())
+    _config_data = None
 
-    # Set config path
-    _config = sys.argv[1]
+    # If _config is string, first try to evaluate as dictionary
+    if isinstance(_config, str):
 
-    return _config
+        try:
+            _config_data = eval(_config)
+        except:
+            # If dictionary eval failed, try to load from path
+            try:
+                _config_data = vxconfig.load_configuration(_config)
+            except FileNotFoundError:
+                print('ERROR: configuration file does not exist')
+                sys.exit(1)
+
+    # If _config is a dictionary, assume it contains the configuration
+    elif isinstance(_config, dict):
+        _config_data = _config
+
+    return _config_data
 
 
 def run(_config: Union[str, Dict[str, Any]] = None):
+    """Run vxPy
+    """
 
-    from vxpy import config
-    import vxpy.core.configuration as vxconfig
-    from vxpy.modules import Controller
+    # Get/load configuration data
+    _config_data = load_config_data_from_string(_config)
 
-    # For CLI starts
-    if _config is None:
-        _config = get_cli_config()
-
-    if isinstance(_config, str):
-        try:
-            _config_data = vxconfig.load_configuration(_config)
-        except FileNotFoundError:
-            print('ERROR: configuration file does not exist')
-            sys.exit(1)
-
-    elif isinstance(_config, dict):
-        _config_data = _config
-    else:
-        print(f'ERROR: invalid configuration of type {type(_config)}')
+    if _config_data is None:
+        print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
         sys.exit(1)
+
+    # Set up controller
+    from vxpy.modules import Controller
 
     if sys.platform == 'win32':
         # Set windows timer precision as high as possible
@@ -109,7 +110,7 @@ def run(_config: Union[str, Dict[str, Any]] = None):
         print(f'Platform {sys.platform} not supported')
         sys.exit(1)
 
-    # Run controller
+    # Start controller
     ctrl.start()
 
     # Save config if persistent
@@ -122,18 +123,29 @@ def run(_config: Union[str, Dict[str, Any]] = None):
 
 def calibrate(_config: Union[str, Dict[str, Any]] = None):
 
-    from vxpy.core import configuration
+    # Get/load configuration data
+    _config_data = load_config_data_from_string(_config)
 
-    # CLI start
-    if _config is None:
-        _config = get_cli_config()
-
-
+    if _config_data is None:
+        print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
+        sys.exit(1)
 
     from vxpy.calibration_manager import run_calibration
 
-    run_calibration(_config_data)
+    new_calibration = run_calibration(_config_data['CALIBRATION_PATH'])
+
+    # TODO: Save calibration
 
 
 def configure(_config: Union[str, Dict[str, Any]] = None):
-    pass
+
+    # Get/load configuration data
+    _config_data = load_config_data_from_string(_config)
+
+    if _config_data is None:
+        print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
+        sys.exit(1)
+
+    # new_configuration = run_configuration(_config_data['CALIBRATION_PATH'])
+
+    # TODO: implement new configuration manager and save new config

@@ -10,30 +10,64 @@ def path_from_args():
     return sys.argv[2] if len(sys.argv) > 2 else None
 
 
-if __name__ == '__main__':
+def get_parsed_arguments(args_in):
 
-    if CMD_RUN in sys.argv:
+    parser = argparse.ArgumentParser(description='vxPy CLI')
+    parser.add_argument('command',
+                        choices=[CMD_RUN, CMD_CALIBRATE, CMD_CONFIGURE, CMD_SETUP, CMD_GETSAMPLES],
+                        help='Command to run')
+    parser.add_argument('-c', '--config', dest='config', type=str,
+                        help='Path to a configuration file or configuration dictionary')
+    parser.add_argument('-p', '--path', dest='config', type=str,
+                        help='Path to the current app folder.')
 
-        if len(sys.argv) < 3:
+    return parser.parse_args(args_in)
+
+
+def run():
+    sys.argv.append(CMD_RUN)
+    main()
+
+
+def calibrate():
+    sys.argv.append(CMD_CALIBRATE)
+    main()
+
+
+def configure():
+    sys.argv.append(CMD_CONFIGURE)
+    main()
+
+
+def main():
+
+    # Parse arguments
+    parsed_args = get_parsed_arguments(sys.argv[1:])
+
+    # Add current working directory to path (required for direct entry point)
+    sys.path.append(os.getcwd())
+
+    # Run
+    if parsed_args.command == CMD_RUN:
+
+        if parsed_args.config is None:
             print('ERROR: no configuration path specified')
-            exit()
+            sys.exit(1)
 
         from vxpy import run
-        run(sys.argv[2])
+        run(parsed_args.config)
 
-    elif CMD_CONFIGURE in sys.argv:
-        if len(sys.argv) < 3:
-            print('ERROR: no configuration path specified')
-            exit()
+    # Calibrate calibration for current configuration
+    elif parsed_args.command == CMD_CALIBRATE:
 
-        from vxpy.configure import main
-        main()
+        from vxpy import calibrate
+        calibrate(parsed_args.config)
 
-    elif CMD_CALIBRATE in sys.argv:
+    # Configure program
+    elif parsed_args.command == CMD_CALIBRATE:
 
-
-        from vxpy.calibration_manager import run_calibration
-        run_calibration()
+        from vxpy import configure
+        configure(parsed_args.config)
 
     elif CMD_PATCHDIR in sys.argv:
         from vxpy import setup
@@ -87,3 +121,7 @@ if __name__ == '__main__':
     else:
 
         print(f'No command specified. Run "vxpy {CMD_HELP}" for more information on usage.')
+
+
+if __name__ == '__main__':
+    main()

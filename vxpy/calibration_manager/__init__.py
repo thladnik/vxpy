@@ -12,13 +12,7 @@ from vxpy.core import calibration
 from vxpy.core import configuration
 
 
-def run_calibration(config_filepath: str = None):
-
-    _config_data = configuration.load_configuration(config_filepath)
-    if _config_data is None:
-        print('ERROR: invalid configuration path')
-        exit(1)
-    configuration.set_configuration_data(_config_data)
+def run_calibration(calib_filepath: str = None):
 
     if access.application is None:
         _app = QtWidgets.QApplication.instance()
@@ -30,7 +24,7 @@ def run_calibration(config_filepath: str = None):
     qdarktheme.setup_theme('dark')
 
     if access.window is None:
-        access.window = CalibrationWindow(config.CALIBRATION_PATH)
+        access.window = CalibrationWindow(calib_filepath)
         access.window.setup_ui()
 
     access.application.exec()
