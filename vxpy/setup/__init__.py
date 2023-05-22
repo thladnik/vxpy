@@ -106,12 +106,12 @@ def setup_resources(use_path: str = None):
         with zipfile.ZipFile(dst_file, 'r') as f:
             f.extractall()
 
-        for path in glob.glob('vxPy_app-main/*'):
+        for path in glob.glob('vxpy-app-main/*'):
             print(path)
             shutil.move(path, '.')
 
         # Clean up
-        shutil.rmtree('vxPy_app-main/')
+        shutil.rmtree('vxPy-app-main/')
         os.remove(dst_file)
 
         print(f'Setup complete')

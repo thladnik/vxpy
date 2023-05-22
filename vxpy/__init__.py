@@ -5,12 +5,14 @@ aquisition of multiple data streams and online data analysis.
 """
 import importlib.metadata
 
+metadata = importlib.metadata.metadata('vxpy')
+
 __author__ = 'Tim Hladnik'
-__contact__ = 'tim.hladnik@gmail.com'
+__contact__ = 'contact@vxpy.org'
 __copyright__ = 'Copyright 2022, Tim Hladnik'
 __credits__ = ['Yue Zhang']
 __deprecated__ = False
-__email__ = 'tim.hladnik@gmail.com'
+__email__ = 'contact@vxpy.org'
 __license__ = 'GPLv3'
 __maintainer__ = 'Tim Hladnik'
 __status__ = 'Alpha'

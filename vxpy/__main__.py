@@ -12,31 +12,21 @@ def path_from_args():
 
 def get_parsed_arguments(args_in):
 
+    command_choices = [CMD_RUN, CMD_CALIBRATE, CMD_CONFIGURE, CMD_SETUP, CMD_GETSAMPLES]
+
     parser = argparse.ArgumentParser(description='vxPy CLI')
-    parser.add_argument('command',
-                        choices=[CMD_RUN, CMD_CALIBRATE, CMD_CONFIGURE, CMD_SETUP, CMD_GETSAMPLES],
-                        help='Command to run')
+    parser.add_argument(dest='command',
+                        choices=command_choices,
+                        metavar='',
+                        help='Command to run. Available commands are: ' + ', '.join(command_choices))
     parser.add_argument('-c', '--config', dest='config', type=str,
                         help='Path to a configuration file or configuration dictionary')
-    parser.add_argument('-p', '--path', dest='config', type=str,
+    parser.add_argument('-r', '--root', dest='root', type=str,
                         help='Path to the current app folder.')
+    parser.add_argument(f'--{CMD_MOD_NOSAMPLES}', dest='nosample', action='store_true')
+    parser.add_argument(f'--force', dest='force', action='store_true')
 
     return parser.parse_args(args_in)
-
-
-def run():
-    sys.argv.append(CMD_RUN)
-    main()
-
-
-def calibrate():
-    sys.argv.append(CMD_CALIBRATE)
-    main()
-
-
-def configure():
-    sys.argv.append(CMD_CONFIGURE)
-    main()
 
 
 def main():
@@ -69,58 +59,38 @@ def main():
         from vxpy import configure
         configure(parsed_args.config)
 
-    elif CMD_PATCHDIR in sys.argv:
-        from vxpy import setup
-
-        setup.patch_dir(use_path=path_from_args())
-
     elif CMD_SETUP in sys.argv:
         from vxpy import setup
 
-        setup.setup_resources(use_path=path_from_args())
+        root_path = parsed_args.root
+        if root_path is None:
+            root_path = '.'
 
-        # Download sample files for release
-        if CMD_MOD_NOSAMPLES not in sys.argv:
-            setup.download_samples(use_path=path_from_args())
+        if not os.path.exists(root_path) and not parsed_args.force:
+            print(f'ERROR: root path {root_path} does not exist.')
+            print('Use option --force to create root path automatically')
+            sys.exit(1)
 
-    elif CMD_GETSAMPLES in sys.argv:
+        if len(os.listdir(root_path)) > 0 and not parsed_args.force:
+            print('ERROR: root path for setup is not empty. Aborted')
+            print('Use option --force to setup on this path regardless')
+            sys.exit(1)
+
+        # Prepare directory
+        setup.patch_dir(use_path=root_path)
+
+        # Setup files
+        setup.setup_resources(use_path=root_path)
+
+        # Download sample files for release (if not explicitly excluded)
+        if not parsed_args.nosample:
+            setup.download_samples(use_path=root_path)
+
+    elif parsed_args.command == CMD_GETSAMPLES:
         from vxpy import setup
 
         # Get path if specified
         setup.download_samples(use_path=path_from_args())
-
-    elif CMD_HELP in sys.argv:
-
-        print('vxPy - vision experiments in Python')
-        print('Available commands:')
-
-        print(f'{CMD_SETUP}'
-              f'\n  create a new, clean application directory in the '
-              f'specified base folder (uses current folder by default)'
-              f'\n  Options:'
-              f'\n    {CMD_MOD_NOSAMPLES}: skip download of binary sample files')
-
-        print(f'{CMD_RUN}'
-              f'\n  Run vxPy for specified configuration file')
-
-        print(f'{CMD_PATCHDIR}'
-              f'\n  create missing folders in specified application base folder (uses current folder by default)')
-
-        print(f'{CMD_GETSAMPLES}'
-              f'\n  download binary sample files to specified base folder (uses current folder by default)')
-
-        print(f'{CMD_CONFIGURE}'
-              f'\n  Run configuration UI for specified configuration file')
-
-        print(f'{CMD_CALIBRATE}'
-              f'\n  Run display calibration UI for specified configuration file')
-
-    elif CMD_MIGRATE in sys.argv:
-        pass
-
-    else:
-
-        print(f'No command specified. Run "vxpy {CMD_HELP}" for more information on usage.')
 
 
 if __name__ == '__main__':

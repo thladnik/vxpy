@@ -56,6 +56,4 @@ dev = ['pip-tools', 'pytest', 'build', 'twine']
 Homepage = 'https://github.com/thladnik/vxpy'
 
 [project.scripts]
-vxpy-run = 'vxpy.__main__:run'
-vxpy-calibrate = 'vxpy.__main__:calibrate'
-vxpy-configure = 'vxpy.__main__:configure'
+vxpy = 'vxpy.__main__:main'
