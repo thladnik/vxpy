@@ -1,5 +1,6 @@
 """CLI utility for vxPy
 """
+import argparse
 import sys
 
 from vxpy.definitions import *
@@ -17,9 +18,22 @@ if __name__ == '__main__':
             print('ERROR: no configuration path specified')
             exit()
 
-        from vxpy import main
+        from vxpy import run
+        run(sys.argv[2])
 
-        main(sys.argv[2])
+    elif CMD_CONFIGURE in sys.argv:
+        if len(sys.argv) < 3:
+            print('ERROR: no configuration path specified')
+            exit()
+
+        from vxpy.configure import main
+        main()
+
+    elif CMD_CALIBRATE in sys.argv:
+
+
+        from vxpy.calibration_manager import run_calibration
+        run_calibration()
 
     elif CMD_PATCHDIR in sys.argv:
         from vxpy import setup
@@ -40,17 +54,6 @@ if __name__ == '__main__':
 
         # Get path if specified
         setup.download_samples(use_path=path_from_args())
-
-    elif CMD_CONFIGURE in sys.argv:
-        from vxpy.configure import main
-
-        # Run configuration
-        main()
-
-    elif CMD_CALIBRATE in sys.argv:
-        from vxpy.calibration_manager import run_calibration
-
-        run_calibration()
 
     elif CMD_HELP in sys.argv:
 

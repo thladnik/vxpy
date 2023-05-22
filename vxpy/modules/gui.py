@@ -94,7 +94,7 @@ class Window(QtWidgets.QMainWindow):
         # Fix icon issues on Windows systems
         if sys.platform == 'win32':
             # Explicitly set app-id as suggested by https://stackoverflow.com/a/1552105
-            appid = f'vxpy.application.{vxpy.__version__}'  # arbitrary string
+            appid = f'vxpy.application.{vxpy.get_version()}'  # arbitrary string
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
 
         if Gui.app.platformName() not in ['x11', 'xcb']:
@@ -106,7 +106,7 @@ class Window(QtWidgets.QMainWindow):
         self.sx, self.sy, self.sw, self.sh = sgeo.getRect()
 
         # Set main window
-        self.setWindowTitle(f'vxPy - vision experiments in Python (v{vxpy.__version__})')
+        self.setWindowTitle(f'vxPy - vision experiments in Python (v{vxpy.get_version()})')
         self.setWindowIcon(QtGui.QIcon(os.path.join(str(vxpy.__path__[0]), 'vxpy_icon.svg')))
         # Make known to window manager
         self.createWinId()

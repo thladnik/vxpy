@@ -4,12 +4,22 @@ from typing import Union
 import qdarktheme
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from vxpy.definitions import *
+from vxpy import config
 from vxpy.calibration_manager import access
 from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
 from vxpy.core import calibration
+from vxpy.core import configuration
 
 
-def run_calibration(filepath: str = None):
+def run_calibration(config_filepath: str = None):
+
+    _config_data = configuration.load_configuration(config_filepath)
+    if _config_data is None:
+        print('ERROR: invalid configuration path')
+        exit(1)
+    configuration.set_configuration_data(_config_data)
+
     if access.application is None:
         _app = QtWidgets.QApplication.instance()
         if _app is None:
@@ -20,7 +30,7 @@ def run_calibration(filepath: str = None):
     qdarktheme.setup_theme('dark')
 
     if access.window is None:
-        access.window = CalibrationWindow(filepath)
+        access.window = CalibrationWindow(config.CALIBRATION_PATH)
         access.window.setup_ui()
 
     access.application.exec()

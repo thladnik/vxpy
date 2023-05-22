@@ -365,7 +365,7 @@ class AbstractProcess:
         vxcontainer.new('H5File', os.path.join(vxipc.get_recording_path(), f'{self.name}'))
 
         # Add recording attributes
-        vxcontainer.add_attributes({'__vxpy_version': vxpy.__version__,
+        vxcontainer.add_attributes({'__vxpy_version': vxpy.get_version(),
                                     '__vxpy_status': vxpy.__status__,
                                     **self._recording_attributes()})
 

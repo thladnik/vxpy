@@ -70,7 +70,7 @@ class Controller(vxprocess.AbstractProcess):
                                            _configuration_data=_configuration_data)
 
         # Print version
-        log.info(f'Running vxPy {vxpy.__version__}')
+        log.info(f'Running vxPy {vxpy.get_version()}')
 
         # Set up processes
         _routines_to_load = {}
