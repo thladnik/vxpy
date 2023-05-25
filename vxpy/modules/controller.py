@@ -19,7 +19,6 @@ from vxpy import config
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
-import vxpy.core.configuration as vxconfig
 import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -186,6 +185,8 @@ class Controller(vxprocess.AbstractProcess):
         for rs in self._routines.values():
             for r in rs.values():
                 r.require()
+
+                # Deprecated:
                 r.setup()
 
         # Initialize attributes for Controller (no argument needed, attributes are already set)

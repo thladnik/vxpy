@@ -15,11 +15,88 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
+import importlib
+import inspect
+from types import ModuleType
+from typing import List, Tuple, Union
+
 import cv2
 
-from vxpy import config
 from vxpy.definitions import *
-from vxpy import definitions
+import vxpy.core.logger as vxlogger
+
+log = vxlogger.getLogger(__name__)
+
+
+def get_imports_from(root: Union[str, ModuleType], incl_type: Union[type, List[type]],
+                     excl_types: List[type] = None) -> List[Tuple[str, type]]:
+    """Get a list of possible imports on a given root path that are of a specific type.
+
+    Args:
+        root (Union[str, ModuleType]): either a relative path in the current
+            working directory, or a vxpy module
+
+        incl_type (List[type]): type or list of types that should be included in result
+        excl_types (List[type], optional): list of types to be explicitly excluded
+
+    Returns:
+          complete_list (List[Tuple[str, type]]): list of tuples containing the
+          importpath and type
+    """
+
+    if not isinstance(incl_type, list):
+        incl_type = [incl_type]
+
+    complete_list = []
+    if isinstance(root, ModuleType):
+        for _submodule_name in root.__all__:
+            try:
+                _submodule = importlib.import_module(f'{root.__name__}.{_submodule_name}')
+                complete_list.extend(scan_module(_submodule, incl_type, excl_types=excl_types))
+            except Exception as exc:
+                log.warning(f'Failed {_submodule_name} // {exc}')
+
+        return complete_list
+
+    # Import from files on a relative given path
+    module_list = os.listdir(root)
+
+    # Split
+    path_parts = root.split(os.sep)
+
+    # Scan all available containers on path
+    for _container_name in module_list:
+        _container_name = str(_container_name)
+        if _container_name.startswith('_'):
+            continue
+
+        # Import module
+        try:
+            if os.path.isdir(os.path.join(*[*path_parts, _container_name])):
+                _module = importlib.import_module('.'.join([*path_parts, _container_name]))
+            else:
+                _module = importlib.import_module('.'.join([*path_parts, _container_name.split('.')[0]]))
+
+            complete_list.extend(scan_module(_module, incl_type, excl_types=excl_types))
+        except Exception as _exception:
+            log.warning(f'Failed to load module from {path_parts, _container_name}')
+
+    return complete_list
+
+
+def scan_module(_module: ModuleType, _type: List[type],  excl_types: List[type] = None):
+
+    # Go through all classes in _module
+    _list = []
+    for _classname, _class in inspect.getmembers(_module, inspect.isclass):
+        if not any([issubclass(_class, _t) for _t in _type]):
+            continue
+
+        if excl_types is not None and _class in excl_types:
+            continue
+
+        # Create item which references the visual class
+        yield f'{_module.__name__}.{_classname}', _class
 
 
 def calculate_background_mog2(frames):

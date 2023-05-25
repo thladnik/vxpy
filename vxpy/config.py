@@ -3,6 +3,7 @@
 from typing import List, Dict, Any
 
 PRESERVED_ORDER: List[str] = []
+CONFIG_FILEPATH: str = ''
 
 CALIBRATION_PATH: str = ''
 CAMERA_USE: bool = True

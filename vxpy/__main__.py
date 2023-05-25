@@ -54,7 +54,7 @@ def main():
         calibrate(parsed_args.config)
 
     # Configure program
-    elif parsed_args.command == CMD_CALIBRATE:
+    elif parsed_args.command == CMD_CONFIGURE:
 
         from vxpy import configure
         configure(parsed_args.config)

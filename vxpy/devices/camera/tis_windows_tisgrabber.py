@@ -18,13 +18,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import List, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type
 import ctypes
 import numpy as np
 
-from vxpy.core import camera_device
 from vxpy.core import logger
-from vxpy.core.camera_device import AbstractCameraDevice, CameraFormat
+import vxpy.core.devices.camera as vxcamera
+import vxpy.core.ipc as vxipc
+from vxpy.core.devices.camera import CameraDevice
 from vxpy.definitions import *
 from vxpy.ext_lib.tis_windows import tisgrabber as tis
 
@@ -40,11 +41,14 @@ class CallbackUserdata(ctypes.Structure):
         ctypes.Structure.__init__(self)
 
 
-class CameraDevice(camera_device.AbstractCameraDevice):
+class TISCamera(vxcamera.CameraDevice):
+    """TheImagingSource camera using the tisgrabber.dll for Windows OS
+    """
+
+    def __repr__(self):
+        return f'{TISCamera.__name__} {self.properties["model"]} {self.properties["serial"]}'
 
     manufacturer = 'TIS'
-
-    _exposure_unit = camera_device.ExposureUnit.seconds
 
     # NOTE: TIS MAY only support 8-bit images for now?
     sink_formats = {'Y800': (1, np.uint8),  # (Y8) 8-bit monochrome
@@ -54,9 +58,49 @@ class CameraDevice(camera_device.AbstractCameraDevice):
                     'Y16': (1, np.uint16)}  # 16-bit monochrome
 
     def __init__(self, *args, **kwargs):
-        camera_device.AbstractCameraDevice.__init__(self, *args, **kwargs)
+        vxcamera.CameraDevice.__init__(self, *args, **kwargs)
 
         self._frame: np.ndarray = None
+
+        self.metadata = {}
+        self.settings = {}
+
+        self.last_snap = vxipc.get_time()
+        self.new_image = False
+
+    def get_settings(self) -> Dict[str, Any]:
+        if len(self.settings) == 0:
+            settings = {**self.properties, 'exposure': 0.0, 'gain': 0.0}
+            return settings
+        return self.settings
+
+    @property
+    def frame_rate(self) -> float:
+        return self.properties['frame_rate']
+
+    @property
+    def width(self) -> float:
+        return self.properties['width']
+
+    @property
+    def height(self) -> float:
+        return self.properties['height']
+
+    @classmethod
+    def get_camera_list(cls) -> List[CameraDevice]:
+        camera_list = []
+        devicecount = ic.IC_GetDeviceCount()
+        for i in range(0, devicecount):
+            model = tis.D(ic.IC_GetDevice(i))
+            uniquename = tis.D(ic.IC_GetUniqueNamefromList(i))
+            serial = uniquename.replace(model, '').strip(' ')
+            props = {'serial': serial, 'model': model}
+            cam = TISCamera(**props)
+            camera_list.append(cam)
+
+        return camera_list
+
+    def _open(self) -> bool:
 
         # Open (empty) device
         self.h_grabber = ic.IC_CreateGrabber()
@@ -65,6 +109,8 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         self.userdata = CallbackUserdata()
         self._frame_ready_callback = ic.FRAMEREADYCALLBACK(self._fetch_and_convert_buffer)
         ic.IC_SetFrameReadyCallback(self.h_grabber, self._frame_ready_callback, self.userdata)
+
+        return True
 
     def _fetch_and_convert_buffer(self, h_grabber, p_buffer, frame_number, p_data):
         width = ctypes.c_long()
@@ -79,13 +125,16 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         bytes_per_pixel = int(bits_per_pixel.value / 8.0)
         buffer_size = width.value * height.value * bytes_per_pixel
 
+        source_format = self.properties['format']
         if buffer_size > 0:
             image = ctypes.cast(p_buffer, ctypes.POINTER(ctypes.c_ubyte * buffer_size))
-            _dtype = self.sink_formats[self.format.dtype][1]
+            _dtype = self.sink_formats[source_format][1]
             _shape = (height.value, width.value, bytes_per_pixel // _dtype().nbytes)
             self._frame = np.ndarray(buffer=image.contents,
                                      dtype=_dtype,
                                      shape=_shape)
+
+            self.new_image = True
 
     def _get_property_value_range(self, property_name):
         value_min = ctypes.c_float()
@@ -123,52 +172,61 @@ class CameraDevice(camera_device.AbstractCameraDevice):
         log.debug(f'New property switch value {property_name}:{switch_name} '
                   f'is {new_value.value} on device {self}')
 
-    def get_format_list(self) -> List[CameraFormat]:
-        pass
-
-    def _framerate_list(self, _format: CameraFormat) -> Tuple[float, float]:
-        pass
-
-    @classmethod
-    def get_camera_list(cls) -> List[AbstractCameraDevice]:
-        pass
-
     def _start_stream(self) -> bool:
         # Open device by model and serial
-        ic.IC_OpenDevByUniqueName(self.h_grabber, tis.T(f'{self.model} {self.serial}'))
+        model = self.properties['model']
+        serial = self.properties['serial']
+        ic.IC_OpenDevByUniqueName(self.h_grabber, tis.T(f'{model} {serial}'))
 
         # Setting
-        format_str = f'{self.format.dtype} ({self.format.width}x{self.format.height})'
+        source_format = self.properties['format']
+        format_str = f'{source_format} ({self.width}x{self.height})'
         ic.IC_SetVideoFormat(self.h_grabber, tis.T(format_str))
-        ic.IC_SetFrameRate(self.h_grabber, ctypes.c_float(self.framerate))
+        ic.IC_SetFrameRate(self.h_grabber, ctypes.c_float(self.frame_rate))
 
         # Set to continuous mode
         ic.IC_SetContinuousMode(self.h_grabber, 0)
 
         # Set trigger enable
-        ic.IC_SetPropertySwitch(self.h_grabber, tis.T("Trigger"), tis.T("Enable"), 1)
+        ic.IC_SetPropertySwitch(self.h_grabber, tis.T('Trigger'), tis.T('Enable'), 1)
 
         # Set properties
         self._set_property_switch('Gain', 'Auto', 0)
         self._set_property_switch('Exposure', 'Auto', 0)
-        self._set_property('Exposure', self.exposure)
-        self._set_property('Gain', self.gain)
+        self._set_property('Exposure', self.properties['exposure'])
+        self._set_property('Gain', self.properties['gain'])
 
         # Start
         ic.IC_StartLive(self.h_grabber, 0)
 
         return True
 
+    def next_snap(self) -> bool:
+        current_time = vxipc.get_time()
+
+        do_next = current_time >= self.last_snap + 1. / self.frame_rate
+
+        if do_next:
+            self.last_snap = current_time
+
+        return do_next
+
     def snap_image(self) -> None:
-        ic.IC_PropertyOnePush(self.h_grabber, tis.T("Trigger"), tis.T("Software Trigger"))
+        ic.IC_PropertyOnePush(self.h_grabber, tis.T('Trigger'), tis.T('Software Trigger'))
+
+    def next_image(self) -> bool:
+        return self.new_image
 
     def get_image(self) -> np.ndarray:
+        self.new_image = False
         return self._frame
 
-    def end_stream(self) -> bool:
+    def _end_stream(self) -> bool:
         ic.IC_StopLive(self.h_grabber)
         return True
 
+    def _close(self) -> bool:
+        pass
 
 if __name__ == '__main__':
     pass

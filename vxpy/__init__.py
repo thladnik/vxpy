@@ -5,6 +5,8 @@ aquisition of multiple data streams and online data analysis.
 """
 import importlib.metadata
 
+import vxpy.configuration
+
 metadata = importlib.metadata.metadata('vxpy')
 
 __author__ = 'Tim Hladnik'
@@ -21,8 +23,6 @@ __version__ = importlib.metadata.version('vxpy')
 import os
 import sys
 from typing import Any, Dict, Union
-
-import vxpy.core.configuration as vxconfig
 
 
 # Check this version is a cloned repo and add commit hash to version
@@ -66,7 +66,7 @@ def load_config_data_from_string(_config):
         except:
             # If dictionary eval failed, try to load from path
             try:
-                _config_data = vxconfig.load_configuration(_config)
+                _config_data = vxpy.configuration.load_configuration(_config)
             except FileNotFoundError:
                 print('ERROR: configuration file does not exist')
                 sys.exit(1)
@@ -117,7 +117,7 @@ def run(_config: Union[str, Dict[str, Any]] = None):
 
     # Save config if persistent
     if isinstance(_config, str):
-        vxconfig.save_configuration(_config)
+        vxpy.configuration.save_configuration(_config)
 
     # Exit
     sys.exit(0)
@@ -139,14 +139,18 @@ def calibrate(_config: Union[str, Dict[str, Any]] = None):
     # TODO: Save calibration
 
 
-def configure(_config: Union[str, Dict[str, Any]] = None):
+def configure(_config_path: str = None):
 
-    # Get/load configuration data
-    _config_data = load_config_data_from_string(_config)
+    from vxpy import configuration
 
-    if _config_data is None:
-        print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
-        sys.exit(1)
+    # # Get/load configuration data
+    # _config_data = load_config_data_from_string(_config)
+    #
+    # if _config_data is None:
+    #     print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
+    #     sys.exit(1)
+
+    vxpy.configuration.run_configuration_manager(_config_path)
 
     # new_configuration = run_configuration(_config_data['CALIBRATION_PATH'])
 

@@ -16,8 +16,10 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
+import importlib
 from abc import ABC, abstractmethod
-from typing import Callable, List
+from typing import Callable, List, Type, Union
 
 from deprecation import deprecated
 
@@ -26,6 +28,17 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
 log = vxlogger.getLogger(__name__)
+
+
+def get_routine(routine_path: str) -> Union[None, Type[Routine]]:
+    parts = routine_path.split('.')
+    module = importlib.import_module('.'.join(parts[:-1]))
+    routine_cls = getattr(module, parts[-1])
+
+    if routine_cls is None:
+        log.error(f'Routine {routine_path} not found.')
+
+    return routine_cls
 
 
 class Routine(ABC):

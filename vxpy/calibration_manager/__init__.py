@@ -9,7 +9,6 @@ from vxpy import config
 from vxpy.calibration_manager import access
 from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
 from vxpy.core import calibration
-from vxpy.core import configuration
 
 
 def run_calibration(calib_filepath: str = None):

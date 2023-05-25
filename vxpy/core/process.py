@@ -11,10 +11,10 @@ import time
 from typing import Any, Callable, List, Union, Tuple, Dict, Type
 
 import vxpy
+import vxpy.configuration
 from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.calibration as vxcalib
-import vxpy.core.configuration as vxconfig
 import vxpy.core.container as vxcontainer
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -113,7 +113,7 @@ class AbstractProcess:
         vxcontainer.init()
 
         # Load configuration
-        vxconfig.set_configuration_data(_configuration_data)
+        vxpy.configuration.set_configuration_data(_configuration_data)
         # config_loaded = vxconfig.load_configuration(_configuration_path)
         # assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
@@ -703,8 +703,6 @@ class AbstractProcess:
     def update_routines(self, *args, **kwargs):
         """Method updates the routines of the local process and saves new attribute data to file.
 
-
-
         Args:
             args: List of arguments that depend on the type of the local process
             kwargs: Dict of named arguments that depend on the type of the local process
@@ -732,6 +730,7 @@ class AbstractProcess:
 
             elif 'save_plaintext' in record_ops and record_ops['save_plaintext']:
                 vxcontainer.add_to_text_stream(attribute.name, f'{attr_time},{attr_data}')
+
             else:
                 vxcontainer.add_to_dataset(attribute.name, attr_data)
                 vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
