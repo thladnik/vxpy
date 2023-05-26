@@ -111,8 +111,10 @@ def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs)
         log.debug(f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
 
     kwargs.update(_send_verbosely=_send_verbosely)
-
-    Pipes[process_name][0].send([signal, LocalProcess.name, args, kwargs])
+    try:
+        Pipes[process_name][0].send([signal, LocalProcess.name, args, kwargs])
+    except Exception as _exc:
+        log.warning(f'Failed to send message to process {process_name}')
 
 
 def rpc(process_name: str, function: Union[Callable, str], *args, **kwargs) -> None:
