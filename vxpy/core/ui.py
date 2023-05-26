@@ -22,7 +22,11 @@ import time
 from abc import abstractmethod
 from collections import OrderedDict
 
-import h5gview
+try:
+    import h5gview
+except ImportError:
+    h5gview = None
+
 import h5py
 import numpy as np
 import pyqtgraph as pg
@@ -919,7 +923,10 @@ class RecordingWidget(IntegratedWidget):
         # Stop
         self.btn_stop.setEnabled(rec_active and enabled and not protocol_active)
 
-        self.btn_open_recording.setEnabled(bool(os.listdir(base_path)) and not rec_active)
+        if h5gview is not None:
+            self.btn_open_recording.setEnabled(bool(os.listdir(base_path)) and not rec_active)
+        else:
+            self.btn_open_recording.setEnabled(False)
 
 
 class LogTextEdit(QtWidgets.QTextEdit):

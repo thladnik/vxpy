@@ -1,4 +1,6 @@
 """Process core module
+
+Contains base class for all process modules, including controller and submodules.
 """
 from __future__ import annotations
 
@@ -9,10 +11,10 @@ import time
 from typing import Any, Callable, List, Union, Tuple, Dict, Type
 
 import vxpy
+import vxpy.configuration
 from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.calibration as vxcalib
-import vxpy.core.configuration as vxconfig
 import vxpy.core.container as vxcontainer
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -76,7 +78,7 @@ class AbstractProcess:
 
     def __init__(self,
                  _program_start_time=None,
-                 _configuration_path=None,
+                 _configuration_data=None,
                  _controls=None,
                  _log=None,
                  _pipes=None,
@@ -111,8 +113,9 @@ class AbstractProcess:
         vxcontainer.init()
 
         # Load configuration
-        config_loaded = vxconfig.load_configuration(_configuration_path)
-        assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
+        vxpy.configuration.set_configuration_data(_configuration_data)
+        # config_loaded = vxconfig.load_configuration(_configuration_path)
+        # assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
         # Load calibration
         vxcalib.load_calibration(config.CALIBRATION_PATH)
@@ -362,7 +365,7 @@ class AbstractProcess:
         vxcontainer.new('H5File', os.path.join(vxipc.get_recording_path(), f'{self.name}'))
 
         # Add recording attributes
-        vxcontainer.add_attributes({'__vxpy_version': vxpy.__version__,
+        vxcontainer.add_attributes({'__vxpy_version': vxpy.get_version(),
                                     '__vxpy_status': vxpy.__status__,
                                     **self._recording_attributes()})
 
@@ -380,16 +383,13 @@ class AbstractProcess:
                     # Check if this array should be encoded as video
                     if 'videoformat' in record_ops:
                         vxcontainer.create_video_stream(vxipc.get_recording_path(), attribute, **record_ops)
-
+                        vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
+                    elif 'save_plaintext' in record_ops:
+                        vxcontainer.create_text_stream(vxipc.get_recording_path(), attribute)
                     # Otherwise just add attribute dataset
                     else:
                         vxcontainer.create_dataset(attribute.name, attribute.shape, attribute.numpytype)
-
-                    # Regardless, add corresponding time dataset for attribute
-                    #  note however that, for many compression algorithms,
-                    #  the frame numbers won't match the time numbers
-                    #  In order to get 1:1 correspondence, use something like avi:mjpeg
-                    vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
+                        vxcontainer.create_dataset(f'{attribute.name}_time', (1,), np.float64)
 
                 elif isinstance(attribute, vxattribute.ObjectAttribute):
 
@@ -410,6 +410,12 @@ class AbstractProcess:
 
         # Close any open video streams
         vxcontainer.close_video_streams()
+
+        # Close any open text streams
+        vxcontainer.close_text_streams()
+
+        # Switch state to let controller know recording was stopped on fork
+        vxipc.set_state(STATE.REC_STOPPED)
 
         return True
 
@@ -697,8 +703,6 @@ class AbstractProcess:
     def update_routines(self, *args, **kwargs):
         """Method updates the routines of the local process and saves new attribute data to file.
 
-
-
         Args:
             args: List of arguments that depend on the type of the local process
             kwargs: Dict of named arguments that depend on the type of the local process
@@ -719,14 +723,17 @@ class AbstractProcess:
 
             _, attr_time, attr_data = [v[0] for v in attribute.read()]
 
+            # Add attribute data to dataset and time dataset
             if isinstance(attribute, vxattribute.ArrayAttribute) and 'videoformat' in record_ops:
                 vxcontainer.add_to_video_stream(attribute.name, attr_data)
-                continue
+                vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
-            # Add attribute data to dataset
-            vxcontainer.add_to_dataset(attribute.name, attr_data)
-            # Add attribute time to dataset
-            vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
+            elif 'save_plaintext' in record_ops and record_ops['save_plaintext']:
+                vxcontainer.add_to_text_stream(attribute.name, f'{attr_time},{attr_data}')
+
+            else:
+                vxcontainer.add_to_dataset(attribute.name, attr_data)
+                vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
     def handle_sigint(self, sig, frame):
         """Method called on system interrupt.

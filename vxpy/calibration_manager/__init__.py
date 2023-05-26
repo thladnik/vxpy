@@ -4,12 +4,15 @@ from typing import Union
 import qdarktheme
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from vxpy.definitions import *
+from vxpy import config
 from vxpy.calibration_manager import access
 from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
 from vxpy.core import calibration
 
 
-def run_calibration(filepath: str = None):
+def run_calibration(calib_filepath: str = None):
+
     if access.application is None:
         _app = QtWidgets.QApplication.instance()
         if _app is None:
@@ -20,7 +23,7 @@ def run_calibration(filepath: str = None):
     qdarktheme.setup_theme('dark')
 
     if access.window is None:
-        access.window = CalibrationWindow(filepath)
+        access.window = CalibrationWindow(calib_filepath)
         access.window.setup_ui()
 
     access.application.exec()

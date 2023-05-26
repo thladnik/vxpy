@@ -30,7 +30,7 @@ DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE = 2 * 10**8  # Default ~200MB
 # Default paths
 PATH_PACKAGE = 'vxpy'
 PATH_CONFIG = 'configurations'
-PATH_GUI = 'plugins'
+PATH_GUI = 'extras'
 PATH_DLL = os.path.join('lib', 'dll')
 PATH_LOG = 'logs'
 PATH_VISUALS = 'visuals'
@@ -52,6 +52,7 @@ PROCESS_IO = 'Io'
 PROCESS_WORKER = 'Worker'
 
 # Setup commands
+CMD_RUN = 'run'
 CMD_PATCHDIR = 'patchdir'
 CMD_SETUP = 'setup'
 CMD_GETSAMPLES = 'getsamples'

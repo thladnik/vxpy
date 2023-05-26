@@ -404,7 +404,7 @@ class Attribute(ABC):
 class ArrayType:
     """Corresponding ctype and numpy array datatypes for array attributes"""
 
-    bool = (ctypes.c_bool, np.bool)
+    bool = (ctypes.c_bool, bool)
 
     int8 = (ctypes.c_int8, np.int8)
     int16 = (ctypes.c_int16, np.int16)

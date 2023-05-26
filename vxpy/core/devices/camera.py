@@ -72,7 +72,7 @@ def get_camera_by_id(device_id) -> Union[CameraDevice, None]:
 class CameraDevice(abc.ABC):
     """Abstract camera device class. Should be inherited by all camera devices"""
 
-    def __init__(self, device_id, **kwargs):
+    def __init__(self, device_id: str = None, **kwargs):
         self.device_id: str = device_id
         self.properties: Dict[str, Any] = kwargs
 
@@ -81,26 +81,6 @@ class CameraDevice(abc.ABC):
 
     def get_settings(self) -> Dict[str, Any]:
         return {}
-
-    # @property
-    # @abc.abstractmethod
-    # def exposure(self) -> float:
-    #     pass
-    #
-    # @exposure.setter
-    # @abc.abstractmethod
-    # def exposure(self, value) -> bool:
-    #     pass
-    #
-    # @property
-    # @abc.abstractmethod
-    # def gain(self) -> float:
-    #     pass
-    #
-    # @gain.setter
-    # @abc.abstractmethod
-    # def gain(self, value: float) -> bool:
-    #     pass
 
     @property
     @abc.abstractmethod
@@ -114,12 +94,12 @@ class CameraDevice(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def width(self) -> float:
+    def width(self) -> int:
         pass
 
     @property
     @abc.abstractmethod
-    def height(self) -> float:
+    def height(self) -> int:
         pass
 
     @classmethod

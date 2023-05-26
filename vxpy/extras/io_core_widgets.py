@@ -22,7 +22,7 @@ import pyqtgraph as pg
 import vxpy.core.ui as vxui
 from vxpy.api.attribute import get_attribute_list, read_attribute
 from vxpy.core.ipc import worker_rpc
-from vxpy.routines.calculate_csd import CalculatePSD
+from vxpy.extras.calculate_csd import CalculatePSD
 
 
 class DisplayPSD(vxui.IoAddonWidget):

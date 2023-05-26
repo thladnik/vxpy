@@ -41,7 +41,7 @@ _instance: Union[H5File, None] = None
 
 # Dictionary of open video stream containers
 _video_writers: Dict[str, VideoWriter] = {}
-
+_text_writers: Dict[str, TextWriter] = {}
 
 def init():
     global log
@@ -445,3 +445,59 @@ class AVIVideoWriter(VideoWriter):
 
     def close(self):
         self.writer.release()
+
+
+class TextWriter:
+
+    container_ext: str = 'txt'
+
+    def __init__(self, recording_path: str, attribute: vxattribute.ArrayAttribute, **kwargs):
+        self.attribute: vxattribute.ArrayAttribute = attribute
+        self._filepath = os.path.join(recording_path, f'{self.attribute.name}.{self.container_ext}')
+
+        if len(kwargs) > 0:
+            for k, v in kwargs.items():
+                log.warning(f'{self.__class__.__name__} received extraneous argument {k}:{v}')
+
+        self.textfile = open(self._filepath, 'w')
+
+    @abc.abstractmethod
+    def add_line(self, line: str):
+        self.textfile.write(f'{line}\n')
+
+    @abc.abstractmethod
+    def close(self):
+        self.textfile.close()
+
+
+def create_text_stream(recording_path: str, attribute: vxattribute.ArrayAttribute):
+        global _text_writers
+        if attribute.name in _text_writers:
+            log.error(f'Tried creating text stream {attribute.name}, which is already open')
+            return
+
+        # Create writer
+        _writer = TextWriter(recording_path, attribute)
+
+        _text_writers[attribute.name] = _writer
+
+
+def add_to_text_stream(name: str, line: str):
+    global _text_writers
+    if name not in _text_writers:
+        return
+
+    _text_writers[name].add_line(line)
+
+
+def close_text_streams():
+    global _text_writers
+    for stream_name in list(_text_writers.keys()):
+        stream = _text_writers.get(stream_name)
+        if stream is None:
+            continue
+
+        log.info(f'Close text stream for {stream.attribute}')
+        stream.close()
+
+        del _text_writers[stream_name]

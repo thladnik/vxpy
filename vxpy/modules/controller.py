@@ -1,19 +1,6 @@
-"""
-vxPy ./modules/controller.py
-Copyright (C) 2022 Tim Hladnik
+"""Controller process module
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+Module which initializes all submodules and coordinates program flow.
 """
 from __future__ import annotations
 import ctypes
@@ -23,7 +10,7 @@ import multiprocessing as mp
 
 import sys
 import time
-from typing import List, Tuple, Union, Dict, Type
+from typing import Any, List, Tuple, Union, Dict, Type
 
 import numpy as np
 
@@ -58,7 +45,7 @@ class Controller(vxprocess.AbstractProcess):
     protocol_trigger: vxevent.Trigger = None
     record_log_handler: logging.Handler = None
 
-    def __init__(self, _configuration_path):
+    def __init__(self, _configuration_data: Dict[str, Any]):
         # Set up multiprocessing manager
         vxipc.Manager = mp.Manager()
 
@@ -77,11 +64,12 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.STATE = vxipc.Manager.dict(self._create_shared_states())
 
         # Initialize process
-        vxprocess.AbstractProcess.__init__(self, _program_start_time=time.time(),
-                                           _configuration_path=_configuration_path)
+        vxprocess.AbstractProcess.__init__(self,
+                                           _program_start_time=time.time(),
+                                           _configuration_data=_configuration_data)
 
         # Print version
-        log.info(f'Running vxPy {vxpy.__version__}')
+        log.info(f'Running vxPy {vxpy.get_version()}')
 
         # Set up processes
         _routines_to_load = {}
@@ -134,6 +122,7 @@ class Controller(vxprocess.AbstractProcess):
 
         # Set up session controls
         vxipc.CONTROL = vxipc.Manager.dict(self._create_shared_controls())
+
         # Check minimum sleep period
         times = list()
         for i in range(100):
@@ -196,6 +185,8 @@ class Controller(vxprocess.AbstractProcess):
         for rs in self._routines.values():
             for r in rs.values():
                 r.require()
+
+                # Deprecated:
                 r.setup()
 
         # Initialize attributes for Controller (no argument needed, attributes are already set)
@@ -203,7 +194,7 @@ class Controller(vxprocess.AbstractProcess):
 
         self._init_params = dict(
             _program_start_time=self.program_start_time,
-            _configuration_path=_configuration_path,
+            _configuration_data=_configuration_data,
             _pipes=vxipc.Pipes,
             _states=vxipc.STATE,
             _routines=self._routines,

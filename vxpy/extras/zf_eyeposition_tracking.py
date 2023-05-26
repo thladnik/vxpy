@@ -273,6 +273,15 @@ class Rect(pg.RectROI):
 
 
 class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
+    """Routine that detects an arbitrary number of zebrafish eye pairs in a
+    monochrome input frame
+
+    Args:
+        roi_maxnum (int): maximum number of eye pairs to be detected
+        thresh (int): initial binary threshold to use for segmentation
+        min_size (int): initial minimal particle size. Anything below this size will be discarded
+        saccade_threshold (int): initial saccade velocity threshold for binary saccade trigger
+    """
 
     # Set required device
     camera_device_id = 'fish_embedded'

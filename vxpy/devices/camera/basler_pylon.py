@@ -19,13 +19,21 @@ from collections import OrderedDict
 from typing import List, Dict, Tuple, Any, Union, Type
 
 import numpy as np
-from pypylon import pylon
 
 import vxpy.core.devices.camera as vxcamera
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
 log = vxlogger.getLogger(__name__)
+
+try:
+    from pypylon import pylon
+except:
+    import warnings
+    warnings.warn('Pylon is not installed. Unable to use Basler cameras')
+    _has_pylon = False
+else:
+    _has_pylon = True
 
 
 class BaslerCamera(vxcamera.CameraDevice):
@@ -58,6 +66,9 @@ class BaslerCamera(vxcamera.CameraDevice):
 
     @classmethod
     def get_camera_list(cls) -> List[vxcamera.CameraDevice]:
+        if not _has_pylon:
+            return []
+
         camera_list = []
         for cam_info in pylon.TlFactory.GetInstance().EnumerateDevices():
             props = {'serial': cam_info.GetSerialNumber(), 'model': cam_info.GetModelName()}
@@ -67,6 +78,10 @@ class BaslerCamera(vxcamera.CameraDevice):
         return camera_list
 
     def _open(self) -> bool:
+
+        if not _has_pylon:
+            return False
+
         camera = None
         for cam_info in pylon.TlFactory.GetInstance().EnumerateDevices():
             serial = cam_info.GetSerialNumber()

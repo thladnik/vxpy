@@ -9,7 +9,6 @@ with open('requirements.txt', 'r') as f:
 # Add optional dependencies
 ops_deps = {
     'h5view': ['h5gview @ git+https://git@github.com/thladnik/h5gview.git@main'],
-    'toolchain': ['vxpy-tools @ git+https://git@github.com/thladnik/vxPy-tools.git@main'],
     'lightcrafter': ['hidapi~=0.12.0.post2 ']
 }
 

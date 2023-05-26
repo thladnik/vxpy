@@ -858,3 +858,11 @@ def sph2cart(theta, phi, r):
     y = rcos_theta * np.sin(theta)
     z = r * np.sin(phi)
     return np.array([x, y, z])
+
+
+def sph2cart1(theta, phi, r):
+    rcos_phi = r * np.cos(phi)
+    x = np.sin(theta) * rcos_phi
+    y = np.cos(theta) * rcos_phi
+    z = r * np.sin(phi)
+    return np.array([x, y, z])

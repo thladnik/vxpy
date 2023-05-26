@@ -19,7 +19,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import decimal
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 from PySide6 import QtCore, QtWidgets
 from PySide6.QtWidgets import QLabel
@@ -96,7 +96,7 @@ class SearchableListWidget(QtWidgets.QWidget):
         else:
             self.list_widget.sortItems(QtCore.Qt.SortOrder.DescendingOrder)
 
-    def add_item(self, text: str = None) -> QtWidgets.QListWidgetItem:
+    def add_item(self, text: str = None, custom_data: Any = None) -> QtWidgets.QListWidgetItem:
         """Add a new QListWidgetItem to the QListWidget"""
 
         # Create item
@@ -106,8 +106,15 @@ class SearchableListWidget(QtWidgets.QWidget):
         if text is not None:
             item.setText(text)
 
+        if custom_data is not None:
+            item.setData(QtCore.Qt.ItemDataRole.UserRole, custom_data)
+            item.data
+
         # Return created item
         return item
+
+    def clear(self):
+        self.list_widget.clear()
 
     def filter(self, substr: str):
         """Filter QListWidgetItems based on substr and set visibility accordingly"""

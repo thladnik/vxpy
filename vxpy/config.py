@@ -1,28 +1,17 @@
-"""
-vxPy ./config.py
-Copyright (C) 2022 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Configuration module
 """
 from typing import List, Dict, Any
 
 PRESERVED_ORDER: List[str] = []
+CONFIG_FILEPATH: str = ''
+
 CALIBRATION_PATH: str = ''
 CAMERA_USE: bool = True
 CAMERA_DEVICES: Dict[str, Dict[str, Any]] = {}
 DISPLAY_USE: bool = True
 DISPLAY_FPS: int = 60
+DISPLAY_GL_VERSION: str = '420 core'
+DISPLAY_TRANSFORM: str = 'DirectTransform'
 GUI_USE: bool = True
 GUI_REFRESH: int = 30
 GUI_FPS: int = 20

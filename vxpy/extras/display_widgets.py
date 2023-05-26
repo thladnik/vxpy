@@ -27,6 +27,7 @@ from PySide6.QtWidgets import QLabel
 from typing import Any, Dict, List, Tuple, Union, Type
 
 from vxpy import calib
+from vxpy import config
 import vxpy.visuals
 from vxpy.definitions import *
 import vxpy.core.attribute as vxattribute
@@ -136,6 +137,8 @@ class VisualInteractor(vxui.DisplayAddonWidget):
             self._add_visual_item(f'{_module.__name__}.{_classname}', _class)
 
     def _add_visual_item(self, name: str, _class: Type[vxvisual.AbstractVisual]):
+        if config.DISPLAY_TRANSFORM not in [_t.__name__ for _t in _class.available_transforms]:
+            return
         item = self.visual_list.add_item()
         item.setText(name)
         item.setData(QtCore.Qt.ItemDataRole.ToolTipRole, _class.description)
@@ -339,7 +342,6 @@ class VisualInteractor(vxui.DisplayAddonWidget):
                 self.clear_layout(child.layout())
 
 
-
 class VisualStreamAddon(vxui.DisplayAddonWidget):
 
     display_name = 'Visual view'
@@ -363,6 +365,7 @@ class VisualStreamAddon(vxui.DisplayAddonWidget):
             return
 
         self.graphics_widget.image_item.setImage(frame[0])
+
 
 class GraphicsWidget(pg.GraphicsLayoutWidget):
 
