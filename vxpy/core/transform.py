@@ -604,6 +604,6 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
             self.transform_uniforms['u_mapcalib_projection'] = projection
 
             self.apply_transforms_to_all(visual)
-            visual.render(dt)
+            visual.render(dt if i == 0 else 0.0)
 
         # self._display_prog.draw('triangle_strip')
