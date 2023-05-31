@@ -20,6 +20,7 @@ from PySide6 import QtCore, QtWidgets
 from PySide6.QtGui import QPainter, QColor, QFont
 from vispy import gloo
 
+import vxpy.config
 from vxpy import calib
 from vxpy.definitions import *
 import vxpy.core.visual as vxvisual
@@ -261,22 +262,22 @@ class GlobalSettings(QtWidgets.QGroupBox):
 
     @staticmethod
     def update_window_x_pos(value):
-        calib.CALIB_DISP_WIN_POS_X = value
+        vxpy.config.DISPLAY_WIN_POS_X = value
         access.window.display.update_canvas()
 
     @staticmethod
     def update_window_y_pos(value):
-        calib.CALIB_DISP_WIN_POS_Y = value
+        vxpy.config.DISPLAY_WIN_POS_Y = value
         access.window.display.update_canvas()
 
     @staticmethod
     def update_window_width(value):
-        calib.CALIB_DISP_WIN_SIZE_WIDTH_PX = value
+        vxpy.config.DISPLAY_WIN_SIZE_WIDTH_PX = value
         access.window.display.update_canvas()
 
     @staticmethod
     def update_window_height(value):
-        calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX = value
+        vxpy.config.DISPLAY_WIN_SIZE_HEIGHT_PX = value
         access.window.display.update_canvas()
 
     @staticmethod
@@ -291,7 +292,7 @@ class GlobalSettings(QtWidgets.QGroupBox):
 
     @staticmethod
     def update_screen_id(value):
-        calib.CALIB_DISP_WIN_SCREEN_ID = value
+        vxpy.config.DISPLAY_WIN_SCREEN_ID = value
         access.window.display.update_canvas()
 
     def use_current_window_settings(self):
@@ -305,10 +306,10 @@ class GlobalSettings(QtWidgets.QGroupBox):
         self.win_y_pos.set_value(fgeo.y())
 
     def update_ui(self):
-        self.win_x_pos.set_value(calib.CALIB_DISP_WIN_POS_X)
-        self.win_y_pos.set_value(calib.CALIB_DISP_WIN_POS_Y)
-        self.win_width.set_value(calib.CALIB_DISP_WIN_SIZE_WIDTH_PX)
-        self.win_height.set_value(calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX)
+        self.win_x_pos.set_value(vxpy.config.DISPLAY_WIN_POS_X)
+        self.win_y_pos.set_value(vxpy.config.DISPLAY_WIN_POS_Y)
+        self.win_width.set_value(vxpy.config.DISPLAY_WIN_SIZE_WIDTH_PX)
+        self.win_height.set_value(vxpy.config.DISPLAY_WIN_SIZE_HEIGHT_PX)
         self.x_pos.set_value(calib.CALIB_DISP_GLOB_POS_X)
         self.y_pos.set_value(calib.CALIB_DISP_GLOB_POS_Y)
 

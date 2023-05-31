@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import Any, List, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import cv2
 import h5py
@@ -31,29 +31,36 @@ log = vxlogger.getLogger(__name__)
 _sample_filename_full = 'samples.hdf5'
 _sample_filename_compressed = 'samples_compr.hdf5'
 
+
 def _get_filepath():
     uncompr_path = os.path.join(PATH_SAMPLE, _sample_filename_full)
     if os.path.exists(uncompr_path):
         return uncompr_path
     return os.path.join(PATH_SAMPLE, _sample_filename_compressed)
 
-"""
-Currently available datasets:
 
-'Multi_Fish_Eyes_Cam_20fps'
-'Single_Fish_Eyes_Cam_20fps'
-'Single_Fish_Spontaneous_1_115fps'
-'Single_Fish_Spontaneous_2_115fps'
-'Single_Fish_Spontaneous_3_115fps'
-'Single_Fish_Spontaneous_4_115fps'
-'Single_Fish_Spontaneous_1_30fps'
-'Single_Fish_Free_Swim_Dot_Chased_50fps'
-'Single_Fish_Free_Swim_On_random_motion_100fps'
-'Single_Fish_OKR_embedded_30fps'
-"""
+available_datasets = [
+    'Multi_Fish_Eyes_Cam_20fps',
+    'Single_Fish_Eyes_Cam_20fps',
+    'Single_Fish_Spontaneous_1_115fps',
+    'Single_Fish_Spontaneous_2_115fps',
+    'Single_Fish_Spontaneous_3_115fps',
+    'Single_Fish_Spontaneous_4_115fps',
+    'Single_Fish_Spontaneous_1_30fps',
+    'Single_Fish_Free_Swim_Dot_Chased_50fps',
+    'Single_Fish_Free_Swim_On_random_motion_100fps',
+    'Single_Fish_OKR_embedded_30fps'
+]
 
 
 class VirtualCamera(vxcamera.CameraDevice):
+
+    def __repr__(self):
+        return f'{VirtualCamera.__name__} {self.properties["data_path"]}'
+
+    def get_settings(self) -> Dict[str, Any]:
+        return {'data_path': self.properties['data_path'], 'width':
+            self.width, 'height': self.height, 'frame_rate': self.frame_rate}
 
     @property
     def exposure(self) -> float:
@@ -147,10 +154,10 @@ class VirtualCamera(vxcamera.CameraDevice):
             if frame is None:
                 return
 
-            frame = frame[:,:,0]
+            frame = frame[:, :, 0]
 
         # Set next frame time
-        self.next_time_get_image = vxipc.get_time() + 1./self.frame_rate
+        self.next_time_get_image = vxipc.get_time() + 1. / self.frame_rate
 
         return np.asarray(frame, dtype=np.uint8)
 
@@ -166,7 +173,22 @@ class VirtualCamera(vxcamera.CameraDevice):
 
     @classmethod
     def get_camera_list(cls) -> List[vxcamera.CameraDevice]:
-        pass
+        h5file = h5py.File(_get_filepath(), 'r')
+        camera_list = []
+        for dataset_name in available_datasets:
+            if dataset_name not in h5file:
+                continue
+
+            parts = dataset_name.split('_')
+            fps = float(parts[-1].replace('fps', ''))
+
+            # Get dataset and append camera to list
+            dataset = h5file[dataset_name]
+            props = {'width': dataset.shape[2], 'height': dataset.shape[1],
+                     'data_path': dataset.name, 'frame_rate': fps}
+            camera_list.append(VirtualCamera(**props))
+
+        return camera_list
 
 
 if __name__ == '__main__':

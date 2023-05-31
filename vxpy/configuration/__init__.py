@@ -86,6 +86,7 @@ def run_configuration_manager(_config_path: str) -> None:
 
     # Create window
     _window = config_manager.ConfigurationWindow()
+    _window.show()
 
     # Run app
     _app.exec()

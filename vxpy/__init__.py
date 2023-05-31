@@ -134,7 +134,7 @@ def calibrate(_config: Union[str, Dict[str, Any]] = None):
 
     from vxpy.calibration_manager import run_calibration
 
-    new_calibration = run_calibration(_config_data['CALIBRATION_PATH'])
+    new_calibration = run_calibration(_config_data['PATH_CALIBRATION'])
 
     # TODO: Save calibration
 

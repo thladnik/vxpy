@@ -7,6 +7,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import vxpy
 from vxpy import configuration
 from vxpy import config
+from vxpy.configuration.config_manager.config_manager_display import DisplayManager
 from vxpy.configuration.config_manager.config_manager_routines import RoutineManager
 from vxpy.configuration.config_manager.config_manager_cameras import CameraManager
 
@@ -15,7 +16,6 @@ class ConfigurationWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         QtWidgets.QMainWindow.__init__(self, *args, **kwargs)
-        # QtCore.QObject.__init__(self, *args, **kwargs)
 
         # Fix icon issues on Windows systems
         if sys.platform == 'win32':
@@ -24,9 +24,10 @@ class ConfigurationWindow(QtWidgets.QMainWindow):
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appid)
         self.setWindowTitle('vxPy - Configuration')
         self.setWindowIcon(QtGui.QIcon(os.path.join(str(vxpy.__path__[0]), 'vxpy_icon_v3_config.svg')))
+        self.createWinId()
 
-        self.resize(1200, 1000)
-        self.setCentralWidget(QtWidgets.QWidget(self))
+        self.resize(1200, 800)
+        self.setCentralWidget(QtWidgets.QWidget(parent=self, f=QtCore.Qt.WindowType.Widget))
         self.centralWidget().setLayout(QtWidgets.QGridLayout())
 
         self.config_path_le = QtWidgets.QLineEdit(config.CONFIG_FILEPATH)
@@ -45,8 +46,13 @@ class ConfigurationWindow(QtWidgets.QMainWindow):
         self.routines = RoutineManager(self)
         self._add_tab(self.routines, 'Routines')
 
+        # Camer manager
         self.cameras = CameraManager(self)
         self._add_tab(self.cameras, 'Cameras')
+
+        # Display manager
+        self.display = DisplayManager(self)
+        self._add_tab(self.display, 'Display')
 
         self.show()
 

@@ -1,5 +1,6 @@
 import pprint
 
+import yaml
 from PySide6 import QtCore, QtWidgets
 from vxpy import config
 from vxpy import utils
@@ -43,7 +44,7 @@ class RoutineManager(QtWidgets.QWidget):
         self.routine_doc.setReadOnly(True)
         self.routine_info.layout().addWidget(self.routine_doc)
 
-        self.routine_info.layout().addWidget(QtWidgets.QLabel('Custom options (Python dictionary)'))
+        self.routine_info.layout().addWidget(QtWidgets.QLabel('Custom options (YAML format)'))
         self.routine_opts = QtWidgets.QTextEdit()
         self.routine_info.layout().addWidget(self.routine_opts)
         self.save_routine_opts_btn = QtWidgets.QPushButton('Save options')
@@ -107,7 +108,7 @@ class RoutineManager(QtWidgets.QWidget):
 
         routine_cls = vxroutine.get_routine(routine_path)
         self.routine_doc.setText(f'{routine_cls.__name__}\n---\n\n{routine_cls.__doc__}')
-        self.routine_opts.setText(pprint.pformat(config.ROUTINES[routine_path], indent=4, width=150))
+        self.routine_opts.setText(yaml.dump(config.ROUTINES[routine_path]))
 
     def save_routine_opts(self):
         items = self.routine_list.list_widget.selectedItems()
@@ -116,12 +117,11 @@ class RoutineManager(QtWidgets.QWidget):
             return
 
         routine_path = items[0].text()
-        opts = self.routine_opts.toPlainText()
 
         try:
-            opts_dict = eval(opts)
+            opts_dict = yaml.safe_load(self.routine_opts.toPlainText())
         except:
-            print('ERROR: can not save routine options. No valid python format.')
+            print('ERROR: can not save routine options. No valid YAML format.')
         else:
             if not isinstance(opts_dict, dict):
                 print('ERROR: can not save routine options. Not a dictionary.')
