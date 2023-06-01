@@ -226,10 +226,10 @@ class AbstractProcess:
 
             # Add record_phase_group_id and corresponding global time if
             # anything is to be written to file from this process
-            if len(vxattribute.Attribute.to_file) > 0:
-                record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
-                vxcontainer.add_to_dataset('__record_group_id', record_phase_group_id)
-                vxcontainer.add_to_dataset('__time', vxipc.get_time())
+            # if len(vxattribute.Attribute.to_file) > 0:
+            record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
+            vxcontainer.add_to_dataset('__record_group_id', record_phase_group_id)
+            vxcontainer.add_to_dataset('__time', vxipc.get_time())
 
             # Set next iteration time
             self.next_iteration_time = vxipc.get_time() + self.interval
