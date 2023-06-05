@@ -60,7 +60,7 @@ class BaseTransform:
 
         self.transform_uniforms: Dict[str, Any] = {}
 
-        self._buffer_shape = (calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX, calib.CALIB_DISP_WIN_SIZE_WIDTH_PX)
+        self._buffer_shape = (config.DISPLAY_WIN_SIZE_HEIGHT_PX, config.DISPLAY_WIN_SIZE_WIDTH_PX)
         self._out_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
         self._out_fb = gloo.FrameBuffer(self._out_texture)
         self.frame = self._out_fb
@@ -191,8 +191,8 @@ class PlanarTransform(BaseTransform):
 
         gloo.clear()
 
-        height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
-        width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
+        height = config.DISPLAY_WIN_SIZE_HEIGHT_PX
+        width = config.DISPLAY_WIN_SIZE_WIDTH_PX
 
         # Set aspect scale to square
         if width > height:
@@ -429,8 +429,8 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
 
         gloo.clear()
 
-        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
-        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
+        win_width = config.DISPLAY_WIN_SIZE_WIDTH_PX
+        win_height = config.DISPLAY_WIN_SIZE_HEIGHT_PX
         # Set 2D scaling for aspect 1
         # Regular version
         # if win_height > win_width:
@@ -567,9 +567,9 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
 
         gloo.clear()
 
-        win_width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
+        win_width = config.DISPLAY_WIN_SIZE_WIDTH_PX
         viewport_width = win_width // 4
-        win_height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
+        win_height = config.DISPLAY_WIN_SIZE_HEIGHT_PX
 
         side_width = calib.CALIB_DISP_CYL_SIDE_WIDTH_MM
         screen_width = calib.CALIB_DISP_CYL_SCREEN_WIDTH_MM

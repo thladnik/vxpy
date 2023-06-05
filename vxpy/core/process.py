@@ -118,7 +118,7 @@ class AbstractProcess:
         # assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
         # Load calibration
-        vxcalib.load_calibration(config.CALIBRATION_PATH)
+        vxcalib.load_calibration(config.PATH_CALIBRATION)
 
         # Set additional attributes to process instance
         for key, value in kwargs.items():

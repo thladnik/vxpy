@@ -9,6 +9,7 @@ import time
 from vispy import app
 from vispy import gloo
 
+import vxpy.config
 from vxpy.core.ipc import get_time
 from vxpy import calib
 from vxpy import config
@@ -248,12 +249,12 @@ class Canvas(app.Canvas):
     def update_dimensions(self):
 
         # Update position
-        pos = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
+        pos = (config.DISPLAY_WIN_POS_X, config.DISPLAY_WIN_POS_Y)
         log.debug(f'Set canvas position to {pos}')
         self.position = pos
 
         # Update size
-        size = (calib.CALIB_DISP_WIN_SIZE_WIDTH_PX, calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX)
+        size = (config.DISPLAY_WIN_SIZE_WIDTH_PX, config.DISPLAY_WIN_SIZE_HEIGHT_PX)
         log.debug(f'Set canvas size to {size}')
         self.size = size
 
