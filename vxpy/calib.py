@@ -3,6 +3,7 @@
 from typing import List
 
 PRESERVED_ORDER: List[str] = []
+CALIB_FILEPATH: str = ''
 
 CALIB_DISP_GLOB_POS_X: float = 0.
 CALIB_DISP_GLOB_POS_Y: float = 0.

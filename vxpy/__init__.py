@@ -123,18 +123,17 @@ def run(_config: Union[str, Dict[str, Any]] = None):
     sys.exit(0)
 
 
-def calibrate(_config: Union[str, Dict[str, Any]] = None):
+def calibrate(_config_path: str = None):
 
     # Get/load configuration data
-    _config_data = load_config_data_from_string(_config)
+    # _config_data = load_config_data_from_string(_config)
+    #
+    # if _config_data is None:
+    #     print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
+    #     sys.exit(1)
 
-    if _config_data is None:
-        print(f'ERROR: invalid configuration. Config: {_config}, Config data: {_config_data}')
-        sys.exit(1)
-
-    from vxpy.calibration_manager import run_calibration
-
-    new_calibration = run_calibration(_config_data['PATH_CALIBRATION'])
+    from vxpy import calibration
+    new_calibration = calibration.run_calibration_manager(_config_path)
 
     # TODO: Save calibration
 

@@ -4,11 +4,11 @@ from typing import Union
 import qdarktheme
 from PySide6 import QtCore, QtGui, QtWidgets
 
+import vxpy.calibration
 from vxpy.definitions import *
 from vxpy import config
 from vxpy.calibration_manager import access
 from vxpy.calibration_manager.display.display_calibration import DisplayCalibration
-from vxpy.core import calibration
 
 
 def run_calibration(calib_filepath: str = None):
@@ -39,7 +39,7 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.calibration_filepath = filepath
 
         if self.calibration_filepath is not None:
-            calibration.load_calibration(filepath)
+            vxpy.calibration.load_calibration(filepath)
 
     def setup_ui(self):
 
@@ -68,7 +68,7 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.sig_reload_calibration.emit()
 
     def save_calibration(self):
-        calibration.save_calibration(self.calibration_filepath)
+        vxpy.calibration.save_calibration(self.calibration_filepath)
 
     def closeEvent(self, event: QtGui.QCloseEvent) -> None:
         self.sig_window_closed.emit()

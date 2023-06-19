@@ -11,10 +11,10 @@ import time
 from typing import Any, Callable, List, Union, Tuple, Dict, Type
 
 import vxpy
+import vxpy.calibration
 import vxpy.configuration
 from vxpy import config
 import vxpy.core.attribute as vxattribute
-import vxpy.core.calibration as vxcalib
 import vxpy.core.container as vxcontainer
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -118,7 +118,7 @@ class AbstractProcess:
         # assert config_loaded, f'Loading of configuration file {_configuration_path} failed. Check log for details.'
 
         # Load calibration
-        vxcalib.load_calibration(config.PATH_CALIBRATION)
+        vxpy.calibration.load_calibration(config.PATH_CALIBRATION)
 
         # Set additional attributes to process instance
         for key, value in kwargs.items():

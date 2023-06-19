@@ -67,7 +67,6 @@ class ChannelParameters(QtWidgets.QGroupBox):
 
         self.uniform_width = UniformWidth()
 
-
         # Radial offset
         wdgt = DoubleSliderWidget(self, 'Radial offset',
                                   limits=(0., 1.), default=0.,
