@@ -129,6 +129,22 @@ class OnTrigger(Trigger):
             return self._return_empty()
 
 
+class NotNullTrigger(Trigger):
+
+    def condition(self, data) -> (bool, np.ndarray):
+
+        # Convert if necessary
+        if not isinstance(data, np.ndarray):
+            data = np.array(data)
+
+        results = data != 0
+
+        if np.any(results):
+            return True, results
+        else:
+            return self._return_empty()
+
+
 class RisingEdgeTrigger(Trigger):
 
     def condition(self, data):

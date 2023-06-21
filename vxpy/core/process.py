@@ -286,6 +286,11 @@ class AbstractProcess:
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
     @property
+    def phase_info(self) -> dict:
+        """The current phase ID within the currently active protocol"""
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_INFO]
+
+    @property
     def phase_start_time(self) -> float:
         """Start time in application time (seconds since start of app) of the currently active protocol phase"""
         return vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
@@ -402,7 +407,6 @@ class AbstractProcess:
         return True
 
     def _stop_recording(self) -> bool:
-        """"""
         log.debug(f'Stop recording to {vxipc.get_recording_path()}')
 
         # Close any open file

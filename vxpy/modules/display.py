@@ -130,7 +130,7 @@ class Display(vxprocess.AbstractProcess):
         self.update_visual(parameters)
 
         # Initialize and update visual on canvas
-        self.current_visual.initialize()
+        self.current_visual.initialize(**self.phase_info)
         self.canvas.set_visual(self.current_visual)
 
         # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)

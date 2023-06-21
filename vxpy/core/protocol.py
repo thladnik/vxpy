@@ -177,6 +177,10 @@ class BaseProtocol:
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
     @property
+    def current_phase_info(self):
+        return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
+
+    @property
     def current_phase(self):
         return self._phases[self.current_phase_id]
 
