@@ -16,6 +16,9 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
+from typing import Dict, Hashable, Tuple
+
 import cv2
 import numpy as np
 from PySide6 import QtWidgets, QtCore, QtGui
@@ -298,43 +301,23 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
     frame_name = f'{routine_prefix}frame'
     sacc_trigger_name = f'{routine_prefix}saccade_trigger'
 
-    binary_threshold: int = None
-    min_particle_size: int = None
-    saccade_threshold: int = None
+    roi_maxnum: int = 5
+    binary_threshold: int = 60
+    min_particle_size: int = 20
+    saccade_threshold: int = 600
 
     def __init__(self, *args, **kwargs):
         vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
 
-        roi_maxnum = kwargs.get('roi_maxnum')
-        if roi_maxnum is not None and isinstance(roi_maxnum, int):
-            self.roi_maxnum = roi_maxnum
-        else:
-            self.roi_maxnum = 5
-
-        thresh = kwargs.get('thresh')
-        if thresh is not None and isinstance(thresh, int):
-            self.binary_threshold = thresh
-        else:
-            self.binary_threshold = 60
-
-        min_size = kwargs.get('min_size')
-        if min_size is not None and isinstance(min_size, int):
-            self.min_particle_size = min_size
-        else:
-            self.min_particle_size = 60
-
-        saccade_threshold = kwargs.get('saccade_threshold')
-        if saccade_threshold is not None and isinstance(saccade_threshold, int):
-            self.saccade_threshold = saccade_threshold
-        else:
-            self.saccade_threshold = 600
-
         log.info(f'Set max number of ROIs to {self.roi_maxnum}')
 
-        self.rois = {}
+        self.rois: Dict[Hashable, Tuple] = {}
 
     def require(self):
+        # Add camera device to deps
         vxdependency.require_camera_device(self.camera_device_id)
+
+    def setup(self):
 
         # Get camera specs
         camera = vxcamera.get_camera_by_id(self.camera_device_id)
@@ -381,7 +364,7 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         self.saccade_threshold = thresh
 
     @vxroutine.CameraRoutine.callback
-    def set_roi(self, roi_id: int, params):
+    def set_roi(self, roi_id: Hashable, params: Tuple[float, ...]):
 
         roi_num = -1
 

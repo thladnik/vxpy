@@ -28,8 +28,8 @@ class Sinusoid2d(vxvisual.PlanarVisual):
     u_sp_horizontal = vxvisual.FloatParameter('u_sp_horizontal', static=True, default=22.5, limits=(5, 360), step_size=5.)
     u_checker_pattern = vxvisual.FloatParameter('u_checker_pattern', static=True, value_map={'Checker': 1, 'Sinusoid': 0})
 
-    def __init__(self, *args):
-        vxvisual.PlanarVisual.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        vxvisual.PlanarVisual.__init__(self, *args, **kwargs)
 
         self.plane = plane.XYPlane()
         self.index_buffer = gloo.IndexBuffer(np.ascontiguousarray(self.plane.indices, dtype=np.uint32))

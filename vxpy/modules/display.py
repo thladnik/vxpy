@@ -89,7 +89,7 @@ class Display(vxprocess.AbstractProcess):
     def prepare_trigger_protocol(self):
         # Initialize all visuals during protocol preparation
         #  This may come with some overhead, but reduces latency between stimulation phases
-        self.current_protocol.initialize_visuals(self.canvas)
+        self.current_protocol.initialize_visuals(self.canvas, _transform=self.current_transform)
 
     def prepare_trigger_protocol_phase(self):
         # Prepare visual associated with phase
@@ -130,7 +130,7 @@ class Display(vxprocess.AbstractProcess):
         self.update_visual(parameters)
 
         # Initialize and update visual on canvas
-        self.current_visual.initialize()
+        self.current_visual.initialize(**self.phase_info)
         self.canvas.set_visual(self.current_visual)
 
         # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
