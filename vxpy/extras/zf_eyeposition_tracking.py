@@ -298,6 +298,8 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
     ang_re_vel_prefix = f'{routine_prefix}ang_re_vel_'
     le_sacc_prefix = f'{routine_prefix}le_saccade_'
     re_sacc_prefix = f'{routine_prefix}re_saccade_'
+    le_sacc_direction_prefix = f'{routine_prefix}le_saccade_direction_'
+    re_sacc_direction_prefix = f'{routine_prefix}re_saccade_direction_'
     frame_name = f'{routine_prefix}frame'
     sacc_trigger_name = f'{routine_prefix}saccade_trigger'
 
@@ -347,6 +349,10 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             # Saccade detection
             vxattribute.ArrayAttribute(f'{self.le_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
             vxattribute.ArrayAttribute(f'{self.re_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+
+            # Saccade direction
+            vxattribute.ArrayAttribute(f'{self.le_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.int8)
+            vxattribute.ArrayAttribute(f'{self.re_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.int8)
 
     def initialize(self):
         pass
@@ -413,6 +419,12 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         vxui.register_with_plotter(f'{self.le_sacc_prefix}{roi_num}', name=f'sacc(LE {roi_num})', axis='sacc')
         vxui.register_with_plotter(f'{self.re_sacc_prefix}{roi_num}', name=f'sacc(RE {roi_num})', axis='sacc')
 
+        # Saccade Direction
+        vxui.register_with_plotter(f'{self.le_sacc_direction_prefix}{roi_num}', name=f'sacc_dir(LE {roi_num})',
+                                   axis='sacc')
+        vxui.register_with_plotter(f'{self.re_sacc_direction_prefix}{roi_num}', name=f'sacc_dir(RE {roi_num})',
+                                   axis='sacc')
+
         # Add attributes to save-to-file list:
         vxattribute.write_to_file(self, f'{self.ang_le_pos_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.ang_re_pos_prefix}{roi_num}')
@@ -420,6 +432,8 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         vxattribute.write_to_file(self, f'{self.ang_re_vel_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.le_sacc_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.re_sacc_prefix}{roi_num}')
+        vxattribute.write_to_file(self, f'{self.le_sacc_direction_prefix}{roi_num}')
+        vxattribute.write_to_file(self, f'{self.re_sacc_direction_prefix}{roi_num}')
 
     def from_ellipse(self, rect):
         # Formatting for drawing
@@ -603,6 +617,8 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             re_vel_attr = vxattribute.get_attribute(f'{self.ang_re_vel_prefix}{roi_num}')
             le_sacc_attr = vxattribute.get_attribute(f'{self.le_sacc_prefix}{roi_num}')
             re_sacc_attr = vxattribute.get_attribute(f'{self.re_sacc_prefix}{roi_num}')
+            le_sacc_dir_attr = vxattribute.get_attribute(f'{self.le_sacc_direction_prefix}{roi_num}')
+            re_sacc_dir_attr = vxattribute.get_attribute(f'{self.re_sacc_direction_prefix}{roi_num}')
             rect_roi_attr = vxattribute.get_attribute(f'{self.extracted_rect_prefix}{roi_num}')
 
             # Calculate eye angular VELOCITIES
@@ -619,8 +635,8 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             dt = (current_time - last_time)
 
             # Calculate velocities
-            le_vel = np.abs((le_pos - last_le_pos) / dt)
-            re_vel = np.abs((re_pos - last_re_pos) / dt)
+            le_vel = (le_pos - last_le_pos) / dt
+            re_vel = (re_pos - last_re_pos) / dt
 
             # Calculate saccade trigger
             _, _, last_le_vel = le_vel_attr.read()
@@ -628,17 +644,33 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             _, _, last_re_vel = re_vel_attr.read()
             last_re_vel = last_re_vel[0]
 
-            le_sacc = int(last_le_vel < self.saccade_threshold < le_vel)
-            re_sacc = int(last_re_vel < self.saccade_threshold < re_vel)
+            le_sacc = int(np.abs(last_le_vel) < self.saccade_threshold < np.abs(le_vel))
+            re_sacc = int(np.abs(last_re_vel) < self.saccade_threshold < np.abs(re_vel))
 
             is_saccade = bool(le_sacc) or bool(re_sacc)
             saccade_happened = saccade_happened or is_saccade
 
+            if le_vel > self.saccade_threshold:
+                le_sacc_dir = 1
+            elif le_vel < -self.saccade_threshold:
+                le_sacc_dir = -1
+            else:
+                le_sacc_dir = 0
+
+            if re_vel > self.saccade_threshold:
+                re_sacc_dir = 1
+            elif re_vel < -self.saccade_threshold:
+                re_sacc_dir = -1
+            else:
+                re_sacc_dir = 0
+
             # Write to buffer
             le_pos_attr.write(le_pos)
             re_pos_attr.write(re_pos)
-            le_vel_attr.write(le_vel)
-            re_vel_attr.write(re_vel)
+            le_vel_attr.write(np.abs(le_vel))
+            re_vel_attr.write(np.abs(re_vel))
+            le_sacc_dir_attr.write(le_sacc_dir)
+            re_sacc_dir_attr.write(re_sacc_dir)
 
             le_sacc_attr.write(le_sacc)
             re_sacc_attr.write(re_sacc)
