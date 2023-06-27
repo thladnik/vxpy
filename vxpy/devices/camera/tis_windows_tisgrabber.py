@@ -70,7 +70,7 @@ class TISCamera(vxcamera.CameraDevice):
 
     def get_settings(self) -> Dict[str, Any]:
         if len(self.settings) == 0:
-            settings = {**self.properties, 'exposure': 0.0, 'gain': 0.0}
+            settings = {**self.properties, 'exposure': 0.01, 'gain': 1.0}
             return settings
         return self.settings
 
@@ -94,7 +94,8 @@ class TISCamera(vxcamera.CameraDevice):
             model = tis.D(ic.IC_GetDevice(i))
             uniquename = tis.D(ic.IC_GetUniqueNamefromList(i))
             serial = uniquename.replace(model, '').strip(' ')
-            props = {'serial': serial, 'model': model}
+            props = {'serial': serial, 'model': model,
+                     'width': 640, 'height': 480, 'frame_rate': 60.0}
             cam = TISCamera(**props)
             camera_list.append(cam)
 

@@ -21,7 +21,7 @@ import vxpy.core.routine as vxroutine
 log = vxlogger.getLogger(__name__)
 
 
-def init(attrs: Dict[str, Attribute]) -> None:
+def init(attrs: Union[Dict[str, Attribute], None]) -> None:
     """Calls the build function of all specified attributes"""
 
     # Reset logger to include process_name

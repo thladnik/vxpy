@@ -42,16 +42,27 @@ log = logging.getLogger(__name__)
 
 
 class VisualInteractor(vxui.DisplayAddonWidget):
+
+    def __init__(self, *args, **kwargs):
+        vxui.DisplayAddonWidget.__init__(self, *args, **kwargs)
+
+        self.central_widget.setLayout(QtWidgets.QHBoxLayout())
+        self.inner_widget = VisualInteractorInnerWidget()
+        self.central_widget.layout().addWidget(self.inner_widget)
+
+
+class VisualInteractorInnerWidget(QtWidgets.QWidget):
     """Widget which allows for independent display of visual stimuli and interactive manipulation of parameters"""
 
     display_name = 'Visual control'
 
     def __init__(self, *args, **kwargs):
-        vxui.DisplayAddonWidget.__init__(self, *args, **kwargs)
-        self.central_widget.setLayout(QtWidgets.QHBoxLayout())
+        # vxui.DisplayAddonWidget.__init__(self, *args, **kwargs)
+        QtWidgets.QWidget.__init__(self, *args, **kwargs)
+        self.setLayout(QtWidgets.QHBoxLayout())
 
         self.tab_widget = QtWidgets.QTabWidget()
-        self.central_widget.layout().addWidget(self.tab_widget)
+        self.layout().addWidget(self.tab_widget)
 
         # Available visuals widget
         self.overview_tab = QtWidgets.QWidget(self)
@@ -199,7 +210,7 @@ class VisualInteractor(vxui.DisplayAddonWidget):
             j += 1
             for trigger_fun in current_visual.trigger_functions:
                 btn = QtWidgets.QPushButton(trigger_fun.__name__)
-                btn.clicked.connect(self.trigger_visual_function(trigger_fun))
+                btn.clicked.connect(self.set_trigger_visual_function(trigger_fun))
                 self.tuner.layout().addWidget(btn, j, 0, 1, 2)
                 j += 1
 
@@ -209,9 +220,27 @@ class VisualInteractor(vxui.DisplayAddonWidget):
 
         # Run visual
         defaults = {name: wdgt.get_value() for name, wdgt in self._parameter_widgets.items()}
-        vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.run_visual, visual_class, defaults)
+        self.call_visual_execution(visual_class, defaults)
         self.tab_widget.setTabEnabled(1, True)
         self.tab_widget.setCurrentWidget(self.parameter_tab)
+
+    @staticmethod
+    def call_visual_execution(visual_class, parameters):
+        """Method to be called when a visual starts. May be overwritten"""
+        vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.run_visual, visual_class, parameters)
+
+    def stop_visual(self):
+        self.clear_layout(self.tuner.layout())
+        self.tab_widget.setCurrentWidget(self.overview_tab)
+        self.tab_widget.setTabEnabled(1, False)
+
+        # Call stop
+        self.call_visual_execution_stop()
+
+    @staticmethod
+    def call_visual_execution_stop():
+        """Method to be called when a visual stops. May be overwritten"""
+        vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.stop_visual)
 
     def _get_widget(self, parameter):
 
@@ -296,7 +325,7 @@ class VisualInteractor(vxui.DisplayAddonWidget):
         # Add callback to update visual
         if hasattr(wdgt, 'connect_callback'):
             # Get update callback
-            callback = self.update_parameter(parameter.name)
+            callback = self.set_update_parameter(parameter.name)
 
             # Set widget callback to delay timer
             wdgt.connect_callback(callback)
@@ -313,22 +342,16 @@ class VisualInteractor(vxui.DisplayAddonWidget):
         return True
 
     @staticmethod
-    def update_parameter(name):
+    def set_update_parameter(name):
         def _update(value):
             vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.update_visual, {name: value})
         return _update
 
     @staticmethod
-    def trigger_visual_function(function):
+    def set_trigger_visual_function(function):
         def _trigger():
             vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.trigger_visual, function.__name__)
         return _trigger
-
-    def stop_visual(self):
-        self.clear_layout(self.tuner.layout())
-        self.tab_widget.setCurrentWidget(self.overview_tab)
-        self.tab_widget.setTabEnabled(1, False)
-        vxipc.rpc(PROCESS_DISPLAY, vxmodules.Display.stop_visual)
 
     def clear_layout(self, layout: QtWidgets.QLayout):
         self._parameter_widgets = {}

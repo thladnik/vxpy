@@ -51,7 +51,6 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
         pass
 
     def render(self, frame_time):
-        self.apply_transform(self.checker)
         self.checker.draw('triangles', self.index_buffer)
 
 
@@ -59,6 +58,7 @@ class RegularMesh(vxvisual.SphericalVisual):
 
     u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=15., limits=(5, 180), step_size=5.)
     u_azimuth_sp = vxvisual.FloatParameter('u_azimuth_sp', static=True, default=22.5, limits=(5, 360), step_size=5.)
+    u_line_threshold = vxvisual.FloatParameter('u_line_threshold', static=True, default=0.995, limits=(0.001, 1.0), step_size=0.001)
 
     def __init__(self, *args, **kwargs):
         vxvisual.SphericalVisual.__init__(self, *args, **kwargs)
@@ -77,10 +77,10 @@ class RegularMesh(vxvisual.SphericalVisual):
 
         self.u_elevation_sp.connect(self.mesh)
         self.u_azimuth_sp.connect(self.mesh)
+        self.u_line_threshold.connect(self.mesh)
 
     def initialize(self, *args, **kwargs):
         pass
 
     def render(self, frame_time):
-        self.apply_transform(self.mesh)
         self.mesh.draw('triangles', self.index_buffer)

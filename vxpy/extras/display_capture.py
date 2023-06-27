@@ -2,6 +2,7 @@
 
 import numpy as np
 
+import vxpy.config
 from vxpy import calib
 import vxpy.api.attribute as vxattribute
 import vxpy.api.routine as vxroutine
@@ -10,18 +11,25 @@ import vxpy.core.visual as vxvisual
 
 class Frames(vxroutine.DisplayRoutine):
 
-    def require(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        super().__init__(args, kwargs)
 
+        self.downsample_by = kwargs.get('downsample_by', 1)
+
+        self.frame = None
+        self.height = None
+        self.width = None
+
+    def require(self, *args, **kwargs):
         # Set up shared variables
-        self.width = calib.CALIB_DISP_WIN_SIZE_WIDTH_PX
-        self.height = calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX
+        self.width = vxpy.config.DISPLAY_WIN_SIZE_WIDTH_PX // self.downsample_by
+        self.height = vxpy.config.DISPLAY_WIN_SIZE_HEIGHT_PX // self.downsample_by
         self.frame = vxattribute.ArrayAttribute('display_frame',
                                                 (self.width, self.height, 3),
                                                 vxattribute.ArrayType.uint8)
 
     def initialize(self):
         pass
-        # self.frame.add_to_file()
 
     def main(self, visual: vxvisual.AbstractVisual):
         if visual is None:
@@ -29,4 +37,4 @@ class Frames(vxroutine.DisplayRoutine):
 
         frame = np.swapaxes(visual.transform.frame.read('color', alpha=False), 0, 1)
 
-        self.frame.write(frame)
+        self.frame.write(frame[::self.downsample_by, ::self.downsample_by, :])

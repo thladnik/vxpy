@@ -1,22 +1,9 @@
-"""
-MappApp ./definitions.py
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Global definitions module
 """
 import os
 from enum import Enum
+
+from vxpy import config
 
 
 # Environment settings
@@ -75,6 +62,7 @@ CTRL_PRCL_IMPORTPATH = 'CTRL_PRCL_IMPORTPATH'
 CTRL_PRCL_TYPE = 'CTRL_PRCL_TYPE'
 CTRL_PRCL_PHASE_ACTIVE = 'CTRL_PRCL_PHASE_ACTIVE'
 CTRL_PRCL_PHASE_ID = 'CTRL_PRCL_PHASE_ID'
+CTRL_PRCL_PHASE_INFO = 'CTRL_PRCL_PHASE_INFO'
 CTRL_PRCL_PHASE_START_TIME = 'CTRL_PRCL_PHASE_START_TIME'
 CTRL_PRCL_PHASE_END_TIME = 'CTRL_PRCL_PHASE_END_TIME'
 
@@ -118,3 +106,10 @@ class SIGNAL(Enum):
 class DeviceType(Enum):
     Camera = 1
     Io = 2
+
+
+def get_sample_path():
+    """Return path for example files, based on configuration"""
+    if len(config.PATH_EXAMPLES) > 0:
+        return config.PATH_EXAMPLES
+    return PATH_SAMPLE
