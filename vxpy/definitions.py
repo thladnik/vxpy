@@ -36,6 +36,7 @@ PROCESS_CONTROLLER = 'Controller'
 PROCESS_DISPLAY = 'Display'
 PROCESS_GUI = 'Gui'
 PROCESS_IO = 'Io'
+PROCESS_RECORDER = 'Recorder'
 PROCESS_WORKER = 'Worker'
 
 # Setup commands

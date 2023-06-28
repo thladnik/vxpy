@@ -107,6 +107,10 @@ class Controller(vxprocess.AbstractProcess):
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
 
+        # Use separate recorder process
+        if config.RECORDER_USE:
+            self._register_process(vxmodules.Recorder)
+
         # Worker
         if config.WORKER_USE:
             self._register_process(vxmodules.Worker)
@@ -241,6 +245,7 @@ class Controller(vxprocess.AbstractProcess):
                    PROCESS_DISPLAY: STATE.NA,
                    PROCESS_GUI: STATE.NA,
                    PROCESS_IO: STATE.NA,
+                   PROCESS_RECORDER: STATE.NA,
                    PROCESS_WORKER: STATE.NA}
 
         return _states
@@ -628,7 +633,10 @@ class Controller(vxprocess.AbstractProcess):
         self.phase_end_time = time + phase.duration
 
     def main(self):
-        vxattribute.write_attribute('__record_group_id', self.record_phase_group_id)
+
+        # Write record group id
+        record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
+        vxattribute.write_attribute('__record_group_id', record_phase_group_id)
         vxattribute.write_attribute('__time', vxipc.get_time())
 
     def _eval_process_state(self):

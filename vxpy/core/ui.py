@@ -599,18 +599,18 @@ class ProcessInfo(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         # Set layout
-        self.setLayout(QtWidgets.QGridLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
         self.setContentsMargins(0, 0, 0, 0)
 
         lbl = QtWidgets.QLabel(process_name)
         lbl.setStyleSheet('font-weight:bold;')
-        lbl.setFixedWidth(50)
-        self.layout().addWidget(lbl, 0, 0)
+        # lbl.setFixedWidth(50)
+        self.layout().addWidget(lbl)
         state = QtWidgets.QLineEdit('')
         state.setDisabled(True)
         state.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
         parent.state_widgets[process_name] = state
-        self.layout().addWidget(state, 0, 1)
+        self.layout().addWidget(state)
 
 
 class ProcessMonitorWidget(IntegratedWidget):
@@ -653,6 +653,8 @@ class ProcessMonitorWidget(IntegratedWidget):
         self.layout().addWidget(self._create_process_monitor_widget(PROCESS_GUI))
         # IO modules status
         self.layout().addWidget(self._create_process_monitor_widget(PROCESS_IO))
+        # Recorder modules status
+        self.layout().addWidget(self._create_process_monitor_widget(PROCESS_RECORDER))
         # Worker modules status
         self.layout().addWidget(self._create_process_monitor_widget(PROCESS_WORKER))
 

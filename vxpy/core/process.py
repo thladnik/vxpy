@@ -354,7 +354,7 @@ class AbstractProcess:
         """
         return {}
 
-    def _start_recording(self):
+    def _start_recording(self) -> bool:
         """Start a new recording to disk
 
         Method opens a new file container and adds basic version and debug information.
@@ -362,6 +362,10 @@ class AbstractProcess:
         and datasets for all ``vxpy.core.attribute.Attribute`` instances that have been marked
         to be saved to disk via a call to ``vxpy.core.attribute.write_to_file``
         """
+
+        # If recorder is enabled, it's going to take care of saving the data
+        if config.RECORDER_USE:
+            return True
 
         # Open new file for recording
         log.debug(f'Start recording to {vxipc.get_recording_path()}')
@@ -405,6 +409,11 @@ class AbstractProcess:
         return True
 
     def _stop_recording(self) -> bool:
+
+        # If recorder is enabled, it's going to take care of saving the data
+        if config.RECORDER_USE:
+            return True
+
         log.debug(f'Stop recording to {vxipc.get_recording_path()}')
 
         # Close any open file
@@ -714,6 +723,10 @@ class AbstractProcess:
         if self.name in self._routines:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
+
+        # If recorder is enabled, it's going to take care of saving the data
+        if config.RECORDER_USE:
+            return
 
         # Write attributes to file
         data = vxattribute.get_permanent_data()
