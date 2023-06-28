@@ -37,7 +37,7 @@ import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
 from vxpy.definitions import *
 from vxpy.utils import geometry
-from vxpy.utils.widgets import IntSliderWidget, UniformWidth
+from vxpy.utils.widgets import Checkbox, IntSliderWidget, UniformWidth
 
 log = vxlogger.getLogger(__name__)
 
@@ -68,12 +68,18 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
 
         label_width = 125
         self.uniform_label_width = UniformWidth()
+
+        # Flip direction option
+        self.flip_direction = Checkbox('Flip directions', self.routine.flip_direction)
+        self.flip_direction.connect_callback(self.update_flip_direction)
+        self.ctrl_panel.layout().addWidget(self.flip_direction)
+        self.uniform_label_width.add_widget(self.flip_direction.label)
+
         # Image threshold
         self.image_threshold = IntSliderWidget(self, 'Threshold',
                                                limits=(1, 255), default=self.routine.binary_threshold,
                                                label_width=label_width, step_size=1)
         self.image_threshold.connect_callback(self.update_image_threshold)
-        # self.image_threshold.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.image_threshold)
         self.uniform_label_width.add_widget(self.image_threshold.label)
 
@@ -82,7 +88,6 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
                                                 limits=(1, 1000), default=self.routine.min_particle_size,
                                                 label_width=label_width, step_size=1)
         self.particle_minsize.connect_callback(self.update_particle_minsize)
-        # self.particle_minsize.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.particle_minsize)
         self.uniform_label_width.add_widget(self.particle_minsize.label)
 
@@ -93,7 +98,6 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
                                               limits=(1, 10000), default=self.routine.saccade_threshold,
                                               label_width=label_width, step_size=1)
         self.sacc_threshold.connect_callback(self.update_sacc_threshold)
-        # self.sacc_threshold.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.sacc_threshold)
         self.uniform_label_width.add_widget(self.sacc_threshold.label)
 
@@ -110,6 +114,9 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
         self.ctrl_panel.layout().addWidget(self.add_roi_btn)
 
         self.connect_to_timer(self.update_frame)
+
+    def update_flip_direction(self, state):
+        self.call_routine(EyePositionDetectionRoutine.set_flip_direction, bool(state))
 
     def update_image_threshold(self, im_thresh):
         self.call_routine(EyePositionDetectionRoutine.set_threshold, im_thresh)
@@ -304,6 +311,7 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
     sacc_trigger_name = f'{routine_prefix}saccade_trigger'
 
     roi_maxnum: int = 5
+    flip_direction: bool = False
     binary_threshold: int = 60
     min_particle_size: int = 20
     saccade_threshold: int = 600
@@ -356,6 +364,10 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
 
     def initialize(self):
         pass
+
+    @vxroutine.CameraRoutine.callback
+    def set_flip_direction(self, state):
+        self.flip_direction = state
 
     @vxroutine.CameraRoutine.callback
     def set_threshold(self, thresh):
@@ -435,7 +447,7 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         vxattribute.write_to_file(self, f'{self.le_sacc_direction_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.re_sacc_direction_prefix}{roi_num}')
 
-    def from_ellipse(self, rect):
+    def _get_eye_positions(self, rect):
         # Formatting for drawing
         line_thickness = np.ceil(np.mean(rect.shape) / 50).astype(int)
         line_thickness = 1 if line_thickness == 0 else line_thickness
@@ -605,10 +617,12 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             # Rotate
             rot_rect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-            # Calculate eye angular POSITIONS
-
             # Apply detection function on cropped rect which contains eyes
-            (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
+            (le_pos, re_pos), new_rect = self._get_eye_positions(rot_rect)
+
+            if self.flip_direction:
+                le_pos = -le_pos
+                re_pos = -re_pos
 
             # Get shared attributes
             le_pos_attr = vxattribute.get_attribute(f'{self.ang_le_pos_prefix}{roi_num}')
