@@ -23,7 +23,7 @@ class Worker(process.AbstractProcess):
         self._tasks = dict()
 
         # Run event loop
-        self.run(interval=1./10)
+        self.run(interval=1./config.WORKER_RATE)
 
     def _load_task(self, task_name):
         if not(task_name in self._tasks):

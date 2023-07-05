@@ -28,6 +28,7 @@ IO_PINS: Dict[str, Dict[str, Any]] = {}
 IO_MAX_SR: int = 500
 IO_DEVICES: Dict[str, Dict[str, Any]]
 WORKER_USE: bool = True
+WORKER_RATE: int = 100
 RECORDER_USE: bool = True
 REC_OUTPUT_FOLDER: str = ''
 REC_ATTRIBUTES: Dict[str, Dict[str, Any]] = {}

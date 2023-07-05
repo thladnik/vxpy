@@ -200,6 +200,11 @@ class Controller(vxprocess.AbstractProcess):
         vxattribute.ArrayAttribute('__record_group_id', (1,), vxattribute.ArrayType.int64)
         vxattribute.ArrayAttribute('__time', (1,), vxattribute.ArrayType.float64)
 
+        # Create iteration attributes
+        vxattribute.ArrayAttribute(f'{self.name}_iteration', (1,), vxattribute.ArrayType.uint64)
+        for process_name in self._registered_processes:
+            vxattribute.ArrayAttribute(f'{process_name}_iteration', (1,), vxattribute.ArrayType.uint64)
+
         # Initialize attributes for Controller (no argument needed, attributes are already set)
         vxattribute.init(None)
 
