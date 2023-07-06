@@ -75,6 +75,7 @@ class AbstractProcess:
     file_container: Union[None, vxcontainer.H5File] = None
     record_group: int = -1
     compression_args: Dict[str, Any] = {}
+    iteration_num: int = 0
 
     def __init__(self,
                  _program_start_time=None,
@@ -159,18 +160,6 @@ class AbstractProcess:
         self.next_iteration_time: float = 0.0
         self.loop_times: List[float] = [time.perf_counter()]
 
-    def _keep_time(self):
-        self.loop_times.append(time.perf_counter())
-        if (self.loop_times[-1] - self.loop_times[0]) > 1.:
-            dt = np.diff(self.loop_times)
-            mean_dt = np.mean(dt)
-            std_dt = np.std(dt)
-            # print('Avg loop time in {} {:.2f} +/- {:.2f}ms'.format(self.name, mean_dt * 1000, std_dt * 1000))
-            self.loop_times = [self.loop_times[-1]]
-            # print(f'{self.name} says {self.t}')
-            update_args = (self.name, self.interval, mean_dt, std_dt)
-            vxipc.gui_rpc('ProcessMonitorWidget.update_process_interval', *update_args, _send_verbosely=False)
-
     def run(self, interval: float):
         """Function to run the event loop of the process
 
@@ -200,9 +189,6 @@ class AbstractProcess:
             if self.name in self._protocolized:
                 self._eval_protocol_state()
 
-            # Calculate iteration time statistics
-            self._keep_time()
-
             # Wait until interval time is up
             vxipc.update_time()
             dt = self.next_iteration_time - vxipc.get_time()
@@ -228,6 +214,11 @@ class AbstractProcess:
             record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
             vxcontainer.add_to_dataset('__record_group_id', record_phase_group_id)
             vxcontainer.add_to_dataset('__time', vxipc.get_time())
+
+            # Write iteration
+            vxattribute.write_attribute(f'{self.name}_iteration', self.iteration_num)
+            # and increment by 1
+            self.iteration_num += 1
 
             # Set next iteration time
             self.next_iteration_time = vxipc.get_time() + self.interval
@@ -354,7 +345,7 @@ class AbstractProcess:
         """
         return {}
 
-    def _start_recording(self):
+    def _start_recording(self) -> bool:
         """Start a new recording to disk
 
         Method opens a new file container and adds basic version and debug information.
@@ -362,6 +353,10 @@ class AbstractProcess:
         and datasets for all ``vxpy.core.attribute.Attribute`` instances that have been marked
         to be saved to disk via a call to ``vxpy.core.attribute.write_to_file``
         """
+
+        # If recorder is enabled, it's going to take care of saving the data
+        if config.RECORDER_USE:
+            return True
 
         # Open new file for recording
         log.debug(f'Start recording to {vxipc.get_recording_path()}')
@@ -405,6 +400,11 @@ class AbstractProcess:
         return True
 
     def _stop_recording(self) -> bool:
+
+        # If recorder is enabled, it's going to take care of saving the data
+        if config.RECORDER_USE:
+            return True
+
         log.debug(f'Stop recording to {vxipc.get_recording_path()}')
 
         # Close any open file
@@ -714,6 +714,10 @@ class AbstractProcess:
         if self.name in self._routines:
             for routine_name, routine in self._routines[self.name].items():
                 routine.main(*args, **kwargs)
+
+        # If recorder is enabled, it's going to take care of saving the data
+        if config.RECORDER_USE:
+            return
 
         # Write attributes to file
         data = vxattribute.get_permanent_data()

@@ -19,6 +19,7 @@ from vxpy import config
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
+import vxpy.core.dependency as vxdep #register_camera_device, register_io_device, assert_device_requirements
 import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -26,7 +27,7 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
-from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
+import vxpy.core.ui as vxui
 
 log = vxlogger.getLogger(__name__)
 
@@ -106,6 +107,10 @@ class Controller(vxprocess.AbstractProcess):
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
 
+        # Use separate recorder process
+        if config.RECORDER_USE:
+            self._register_process(vxmodules.Recorder)
+
         # Worker
         if config.WORKER_USE:
             self._register_process(vxmodules.Worker)
@@ -145,12 +150,12 @@ class Controller(vxprocess.AbstractProcess):
         # Set configured cameras
         if config.CAMERA_USE:
             for device_id in config.CAMERA_DEVICES:
-                register_camera_device(device_id)
+                vxdep.register_camera_device(device_id)
 
         # Set configured io devices
         if config.IO_USE:
             for device_id in config.IO_DEVICES:
-                register_io_device(device_id)
+                vxdep.register_io_device(device_id)
 
         # Load routine modules
         self._routines: Dict[str, Dict[str, vxroutine.Routine]] = {}
@@ -184,12 +189,21 @@ class Controller(vxprocess.AbstractProcess):
             routine.require()
 
         # Compare required vs registered devices
-        assert_device_requirements()
+        vxdep.assert_device_requirements()
 
         # Set up routines
         for routines in self._routines.values():
             for routine in routines.values():
                 routine.setup()
+
+        # Create __record_group_id and __time attributes
+        vxattribute.ArrayAttribute('__record_group_id', (1,), vxattribute.ArrayType.int64)
+        vxattribute.ArrayAttribute('__time', (1,), vxattribute.ArrayType.float64)
+
+        # Create iteration attributes
+        vxattribute.ArrayAttribute(f'{self.name}_iteration', (1,), vxattribute.ArrayType.uint64)
+        for process_name in self._registered_processes:
+            vxattribute.ArrayAttribute(f'{process_name}_iteration', (1,), vxattribute.ArrayType.uint64)
 
         # Initialize attributes for Controller (no argument needed, attributes are already set)
         vxattribute.init(None)
@@ -236,6 +250,7 @@ class Controller(vxprocess.AbstractProcess):
                    PROCESS_DISPLAY: STATE.NA,
                    PROCESS_GUI: STATE.NA,
                    PROCESS_IO: STATE.NA,
+                   PROCESS_RECORDER: STATE.NA,
                    PROCESS_WORKER: STATE.NA}
 
         return _states
@@ -301,6 +316,9 @@ class Controller(vxprocess.AbstractProcess):
         self.set_state(STATE.IDLE)
 
     def start(self):
+
+        # Register with plotter
+        vxui.register_with_plotter('__record_group_id', name='Record group ID', axis='ID')
 
         # Run controller
         self.run(interval=0.001)
@@ -620,7 +638,11 @@ class Controller(vxprocess.AbstractProcess):
         self.phase_end_time = time + phase.duration
 
     def main(self):
-        pass
+
+        # Write record group id
+        record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
+        vxattribute.write_attribute('__record_group_id', record_phase_group_id)
+        vxattribute.write_attribute('__time', vxipc.get_time())
 
     def _eval_process_state(self):
 
