@@ -21,7 +21,7 @@ import vxpy.core.routine as vxroutine
 log = vxlogger.getLogger(__name__)
 
 
-def init(attrs: Dict[str, Attribute]) -> None:
+def init(attrs: Union[Dict[str, Attribute], None]) -> None:
     """Calls the build function of all specified attributes"""
 
     # Reset logger to include process_name
@@ -173,7 +173,7 @@ def get_permanent_data(process_name: str = None) -> Iterator[Tuple[Attribute, Di
             yield attribute, record_ops
 
             # Reset "new" flag
-            attribute.set_new(False)
+            attribute.reset_new_counter()
 
 
 class Attribute(ABC):
@@ -204,7 +204,7 @@ class Attribute(ABC):
         self._length = length
         self._index = mp.Value(ctypes.c_uint64)
         self._last_time = np.inf
-        self._new_data_flag: mp.Value = mp.Value(ctypes.c_bool, False)
+        self._new_data_num: mp.Value = mp.Value(ctypes.c_int64, 0)
 
         self._times: np.ndarray = np.array([])
         self._indices: np.ndarray = np.array([])
@@ -269,12 +269,15 @@ class Attribute(ABC):
         return self._get_times(*self._get_range(last))
 
     def has_new_entry(self) -> bool:
-        return self._new_data_flag.value
+        return bool(self._new_data_num.value)
 
-    def set_new(self, state: bool) -> None:
-        """Set _new_data state of this attribute. This usually happens when attribute is written to
+    def _added_new(self):
+        self._new_data_num.value = self._new_data_num.value + 1
+
+    def reset_new_counter(self) -> None:
+        """Set _new_data_flag state of this attribute. This usually happens when attribute is written to
         or when the last attribute data is written to file"""
-        self._new_data_flag.value = state
+        self._new_data_num.value = 0
 
     def add_to_file(self):
         """Convenience method for calling write_to_file method on this attribute"""
@@ -369,7 +372,7 @@ class Attribute(ABC):
         self._write(internal_idx, value)
 
         # Set "new" flag
-        self.set_new(True)
+        self._added_new()
 
         # Update last time
         self._last_time = vxipc.get_time()

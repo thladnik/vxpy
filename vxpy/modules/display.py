@@ -9,6 +9,7 @@ import time
 from vispy import app
 from vispy import gloo
 
+import vxpy.config
 from vxpy.core.ipc import get_time
 from vxpy import calib
 from vxpy import config
@@ -88,7 +89,7 @@ class Display(vxprocess.AbstractProcess):
     def prepare_trigger_protocol(self):
         # Initialize all visuals during protocol preparation
         #  This may come with some overhead, but reduces latency between stimulation phases
-        self.current_protocol.initialize_visuals(self.canvas)
+        self.current_protocol.initialize_visuals(self.canvas, _transform=self.current_transform)
 
     def prepare_trigger_protocol_phase(self):
         # Prepare visual associated with phase
@@ -129,7 +130,7 @@ class Display(vxprocess.AbstractProcess):
         self.update_visual(parameters)
 
         # Initialize and update visual on canvas
-        self.current_visual.initialize()
+        self.current_visual.initialize(**self.phase_info)
         self.canvas.set_visual(self.current_visual)
 
         # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
@@ -248,12 +249,12 @@ class Canvas(app.Canvas):
     def update_dimensions(self):
 
         # Update position
-        pos = (calib.CALIB_DISP_WIN_POS_X, calib.CALIB_DISP_WIN_POS_Y)
+        pos = (config.DISPLAY_WIN_POS_X, config.DISPLAY_WIN_POS_Y)
         log.debug(f'Set canvas position to {pos}')
         self.position = pos
 
         # Update size
-        size = (calib.CALIB_DISP_WIN_SIZE_WIDTH_PX, calib.CALIB_DISP_WIN_SIZE_HEIGHT_PX)
+        size = (config.DISPLAY_WIN_SIZE_WIDTH_PX, config.DISPLAY_WIN_SIZE_HEIGHT_PX)
         log.debug(f'Set canvas size to {size}')
         self.size = size
 

@@ -50,9 +50,10 @@ class Routine(ABC):
     callback_ops: List[Callable] = None
 
     def __init__(self, *args, **kwargs):
-        self._triggers = dict()
 
-        self._trigger_callbacks = dict()
+        # Set attributes based on (config) initialization parameters
+        for key, val in kwargs.items():
+            self.__setattr__(key, val)
 
         # List of methods open to rpc calls
         if self.callback_ops is None:
@@ -64,7 +65,6 @@ class Routine(ABC):
             cls.instance = super(Routine, cls).__new__(cls)
 
         return cls.instance
-
 
     @classmethod
     def callback(cls, fun: Callable):

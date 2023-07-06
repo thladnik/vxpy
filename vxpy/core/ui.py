@@ -599,47 +599,64 @@ class ProcessInfo(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         # Set layout
-        self.setLayout(QtWidgets.QGridLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
         self.setContentsMargins(0, 0, 0, 0)
 
-        lbl = QtWidgets.QLabel(process_name)
-        lbl.setStyleSheet('font-weight:bold;')
-        lbl.setFixedWidth(50)
-        self.layout().addWidget(lbl, 0, 0)
-        state = QtWidgets.QLineEdit('')
-        state.setDisabled(True)
-        state.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
-        parent.state_widgets[process_name] = state
-        self.layout().addWidget(state, 0, 1)
+        self.process_name = process_name
+        self.label = QtWidgets.QLabel(self.process_name)
+        self.label.setStyleSheet('font-weight:bold;')
+        self.layout().addWidget(self.label)
+
+        self.text = QtWidgets.QLineEdit('')
+        self.text.setDisabled(True)
+        self.text.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+        self.layout().addWidget(self.text)
+
+    def update_info(self):
+
+        state = vxipc.get_state(self.process_name)
+
+        # Set style based on state
+        if state == STATE.IDLE:
+            self.text.setStyleSheet('color: #3bb528; font-weight:bold;')
+        elif state == STATE.STARTING:
+            self.text.setStyleSheet('color: #3c81f3; font-weight:bold;')
+        elif state == STATE.STOPPED:
+            self.text.setStyleSheet('color: #d43434; font-weight:bold;')
+        elif state == STATE.PRCL_IN_PROGRESS:
+            self.text.setStyleSheet('color: #deb737; font-weight:bold;')
+        elif state == STATE.PRCL_IN_PHASE:
+            self.text.setStyleSheet('color: #deb737; font-weight:bold;')
+        else:
+            self.text.setStyleSheet('color: #FFFFFF')
+
+        # If mouse hovers over text box: update timing metrics
+        if self.underMouse():
+
+            # If state is N/A, there's nothing to measure
+            if state == STATE.NA:
+                return
+
+            _, times, _ = vxattribute.read_attribute(f'{self.process_name}_iteration', last=100)
+            diffs = np.diff(times*1000)
+            mdiff = np.mean(diffs)
+            sdiff = np.std(diffs)
+            self.text.setText(f'{mdiff:.1f}(+/-{sdiff:.1f})ms')
+
+        # Else, just display the process state
+        else:
+            # Set text
+            self.text.setText(state.name)
 
 
 class ProcessMonitorWidget(IntegratedWidget):
 
+    _process_widgets: Dict[str, ProcessInfo] = {}
+
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Process monitor', *args)
 
-        self.exposed.append(ProcessMonitorWidget.update_process_interval)
-
-        self.state_labels = dict()
-        self.state_widgets = dict()
-        self.intval_widgets = dict()
-        self._process_widgets: Dict[str, QtWidgets.QWidget] = {}
-
-        self._setup_ui()
-
-    def _create_process_monitor_widget(self, process_name: str) -> QtWidgets.QWidget:
-
-        wdgt = ProcessInfo(process_name, self)
-
-        self._process_widgets[process_name] = wdgt
-
-        return wdgt
-
-    def _setup_ui(self):
-
-        # self.setFixedWidth(200)
-
-        # Setup widget
+        # Add info widgets
         self.setLayout(QtWidgets.QHBoxLayout())
         self.setContentsMargins(0, 0, 0, 0)
 
@@ -653,49 +670,26 @@ class ProcessMonitorWidget(IntegratedWidget):
         self.layout().addWidget(self._create_process_monitor_widget(PROCESS_GUI))
         # IO modules status
         self.layout().addWidget(self._create_process_monitor_widget(PROCESS_IO))
+        # Recorder modules status
+        self.layout().addWidget(self._create_process_monitor_widget(PROCESS_RECORDER))
         # Worker modules status
         self.layout().addWidget(self._create_process_monitor_widget(PROCESS_WORKER))
-
-        # Add spacer
-        vSpacer = QtWidgets.QSpacerItem(1, 1,
-                                        QtWidgets.QSizePolicy.Policy.Minimum,
-                                        QtWidgets.QSizePolicy.Policy.Expanding)
-        # self.layout().addItem(vSpacer, 6, 0)
 
         # Set timer for GUI update
         self._tmr_updateGUI = QtCore.QTimer()
         self._tmr_updateGUI.setInterval(100)
-        self._tmr_updateGUI.timeout.connect(self._update_states)
+        self._tmr_updateGUI.timeout.connect(self._update_info)
         self._tmr_updateGUI.start()
 
-    def update_process_interval(self, process_name, target_inval, mean_inval, std_inval):
-        if process_name in self.state_widgets:
-            self.state_widgets[process_name].setToolTip(f'{mean_inval * 1000:.1f}'
-                                                        f'/{target_inval * 1000:.1f} '
-                                                        f'({std_inval * 1000:.1f}) ms')
-        else:
-            print(process_name, '{:.2f} +/- {:.2f}ms'.format(mean_inval * 1000, std_inval * 1000))
+    def _create_process_monitor_widget(self, process_name: str) -> ProcessInfo:
 
-    @staticmethod
-    def _set_process_state(le: QtWidgets.QLineEdit, state: Enum):
-        # Set text
-        le.setText(state.name)
+        self._process_widgets[process_name] = ProcessInfo(process_name, self)
 
-        # Set style
-        if state == STATE.IDLE:
-            le.setStyleSheet('color: #3bb528; font-weight:bold;')
-        elif state == STATE.STARTING:
-            le.setStyleSheet('color: #3c81f3; font-weight:bold;')
-        elif state == STATE.STOPPED:
-            le.setStyleSheet('color: #d43434; font-weight:bold;')
-        elif state == STATE.PRCL_IN_PROGRESS:
-            le.setStyleSheet('color: #deb737; font-weight:bold;')
-        else:
-            le.setStyleSheet('color: #FFFFFF')
+        return self._process_widgets[process_name]
 
-    def _update_states(self):
-        for process_name, state_widget in self.state_widgets.items():
-            self._set_process_state(state_widget, vxipc.get_state(process_name))
+    def _update_info(self):
+        for state_widget in self._process_widgets.values():
+            state_widget.update_info()
 
 
 class RecordingWidget(IntegratedWidget):

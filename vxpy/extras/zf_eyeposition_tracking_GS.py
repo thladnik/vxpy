@@ -16,9 +16,6 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-
-from typing import Dict, Hashable, Tuple
-
 import cv2
 import numpy as np
 from PySide6 import QtWidgets, QtCore, QtGui
@@ -37,7 +34,7 @@ import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
 from vxpy.definitions import *
 from vxpy.utils import geometry
-from vxpy.utils.widgets import Checkbox, IntSliderWidget, UniformWidth
+from vxpy.utils.widgets import IntSliderWidget, UniformWidth
 
 log = vxlogger.getLogger(__name__)
 
@@ -68,18 +65,12 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
 
         label_width = 125
         self.uniform_label_width = UniformWidth()
-
-        # Flip direction option
-        self.flip_direction = Checkbox('Flip directions', self.routine.flip_direction)
-        self.flip_direction.connect_callback(self.update_flip_direction)
-        self.ctrl_panel.layout().addWidget(self.flip_direction)
-        self.uniform_label_width.add_widget(self.flip_direction.label)
-
         # Image threshold
         self.image_threshold = IntSliderWidget(self, 'Threshold',
                                                limits=(1, 255), default=self.routine.binary_threshold,
                                                label_width=label_width, step_size=1)
         self.image_threshold.connect_callback(self.update_image_threshold)
+        # self.image_threshold.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.image_threshold)
         self.uniform_label_width.add_widget(self.image_threshold.label)
 
@@ -88,6 +79,7 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
                                                 limits=(1, 1000), default=self.routine.min_particle_size,
                                                 label_width=label_width, step_size=1)
         self.particle_minsize.connect_callback(self.update_particle_minsize)
+        # self.particle_minsize.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.particle_minsize)
         self.uniform_label_width.add_widget(self.particle_minsize.label)
 
@@ -98,6 +90,7 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
                                               limits=(1, 10000), default=self.routine.saccade_threshold,
                                               label_width=label_width, step_size=1)
         self.sacc_threshold.connect_callback(self.update_sacc_threshold)
+        # self.sacc_threshold.emit_current_value()
         self.ctrl_panel.layout().addWidget(self.sacc_threshold)
         self.uniform_label_width.add_widget(self.sacc_threshold.label)
 
@@ -114,9 +107,6 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
         self.ctrl_panel.layout().addWidget(self.add_roi_btn)
 
         self.connect_to_timer(self.update_frame)
-
-    def update_flip_direction(self, state):
-        self.call_routine(EyePositionDetectionRoutine.set_flip_direction, bool(state))
 
     def update_image_threshold(self, im_thresh):
         self.call_routine(EyePositionDetectionRoutine.set_threshold, im_thresh)
@@ -283,15 +273,6 @@ class Rect(pg.RectROI):
 
 
 class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
-    """Routine that detects an arbitrary number of zebrafish eye pairs in a
-    monochrome input frame
-
-    Args:
-        roi_maxnum (int): maximum number of eye pairs to be detected
-        thresh (int): initial binary threshold to use for segmentation
-        min_size (int): initial minimal particle size. Anything below this size will be discarded
-        saccade_threshold (int): initial saccade velocity threshold for binary saccade trigger
-    """
 
     # Set required device
     camera_device_id = 'fish_embedded'
@@ -310,24 +291,44 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
     frame_name = f'{routine_prefix}frame'
     sacc_trigger_name = f'{routine_prefix}saccade_trigger'
 
-    roi_maxnum: int = 5
-    flip_direction: bool = False
-    binary_threshold: int = 60
-    min_particle_size: int = 20
-    saccade_threshold: int = 600
+
+    binary_threshold: int = None
+    min_particle_size: int = None
+    saccade_threshold: int = None
 
     def __init__(self, *args, **kwargs):
         vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
 
+        roi_maxnum = kwargs.get('roi_maxnum')
+        if roi_maxnum is not None and isinstance(roi_maxnum, int):
+            self.roi_maxnum = roi_maxnum
+        else:
+            self.roi_maxnum = 5
+
+        thresh = kwargs.get('thresh')
+        if thresh is not None and isinstance(thresh, int):
+            self.binary_threshold = thresh
+        else:
+            self.binary_threshold = 60
+
+        min_size = kwargs.get('min_size')
+        if min_size is not None and isinstance(min_size, int):
+            self.min_particle_size = min_size
+        else:
+            self.min_particle_size = 60
+
+        saccade_threshold = kwargs.get('saccade_threshold')
+        if saccade_threshold is not None and isinstance(saccade_threshold, int):
+            self.saccade_threshold = saccade_threshold
+        else:
+            self.saccade_threshold = 600
+
         log.info(f'Set max number of ROIs to {self.roi_maxnum}')
 
-        self.rois: Dict[Hashable, Tuple] = {}
+        self.rois = {}
 
     def require(self):
-        # Add camera device to deps
         vxdependency.require_camera_device(self.camera_device_id)
-
-    def setup(self):
 
         # Get camera specs
         camera = vxcamera.get_camera_by_id(self.camera_device_id)
@@ -359,15 +360,11 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             vxattribute.ArrayAttribute(f'{self.re_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
             # Saccade direction
-            vxattribute.ArrayAttribute(f'{self.le_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.int8)
-            vxattribute.ArrayAttribute(f'{self.re_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.int8)
+            vxattribute.ArrayAttribute(f'{self.le_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.re_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.float64)
 
     def initialize(self):
         pass
-
-    @vxroutine.CameraRoutine.callback
-    def set_flip_direction(self, state):
-        self.flip_direction = state
 
     @vxroutine.CameraRoutine.callback
     def set_threshold(self, thresh):
@@ -382,7 +379,7 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         self.saccade_threshold = thresh
 
     @vxroutine.CameraRoutine.callback
-    def set_roi(self, roi_id: Hashable, params: Tuple[float, ...]):
+    def set_roi(self, roi_id: int, params):
 
         roi_num = -1
 
@@ -432,10 +429,8 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         vxui.register_with_plotter(f'{self.re_sacc_prefix}{roi_num}', name=f'sacc(RE {roi_num})', axis='sacc')
 
         # Saccade Direction
-        vxui.register_with_plotter(f'{self.le_sacc_direction_prefix}{roi_num}', name=f'sacc_dir(LE {roi_num})',
-                                   axis='sacc')
-        vxui.register_with_plotter(f'{self.re_sacc_direction_prefix}{roi_num}', name=f'sacc_dir(RE {roi_num})',
-                                   axis='sacc')
+        vxui.register_with_plotter(f'{self.le_sacc_direction_prefix}{roi_num}', name=f'sacc_dir(LE {roi_num})', axis='sacc')
+        vxui.register_with_plotter(f'{self.re_sacc_direction_prefix}{roi_num}', name=f'sacc_dir(RE {roi_num})', axis='sacc')
 
         # Add attributes to save-to-file list:
         vxattribute.write_to_file(self, f'{self.ang_le_pos_prefix}{roi_num}')
@@ -447,7 +442,7 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         vxattribute.write_to_file(self, f'{self.le_sacc_direction_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.re_sacc_direction_prefix}{roi_num}')
 
-    def _get_eye_positions(self, rect):
+    def from_ellipse(self, rect):
         # Formatting for drawing
         line_thickness = np.ceil(np.mean(rect.shape) / 50).astype(int)
         line_thickness = 1 if line_thickness == 0 else line_thickness
@@ -617,12 +612,10 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
             # Rotate
             rot_rect = cv2.warpAffine(cropRect, M, (wBound, hBound))
 
-            # Apply detection function on cropped rect which contains eyes
-            (le_pos, re_pos), new_rect = self._get_eye_positions(rot_rect)
+            # Calculate eye angular POSITIONS
 
-            if self.flip_direction:
-                le_pos = -le_pos
-                re_pos = -re_pos
+            # Apply detection function on cropped rect which contains eyes
+            (le_pos, re_pos), new_rect = self.from_ellipse(rot_rect)
 
             # Get shared attributes
             le_pos_attr = vxattribute.get_attribute(f'{self.ang_le_pos_prefix}{roi_num}')

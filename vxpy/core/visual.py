@@ -115,15 +115,18 @@ class AbstractVisual(ABC):
             # Use absolute path to global shader folder
             path = os.path.join(PATH_SHADERS, filepath)
 
+        log.debug(f'Load shader from {path}')
         with open(path, 'r') as f:
             code = f.read()
 
         return code
 
     def load_vertex_shader(self, filepath: str):
+        log.debug(f'Load vertex shader from {filepath}')
         return self.parse_vertex_shader(self.load_shader(filepath))
 
     def parse_vertex_shader(self, vert: str):
+        log.debug('Parse vertex shader')
         return self.transform.parse_vertex_shader(vert)
 
     def trigger(self, trigger_fun: Union[Callable, str]):

@@ -19,6 +19,7 @@ from vxpy import config
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
+import vxpy.core.dependency as vxdep #register_camera_device, register_io_device, assert_device_requirements
 import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -26,7 +27,7 @@ import vxpy.core.logger as vxlogger
 import vxpy.core.protocol as vxprotocol
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
-from vxpy.core.dependency import register_camera_device, register_io_device, assert_device_requirements
+import vxpy.core.ui as vxui
 
 log = vxlogger.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class Controller(vxprocess.AbstractProcess):
     configfile: str = None
 
     _processes: Dict[str, mp.Process] = dict()
-    _registered_processes: List[Tuple[Type[vxprocess.AbstractProcess], Dict]] = list()
+    _registered_processes: Dict[str, Tuple[Type[vxprocess.AbstractProcess], Dict]] = {}
 
     _active_process_list: List[str] = []
     _active_protocol_list: List[str] = []
@@ -106,19 +107,19 @@ class Controller(vxprocess.AbstractProcess):
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
 
+        # Use separate recorder process
+        if config.RECORDER_USE:
+            self._register_process(vxmodules.Recorder)
+
         # Worker
         if config.WORKER_USE:
             self._register_process(vxmodules.Worker)
 
         # Select subset of registered processes which should implement
         # the _run_protocol method
-        self._active_process_list = [p[0].__name__ for p in self._registered_processes]
+        self._active_process_list = [process_name for process_name in self._registered_processes.keys()]
         self._active_protocol_list = list(set(self._active_process_list) & set(self._protocolized))
         log.info(f'Protocolized processes: {self._active_protocol_list}')
-
-        # TODO: check if recording routines contains any entries
-        #  for inactive processes or inactive routines on active processes
-        #  print warning or just shut down completely in-case?
 
         # Set up session controls
         vxipc.CONTROL = vxipc.Manager.dict(self._create_shared_controls())
@@ -149,45 +150,60 @@ class Controller(vxprocess.AbstractProcess):
         # Set configured cameras
         if config.CAMERA_USE:
             for device_id in config.CAMERA_DEVICES:
-                register_camera_device(device_id)
+                vxdep.register_camera_device(device_id)
 
         # Set configured io devices
         if config.IO_USE:
             for device_id in config.IO_DEVICES:
-                register_io_device(device_id)
+                vxdep.register_io_device(device_id)
 
         # Load routine modules
         self._routines: Dict[str, Dict[str, vxroutine.Routine]] = {}
         for routine_path, routine_ops in config.ROUTINES.items():
             log.info(f'Load routine {routine_path}')
 
-            # TODO: search different paths for package structure redo
             # Load routine
             parts = routine_path.split('.')
             module = importlib.import_module('.'.join(parts[:-1]))
             routine_cls = getattr(module, parts[-1])
             if routine_cls is None:
-                log.error(f'Routine {routine_path} not found.')
+                log.error(f'Unable to load routine {routine_path}. Routine not found.')
                 continue
 
-            # Add process name to dictionary
             process_name = routine_cls.process_name
+
+            # Check if process for routine is configured to be active
+            if process_name not in self._active_process_list:
+                log.error(f'Unable to initialize routine {routine_path}. Process {process_name} inactive.')
+                continue
+
+            # Add process to routines dict
             if process_name not in self._routines:
                 self._routines[process_name] = {}
 
             # Instantiate routine and add to dictionary
-            self._routines[process_name][routine_cls.__name__]: vxroutine.Routine = routine_cls(**routine_ops)
+            routine = routine_cls(**routine_ops)
+            self._routines[process_name][routine_cls.__name__]: vxroutine.Routine = routine
+
+            # Let routine declare requirements
+            routine.require()
 
         # Compare required vs registered devices
-        assert_device_requirements()
+        vxdep.assert_device_requirements()
 
         # Set up routines
-        for rs in self._routines.values():
-            for r in rs.values():
-                r.require()
+        for routines in self._routines.values():
+            for routine in routines.values():
+                routine.setup()
 
-                # Deprecated:
-                r.setup()
+        # Create __record_group_id and __time attributes
+        vxattribute.ArrayAttribute('__record_group_id', (1,), vxattribute.ArrayType.int64)
+        vxattribute.ArrayAttribute('__time', (1,), vxattribute.ArrayType.float64)
+
+        # Create iteration attributes
+        vxattribute.ArrayAttribute(f'{self.name}_iteration', (1,), vxattribute.ArrayType.uint64)
+        for process_name in self._registered_processes:
+            vxattribute.ArrayAttribute(f'{process_name}_iteration', (1,), vxattribute.ArrayType.uint64)
 
         # Initialize attributes for Controller (no argument needed, attributes are already set)
         vxattribute.init(None)
@@ -205,7 +221,7 @@ class Controller(vxprocess.AbstractProcess):
         )
 
         # Initialize all processes
-        for target, kwargs in self._registered_processes:
+        for target, kwargs in self._registered_processes.values():
             self.initialize_process(target, **kwargs)
 
     @staticmethod
@@ -221,6 +237,7 @@ class Controller(vxprocess.AbstractProcess):
                      CTRL_PRCL_IMPORTPATH: '',
                      CTRL_PRCL_TYPE: None,
                      CTRL_PRCL_PHASE_ID: -1,
+                     CTRL_PRCL_PHASE_INFO: {},
                      CTRL_PRCL_PHASE_START_TIME: np.inf,
                      CTRL_PRCL_PHASE_END_TIME: -np.inf}
 
@@ -233,6 +250,7 @@ class Controller(vxprocess.AbstractProcess):
                    PROCESS_DISPLAY: STATE.NA,
                    PROCESS_GUI: STATE.NA,
                    PROCESS_IO: STATE.NA,
+                   PROCESS_RECORDER: STATE.NA,
                    PROCESS_WORKER: STATE.NA}
 
         return _states
@@ -252,6 +270,7 @@ class Controller(vxprocess.AbstractProcess):
         vxipc.CONTROL[CTRL_PRCL_TYPE] = None
         vxipc.CONTROL[CTRL_PRCL_PHASE_ACTIVE] = False
         vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = -1
+        vxipc.CONTROL[CTRL_PRCL_PHASE_INFO] = {}
         vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME] = np.inf
         vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME] = -np.inf
 
@@ -261,10 +280,10 @@ class Controller(vxprocess.AbstractProcess):
         :param target: modules class
         :param kwargs: optional keyword arguments for initialization of modules class
         """
-        self._registered_processes.append((target, kwargs))
+        self._registered_processes[target.name] = (target, kwargs)
         vxipc.Pipes[target.name] = mp.Pipe()
 
-    def initialize_process(self, target: vxprocess.AbstractProcess, **kwargs):
+    def initialize_process(self, target: Type[vxprocess.AbstractProcess], **kwargs):
 
         process_name = target.name
 
@@ -297,6 +316,9 @@ class Controller(vxprocess.AbstractProcess):
         self.set_state(STATE.IDLE)
 
     def start(self):
+
+        # Register with plotter
+        vxui.register_with_plotter('__record_group_id', name='Record group ID', axis='ID')
 
         # Run controller
         self.run(interval=0.001)
@@ -361,6 +383,10 @@ class Controller(vxprocess.AbstractProcess):
     @vxprocess.AbstractProcess.phase_id.setter
     def phase_id(self, val):
         vxipc.CONTROL[CTRL_PRCL_PHASE_ID] = val
+
+    @vxprocess.AbstractProcess.phase_info.setter
+    def phase_info(self, val):
+        vxipc.CONTROL[CTRL_PRCL_PHASE_INFO] = val
 
     @vxprocess.AbstractProcess.phase_start_time.setter
     def phase_start_time(self, val):
@@ -586,7 +612,7 @@ class Controller(vxprocess.AbstractProcess):
         if self.phase_id >= (self.current_protocol.phase_count - 1) and self.phase_end_time < vxipc.get_time():
             vxipc.set_state(STATE.PRCL_STOP_REQ)
 
-    def _trigger_protocol_advance_phase(self, index, time, state):
+    def _trigger_protocol_advance_phase(self, index, time, data):
 
         # If the minimum phase_end_time is in the future, then disregard this trigger
         if self.phase_end_time > vxipc.get_time():
@@ -597,6 +623,9 @@ class Controller(vxprocess.AbstractProcess):
         if self.phase_id >= (self.current_protocol.phase_count - 1):
             vxipc.set_state(STATE.PRCL_STOP_REQ)
             return
+
+        # Set phase info for next phase
+        self.phase_info = {'trigger_index': index, 'trigger_time': time, 'trigger_data': data}
 
         # Continue if there are more phases in protocol
         self.phase_id = self.phase_id + 1
@@ -609,7 +638,11 @@ class Controller(vxprocess.AbstractProcess):
         self.phase_end_time = time + phase.duration
 
     def main(self):
-        pass
+
+        # Write record group id
+        record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
+        vxattribute.write_attribute('__record_group_id', record_phase_group_id)
+        vxattribute.write_attribute('__time', vxipc.get_time())
 
     def _eval_process_state(self):
 
@@ -782,8 +815,8 @@ class Controller(vxprocess.AbstractProcess):
 
         # Check if any processes are still busy
         shutdown_state = True
-        for p, _ in self._registered_processes:
-            shutdown_state &= vxipc.in_state(STATE.IDLE, p.name) or vxipc.in_state(STATE.NA, p.name)
+        for process_name in self._registered_processes.keys():
+            shutdown_state &= vxipc.in_state(STATE.IDLE, process_name) or vxipc.in_state(STATE.NA, process_name)
 
         # Check if recording or protocol is running
         shutdown_state &= not (vxipc.CONTROL[CTRL_REC_ACTIVE] or vxipc.CONTROL[CTRL_PRCL_ACTIVE])
