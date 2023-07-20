@@ -7,6 +7,7 @@ import ctypes
 import importlib
 import logging
 import multiprocessing as mp
+import threading
 
 import sys
 import time
@@ -19,7 +20,7 @@ from vxpy import config
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
-import vxpy.core.dependency as vxdep #register_camera_device, register_io_device, assert_device_requirements
+import vxpy.core.dependency as vxdep  # register_camera_device, register_io_device, assert_device_requirements
 import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -37,7 +38,8 @@ class Controller(vxprocess.AbstractProcess):
 
     configfile: str = None
 
-    _processes: Dict[str, mp.Process] = dict()
+    _script_threads: Dict[str,threading.Thread] = {}
+    _processes: Dict[str, mp.Process] = {}
     _registered_processes: Dict[str, Tuple[Type[vxprocess.AbstractProcess], Dict]] = {}
 
     _active_process_list: List[str] = []
@@ -157,10 +159,27 @@ class Controller(vxprocess.AbstractProcess):
             for device_id in config.IO_DEVICES:
                 vxdep.register_io_device(device_id)
 
-        # Load routine modules
+        # Routines
         self._routines: Dict[str, Dict[str, vxroutine.Routine]] = {}
-        for routine_path, routine_ops in config.ROUTINES.items():
-            log.info(f'Load routine {routine_path}')
+
+        # Figure out load priorities
+        _prios = []
+        last_prio = 1000
+        for path, ops in config.ROUTINES.items():
+            prio = ops.get('_load_order')
+            if prio is None:
+                prio = last_prio
+            elif prio < 0:
+                prio = last_prio - prio
+
+            _prios.append((prio, path))
+        _prios = sorted(_prios)
+
+        # Load routines
+        for prio, routine_path in _prios:
+
+            routine_ops = config.ROUTINES[routine_path]
+            log.info(f'Load routine {routine_path} (load priority {prio})')
 
             # Load routine
             parts = routine_path.split('.')
@@ -223,6 +242,15 @@ class Controller(vxprocess.AbstractProcess):
         # Initialize all processes
         for target, kwargs in self._registered_processes.values():
             self.initialize_process(target, **kwargs)
+
+        # Initialize all test scripts
+        for script_path, script_ops in config.TEST_SCRIPTS.items():
+            parts = script_path.split('.')
+            _module = importlib.import_module('.'.join(parts[:-1]))
+            _fun = getattr(_module, parts[-1])
+            _thread = threading.Thread(target=_fun, name=script_path, kwargs=script_ops)
+            _thread.start()
+            self._script_threads[script_path] = _thread
 
     @staticmethod
     def _create_shared_controls():
@@ -303,11 +331,8 @@ class Controller(vxprocess.AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
-        # ctx = mp.get_context('fork')  # Currently, spawn does not work (possible serialization issues)
-        self._processes[process_name] = mp.Process(target=vxprocess.run_process,
-                                                    name=process_name,
-                                                    args=(target,),
-                                                    kwargs=kwargs)
+        _proc = mp.Process(target=vxprocess.run_process, name=process_name, args=(target,), kwargs=kwargs)
+        self._processes[process_name] = _proc
 
         # Start subprocess
         self._processes[process_name].start()
@@ -757,7 +782,7 @@ class Controller(vxprocess.AbstractProcess):
             if self.protocol_type == vxprotocol.StaticProtocol:
                 pass
             elif self.protocol_type == vxprotocol.TriggeredProtocol:
-                self.current_protocol.phase_trigger.set_active(True)
+                self.current_protocol.phase_trigger.set_active()
             elif self.protocol_type == vxprotocol.ContinuousProtocol:
                 pass
 
@@ -797,7 +822,7 @@ class Controller(vxprocess.AbstractProcess):
             if self.protocol_type == vxprotocol.StaticProtocol:
                 pass
             elif self.protocol_type == vxprotocol.TriggeredProtocol:
-                self.current_protocol.phase_trigger.set_active(False)
+                self.current_protocol.phase_trigger.set_inactive()
             elif self.protocol_type == vxprotocol.ContinuousProtocol:
                 pass
 
