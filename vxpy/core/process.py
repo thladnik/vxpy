@@ -203,12 +203,12 @@ class AbstractProcess:
             # Set new local time
             vxipc.update_time()
 
+            # Execute main method
+            self.main()
+
             # Process triggers
             for trigger in vxevent.Trigger.all:
                 trigger.process()
-
-            # Execute main method
-            self.main()
 
             # Add record_phase_group_id and corresponding global time
             record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1

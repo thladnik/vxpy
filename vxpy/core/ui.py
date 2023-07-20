@@ -32,7 +32,7 @@ import numpy as np
 import pyqtgraph as pg
 
 from PySide6 import QtCore, QtWidgets, QtGui
-from typing import Callable, List, Union, Dict, Tuple, Any
+from typing import Callable, List, Type, Union, Dict, Tuple, Any
 
 from PySide6.QtWidgets import QLabel
 
@@ -51,9 +51,12 @@ log = vxlogger.getLogger(__name__)
 class ExposedWidget:
     """Widget base class for widgets which expose bound methods to be called from external sources"""
 
+    instance: Type[ExposedWidget] = None
+
     def __init__(self):
         # List of exposed methods to register for rpc callbacks
         self.exposed: List[Callable] = []
+        ExposedWidget.instance = self
 
     def create_hooks(self):
         """Register exposed functions as callbacks with the local process"""

@@ -55,7 +55,7 @@ class AbstractVisual(ABC):
         self.protocol: protocol.BaseProtocol = _protocol
 
         if _transform is None:
-            _transform = vxtransforms.BaseTransform()
+            _transform = vxtransforms.get_config_transform()
         self.transform = _transform
 
         self.parameters: Dict[str, Any] = {}
@@ -136,13 +136,13 @@ class AbstractVisual(ABC):
     def start(self):
         for attr in self.__dict__.values():
             if issubclass(type(attr), vxevent.Trigger):
-                attr.set_active(True)
+                attr.set_active()
         self.is_active = True
 
     def end(self):
         for attr in self.__dict__.values():
             if issubclass(type(attr), vxevent.Trigger):
-                attr.set_active(False)
+                attr.set_inactive()
         self.is_active = False
 
     def update(self, params: dict, _update_verbosely=True):

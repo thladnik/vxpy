@@ -47,6 +47,7 @@ def write_attribute(attr_name: str, *args, **kwargs) -> None:
     """Convenience method for calling an attribute's write function via its name"""
     if attr_name in Attribute.all:
         return Attribute.all[attr_name].write(*args, **kwargs)
+    raise AttributeError(f'Attribute {attr_name} not found.')
 
 
 def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
@@ -303,6 +304,8 @@ class Attribute(ABC):
             return self[-1]
 
     def __getitem__(self, item):
+        # TODO:
+        #  handle lists/arrays of ints or bools?
         # Determine what the index_list should be for the selected subset
         #  Note that index_list should ultimately be a list of relative indices within the ring buffer
         if isinstance(item, int):
@@ -422,6 +425,10 @@ class ArrayType:
     float32 = (ctypes.c_float, np.float32)
     float64 = (ctypes.c_double, np.float64)
 
+    @classmethod
+    def get_type_by_str(cls, name: str) -> Tuple[ctypes.py_object, np.number]:
+        return getattr(cls, name)
+
 
 class ArrayAttribute(Attribute):
     """Array buffer attribute for synchronization of datasets.
@@ -439,7 +446,7 @@ class ArrayAttribute(Attribute):
 
     # TODO: chunked and un-chunked data structures can be unified (un-chunked attributes are chunked with chunk_num 1)
 
-    def __init__(self, name, shape, dtype: Tuple[object, np.number], **kwargs):
+    def __init__(self, name, shape, dtype: Tuple[ctypes.py_object, np.number], **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
         assert isinstance(shape, tuple), 'size must be tuple with dimension sizes'

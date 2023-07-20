@@ -53,7 +53,7 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
     def __init__(self, *args, **kwargs):
         vxui.CameraAddonWidget.__init__(self, *args, **kwargs)
 
-        self.routine = EyePositionDetectionRoutine.instance
+        self.routine = EyePositionDetectionRoutine.instance()
 
         self.central_widget.setLayout(QtWidgets.QVBoxLayout())
 
