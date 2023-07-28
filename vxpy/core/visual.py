@@ -55,7 +55,7 @@ class AbstractVisual(ABC):
         self.protocol: protocol.BaseProtocol = _protocol
 
         if _transform is None:
-            _transform = vxtransforms.get_config_transform()
+            _transform = vxtransforms.get_config_transform()()
         self.transform = _transform
 
         self.parameters: Dict[str, Any] = {}
