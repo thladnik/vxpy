@@ -950,6 +950,8 @@ class LogTextEdit(QtWidgets.QTextEdit):
         self.timer_logging.timeout.connect(self.print_log)
         self.timer_logging.start(50)
 
+        self.setStyleSheet(self.default_stylesheet)
+
     def print_log(self):
         self.setFont(self.font)
 
