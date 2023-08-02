@@ -110,14 +110,14 @@ class PerspectiveTransform(BaseTransform):
     def __init__(self):
         BaseTransform.__init__(self)
 
+        self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(135, (0, 1, 0)))
+        self.translate = 10.
+        self.view = transforms.translate((0, 0, -self.translate))
+
     def apply(self, visual, dt: float):
         gloo.clear()
 
         gl.glEnable(gl.GL_DEPTH_TEST)
-
-        self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(135, (0, 1, 0)))
-        self.translate = 10.
-        self.view = transforms.translate((0, 0, -self.translate))
 
         self.transform_uniforms['u_view'] = self.view
         self.transform_uniforms['u_model'] = self.model
@@ -414,37 +414,38 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
         # Create out program: renders the output texture to FB
         # by combining raw and mask textures
         # (to be saved and re-rendered in display program)
-        # square = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
         self._out_prog = gloo.Program(self._out_vert, self._out_frag, count=4)
         self._out_prog['a_position'] = self.square
         self._out_prog['u_raw_texture'] = self._raw_texture
         self._out_prog['u_mask_texture'] = self._mask_texture
         self._out_prog['u_out_texture'] = self._out_texture
 
-        # Set clear color
-        #gloo.set_clear_color('black')
-        #gloo.set_clear_color('red')
-
     def apply(self, visual, dt: float):
 
         gloo.clear()
 
+        # Get window dimensions
         win_width = config.DISPLAY_WIN_SIZE_WIDTH_PX
         win_height = config.DISPLAY_WIN_SIZE_HEIGHT_PX
+
         # Set 2D scaling for aspect 1
-        # Regular version
-        # if win_height > win_width:
-        #     u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
-        # else:
-        #     u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
-
-        # TODO: make this adjustable; maybe there needs to be a special "Lightcrafter_native_res" flag
-        fixed_aspect = 800 / 1280
-        if win_height < win_width:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([1, fixed_aspect])
+        if config.DISPLAY_USE_LCR_NATIVE_RES:
+            # This flag is Lightcrafter exclusive. It fixes an issue where the Lightcrafter
+            #  flips the aspect when set to native resolution
+            # TODO: check if configured width/height can be used to get correct aspect
+            fixed_aspect = 800 / 1280
+            if win_height < win_width:
+                u_mapcalib_aspectscale = np.eye(2) * np.array([1, fixed_aspect])
+            else:
+                u_mapcalib_aspectscale = np.eye(2) * np.array([fixed_aspect, 1])
         else:
-            u_mapcalib_aspectscale = np.eye(2) * np.array([fixed_aspect, 1])
+            # Regular version
+            if win_height > win_width:
+                u_mapcalib_aspectscale = np.eye(2) * np.array([1, win_width / win_height])
+            else:
+                u_mapcalib_aspectscale = np.eye(2) * np.array([win_height / win_width, 1])
 
+        # Set on program
         self.transform_uniforms['u_mapcalib_aspectscale'] = u_mapcalib_aspectscale
         self.transform_uniforms['u_mapcalib_lateral_luminance_offset'] = calib.CALIB_DISP_SPH_LAT_LUM_OFFSET
         self.transform_uniforms['u_mapcalib_lateral_luminance_gradient'] = calib.CALIB_DISP_SPH_LAT_LUM_GRADIENT
@@ -453,11 +454,10 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
         #gl.glDisable(gl.GL_STENCIL_TEST)
         gl.glEnable(gl.GL_DEPTH_TEST)
 
-        # Clear raw stimulus buffer
+        # Clear buffers
         with self._raw_fb:
             gloo.clear()
 
-        # Clear mask buffer
         with self._mask_fb:
             gloo.clear()
 
@@ -467,7 +467,11 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
         with self._display_fb:
             gloo.clear()
 
+        # Set default azimuth orientation
         azim_orientation = calib.CALIB_DISP_SPH_VIEW_AZIM_ORIENT
+        self.transform_uniforms['u_mapcalib_azimuth_angle'] = azim_orientation
+
+        # One iteration per projection part
         for i in range(4):
 
             # Set 3D transform

@@ -107,7 +107,7 @@ class AbstractVisual(ABC):
 
     @classmethod
     def load_shader(cls, filepath: str):
-        if filepath.startswith('./'):
+        if not filepath.startswith('/') or filepath.startswith('\\'):
             # Use path relative to visual
             pyfileloc = inspect.getfile(cls)
             path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath[2:]])
@@ -280,6 +280,17 @@ class Parameter:
 
     def __add__(self, other):
         self.data = self.data + other
+
+    # def __getitem__(self, item):
+    #     if item == slice(None, None, None):
+    #         return self.data
+    #     raise KeyError(f'Invalid key for class {self.__class__.__name__}')
+    #
+    # def __setitem__(self, key, value):
+    #     if key == slice(None, None, None):
+    #         self.data = value
+    #     else:
+    #         raise KeyError(f'Invalid key for class {self.__class__.__name__}')
 
     @property
     def shape(self):
