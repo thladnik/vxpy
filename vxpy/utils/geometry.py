@@ -38,8 +38,10 @@ def createUVSphere(azi, elv, azitile = 30, elvtile = 30):
 
     return p3, imgV_conn.reshape(-1, 3)
 
+
 def rotation2D(theta):
     return np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
 
 def cen2tri(cen_x=np.array([0]), cen_y=np.array([0]), triangle_size=np.array([1])):
     """
@@ -203,7 +205,7 @@ class qn (np.ndarray) :
 
     def __add__(self, qn2):
         # Elementary arithmetic: qn1 + qn2 or qn1 + r (real number). Same as the elementary arithmetic for real number
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.integer)]):
             compact_product = np.concatenate([self['w']+qn2,self['xyz']],-1)
         elif qn2.__class__ == self.__class__:
             compact_product = self.matrixform + qn2.matrixform
@@ -221,7 +223,7 @@ class qn (np.ndarray) :
 
     def __sub__(self, qn2):
         # Elementary arithmetic: qn1 - qn2. Same as the elementary arithmetic for real number
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.integer)]):
             compact_product = self.matrixform - qn2
         elif qn2.__class__ == qn:
             compact_product = self.matrixform - qn2.matrixform
@@ -235,7 +237,7 @@ class qn (np.ndarray) :
 
     def __rsub__(self, qn2):
         # Elementary arithmetic: qn2 - qn1 or r - qn1
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.integer)]):
             compact_product = qn2 - self.matrixform
         elif qn2.__class__ == qn:
             compact_product = qn2.matrixform - self.matrixform
@@ -246,7 +248,7 @@ class qn (np.ndarray) :
     def __mul__(self, qn2):
         # Elementary arithmetic: qn1 * qn2; check https://en.wikipedia.org/wiki/Quaternion#Algebraic_properties for
         # details
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.integer)]):
             # if qn1 * r, then the same as real number calculation
             compact_product = self.matrixform * qn2
             compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
@@ -271,7 +273,7 @@ class qn (np.ndarray) :
 
     def __rmul__(self, qn2):
         # Elementary arithmetic: qn2 * qn1; Note the result of _rmul_ and _mul_ are not equal for quaternion
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.ndarray, np.float64, np.float32, np.integer)]):
             compact_product = self.matrixform * qn2
             compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == self.__class__:
@@ -300,7 +302,7 @@ class qn (np.ndarray) :
 
     def __truediv__(self, qn2):
         # Elementary arithmetic: qn1 / qn2; Note the result of __truediv__ and __rtruediv__ are not equal for quaternion
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.float64, np.float32, np.integer)]):
             compact_product = self.matrixform / qn2
             compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == np.ndarray:
@@ -334,7 +336,7 @@ class qn (np.ndarray) :
         :return: quaternion ndarray; qn2 / qn1
         """
         inv_self: qn = self.inv
-        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.float64, np.float32, np.int)]):
+        if any([1 if (qn2.__class__ == k) else 0 for k in (int, float, np.float64, np.float32, np.integer)]):
             compact_product = inv_self.matrixform / qn2
             compact_product = np.reshape(compact_product.view(self.qn_dtype), compact_product.shape[:-1])
         elif qn2.__class__ == np.ndarray:
