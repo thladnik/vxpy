@@ -981,6 +981,7 @@ class LogTextEdit(QtWidgets.QTextEdit):
                 if self.last_high_level < rec.levelno:
                     self.setStyleSheet(f'{self.default_stylesheet} border-color:{cur_color};')
                     self.last_high_level = rec.levelno
+                    self.parent().set_warning(rec.levelname)
 
                 # Crop name if necessary
                 name = rec.name
@@ -997,6 +998,7 @@ class LogTextEdit(QtWidgets.QTextEdit):
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         self.last_high_level = self.log_level
         self.setStyleSheet(self.default_stylesheet)
+        self.parent().set_warning(None)
         event.accept()
 
 
@@ -1011,6 +1013,12 @@ class LoggingWidget(IntegratedWidget):
         self.txe_log = LogTextEdit(parent=self)
         self.txe_log.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.layout().addWidget(self.txe_log)
+
+    def set_warning(self, level: Union[str, None]):
+        if level is not None:
+            self.setTitle(f'Log (new {level.upper()})')
+            return
+        self.setTitle('Log')
 
 
 class ProtocolWidget(IntegratedWidget):
