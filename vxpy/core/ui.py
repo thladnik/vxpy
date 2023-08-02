@@ -17,24 +17,24 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
-import sys
-import time
 from abc import abstractmethod
 from collections import OrderedDict
+import sys
+import time
+from typing import Callable, List, Type, Union, Dict, Tuple, Any
+
+
+import h5py
+import numpy as np
+import pyqtgraph as pg
+from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import *
 
 try:
     import h5gview
 except ImportError:
     h5gview = None
-
-import h5py
-import numpy as np
-import pyqtgraph as pg
-
-from PySide6 import QtCore, QtWidgets, QtGui
-from typing import Callable, List, Type, Union, Dict, Tuple, Any
-
-from PySide6.QtWidgets import QLabel
 
 from vxpy import config
 import vxpy.modules as vxmodules
@@ -196,7 +196,7 @@ class AddonWidget(WindowWidget, ExposedWidget):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         hspacer = QtWidgets.QWidget()
-        hspacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        hspacer.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
 
         # Create topbar
         self.topbar = QtWidgets.QToolBar()
@@ -929,6 +929,7 @@ class RecordingWidget(IntegratedWidget):
 class LogTextEdit(QtWidgets.QTextEdit):
 
     default_stylesheet = 'font-family: Courier;'
+    scroll_to_bottom = True
 
     def __init__(self, *args, **kwargs):
         QtWidgets.QTextEdit.__init__(self, *args, **kwargs)
@@ -954,6 +955,12 @@ class LogTextEdit(QtWidgets.QTextEdit):
 
     def print_log(self):
         self.setFont(self.font)
+
+        if self.verticalScrollBar().pos().y() < self.verticalScrollBar().maximum():
+            self.scroll_to_bottom = False
+
+        if self.verticalScrollBar().pos() == self.verticalScrollBar().maximum():
+            self.scroll_to_bottom = True
 
         if len(vxlogger.get_history()) > self.logccount:
             for rec in vxlogger.get_history()[self.logccount:]:
@@ -995,6 +1002,9 @@ class LogTextEdit(QtWidgets.QTextEdit):
                 # Add line
                 self.append(line)
 
+        if self.scroll_to_bottom:
+            self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         self.last_high_level = self.log_level
         self.setStyleSheet(self.default_stylesheet)
@@ -1007,12 +1017,30 @@ class LoggingWidget(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Log', *args)
 
-        self.setLayout(QtWidgets.QHBoxLayout())
-        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
+        self.setLayout(QVBoxLayout())
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
+        # # Add autoscroll widget
+        # self.autoscroll_widget = QtWidgets.QWidget()
+        # self.autoscroll_widget.setLayout(QtWidgets.QHBoxLayout())
+        # # Spacer
+        # self.autoscroll_widget.layout().addItem(QSpacerItem(1, 1, hData=QSizePolicy.Policy.MinimumExpanding))
+        # # Checkbox
+        # self.autoscoll_check = QCheckBox('Autoscroll')
+        # self.autoscoll_check.setLayoutDirection(QtCore.Qt.LayoutDirection.RightToLeft)
+        # self.autoscoll_check.setCheckState(QtCore.Qt.CheckState(True))
+        # self.autoscoll_check.setTristate(False)
+        # self.autoscoll_check.clicked.connect(self.toggle_autoscroll)
+        # self.autoscroll_widget.layout().addWidget(self.autoscoll_check)
+        # self.layout().addWidget(self.autoscoll_check)
+
+        # Add text box
         self.txe_log = LogTextEdit(parent=self)
         self.txe_log.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.layout().addWidget(self.txe_log)
+
+    # def toggle_autoscroll(self, value):
+    #     self.txe_log.scroll_to_bottom = value
 
     def set_warning(self, level: Union[str, None]):
         if level is not None:
