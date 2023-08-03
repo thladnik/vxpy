@@ -185,7 +185,7 @@ class ImageWidget(pg.ImageView):
             self.imageItem.getViewBox().addItem(roi)
 
     def update_frame(self, frame: np.ndarray):
-        self.setImage(frame)
+        self.setImage(frame, autoLevels=False, autoHistogramRange=False, autoRange=False)
 
     def roi_updated(self, roi: Roi):
         log.debug(f'Update ROI for layer {self.layer_idx}')
