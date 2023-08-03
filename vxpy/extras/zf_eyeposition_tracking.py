@@ -116,16 +116,16 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
         self.connect_to_timer(self.update_frame)
 
     def update_flip_direction(self, state):
-        self.call_routine(EyePositionDetectionRoutine.set_flip_direction, bool(state))
+        EyePositionDetectionRoutine.instance().flip_direction = bool(state)
 
     def update_image_threshold(self, im_thresh):
-        self.call_routine(EyePositionDetectionRoutine.set_threshold, im_thresh)
+        EyePositionDetectionRoutine.instance().binary_threshold = im_thresh
 
     def update_particle_minsize(self, minsize):
-        self.call_routine(EyePositionDetectionRoutine.set_min_particle_size, minsize)
+        EyePositionDetectionRoutine.instance().min_particle_size = minsize
 
     def update_sacc_threshold(self, sacc_thresh):
-        self.call_routine(EyePositionDetectionRoutine.set_saccade_threshold, sacc_thresh)
+        EyePositionDetectionRoutine.instance().saccade_threshold = sacc_thresh
 
     def update_frame(self):
         idx, time, frame = vxattribute.read_attribute(EyePositionDetectionRoutine.frame_name)
@@ -310,11 +310,13 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
     frame_name = f'{routine_prefix}frame'
     sacc_trigger_name = f'{routine_prefix}saccade_trigger'
 
-    roi_maxnum: int = 5
-    flip_direction: bool = False
-    binary_threshold: int = 60
-    min_particle_size: int = 20
-    saccade_threshold: int = 600
+    default_parameters = {
+        'roi_maxnum': 5,
+        'flip_direction': False,
+        'binary_threshold': 60,
+        'min_particle_size': 20,
+        'saccade_threshold': 600
+    }
 
     def __init__(self, *args, **kwargs):
         vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
@@ -322,6 +324,46 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         log.info(f'Set max number of ROIs to {self.roi_maxnum}')
 
         self.rois: Dict[Hashable, Tuple] = {}
+
+    @property
+    def roi_maxnum(self):
+        return self.parameters['roi_maxnum']
+
+    @roi_maxnum.setter
+    def roi_maxnum(self, val):
+        self.parameters['roi_maxnum'] = val
+
+    @property
+    def flip_direction(self):
+        return self.parameters['flip_direction']
+
+    @flip_direction.setter
+    def flip_direction(self, val):
+        self.parameters['flip_direction'] = val
+
+    @property
+    def binary_threshold(self):
+        return self.parameters['binary_threshold']
+
+    @binary_threshold.setter
+    def binary_threshold(self, val):
+        self.parameters['binary_threshold'] = val
+
+    @property
+    def min_particle_size(self):
+        return self.parameters['min_particle_size']
+
+    @min_particle_size.setter
+    def min_particle_size(self, val):
+        self.parameters['min_particle_size'] = val
+
+    @property
+    def saccade_threshold(self):
+        return self.parameters['saccade_threshold']
+
+    @saccade_threshold.setter
+    def saccade_threshold(self, val):
+        self.parameters['saccade_threshold'] = val
 
     def require(self):
         # Add camera device to deps
@@ -365,21 +407,21 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
     def initialize(self):
         pass
 
-    @vxroutine.CameraRoutine.callback
-    def set_flip_direction(self, state):
-        self.flip_direction = state
-
-    @vxroutine.CameraRoutine.callback
-    def set_threshold(self, thresh):
-        self.binary_threshold = thresh
-
-    @vxroutine.CameraRoutine.callback
-    def set_min_particle_size(self, size):
-        self.min_particle_size = size
-
-    @vxroutine.CameraRoutine.callback
-    def set_saccade_threshold(self, thresh):
-        self.saccade_threshold = thresh
+    # @vxroutine.CameraRoutine.callback
+    # def set_flip_direction(self, state):
+    #     self.flip_direction = state
+    #
+    # @vxroutine.CameraRoutine.callback
+    # def set_threshold(self, thresh):
+    #     self.binary_threshold = thresh
+    #
+    # @vxroutine.CameraRoutine.callback
+    # def set_min_particle_size(self, size):
+    #     self.min_particle_size = size
+    #
+    # @vxroutine.CameraRoutine.callback
+    # def set_saccade_threshold(self, thresh):
+    #     self.saccade_threshold = thresh
 
     @vxroutine.CameraRoutine.callback
     def set_roi(self, roi_id: Hashable, params: Tuple[float, ...]):
