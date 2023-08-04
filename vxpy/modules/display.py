@@ -42,6 +42,7 @@ class Display(vxprocess.AbstractProcess):
         self.times = []
 
         # Create canvas
+        # _interval = 1. / (2 * config.DISPLAY_FPS)
         _interval = 1. / config.DISPLAY_FPS
         self.canvas = Canvas()
 
@@ -122,7 +123,7 @@ class Display(vxprocess.AbstractProcess):
         log.info(f'Start new visual {self.current_visual.__class__.__name__}')
 
         # If a protocol is set, the phase information dictates the parameters to be used
-        # Setting of parameters need to happen BEFORE visual initialization in case initialize uses
+        # Setting of parameters needs to happen BEFORE visual initialization in case initialize uses
         # some parameters to derive fixed, internal variables
         if self.current_protocol is not None:
             parameters = self.current_protocol.current_phase.visual_parameters

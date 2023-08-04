@@ -76,12 +76,10 @@ def subdivide_triangle(vertices, faces, subdivide_order):
         midPoints /= np.array([np.sqrt(np.sum(midPoints ** 2, axis=1))]).T / np.sqrt(
             np.sum(vertices[0, :] ** 2))  # Normalize them to the given sphere radius
         vertices = np.vstack([vertices, midPoints])  # Combine the old and new vertices
-        faces = np.vstack([faces,
-                           np.array([faces[:, 0], inverse_order[0, :], inverse_order[2, :]]).T,
+        faces = np.vstack([np.array([faces[:, 0], inverse_order[0, :], inverse_order[2, :]]).T,
                            np.array([faces[:, 1], inverse_order[1, :], inverse_order[0, :]]).T,
                            np.array([faces[:, 2], inverse_order[2, :], inverse_order[1, :]]).T,
-                           np.array([inverse_order[0, :], inverse_order[1, :], inverse_order[2,
-                                                                               :]]).T])  # Directly compute the subdivided indices without doing another tessellation
+                           np.array([inverse_order[0, :], inverse_order[1, :], inverse_order[2,:]]).T])  # Directly compute the subdivided indices without doing another tessellation
     return vertices, faces
 
 

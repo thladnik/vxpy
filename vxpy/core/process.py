@@ -337,6 +337,10 @@ class AbstractProcess:
         """To be reimplemented in fork"""
         pass
 
+    def end_trigger_protocol(self):
+        """To be reimplemented in fork"""
+        pass
+
     def _recording_attributes(self) -> Dict[str, Any]:
         """To be reimplemented in fork.
 
@@ -467,6 +471,15 @@ class AbstractProcess:
 
     def _stop_protocol(self):
         """"""
+
+        if self.protocol_type == vxprotocol.StaticProtocol:
+            self.end_static_protocol_phase()
+            self.end_static_protocol()
+
+        elif self.protocol_type == vxprotocol.TriggeredProtocol:
+            self.end_trigger_protocol_phase()
+            self.end_trigger_protocol()
+
         self.current_protocol = None
         vxipc.set_state(STATE.PRCL_STOPPED)
 

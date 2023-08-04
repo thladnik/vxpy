@@ -45,6 +45,10 @@ class AbstractVisual(ABC):
 
     description: str = ''
 
+    static_parameters: List[Parameter]
+    variable_parameters: List[Parameter]
+    trigger_functions: List[Callable]
+
     def __init__(self, canvas=None, _protocol=None, _transform=None):
         if canvas is None:
             canvas = gloo.context.FakeCanvas()
@@ -63,10 +67,7 @@ class AbstractVisual(ABC):
         self.data_appendix: Dict[str, Any] = {}
 
         # Get all visual parameters
-        self.static_parameters: List[Parameter] = []
-        self.variable_parameters: List[Parameter] = []
-        self.trigger_functions: List[Callable] = []
-        self._collect_parameters()
+        self.collect_parameters()
 
         self.is_active = True
 
@@ -83,13 +84,19 @@ class AbstractVisual(ABC):
     def get_programs(self) -> Dict[str, gloo.Program]:
         return self.custom_programs
 
-    def _collect_parameters(self):
-        """Function goes through all attributes within visual and collects anything derived from Parameter"""
+    @classmethod
+    def collect_parameters(cls):
+        """Function goes through all attributes within visual and collects anything derived from Parameter
+        """
+
+        cls.static_parameters = []
+        cls.variable_parameters = []
+        cls.trigger_functions = []
 
         # Iterate through instance attributes
-        for name in dir(self):
+        for name in dir(cls):
 
-            param = getattr(self, name)
+            param = getattr(cls, name)
 
             # Skip anything that is not a parameter
             if not isinstance(param, Parameter):
@@ -97,9 +104,9 @@ class AbstractVisual(ABC):
 
             # Add to static or variable list
             if param.static:
-                self.static_parameters.append(param)
+                cls.static_parameters.append(param)
             else:
-                self.variable_parameters.append(param)
+                cls.variable_parameters.append(param)
 
     def _add_data_appendix(self, name, data):
         """Deprecated thanks to static parameters?"""

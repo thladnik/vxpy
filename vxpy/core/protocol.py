@@ -172,6 +172,9 @@ class BaseProtocol:
         self._repeat_intervals: List[List[int]] = []
         self.global_visual_props: Dict[str, Any] = {}
 
+        # Call create method in case there's a custom implementation
+        self.create()
+
     @property
     def current_phase_id(self):
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
@@ -214,6 +217,12 @@ class BaseProtocol:
     def get_phase(self, phase_id: int) -> Union[Phase, None]:
         pass
 
+    def create(self):
+        """Method can be reimplemented in protocol
+        and will be called upon instantiation
+        """
+        pass
+
     def initialize_actions(self):
         for phase in self._phases:
             phase.initialize_action()
@@ -236,9 +245,6 @@ class BaseProtocol:
 class StaticProtocol(BaseProtocol):
     """Static experimental protocol which does NOT support closed-loop designs.
     """
-
-    def __init__(self):
-        BaseProtocol.__init__(self)
 
     @property
     def progress(self):
