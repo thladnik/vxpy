@@ -176,39 +176,42 @@ class VisualInteractorInnerWidget(QtWidgets.QWidget):
         module = importlib.reload(importlib.import_module(visual_module))
         visual_class: Type[vxvisual.AbstractVisual] = getattr(module, visual_name)
 
+        # Get all parameters for this visual
+        visual_class.collect_parameters()
+
         # Instantiate visual
-        current_visual = visual_class()
+        # current_visual = visual_class
 
         # Set up parameter widgets for interaction
         j = 0
 
         # Add static parameters (not meant to be updated at runtime, but still possible)
-        if len(current_visual.static_parameters) > 0:
+        if len(visual_class.static_parameters) > 0:
             label = QLabel('Static parameters')
             label.setStyleSheet('font-weight:bold;')
             self.tuner.layout().addWidget(label, j, 0, 1, 2)
             j += 1
-            for i, parameter in enumerate(current_visual.static_parameters):
+            for i, parameter in enumerate(visual_class.static_parameters):
                 if self._add_parameter_widget(j, parameter):
                     j += 1
 
         # Add variable parameters (meant to be updated online)
-        if len(current_visual.variable_parameters) > 0:
+        if len(visual_class.variable_parameters) > 0:
             label = QLabel('Variable parameters')
             label.setStyleSheet('font-weight:bold;')
             self.tuner.layout().addWidget(label, j, 0, 1, 2)
             j += 1
-            for i, parameter in enumerate(current_visual.variable_parameters):
+            for i, parameter in enumerate(visual_class.variable_parameters):
                 if self._add_parameter_widget(j, parameter):
                     j += 1
 
         # Set up custom triggers
-        if len(current_visual.trigger_functions) > 0:
+        if len(visual_class.trigger_functions) > 0:
             label = QLabel('Triggers')
             label.setStyleSheet('font-weight:bold;')
             self.tuner.layout().addWidget(label, j, 0, 1, 2)
             j += 1
-            for trigger_fun in current_visual.trigger_functions:
+            for trigger_fun in visual_class.trigger_functions:
                 btn = QtWidgets.QPushButton(trigger_fun.__name__)
                 btn.clicked.connect(self.set_trigger_visual_function(trigger_fun))
                 self.tuner.layout().addWidget(btn, j, 0, 1, 2)

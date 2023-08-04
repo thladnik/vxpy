@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import importlib
 from abc import ABC, abstractmethod
-from typing import Callable, List, Type, Union
+from multiprocessing.managers import DictProxy
+from typing import Callable, List, Type, Union, Dict, Any
 
 from deprecation import deprecated
 
@@ -33,12 +34,21 @@ class Routine(ABC):
     process_name: str = None
     _instance: Routine = None
     callback_ops: List[Callable] = None
+    default_parameters: Dict[str, Any] = None
+    parameters: DictProxy[str, Any] = None
 
     def __init__(self, *args, **kwargs):
 
-        # Set attributes based on (config) initialization parameters
+        # Create shared dictionary for setting routine parameters
+        self.parameters = vxipc.Manager.dict()
+
+        # Set defaults
+        if self.default_parameters is not None:
+            self.parameters.update(self.default_parameters)
+
+        # Update parameters based on configuration
         for key, val in kwargs.items():
-            self.__setattr__(key, val)
+            self.parameters[key] = val
 
         # List of methods open to rpc calls
         if self.callback_ops is None:
@@ -67,10 +77,10 @@ class Routine(ABC):
 
         return fun
 
+
     def require(self) -> bool:
         return True
 
-    @deprecated(details='Use require method instead', deprecated_in='0.1.0', removed_in='0.2.0')
     def setup(self):
         pass
 

@@ -45,6 +45,10 @@ class AbstractVisual(ABC):
 
     description: str = ''
 
+    static_parameters: List[Parameter]
+    variable_parameters: List[Parameter]
+    trigger_functions: List[Callable]
+
     def __init__(self, canvas=None, _protocol=None, _transform=None):
         if canvas is None:
             canvas = gloo.context.FakeCanvas()
@@ -55,7 +59,7 @@ class AbstractVisual(ABC):
         self.protocol: protocol.BaseProtocol = _protocol
 
         if _transform is None:
-            _transform = vxtransforms.get_config_transform()
+            _transform = vxtransforms.get_config_transform()()
         self.transform = _transform
 
         self.parameters: Dict[str, Any] = {}
@@ -63,10 +67,7 @@ class AbstractVisual(ABC):
         self.data_appendix: Dict[str, Any] = {}
 
         # Get all visual parameters
-        self.static_parameters: List[Parameter] = []
-        self.variable_parameters: List[Parameter] = []
-        self.trigger_functions: List[Callable] = []
-        self._collect_parameters()
+        self.collect_parameters()
 
         self.is_active = True
 
@@ -83,13 +84,19 @@ class AbstractVisual(ABC):
     def get_programs(self) -> Dict[str, gloo.Program]:
         return self.custom_programs
 
-    def _collect_parameters(self):
-        """Function goes through all attributes within visual and collects anything derived from Parameter"""
+    @classmethod
+    def collect_parameters(cls):
+        """Function goes through all attributes within visual and collects anything derived from Parameter
+        """
+
+        cls.static_parameters = []
+        cls.variable_parameters = []
+        cls.trigger_functions = []
 
         # Iterate through instance attributes
-        for name in dir(self):
+        for name in dir(cls):
 
-            param = getattr(self, name)
+            param = getattr(cls, name)
 
             # Skip anything that is not a parameter
             if not isinstance(param, Parameter):
@@ -97,9 +104,9 @@ class AbstractVisual(ABC):
 
             # Add to static or variable list
             if param.static:
-                self.static_parameters.append(param)
+                cls.static_parameters.append(param)
             else:
-                self.variable_parameters.append(param)
+                cls.variable_parameters.append(param)
 
     def _add_data_appendix(self, name, data):
         """Deprecated thanks to static parameters?"""
@@ -107,7 +114,7 @@ class AbstractVisual(ABC):
 
     @classmethod
     def load_shader(cls, filepath: str):
-        if filepath.startswith('./'):
+        if not filepath.startswith('/') or filepath.startswith('\\'):
             # Use path relative to visual
             pyfileloc = inspect.getfile(cls)
             path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath[2:]])
@@ -280,6 +287,17 @@ class Parameter:
 
     def __add__(self, other):
         self.data = self.data + other
+
+    # def __getitem__(self, item):
+    #     if item == slice(None, None, None):
+    #         return self.data
+    #     raise KeyError(f'Invalid key for class {self.__class__.__name__}')
+    #
+    # def __setitem__(self, key, value):
+    #     if key == slice(None, None, None):
+    #         self.data = value
+    #     else:
+    #         raise KeyError(f'Invalid key for class {self.__class__.__name__}')
 
     @property
     def shape(self):
