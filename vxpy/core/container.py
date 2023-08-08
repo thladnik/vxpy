@@ -157,22 +157,35 @@ def dump(**data):
 
 
 def temporary_dump(**data):
-    """Dump arbitrary data to temp folder"""
+    """Dump arbitrary data to temp folder
+    """
 
     for k, d in data.items():
         if isinstance(d, np.ndarray):
-            np.save(os.path.join(PATH_TEMP, f'{k}.npy'), d)
+            np.save(os.path.join(PATH_TEMP, f'{k}.temp.npy'), d)
         else:
             log.error('Unable to dump data to file. Unknown data type.')
 
 
+def temporary_exists(*keys):
+    """Check if all names in keys list are in temp folder
+    """
+
+    contained = []
+    for k in keys:
+        contained.append(any([True for name in os.listdir(PATH_TEMP) if name.startswith(f'{k}.temp.')]))
+
+    return all(contained)
+
+
 def temporary_load(*keys) -> List[Any]:
-    """Load arbitrary data from temp folder"""
+    """Load data for names in keys list from temp folder
+    """
     data = []
     for k in keys:
         # TODO: checks for different types
         try:
-            d = np.load(os.path.join(PATH_TEMP, f'{k}.npy'))
+            d = np.load(os.path.join(PATH_TEMP, f'{k}.temp.npy'))
         except:
             pass
         else:
