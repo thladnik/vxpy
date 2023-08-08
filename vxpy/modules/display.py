@@ -141,6 +141,9 @@ class Display(vxprocess.AbstractProcess):
         # Start visual
         self.current_visual.start()
 
+        # Update time
+        self.canvas.update_current_time()
+
     def end_static_protocol_phase(self):
         self.stop_visual()
 
@@ -223,7 +226,7 @@ class Canvas(app.Canvas):
         self.current_transform: vxtransform.BaseTransform = None
 
         # Set display transform
-        self.t: float = time.perf_counter()
+        self.current_t: float = time.perf_counter()
         self.new_t: float = time.perf_counter()
 
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
@@ -237,6 +240,9 @@ class Canvas(app.Canvas):
 
         # Clear after show
         self.clear()
+
+    def update_current_time(self):
+        self.current_t = time.perf_counter()
 
     def set_transform(self, _transform: vxtransform.BaseTransform):
         self.current_transform = _transform
@@ -271,7 +277,7 @@ class Canvas(app.Canvas):
         if self.current_visual is not None and self.current_visual.is_active:
 
             # Draw visual
-            self.current_transform.apply(self.current_visual, self.new_t - self.t)
+            self.current_transform.apply(self.current_visual, self.new_t - self.current_t)
 
             # If visual is the core's KeepLast visual, don't swap buffers
             if not isinstance(self.current_visual, vxvisual.KeepLast):
@@ -287,7 +293,7 @@ class Canvas(app.Canvas):
         self.update()
 
         # Set time to new one
-        self.t = self.new_t
+        self.current_t = self.new_t
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)
