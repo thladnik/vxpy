@@ -42,29 +42,55 @@ class Settings(QtWidgets.QWidget):
 
         self.uniform_width_label = UniformWidth()
         self.uniform_width_spinner = UniformWidth()
+        self.edits: Dict[str, DoubleSliderWidget] = {}
 
-        self.azimuth_orient = DoubleSliderWidget(self, 'Azimuth orientation [deg]',
+        wdgt = DoubleSliderWidget(self, 'Azimuth orientation [deg]',
                                                  limits=(0., 360), default=0., step_size=.1, decimals=1)
-        self.azimuth_orient.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_AZIM_ORIENT'))
-        self.uniform_width_label.add_widget(self.azimuth_orient.label)
-        self.uniform_width_spinner.add_widget(self.azimuth_orient.spinner)
-        self.channel_independent.layout().addWidget(self.azimuth_orient)
 
-        self.lat_lum_offset = DoubleSliderWidget(self, 'Lateral luminance offset',
+        wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_AZIM_ORIENT'))
+        self.uniform_width_label.add_widget(wdgt.label)
+        self.uniform_width_spinner.add_widget(wdgt.spinner)
+        self.edits['CALIB_DISP_SPH_VIEW_AZIM_ORIENT'] = wdgt
+        self.azimuth_orient = wdgt
+        self.channel_independent.layout().addWidget(wdgt)
+
+        wdgt = DoubleSliderWidget(self, 'Lateral luminance offset',
                                                  limits=(0., 1.), default=0., step_size=.01, decimals=2,
                                                  label_width=200)
-        self.lat_lum_offset.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_LAT_LUM_OFFSET'))
-        self.uniform_width_label.add_widget(self.lat_lum_offset.label)
-        self.uniform_width_spinner.add_widget(self.lat_lum_offset.spinner)
-        self.channel_independent.layout().addWidget(self.lat_lum_offset)
+        wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_LAT_LUM_OFFSET'))
+        self.uniform_width_label.add_widget(wdgt.label)
+        self.uniform_width_spinner.add_widget(wdgt.spinner)
+        self.edits['CALIB_DISP_SPH_LAT_LUM_OFFSET'] = wdgt
+        self.lat_lum_offset = wdgt
+        self.channel_independent.layout().addWidget(wdgt)
 
-        self.lat_lum_gradient = DoubleSliderWidget(self, 'Lateral luminance gradient',
+        wdgt = DoubleSliderWidget(self, 'Lateral luminance gradient',
                                                    limits=(0., 10.), default=1., step_size=.05, decimals=2,
                                                    label_width=200)
-        self.lat_lum_gradient.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_LAT_LUM_GRADIENT'))
-        self.uniform_width_label.add_widget(self.lat_lum_gradient.label)
-        self.uniform_width_spinner.add_widget(self.lat_lum_gradient.spinner)
-        self.channel_independent.layout().addWidget(self.lat_lum_gradient)
+        wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_LAT_LUM_GRADIENT'))
+        self.uniform_width_label.add_widget(wdgt.label)
+        self.uniform_width_spinner.add_widget(wdgt.spinner)
+        self.edits['CALIB_DISP_SPH_LAT_LUM_GRADIENT'] = wdgt
+        self.lat_lum_gradient = wdgt
+        self.channel_independent.layout().addWidget(wdgt)
+
+        wdgt = DoubleSliderWidget(self, 'Global position X',
+                                                 limits=(-1., 1.), default=0., step_size=.01, decimals=2)
+        wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_GLOB_POS_X'))
+        self.uniform_width_label.add_widget(wdgt.label)
+        self.uniform_width_spinner.add_widget(wdgt.spinner)
+        self.edits['CALIB_DISP_GLOB_POS_X'] = wdgt
+        self.global_pos_x = wdgt
+        self.channel_independent.layout().addWidget(wdgt)
+
+        wdgt = DoubleSliderWidget(self, 'Global position Y',
+                                                 limits=(-1., 1.), default=0., step_size=.01, decimals=2)
+        wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_GLOB_POS_Y'))
+        self.uniform_width_label.add_widget(wdgt.label)
+        self.uniform_width_spinner.add_widget(wdgt.spinner)
+        self.edits['CALIB_DISP_GLOB_POS_Y'] = wdgt
+        self.global_pos_y = wdgt
+        self.channel_independent.layout().addWidget(wdgt)
 
         spacer = QtWidgets.QSpacerItem(1, 1,
                                        QtWidgets.QSizePolicy.Policy.Minimum,
@@ -86,12 +112,21 @@ class Settings(QtWidgets.QWidget):
         self.layout().addWidget(self.individual_channels[2], 1, 1)
         self.layout().addWidget(self.individual_channels[3], 1, 2)
 
+        self.update_parameters()
+
     @staticmethod
     def set_parameter_callback(name: str):
         def _parameter_callback(value):
             calib.__dict__[name] = value
 
         return _parameter_callback
+
+    def update_parameters(self):
+
+        current_calib_dict = calibration.get_calibration_data()
+        for name, w in self.edits.items():
+            # Load calibration for channel
+            w.set_value(current_calib_dict[name])
 
 
 class ChannelParameters(QtWidgets.QGroupBox):

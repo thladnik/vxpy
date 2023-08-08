@@ -87,7 +87,7 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
         # decode bytes and convert to 2D-array
         bytes_decode = np.frombuffer(data, ctypes.c_uint16)
-        frame = np.reshape(bytes_decode, (-1, int(np.sqrt(len(bytes_decode)))))
+        frame = np.reshape(bytes_decode, (-1, int(np.sqrt(len(bytes_decode)))), order='F')
 
         vxattribute.write_attribute(self.frame_name, frame)
         vxattribute.write_attribute(f'{self.frame_name}_counter', self.counter)

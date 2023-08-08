@@ -76,9 +76,11 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
         _, _, last_counter = vxattribute.get_attribute(f'{self.input_frame_name}_counter')[int(last_idx)]
 
+        frame = last_frame
+
         # Write to corresponding attribute for interleaved layer
         layer_idx = int(last_counter) % self.input_num_interlaced_layers
-        vxattribute.write_attribute(f'{self.output_frame_name}_{layer_idx}', last_frame)
+        vxattribute.write_attribute(f'{self.output_frame_name}_{layer_idx}', frame)
 
         over_thresh = False
         for roi_idx, roi_slice_params in enumerate(self.roi_slice_params[layer_idx]):
@@ -86,7 +88,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
                 continue
 
             # Get sliced array and activity
-            _slice = pg.affineSlice(last_frame, roi_slice_params[0], roi_slice_params[2], roi_slice_params[1], (0, 1))
+            _slice = pg.affineSlice(frame, roi_slice_params[0], roi_slice_params[2], roi_slice_params[1], (0, 1))
             activity = np.mean(_slice)
 
             # Write activity attribute
@@ -185,7 +187,9 @@ class ImageWidget(pg.ImageView):
             self.imageItem.getViewBox().addItem(roi)
 
     def update_frame(self, frame: np.ndarray):
-        self.setImage(frame, autoLevels=False, autoHistogramRange=False, autoRange=False)
+        frame[frame > 1700] = 0
+        self.setImage(frame, autoHistogramRange=False, autoLevels=False)
+        self.ui.histogram.disableAutoHistogramRange()
 
     def roi_updated(self, roi: Roi):
         log.debug(f'Update ROI for layer {self.layer_idx}')
