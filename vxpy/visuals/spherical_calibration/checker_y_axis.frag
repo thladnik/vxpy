@@ -1,4 +1,3 @@
-
 const float c_pi = 3.14159265359;
 
 uniform float u_elevation_sp; // in 1/deg

@@ -27,6 +27,8 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
     u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=15., limits=(5, 180), step_size=5.)
     u_azimuth_sp = vxvisual.FloatParameter('u_azimuth_sp', static=True, default=22.5, limits=(5, 360), step_size=5.)
 
+    _frag_shader = './static_checker.frag'
+
     def __init__(self, *args, **kwargs):
         """Black-and-white checkerboard for calibration."""
 
@@ -39,7 +41,7 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
         self.elevation_buffer = gloo.VertexBuffer(self.sphere.a_elevation)
 
         self.checker = gloo.Program(self.load_vertex_shader('./static_checker.vert'),
-                                    self.load_shader('./static_checker.frag'))
+                                    self.load_shader(self._frag_shader))
         self.checker['a_position'] = self.position_buffer
         self.checker['a_azimuth'] = self.azimuth_buffer
         self.checker['a_elevation'] = self.elevation_buffer
@@ -52,6 +54,20 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
 
     def render(self, frame_time):
         self.checker.draw('triangles', self.index_buffer)
+
+class XAxisCheck(BlackWhiteCheckerboard):
+
+    _frag_shader = './checker_x_axis.frag'
+
+
+class YAxisCheck(BlackWhiteCheckerboard):
+
+    _frag_shader = './checker_y_axis.frag'
+
+
+class ZAxisCheck(BlackWhiteCheckerboard):
+
+    _frag_shader = './checker_z_axis.frag'
 
 
 class RegularMesh(vxvisual.SphericalVisual):
