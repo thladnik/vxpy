@@ -8,7 +8,7 @@ import sys
 
 import numpy as np
 from numpy.typing import DTypeLike
-from typing import List, Tuple, Any, Union, Callable, Dict
+from typing import List, Tuple, Any, Union, Callable, Dict, Type
 from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
@@ -49,7 +49,12 @@ class AbstractVisual(ABC):
     variable_parameters: List[Parameter]
     trigger_functions: List[Callable]
 
+    instance: Type[AbstractVisual] = None
+
     def __init__(self, canvas=None, _protocol=None, _transform=None):
+        # Set instance
+        AbstractVisual.instance = self
+
         if canvas is None:
             canvas = gloo.context.FakeCanvas()
         self.canvas: app.Canvas = canvas
@@ -68,6 +73,7 @@ class AbstractVisual(ABC):
 
         # Get all visual parameters
         self.collect_parameters()
+
 
         self.is_active = True
 

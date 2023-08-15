@@ -150,8 +150,17 @@ def dump(**data):
 
     for k, d in data.items():
         if isinstance(d, np.ndarray):
-            _instance.create_dataset(k, d.shape, d.dtype)
-            _instance.add_to_dataset(k, d)
+            # TODO: this is not a great solution
+            saved = False
+            i = 0
+            while not saved:
+                try:
+                    _instance.create_dataset(f'{k}_{i}', d.shape, d.dtype)
+                    _instance.add_to_dataset(f'{k}_{i}', d)
+                except:
+                    pass
+                else:
+                    saved = True
         else:
             log.error('Unable to dump data to file. Unknown data type.')
 
