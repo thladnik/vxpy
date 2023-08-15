@@ -24,8 +24,10 @@ from vxpy.utils import sphere
 
 class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
 
-    u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=15., limits=(5, 180), step_size=5.)
-    u_azimuth_sp = vxvisual.FloatParameter('u_azimuth_sp', static=True, default=22.5, limits=(5, 360), step_size=5.)
+    u_azimuth_sp = vxvisual.FloatParameter('u_azimuth_sp', static=True, default=45.0, limits=(5, 360), step_size=5.)
+    u_azimuth_phase = vxvisual.FloatParameter('u_azimuth_phase', static=True, default=0.0, limits=(0, 360), step_size=5.)
+    u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=45.0, limits=(5, 180), step_size=5.)
+    u_elevation_phase = vxvisual.FloatParameter('u_elevation_phase', static=True, default=0.0, limits=(0, 360), step_size=5.)
 
     _frag_shader = './static_checker.frag'
 
@@ -47,7 +49,9 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
         self.checker['a_elevation'] = self.elevation_buffer
 
         self.u_elevation_sp.connect(self.checker)
+        self.u_elevation_phase.connect(self.checker)
         self.u_azimuth_sp.connect(self.checker)
+        self.u_azimuth_phase.connect(self.checker)
 
     def initialize(self, *args, **kwargs):
         pass
