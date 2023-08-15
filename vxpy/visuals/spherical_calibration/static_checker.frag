@@ -14,7 +14,7 @@ void main() {
     float c2 = sin(1.0 / u_elevation_sp * 360.0 * v_elevation);
 
     // Thresholding
-    float c = step(c1 * c2, 0.0) * 0.5 * (v_position.y + 1.0);
+    float c = step(c1 * c2, 0.0);
 
     // Final color
     gl_FragColor = vec4(c, c, c, 1.0);
