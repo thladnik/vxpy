@@ -72,11 +72,13 @@ class BaseTransform:
         self._display_prog['u_texture'] = self._out_texture
 
     def parse_vertex_shader(self, vert: str):
-        return f'#version {config.DISPLAY_GL_VERSION}\n{self.vertex_map}\n{vert}'
+        # return f'#version {config.DISPLAY_GL_VERSION}\n{self.vertex_map}\n{vert}'
+        return f'{self.vertex_map}\n{vert}'
 
     @staticmethod
     def parse_fragment_shader(frag: str):
-        return f'#version {config.DISPLAY_GL_VERSION}\n{frag}'
+        # return f'#version {config.DISPLAY_GL_VERSION}\n{frag}'
+        return frag
 
     def apply_transforms_to_all(self, visual):
         for program in visual.get_programs().values():

@@ -133,6 +133,7 @@ class AbstractVisual(ABC):
         with open(path, 'r') as f:
             code = f.read()
 
+        # return f'#version {config.DISPLAY_GL_VERSION}\n{code}'
         return code
 
     def load_vertex_shader(self, filepath: str):
