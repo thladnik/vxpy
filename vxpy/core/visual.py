@@ -159,6 +159,7 @@ class AbstractVisual(ABC):
             if issubclass(type(attr), vxevent.Trigger):
                 attr.set_inactive()
         self.is_active = False
+        self.destroy()
 
     def update(self, params: dict, _update_verbosely=True):
         """Update parameters of the visual
@@ -211,6 +212,9 @@ class AbstractVisual(ABC):
     @abstractmethod
     def render(self, dt):
         """Method to be implemented in final visual."""
+
+    def destroy(self):
+        """Method to close and delete objects after visual is finished"""
 
 
 class SphericalVisual(AbstractVisual, ABC):
