@@ -124,12 +124,15 @@ class PerspectiveTransform(BaseTransform):
 
         self.zoom()
 
+        # Apply transforms to all programs of this visual
         self.apply_transforms_to_all(visual)
+
+        # Render visual
         visual.render(dt)
 
     def zoom(self):
-        gloo.set_viewport(0, 0, self.canvas.physical_size[0], self.canvas.physical_size[1])
-        self.projection = transforms.perspective(25.0, self.canvas.size[0] / float(self.canvas.size[1]), 0.01, 1000.0)
+        gloo.set_viewport(0, 0, config.DISPLAY_WIN_SIZE_WIDTH_PX, config.DISPLAY_WIN_SIZE_HEIGHT_PX)
+        self.projection = transforms.perspective(25.0, config.DISPLAY_WIN_SIZE_WIDTH_PX / config.DISPLAY_WIN_SIZE_HEIGHT_PX, 0.01, 1000.0)
         self.transform_uniforms['u_projection'] = self.projection
 
 

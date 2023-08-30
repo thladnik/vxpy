@@ -12,6 +12,7 @@ from vxpy import config
 from vxpy.modules.display import Canvas
 
 calibration_widget_import_paths = {
+    'PerspectiveTransform': 'vxpy.calibration.calib_manager.calib_manager_spherical_4_channel_projection.Spherical4ChannelProjectionCalibration',
     'Spherical4ChannelProjectionTransform': 'vxpy.calibration.calib_manager.calib_manager_spherical_4_channel_projection.Spherical4ChannelProjectionCalibration',
     'Spherical4ScreenCylinderTransform': 'vxpy.calibration.calib_manager.calib_manager_spherical_4_screen_cylinder.Spherical4ScreenCylinderCalibration'
 }
