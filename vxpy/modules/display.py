@@ -33,6 +33,8 @@ class Display(vxprocess.AbstractProcess):
 
     current_visual: Union[vxvisual.AbstractVisual, None] = None
 
+    fallback_phase_counter = 0
+
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
@@ -114,6 +116,9 @@ class Display(vxprocess.AbstractProcess):
         else:
             log.debug(f'Set visual from instance of {new_visual.__class__.__name__}')
             self.current_visual = new_visual
+
+        vxcontainer.set_fallback_phase_id(f'{new_visual.__class__.__name__}_{self.fallback_phase_counter}')
+        self.fallback_phase_counter += 1
 
         # Create datasets for all variable visual parameters
         for parameter in self.current_visual.variable_parameters:

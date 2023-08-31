@@ -54,6 +54,12 @@ def new(file_type: str, file_path: str):
     _instance = _file_types[file_type](file_path)
 
 
+def set_fallback_phase_id(phase_id: str):
+    if _noinstance():
+        return
+
+    _instance.fallback_phase_id = phase_id
+
 def close():
     global _instance
 
@@ -113,8 +119,8 @@ def add_phase_attributes(attributes: Dict[str, Any]):
         return
 
     # There are no negative phase ids
-    if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
-        return
+    # if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
+    #     return
 
     # Call on instance
     _instance.add_phase_attributes(attributes)
@@ -126,8 +132,8 @@ def add_to_phase_dataset(dataset_name: str, data: Any):
         return
 
     # There are no negative phase ids
-    if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
-        return
+    # if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
+    #     return
 
     # Call on instance
     _instance.add_to_phase_dataset(dataset_name, data)
@@ -215,9 +221,16 @@ class H5File:
         log.info(f'Open HDF5 file {self._file_path}')
         self._h5_handle = h5py.File(self._file_path, 'w')
 
+        self.fallback_phase_id = None
+
     @property
     def _phase_str(self):
-        return f'{self._phase_prefix}{vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]}'
+        phase_id = vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]
+
+        if phase_id < 0 and self.fallback_phase_id is not None:
+            return self.fallback_phase_id
+
+        return f'{self._phase_prefix}{phase_id}'
 
     @property
     def _protocol_str(self):
