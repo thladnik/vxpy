@@ -336,6 +336,7 @@ class Controller(vxprocess.AbstractProcess):
 
         # Start subprocess
         self._processes[process_name].start()
+        log.info(f'Start process {process_name} (PID: {_proc.ident})')
 
         # Set state to IDLE
         self.set_state(STATE.IDLE)

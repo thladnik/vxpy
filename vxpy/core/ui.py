@@ -101,7 +101,8 @@ class WindowWidget(QtWidgets.QWidget):
 
         # If window is activated (e.g. brought to front),
         # this also raises all other windows
-        if event.type() == QtCore.QEvent.Type.WindowActivate:
+        if (type(event) == QtCore.QEvent
+                and event.type() == QtCore.QEvent.Type.WindowActivate):
             # Raise main window
             self.main_window.raise_()
             # Raise all subwindows

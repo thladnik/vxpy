@@ -135,6 +135,7 @@ class AbstractProcess:
                 for routine in process_routines.values():
 
                     # Run local initialization for producer modules (this needs to happen before callback reg.)
+                    log.info(f'Initialize routine {routine.__class__.__name__}')
                     routine.initialize()
 
                     for fun in routine.callback_ops:

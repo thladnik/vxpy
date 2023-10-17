@@ -117,7 +117,7 @@ class Display(vxprocess.AbstractProcess):
             log.debug(f'Set visual from instance of {new_visual.__class__.__name__}')
             self.current_visual = new_visual
 
-        vxcontainer.set_fallback_phase_id(f'{new_visual.__class__.__name__}_{self.fallback_phase_counter}')
+        vxcontainer.set_fallback_phase_id(f'{self.current_visual.__class__.__name__}_{self.fallback_phase_counter}')
         self.fallback_phase_counter += 1
 
         # Create datasets for all variable visual parameters
@@ -148,6 +148,15 @@ class Display(vxprocess.AbstractProcess):
 
         # Update time
         self.canvas.update_current_time()
+
+        # Add all (protocol-independent) phase metas
+        display_attrs = {'start_time': vxipc.get_time(),
+                         'target_sample_rate': config.DISPLAY_FPS,
+                         'visual_module': self.current_visual.__module__,
+                         'visual_name': str(self.current_visual.__class__.__qualname__)}
+
+        # Use double underscores to set process-level attribute apart from visual-defined ones
+        vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
 
     def end_static_protocol_phase(self):
         self.stop_visual()

@@ -13,7 +13,6 @@ log = vxlogger.getLogger(__name__)
 
 class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
-    host: str = '127.0.0.1'
     port: int = 55000
     frame_name: str = 'tcp_server_frame'
     frame_width: int = 512
@@ -23,7 +22,7 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
 
-        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server = None
 
         self.listening = False
         self.connected = False
@@ -43,13 +42,14 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
     def initialize(self):
         try:
-            log.info(f'Listening for clients on {self.host}:{self.port}')
-            self.server.bind((self.host, self.port))
-            self.server.settimeout(0.01)
+            log.info(f'Listening for clients on port {self.port}')
+            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server.bind(('', self.port))  # Don't restrict host
+            self.server.settimeout(0.1)
             self.server.listen(1)
             self.listening = False
         except Exception as _exc:
-            log.error(f'Unable to listen for clients on {self.host}:{self.port} // Exception: {_exc}')
+            log.error(f'Unable to listen for clients on {self.port} // Exception: {_exc}')
             self.listening = False
 
     def main(self):
@@ -120,3 +120,7 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
             self.client_addr = addr
 
         return success
+
+
+if __name__ == '__main__':
+    pass

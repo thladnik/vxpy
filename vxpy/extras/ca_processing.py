@@ -18,7 +18,7 @@ log = vxlogger.getLogger(__name__)
 
 class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
-    input_frame_name: str = 'activity_tracker_frame'
+    input_frame_name: str = 'tcp_server_frame'
     input_num_interlaced_layers: int = 1
     output_frame_name: str = 'roi_activity_tracker_frame'
     roi_max_num: int = 5
@@ -33,6 +33,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
 
         self.roi_slice_params: List[List[tuple]] = []
+        self._f0 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 
     def require(self) -> bool:
 
@@ -76,11 +77,25 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
         _, _, last_counter = vxattribute.get_attribute(f'{self.input_frame_name}_counter')[int(last_idx)]
 
-        frame = last_frame
+        # frame = last_frame # instead of frame_equalized
+
+        # frame preprocessing
+        hist, bins = np.histogram(last_frame, bins=2)
+        preprocessed_frame = np.where(last_frame < bins[1], last_frame, 0)
+
+        # histogram equalization
+        # http://www.janeriksolem.net/histogram-equalization-with-python-and.html
+        no_bins = 4
+        image_histogram, bins = np.histogram(preprocessed_frame.flatten(), no_bins, density=True)
+        cdf = image_histogram.cumsum()  # cumulative distribution function
+        cdf = (no_bins - 1) * cdf / cdf[-1]  # normalize
+
+        # use linear interpolation of cdf to find new pixel values
+        equalized_frame = np.interp(preprocessed_frame.flatten(), bins[:-1], cdf).reshape(preprocessed_frame.shape)
 
         # Write to corresponding attribute for interleaved layer
         layer_idx = int(last_counter) % self.input_num_interlaced_layers
-        vxattribute.write_attribute(f'{self.output_frame_name}_{layer_idx}', frame)
+        vxattribute.write_attribute(f'{self.output_frame_name}_{layer_idx}', equalized_frame)
 
         over_thresh = False
         for roi_idx, roi_slice_params in enumerate(self.roi_slice_params[layer_idx]):
@@ -88,8 +103,13 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
                 continue
 
             # Get sliced array and activity
-            _slice = pg.affineSlice(frame, roi_slice_params[0], roi_slice_params[2], roi_slice_params[1], (0, 1))
-            activity = np.mean(_slice)
+            _slice = pg.affineSlice(equalized_frame, roi_slice_params[0], roi_slice_params[2], roi_slice_params[1], (0, 1))
+            # activity = np.mean(_slice)
+
+            # DF/F
+            activity = (np.mean(_slice) - np.mean(self._f0)) / np.mean(self._f0)
+            self._f0.insert(0, np.mean(_slice))
+            self._f0.pop()
 
             # Write activity attribute
             vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
