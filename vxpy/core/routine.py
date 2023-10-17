@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import importlib
 from abc import ABC, abstractmethod
-from multiprocessing.managers import DictProxy
+import multiprocessing as mp
+from multiprocessing.managers import DictProxy, SyncManager, ValueProxy
 from typing import Callable, List, Type, Union, Dict, Any
 
 from deprecation import deprecated
@@ -36,11 +37,16 @@ class Routine(ABC):
     callback_ops: List[Callable] = None
     default_parameters: Dict[str, Any] = None
     parameters: DictProxy[str, Any] = None
+    _manager: SyncManager = None
 
     def __init__(self, *args, **kwargs):
+        self._manager = mp.Manager()
 
         # Create shared dictionary for setting routine parameters
         self.parameters = vxipc.Manager.dict()
+
+        self._synchronize_attributes()
+
 
         # Set defaults
         if self.default_parameters is not None:
@@ -60,6 +66,55 @@ class Routine(ABC):
             cls._instance = super(Routine, cls).__new__(cls)
 
         return cls._instance
+
+    def _synchronize_attributes(self):
+        """Iterate through all public class attributes and create remote proxies"""
+        for name in dir(self):
+            if name.startswith('_'):
+                continue
+
+            val = self.__getattribute__(name)
+            self._create_proxy_value(name, val)
+            self._create_proxy_methods()
+
+    def _create_proxy_value(self, name, val):
+        _type = type(val)
+        if _type in [int, str, float, bool]:
+            log.debug(f'Create ValueProxy for {self.__class__.__name__}.{name} ({_type})')
+            self.__setattr__(name, self._manager.Value(_type, val))
+            return True
+        elif _type == dict:
+            log.debug(f'Create DictProxy for {self.__class__.__name__}.{name}')
+            self.__setattr__(name, self._manager.dict(val))
+            return True
+        elif _type == list:
+            log.debug(f'Create ListProxy for {self.__class__.__name__}.{name}')
+            self.__setattr__(name, self._manager.list(val))
+            return True
+        return False
+
+    def _create_proxy_methods(self):
+        # TODO: implement remote method calls (including return values)
+        pass
+
+    def __getattribute__(self, item):
+
+        attr = super().__getattribute__(item)
+        if type(attr) == ValueProxy:
+            return attr.value
+        return attr
+
+    def __setattr__(self, key, value):
+        try:
+            attr = super().__getattribute__(key)
+
+            if type(attr) == ValueProxy:
+                attr.value = value
+            else:
+                super().__setattr__(key, value)
+        except:
+            if not self._create_proxy_value(key, value):
+                super().__setattr__(key, value)
 
     @classmethod
     def instance(cls):
