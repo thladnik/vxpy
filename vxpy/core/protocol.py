@@ -8,6 +8,7 @@ from typing import List, Union, Callable, Type, Dict, Any
 
 import vispy.app
 
+import vxpy.core.control as vxcontrol
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
@@ -76,12 +77,12 @@ def get_protocol(path: str) -> Union[Type[StaticProtocol], None]:
 class Phase:
 
     def __init__(self, duration=None,
-                 action=None, action_params=None,
+                 control=None, action_params=None,
                  visual=None, visual_params=None):
         self.duration: Union[float, int] = duration
 
-        self.action_parameters: Dict = action_params
-        self.action = action
+        self.control_parameters: Dict = action_params
+        self.control = control
 
         self.visual: Union[vxvisual.AbstractVisual, Type[vxvisual.AbstractVisual], None] = visual
         self.visual_parameters: Dict = visual_params
@@ -90,28 +91,20 @@ class Phase:
         self.duration = duration
 
     @property
-    def action(self):
-        return self._action
+    def control(self) -> Union[vxcontrol.BaseControl, Type[vxcontrol.BaseControl]]:
+        return self._control
 
-    @action.setter
-    def action(self, value):
-        self._action = value
+    @control.setter
+    def control(self, value: Union[vxcontrol.BaseControl, Type[vxcontrol.BaseControl]]):
+        self._control = value
 
     @property
-    def visual(self) -> Type[vxvisual.AbstractVisual]:
+    def visual(self) -> Union[vxvisual.AbstractVisual, Type[vxvisual.AbstractVisual]]:
         return self._visual
 
     @visual.setter
-    def visual(self, value) -> None:
+    def visual(self, value: Union[vxvisual.AbstractVisual, Type[vxvisual.AbstractVisual]]) -> None:
         self._visual = value
-
-    @property
-    def action_parameters(self):
-        return {} if self._action_parameters is None else self._action_parameters
-
-    @action_parameters.setter
-    def action_parameters(self, value):
-        self._action_parameters = value
 
     @property
     def visual_parameters(self):
@@ -121,47 +114,21 @@ class Phase:
     def visual_parameters(self, value):
         self._visual_parameters = value
 
-    def set_visual(self, visual_cls: Callable, parameters: dict = None):
+    def set_visual(self, visual_cls: Type[vxvisual.AbstractVisual], params: dict = None):
         self._visual = visual_cls
-        self._visual_parameters = parameters
+        self._visual_parameters = params
 
-    def set_action(self, action_cls: Callable, **kwargs):
-        self._action = action_cls
-        self._action_parameters = kwargs
+    @property
+    def control_parameters(self):
+        return {} if self._control_parameters is None else self._control_parameters
 
-    def initialize_action(self):
-        if self._action is None:
-            return False
+    @control_parameters.setter
+    def control_parameters(self, value):
+        self._control_parameters = value
 
-        kwargs = {} if self._action_parameters is None else self._action_parameters
-        self.action = self._action(**kwargs)
-
-        return True
-
-    def set_initialize_visual(self, visual: vxvisual.AbstractVisual):
-        self._visual = visual
-
-    def initialize_visual(self, canvas: vispy.app.Canvas,
-                          _protocol: BaseProtocol,
-                          _transform: vxtranform.BaseTransform) -> bool:
-        if self._visual is None:
-            return False
-
-        args = (canvas, )
-        kwargs = dict(_protocol=_protocol)
-        if isclass(self._visual):
-            self._visual = self._visual(*args, **kwargs)
-        else:
-            self._visual = self._visual.__class__(*args, **kwargs)
-
-        params = self.visual_parameters
-        self._visual.update(params)
-
-        return True
-
-
-class PhaseNotSetError(Exception):
-    pass
+    def set_control(self, control_cls: Type[vxcontrol.BaseControl], params: dict = None):
+        self._control = control_cls
+        self._control_parameters = params
 
 
 class BaseProtocol:
@@ -223,23 +190,33 @@ class BaseProtocol:
         """
         pass
 
-    def initialize_actions(self):
-        for phase in self._phases:
-            phase.initialize_action()
+    def create_controls(self):
+        # Fetch all control from phases and identify unique ones
+        _all = [phase.control for phase in self._phases if phase.control is not None]
+        _unique = list(set(_all))
 
-    def initialize_visuals(self, canvas: vispy.app.Canvas, _transform: vxtranform.BaseTransform):
+        # Create each unique visual once
+        _created = {}
+        for cls in _unique:
+            _created[cls] = cls()
+
+        # Update all phases to reference unique control instance
+        for phase in self._phases:
+            phase.control = _created.get(phase.control, None)
+
+    def create_visuals(self, canvas: vispy.app.Canvas, _transform: vxtranform.BaseTransform):
         # Fetch all visuals from phases and identify unique ones
-        all_visuals = [phase.visual for phase in self._phases]
-        unique_visuals = list(set(all_visuals))
+        _all = [phase.visual for phase in self._phases if phase.visual is not None]
+        _unique = list(set(_all))
 
-        # Initialize unique visuals (one instance per visual class)
-        initialize_visuals = {}
-        for visual in unique_visuals:
-            initialize_visuals[visual] = visual(canvas=canvas, _protocol=self, _transform=_transform)
+        # Create each unique visual once
+        _created = {}
+        for cls in _unique:
+            _created[cls] = cls(canvas=canvas, _protocol=self, _transform=_transform)
 
-        # Update all phases to unique visual instance
+        # Update all phases to reference unique visual instance
         for phase in self._phases:
-            phase.set_initialize_visual(initialize_visuals[phase.visual])
+            phase.visual = _created.get(phase.visual, None)
 
 
 class StaticProtocol(BaseProtocol):
@@ -263,7 +240,7 @@ class StaticProtocol(BaseProtocol):
     def get_phase(self, phase_id: int) -> Union[Phase, None]:
         if phase_id < self.phase_count:
             return self._phases[phase_id]
-        return None
+        return
 
 
 class TriggeredProtocol(BaseProtocol):

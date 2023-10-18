@@ -325,7 +325,6 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
 
     def require(self):
         # Add camera device to deps
-        print(self.camera_device_id)
         vxdependency.require_camera_device(self.camera_device_id)
 
     def setup(self):

@@ -43,8 +43,6 @@ class AbstractVisual(ABC):
     available_transforms: Dict[str, vxtransforms.BaseTransform] = {}
     transform: vxtransforms.BaseTransform = None
 
-    description: str = ''
-
     static_parameters: List[Parameter]
     variable_parameters: List[Parameter]
     trigger_functions: List[Callable]
@@ -74,8 +72,8 @@ class AbstractVisual(ABC):
         # Get all visual parameters
         self.collect_parameters()
 
-
-        self.is_active = True
+        # Set inactive
+        self.is_active = False
 
         gloo.set_state(depth_test=True)
 
@@ -133,7 +131,6 @@ class AbstractVisual(ABC):
         with open(path, 'r') as f:
             code = f.read()
 
-        # return f'#version {config.DISPLAY_GL_VERSION}\n{code}'
         return code
 
     def load_vertex_shader(self, filepath: str):

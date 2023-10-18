@@ -152,7 +152,7 @@ class VisualInteractorInnerWidget(QtWidgets.QWidget):
             return
         item = self.visual_list.add_item()
         item.setText(name)
-        item.setData(QtCore.Qt.ItemDataRole.ToolTipRole, _class.description)
+        item.setData(QtCore.Qt.ItemDataRole.ToolTipRole, _class.__doc__)
         # Set visual class information to UserRole
         item.setData(QtCore.Qt.ItemDataRole.UserRole, (_class.__module__, _class.__name__))
 

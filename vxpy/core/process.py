@@ -277,7 +277,7 @@ class AbstractProcess:
 
     @property
     def phase_info(self) -> dict:
-        """The current phase ID within the currently active protocol"""
+        """Protocol phase information"""
         return vxipc.CONTROL[CTRL_PRCL_PHASE_INFO]
 
     @property

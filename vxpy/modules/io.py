@@ -17,7 +17,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 import importlib
 import time
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 
@@ -25,6 +25,7 @@ from vxpy.api.attribute import read_attribute
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.attribute as vxattribute
+import vxpy.core.control as vxcontrol
 import vxpy.core.ipc as vxipc
 import vxpy.core.process as vxprocess
 import vxpy.core.logger as vxlogger
@@ -37,10 +38,16 @@ log = vxlogger.getLogger(__name__)
 class Io(vxprocess.AbstractProcess):
     name = PROCESS_IO
 
+    # Protocol settings
+    current_control: Union[vxcontrol.BaseControl, None] = None
+    fallback_phase_counter = 0
+
+    # Device settings
     _pin_id_attr_map: Dict[str, str] = {}
     _daq_pins: Dict[str, vxserial.DaqPin] = {}
     _serial_devices: Dict[str, vxserial.SerialDevice] = {}
     _daq_devices: Dict[str, vxserial.DaqDevice] = {}
+
 
     @staticmethod
     def get_pin_prefix(pin: vxserial.DaqPin) -> str:
@@ -136,8 +143,35 @@ class Io(vxprocess.AbstractProcess):
         self.run(interval=1. / config.IO_MAX_SR)
 
     def prepare_static_protocol(self):
-        # Initialize actions related to protocol
-        self.current_protocol.initialize_actions()
+        # Create all controls during protocol preparation (ahead of protocol run)
+        #  This may come with some initial overhead, but reduces latency between stimulation phases
+        self.current_protocol.create_controls()
+
+    def prepare_static_protocol_phase(self):
+        # Prepare visual associated with phase
+        self.prepare_control()
+
+    def prepare_control(self):
+        pass
+
+    def start_static_protocol_phase(self):
+        self.start_control()
+
+    def start_control(self):
+        pass
+
+    def _write_default_phase_attributes(self):
+        pass
+        # display_attrs = {'start_time': vxipc.get_time(),
+        #                  'target_start_time': self.phase_start_time,
+        #                  'target_end_time': self.phase_end_time,
+        #                  'target_duration': self.current_protocol.current_phase.duration,
+        #                  'target_sample_rate': config.DISPLAY_FPS}#,
+                         # 'visual_module': self.current_visual.__module__,
+                         # 'visual_name': str(self.current_visual.__class__.__qualname__)}
+
+        # Use double underscores to set process-level attribute apart from visual-defined ones
+        # vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
 
     def set_outpin_to_attr(self, pin_id, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
@@ -170,13 +204,7 @@ class Io(vxprocess.AbstractProcess):
 
     def main(self):
 
-        tt = []
-
-        # # Read data on pins once
-        # t = time.perf_counter()
-        # for pin in self._daq_pins.values():
-        #     pin._read_data()
-        # tt.append(time.perf_counter()-t)
+        # if self.current_control.is_active:
 
         # Go through all configured pins
         for pin_id, pin in self._daq_pins.items():
