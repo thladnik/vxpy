@@ -156,11 +156,23 @@ class Io(vxprocess.AbstractProcess):
         if control is None:
             control = self.current_protocol.current_phase.control
 
+        self.current_control = control
+
     def start_static_protocol_phase(self):
         self.start_control()
 
     def start_control(self):
-        pass
+        if self.current_control is None:
+            return
+
+        self.current_control.start()
+
+    def end_static_protocol_phase(self):
+        if self.current_control is None:
+            return
+
+        self.current_control.end()
+        self.current_control = None
 
     def set_outpin_to_attr(self, pin_id, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
@@ -193,9 +205,8 @@ class Io(vxprocess.AbstractProcess):
 
     def main(self):
 
-        # if self.current_control.is_active:
-        vxattribute.write_attribute('do_led_ctrl1', np.random.rand() < 0.01)
-        vxattribute.write_attribute('do_led_ctrl2', np.random.rand() < 0.01)
+        if self.current_control is not None and self.current_control.is_active:
+            self.current_control.main(0.0)
 
         # Go through all configured pins
         for pin_id, pin in self._daq_pins.items():

@@ -452,12 +452,14 @@ class PlottingWindow(WindowWidget, ExposedWidget):
                 import traceback
                 print(traceback.print_exc())
 
-        if grp is not None and grp['t'].shape[0] > 0:
-            self._update_xrange(grp['t'][-1])
+        # if grp is not None and grp['t'].shape[0] > 0:
+        #     self._update_xrange(grp['t'][-1])
 
         self.update_plots()
 
     def update_plots(self):
+
+        tmax = -np.inf
         times = None
         for attr_name, dataitem in self.data_items.items():
 
@@ -476,6 +478,12 @@ class PlottingWindow(WindowWidget, ExposedWidget):
             data = grp['y'][start_idx:]
 
             dataitem.setData(x=times, y=data)
+
+            if np.max(times) > tmax:
+                tmax = np.max(times)
+
+        if tmax > -np.inf:
+            self._update_xrange(tmax)
 
     def _update_xrange(self, new_xmax):
 
