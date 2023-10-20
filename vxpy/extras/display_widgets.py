@@ -131,12 +131,17 @@ class VisualInteractorInnerWidget(QtWidgets.QWidget):
                 continue
 
             # Import module
-            if os.path.isdir(os.path.join(*[*path_parts, _container_name])):
-                _module = importlib.import_module('.'.join([*path_parts, _container_name]))
-            else:
-                _module = importlib.import_module('.'.join([*path_parts, _container_name.split('.')[0]]))
+            try:
+                if os.path.isdir(os.path.join(*[*path_parts, _container_name])):
+                    _module = importlib.import_module('.'.join([*path_parts, _container_name]))
+                else:
+                    _module = importlib.import_module('.'.join([*path_parts, _container_name.split('.')[0]]))
 
-            self._scan_module(_module)
+                # Scan module for visual classes
+                self._scan_module(_module)
+
+            except Exception as _exc:
+                log.warning(f'Failed to load visual module {_container_name} on path {path}')
 
     def _scan_module(self, _module: ModuleType):
         # Go through all classes in _module

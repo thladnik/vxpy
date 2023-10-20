@@ -110,7 +110,6 @@ class Display(vxprocess.AbstractProcess):
                 # Fetch protocol-defined parameters
                 parameters = self.current_protocol.current_phase.visual_parameters
 
-
         # If new_visual hasn't been instantiated yet, do it now
         if isclass(visual):
             log.debug(f'Create new visual of class {visual.__name__}')
@@ -129,7 +128,6 @@ class Display(vxprocess.AbstractProcess):
         # Create datasets for all variable visual parameters
         for param in self.current_visual.variable_parameters:
             vxcontainer.create_phase_dataset(param.name, param.shape, param.dtype)
-
 
         if self.current_protocol is not None:
             vxcontainer.add_phase_attributes({'__target_duration': self.current_protocol.current_phase.duration})

@@ -77,8 +77,9 @@ class VirtualDaqPin(vxserial.DaqPin):
     def __init__(self, *args, **kwargs):
         vxserial.DaqPin.__init__(self, *args, **kwargs)
 
-        self.fun: Callable = self._available_methods[self.properties['fun']]
-        self.arguments: Dict[str, Any] = self.properties['args']
+        self._dummy_data = 0
+        self.fun: Callable = self._available_methods.get(self.properties.get('fun'))
+        self.arguments: Dict[str, Any] = self.properties.get('args', {})
 
         # Set signal type and direction
         sigal_type, signal_dir = list(self.properties['signal'])
@@ -96,9 +97,12 @@ class VirtualDaqPin(vxserial.DaqPin):
         pass
 
     def write(self, value) -> bool:
-        """VirtualDaqPin has no write implementation"""
-        pass
+        """VirtualDaqPin dummy write implementation"""
+        self._dummy_data = value
+        return True
 
     def read(self) -> Union[bool, int, float]:
         """Return value based on pin's function and configured arguments"""
-        return self.fun(vxipc.get_time(), **self.arguments)
+        if self.fun is not None:
+            return self.fun(vxipc.get_time(), **self.arguments)
+        return self._dummy_data

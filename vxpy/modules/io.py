@@ -151,27 +151,16 @@ class Io(vxprocess.AbstractProcess):
         # Prepare visual associated with phase
         self.prepare_control()
 
-    def prepare_control(self):
-        pass
+    def prepare_control(self, control: vxcontrol.BaseControl = None, parameters: dict = None):
+
+        if control is None:
+            control = self.current_protocol.current_phase.control
 
     def start_static_protocol_phase(self):
         self.start_control()
 
     def start_control(self):
         pass
-
-    def _write_default_phase_attributes(self):
-        pass
-        # display_attrs = {'start_time': vxipc.get_time(),
-        #                  'target_start_time': self.phase_start_time,
-        #                  'target_end_time': self.phase_end_time,
-        #                  'target_duration': self.current_protocol.current_phase.duration,
-        #                  'target_sample_rate': config.DISPLAY_FPS}#,
-                         # 'visual_module': self.current_visual.__module__,
-                         # 'visual_name': str(self.current_visual.__class__.__qualname__)}
-
-        # Use double underscores to set process-level attribute apart from visual-defined ones
-        # vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
 
     def set_outpin_to_attr(self, pin_id, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
@@ -205,6 +194,8 @@ class Io(vxprocess.AbstractProcess):
     def main(self):
 
         # if self.current_control.is_active:
+        vxattribute.write_attribute('do_led_ctrl1', np.random.rand() < 0.01)
+        vxattribute.write_attribute('do_led_ctrl2', np.random.rand() < 0.01)
 
         # Go through all configured pins
         for pin_id, pin in self._daq_pins.items():
