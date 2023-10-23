@@ -3,7 +3,7 @@
 from __future__ import annotations
 import multiprocessing as mp
 import time
-from multiprocessing.managers import SyncManager
+from multiprocessing.managers import SyncManager, ValueProxy
 
 import vxpy.core.logger as vxlogger
 from vxpy.definitions import *
@@ -18,8 +18,16 @@ if TYPE_CHECKING:
 
 log = vxlogger.getLogger(__name__)
 
-# Manager for shared objects
+# Main manager for shared objects
 Manager: SyncManager
+_sub_managers: Dict[str, SyncManager] = {}
+
+
+def get_manager(sub_name: str):
+    if sub_name not in _sub_managers:
+        _sub_managers[sub_name] = mp.Manager()
+    return _sub_managers[sub_name]
+
 
 # Local modules reference
 LocalProcess: AbstractProcess

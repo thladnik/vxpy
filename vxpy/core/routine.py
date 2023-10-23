@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import importlib
 from abc import ABC, abstractmethod
-import multiprocessing as mp
-from multiprocessing.managers import DictProxy, SyncManager, ValueProxy
+from multiprocessing.managers import ValueProxy
 from typing import Callable, List, Type, Union, Dict, Any
-
-from deprecation import deprecated
 
 from vxpy.definitions import *
 import vxpy.core.ipc as vxipc
@@ -35,40 +32,39 @@ class Routine(ABC):
     process_name: str = None
     _instance: Routine = None
     callback_ops: List[Callable] = None
-    default_parameters: Dict[str, Any] = None
-    parameters: DictProxy[str, Any] = None
-    _manager: SyncManager = None
 
     def __init__(self, *args, **kwargs):
-        self._manager = mp.Manager()
+        self.mp_manager()
 
-        # Create shared dictionary for setting routine parameters
-        self.parameters = vxipc.Manager.dict()
-
+        # Create interprocess syncs
         self._synchronize_attributes()
-
-
-        # Set defaults
-        if self.default_parameters is not None:
-            self.parameters.update(self.default_parameters)
-
-        # Update parameters based on configuration
-        for key, val in kwargs.items():
-            self.parameters[key] = val
 
         # List of methods open to rpc calls
         if self.callback_ops is None:
             self.callback_ops = []
 
     def __new__(cls, *args, **kwargs):
-        """Ensure each routine can only be used as Singleton"""
+        """Ensure each routine can only be used as Singleton
+        """
         if cls._instance is None:
             cls._instance = super(Routine, cls).__new__(cls)
 
         return cls._instance
 
+    def mp_manager(self):
+        """Get multiprocessing manager for this routine
+        ---
+        NOTE to future self:
+            This is a Windows thing. You may not keep a reference to
+            a SyncManager when pickling an object during process *spawn*ing.
+            Linux' *clone* doesn't have an issue here.
+            -> Just leave the sync managers in ipc module.
+        """
+        return vxipc.get_manager(self.__class__.__name__)
+
     def _synchronize_attributes(self):
-        """Iterate through all public class attributes and create remote proxies"""
+        """Iterate through all public class attributes and create remote proxies
+        """
         for name in dir(self):
             if name.startswith('_'):
                 continue
@@ -81,15 +77,15 @@ class Routine(ABC):
         _type = type(val)
         if _type in [int, str, float, bool]:
             log.debug(f'Create ValueProxy for {self.__class__.__name__}.{name} ({_type})')
-            self.__setattr__(name, self._manager.Value(_type, val))
+            self.__setattr__(name, self.mp_manager().Value(_type, val))
             return True
         elif _type == dict:
             log.debug(f'Create DictProxy for {self.__class__.__name__}.{name}')
-            self.__setattr__(name, self._manager.dict(val))
+            self.__setattr__(name, self.mp_manager().dict(val))
             return True
         elif _type == list:
             log.debug(f'Create ListProxy for {self.__class__.__name__}.{name}')
-            self.__setattr__(name, self._manager.list(val))
+            self.__setattr__(name, self.mp_manager().list(val))
             return True
         return False
 
@@ -131,7 +127,6 @@ class Routine(ABC):
         cls.callback_ops.append(fun)
 
         return fun
-
 
     def require(self) -> bool:
         return True
