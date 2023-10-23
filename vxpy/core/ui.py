@@ -459,8 +459,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def update_plots(self):
 
-        tmax = -np.inf
-        times = None
+        new_tmax = -np.inf
         for attr_name, dataitem in self.data_items.items():
 
             grp = self.cache[attr_name]
@@ -479,11 +478,16 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
             dataitem.setData(x=times, y=data)
 
-            if np.max(times) > tmax:
-                tmax = np.max(times)
+            # Get rid of NaN's, they break everything
+            if np.all(np.isnan(times)):
+                continue
+            plot_tmax = np.nanmax(times)
 
-        if tmax > -np.inf:
-            self._update_xrange(tmax)
+            if plot_tmax > new_tmax:
+                new_tmax = plot_tmax
+
+        if new_tmax > -np.inf:
+            self._update_xrange(new_tmax)
 
     def _update_xrange(self, new_xmax):
 
