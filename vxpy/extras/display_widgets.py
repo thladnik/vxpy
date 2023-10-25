@@ -141,7 +141,7 @@ class VisualInteractorInnerWidget(QtWidgets.QWidget):
                 self._scan_module(_module)
 
             except Exception as _exc:
-                log.warning(f'Failed to load visual module {_container_name} on path {path}')
+                log.warning(f'Failed to load visual module {_container_name} on path {path} // Exception: {_exc}')
 
     def _scan_module(self, _module: ModuleType):
         # Go through all classes in _module
