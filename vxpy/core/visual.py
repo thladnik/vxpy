@@ -627,10 +627,10 @@ class Attribute(Parameter):
         Parameter.__init__(self, *args, **kwargs)
         self._buffer_data_contents = None
 
-    def _set_start_data(self, data):
-        if self._data is None or self._shape != data.shape:
-            self._shape = data.shape
-            self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
+    # def _set_start_data(self, data):
+    #     if self._data is None or self._shape != data.shape:
+    #         self._shape = data.shape
+    #         self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
 
 
 class BoolAttribute(Parameter):
