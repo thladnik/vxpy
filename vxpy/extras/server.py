@@ -15,9 +15,9 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
     port: int = 55000
     frame_name: str = 'tcp_server_frame'
-    frame_width: int = 512
-    frame_height: int = 512
-    frame_dtype: str = 'uint8'
+    frame_width: int = 256
+    frame_height: int = 256
+    frame_dtype: str = 'uint16'
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
@@ -36,6 +36,7 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
         shape = (self.frame_width, self.frame_height)
         dtype = vxattribute.ArrayType.get_type_by_str(self.frame_dtype)
         vxattribute.ArrayAttribute(self.frame_name, shape, dtype=dtype)
+        vxattribute.write_to_file(self, self.frame_name)
         vxattribute.ArrayAttribute(f'{self.frame_name}_counter', (1,), vxattribute.ArrayType.uint64)
 
         return True
