@@ -71,7 +71,7 @@ class Camera(vxprocess.AbstractProcess):
 
         return metadata
 
-    def main(self):
+    def main(self, dt: float):
 
         for camera_id, camera in self.cameras.items():
 

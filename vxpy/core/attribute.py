@@ -17,6 +17,7 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
+# import vxpy.core.ui as vxui
 
 log = vxlogger.getLogger(__name__)
 
@@ -85,9 +86,6 @@ def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
                 return True, False, {}
             return True, True, record_ops
 
-    #     # Update
-    #     matched = matched or match
-    #
     # No matches
     return True, False, {}
 

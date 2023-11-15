@@ -16,7 +16,7 @@ class BaseControl(ABC):
         """Method to be implemented in control. Called during start of phase"""
 
     @abstractmethod
-    def main(self, dt):
+    def main(self, dt: float):
         """Method to be implemented in control. Called on each event loop iteration"""
 
     def destroy(self):

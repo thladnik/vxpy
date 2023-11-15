@@ -48,57 +48,32 @@ class Io(vxprocess.AbstractProcess):
     _serial_devices: Dict[str, vxserial.SerialDevice] = {}
     _daq_devices: Dict[str, vxserial.DaqDevice] = {}
 
-
-    @staticmethod
-    def get_pin_prefix(pin: vxserial.DaqPin) -> str:
-        if pin.signal_type == vxserial.PINSIGTYPE.ANALOG:
-            if pin.signal_direction == vxserial.PINSIGDIR.IN:
-                prefix = 'ai'
-            else:
-                prefix = 'ao'
-        else:
-            if pin.signal_direction == vxserial.PINSIGDIR.IN:
-                prefix = 'di'
-            else:
-                prefix = 'do'
-
-        return prefix
-
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
-        for device_id, dev_config in config.IO_DEVICES.items():
-
-            api_path = dev_config['api']
-            if api_path is None:
-                log.error(f'Could not configure device {device_id}. No API provided.')
-                continue
-
-            # Get device API
-            device = vxserial.get_serial_device_by_id(device_id)
-            log.info(f'Set up device {device_id}: {device}')
+        for device in vxserial.devices.values():
 
             # If device is a DAQ device
             if isinstance(device, vxserial.DaqDevice):
 
                 # Add DAQ device
-                self._daq_devices[device_id] = device
+                self._daq_devices[device.device_id] = device
 
             # If device is a generic Serial device
             elif isinstance(device, vxserial.SerialDevice):
 
                 # Add serial device
-                self._serial_devices[device_id] = device
+                self._serial_devices[device.device_id] = device
             else:
-                log.warning(f'Unknown device {device_id}. Device was set up but may not be usable.')
+                log.warning(f'Unknown {device}. Device was set up but may not be usable.')
 
             # Open device
             try:
                 device.open()
 
             except Exception as exc:
-                log.error(f'Failed to open device {device_id} // Exc: {exc}')
+                log.error(f'Failed to open {device} // Exc: {exc}')
                 import traceback
                 print(traceback.print_exc())
                 continue
@@ -108,7 +83,7 @@ class Io(vxprocess.AbstractProcess):
                 device.start()
 
             except Exception as exc:
-                log.error(f'Failed to start device {device_id} // Exc: {exc}')
+                log.error(f'Failed to start {device} // Exc: {exc}')
                 import traceback
                 print(traceback.print_exc())
                 continue
@@ -117,28 +92,23 @@ class Io(vxprocess.AbstractProcess):
         for daq_device in self._daq_devices.values():
 
             # Add configured pins on device
-            for pin_id, pin in daq_device.get_pins():
-                if pin_id in self._daq_pins:
-                    log.error(f'Pin {pin_id} is already configured. Unable to add to device {daq_device}')
-                    continue
+            for pin in daq_device.pins.values():
+                log.info(f'Initialize {pin}')
 
                 # Initialize pin
                 pin.initialize()
 
                 # Save pin to dictionary
-                self._daq_pins[pin_id] = pin
+                self._daq_pins[pin.pin_id] = pin
 
                 # Add pin data to be written to file
-                prefix = self.get_pin_prefix(pin)
-                attr_name = f'{prefix}_{pin_id}'
-                vxattribute.write_to_file(self, attr_name)
+                vxattribute.write_to_file(self, pin.attribute.name)
 
-                vxui.register_with_plotter(attr_name, axis=prefix)
+                vxui.register_with_plotter(pin.attribute.name, axis=vxserial.get_pin_prefix(pin))
 
         # Allow timeout during idle
         # self.enable_idle_timeout = True
 
-        self.timetrack = []
         # Run event loop
         self.run(interval=1. / config.IO_MAX_SR)
 
@@ -188,7 +158,7 @@ class Io(vxprocess.AbstractProcess):
         pin = self._daq_pins[pin_id]
 
         # Check if pin is configured as output
-        if pin.signal_direction != vxserial.PINSIGDIR.OUT:
+        if pin.signal_direction != vxserial.PINSIGDIR.OUTPUT:
             log.warning(f'Pin {pin} cannot be configured as output. Not an output channel.')
             return
 
@@ -203,28 +173,21 @@ class Io(vxprocess.AbstractProcess):
 
             log.warning(f'Pin {pin} is already set.')
 
-    def main(self):
+    def main(self, dt: float):
 
         if self.current_control is not None and self.current_control.is_active:
-            self.current_control.main(0.0)
+            self.current_control.main(dt)
 
         # Go through all configured pins
-        for pin_id, pin in self._daq_pins.items():
-
-            prefix = self.get_pin_prefix(pin)
+        for pin in self._daq_pins.values():
 
             # Read input pins
-            if pin.signal_direction == vxserial.PINSIGDIR.IN:
-                input_attr_name = f'{prefix}_{pin_id}'
-                vxattribute.write_attribute(input_attr_name, pin.read())
+            if pin.signal_direction == vxserial.PINSIGDIR.INPUT:
+                pin.read_hw()
 
             # Write output pins
             else:
-                # Write attribute data to output pins if mapped
-                if pin_id in self._pin_id_attr_map:
-                    output_attr_name = self._pin_id_attr_map[pin_id]
-                    _, _, vals = read_attribute(output_attr_name)
-                    self._daq_pins[pin_id].write(vals[0][0])
+                pin.write_hw()
 
         # Run routines
         self.update_routines(**self._daq_pins)

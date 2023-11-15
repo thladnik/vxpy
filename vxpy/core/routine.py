@@ -8,6 +8,7 @@ from multiprocessing.managers import ValueProxy
 from typing import Callable, List, Type, Union, Dict, Any
 
 from vxpy.definitions import *
+import vxpy.core.devices.serial as vxserial
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
@@ -169,6 +170,10 @@ class IoRoutine(Routine, ABC):
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
+
+    @abstractmethod
+    def main(self, **pins: Dict[str, vxserial.DaqPin]):
+        pass
 
 
 class WorkerRoutine(Routine, ABC):

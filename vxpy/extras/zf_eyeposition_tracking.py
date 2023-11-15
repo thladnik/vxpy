@@ -1,19 +1,4 @@
-"""
-MappApp ./gui/camera/zf_tracking_widgets.py
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Eye tracking for zebrafish larvae - routine and user interface
 """
 from __future__ import annotations
 
@@ -21,12 +6,11 @@ from typing import Dict, Hashable, Tuple
 
 import cv2
 import numpy as np
-from PySide6 import QtWidgets, QtCore, QtGui
+from PySide6 import QtWidgets
 from PySide6.QtWidgets import QLabel
 import pyqtgraph as pg
 from scipy.spatial import distance
 
-from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.devices.camera as vxcamera
 import vxpy.core.dependency as vxdependency
@@ -42,7 +26,7 @@ from vxpy.utils.widgets import Checkbox, IntSliderWidget, UniformWidth
 log = vxlogger.getLogger(__name__)
 
 
-class EyePositionDetectionAddon(vxui.CameraAddonWidget):
+class ZFEyeTrackingUI(vxui.CameraAddonWidget):
 
     display_name = 'Eye position detection'
 
@@ -53,7 +37,6 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
     def __init__(self, *args, **kwargs):
         vxui.CameraAddonWidget.__init__(self, *args, **kwargs)
 
-        self.routine = EyePositionDetectionRoutine.instance()
 
         self.central_widget.setLayout(QtWidgets.QVBoxLayout())
 
@@ -70,23 +53,27 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
         self.uniform_label_width = UniformWidth()
 
         # Flip direction option
-        self.flip_direction = Checkbox('Flip directions', self.routine.flip_direction)
+        self.flip_direction = Checkbox('Flip directions', ZFEyeTracking.instance().flip_direction)
         self.flip_direction.connect_callback(self.update_flip_direction)
         self.ctrl_panel.layout().addWidget(self.flip_direction)
         self.uniform_label_width.add_widget(self.flip_direction.label)
 
         # Image threshold
         self.image_threshold = IntSliderWidget(self, 'Threshold',
-                                               limits=(1, 255), default=self.routine.binary_threshold,
-                                               label_width=label_width, step_size=1)
+                                               limits=(1, 255),
+                                               default=ZFEyeTracking.instance().binary_threshold,
+                                               label_width=label_width,
+                                               step_size=1)
         self.image_threshold.connect_callback(self.update_image_threshold)
         self.ctrl_panel.layout().addWidget(self.image_threshold)
         self.uniform_label_width.add_widget(self.image_threshold.label)
 
         # Particle size
         self.particle_minsize = IntSliderWidget(self, 'Min. particle size',
-                                                limits=(1, 1000), default=self.routine.min_particle_size,
-                                                label_width=label_width, step_size=1)
+                                                limits=(1, 1000),
+                                                default=ZFEyeTracking.instance().min_particle_size,
+                                                label_width=label_width,
+                                                step_size=1)
         self.particle_minsize.connect_callback(self.update_particle_minsize)
         self.ctrl_panel.layout().addWidget(self.particle_minsize)
         self.uniform_label_width.add_widget(self.particle_minsize.label)
@@ -95,8 +82,10 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
         self.ctrl_panel.layout().addItem(self._vspacer)
         self.ctrl_panel.layout().addWidget(QLabel('<b>Saccade detection</b>'))
         self.sacc_threshold = IntSliderWidget(self, 'Sacc. threshold [deg/s]',
-                                              limits=(1, 10000), default=self.routine.saccade_threshold,
-                                              label_width=label_width, step_size=1)
+                                              limits=(1, 10000),
+                                              default=ZFEyeTracking.instance().saccade_threshold,
+                                              label_width=label_width,
+                                              step_size=1)
         self.sacc_threshold.connect_callback(self.update_sacc_threshold)
         self.ctrl_panel.layout().addWidget(self.sacc_threshold)
         self.uniform_label_width.add_widget(self.sacc_threshold.label)
@@ -115,20 +104,24 @@ class EyePositionDetectionAddon(vxui.CameraAddonWidget):
 
         self.connect_to_timer(self.update_frame)
 
-    def update_flip_direction(self, state):
-        EyePositionDetectionRoutine.instance().flip_direction = bool(state)
+    @staticmethod
+    def update_flip_direction(state):
+        ZFEyeTracking.instance().flip_direction = bool(state)
 
-    def update_image_threshold(self, im_thresh):
-        EyePositionDetectionRoutine.instance().binary_threshold = im_thresh
+    @staticmethod
+    def update_image_threshold(im_thresh):
+        ZFEyeTracking.instance().binary_threshold = im_thresh
 
-    def update_particle_minsize(self, minsize):
-        EyePositionDetectionRoutine.instance().min_particle_size = minsize
+    @staticmethod
+    def update_particle_minsize(minsize):
+        ZFEyeTracking.instance().min_particle_size = minsize
 
-    def update_sacc_threshold(self, sacc_thresh):
-        EyePositionDetectionRoutine.instance().saccade_threshold = sacc_thresh
+    @staticmethod
+    def update_sacc_threshold(sacc_thresh):
+        ZFEyeTracking.instance().saccade_threshold = sacc_thresh
 
     def update_frame(self):
-        idx, time, frame = vxattribute.read_attribute(EyePositionDetectionRoutine.frame_name)
+        idx, time, frame = vxattribute.read_attribute(ZFEyeTracking.frame_name)
         frame = frame[0]
 
         if frame is None:
@@ -215,9 +208,8 @@ class FramePlot(pg.GraphicsLayoutWidget):
     def update_subplots(self):
 
         # Draw rectangular ROIs
-        routine_cls = EyePositionDetectionRoutine
         for roi_id in self.roi_rects:
-            rect_data = vxattribute.read_attribute(f'{routine_cls.extracted_rect_prefix}{roi_id}')
+            rect_data = vxattribute.read_attribute(f'{ZFEyeTracking.instance().extracted_rect_prefix}{roi_id}')
 
             # If this rect does not exist, skip
             if rect_data is None:
@@ -279,10 +271,10 @@ class Rect(pg.RectROI):
         # Set updates ROI parameters
         self.parent.roi_params[self.id] = self.rect
         # Send update to detector routine
-        vxipc.rpc(PROCESS_CAMERA, EyePositionDetectionRoutine.set_roi, self.id, self.rect)
+        vxipc.rpc(PROCESS_CAMERA, ZFEyeTracking.set_roi, self.id, self.rect)
 
 
-class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
+class ZFEyeTracking(vxroutine.CameraRoutine):
     """Routine that detects an arbitrary number of zebrafish eye pairs in a
     monochrome input frame
 
@@ -342,25 +334,25 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         vxattribute.ArrayAttribute(self.sacc_trigger_name, (1, ), vxattribute.ArrayType.bool)
 
         # Add attributes per fish
-        for id in range(self.roi_maxnum):
+        for i in range(self.roi_maxnum):
             # Rectangle
-            vxattribute.ObjectAttribute(f'{self.extracted_rect_prefix}{id}')
+            vxattribute.ObjectAttribute(f'{self.extracted_rect_prefix}{i}')
 
             # Position
-            vxattribute.ArrayAttribute(f'{self.ang_le_pos_prefix}{id}', (1,), vxattribute.ArrayType.float64)
-            vxattribute.ArrayAttribute(f'{self.ang_re_pos_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.ang_le_pos_prefix}{i}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.ang_re_pos_prefix}{i}', (1,), vxattribute.ArrayType.float64)
 
             # Velocity
-            vxattribute.ArrayAttribute(f'{self.ang_le_vel_prefix}{id}', (1,), vxattribute.ArrayType.float64)
-            vxattribute.ArrayAttribute(f'{self.ang_re_vel_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.ang_le_vel_prefix}{i}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.ang_re_vel_prefix}{i}', (1,), vxattribute.ArrayType.float64)
 
             # Saccade detection
-            vxattribute.ArrayAttribute(f'{self.le_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
-            vxattribute.ArrayAttribute(f'{self.re_sacc_prefix}{id}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.le_sacc_prefix}{i}', (1,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.re_sacc_prefix}{i}', (1,), vxattribute.ArrayType.float64)
 
             # Saccade direction
-            vxattribute.ArrayAttribute(f'{self.le_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.int8)
-            vxattribute.ArrayAttribute(f'{self.re_sacc_direction_prefix}{id}', (1,), vxattribute.ArrayType.int8)
+            vxattribute.ArrayAttribute(f'{self.le_sacc_direction_prefix}{i}', (1,), vxattribute.ArrayType.int8)
+            vxattribute.ArrayAttribute(f'{self.re_sacc_direction_prefix}{i}', (1,), vxattribute.ArrayType.int8)
 
     def initialize(self):
         pass
@@ -400,10 +392,7 @@ class EyePositionDetectionRoutine(vxroutine.CameraRoutine):
         # Resgister buffer attributes with plotter
 
         # Position
-        vxui.register_with_plotter(f'{self.ang_le_pos_prefix}{roi_num}', name=f'eye_pos(LE {roi_num})', axis='eye_pos',
-                                   units='deg')
-        vxui.register_with_plotter(f'{self.ang_re_pos_prefix}{roi_num}', name=f'eye_pos(RE {roi_num})', axis='eye_pos',
-                                   units='deg')
+        # vxattribute.get_1
 
         # Velocity
         vxui.register_with_plotter(f'{self.ang_le_vel_prefix}{roi_num}', name=f'eye_vel(LE {roi_num})', axis='eye_vel',

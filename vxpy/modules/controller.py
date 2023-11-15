@@ -93,18 +93,7 @@ class Controller(vxprocess.AbstractProcess):
 
                 # Get device for device_id
                 device = vxserial.get_serial_device_by_id(device_id)
-
-                # Go through alle pins
-                for pin_id, pin in device.get_pins():
-
-                    # Determine signal type
-                    prefix = vxmodules.Io.get_pin_prefix(pin)
-                    if pin.signal_type == vxserial.PINSIGTYPE.ANALOG:
-                        datatype = vxattribute.ArrayType.float64
-                    else:
-                        datatype = vxattribute.ArrayType.bool
-
-                    vxattribute.ArrayAttribute(f'{prefix}_{pin_id}', (1,), datatype)
+                device.setup_pins()
 
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
@@ -181,12 +170,32 @@ class Controller(vxprocess.AbstractProcess):
             routine_ops = config.ROUTINES[routine_path]
             log.info(f'Load routine {routine_path} (load priority {prio})')
 
-            # Load routine
+            # Import routine
             parts = routine_path.split('.')
-            module = importlib.import_module('.'.join(parts[:-1]))
-            routine_cls = getattr(module, parts[-1])
-            if routine_cls is None:
-                log.error(f'Unable to load routine {routine_path}. Routine not found.')
+            success_import  = False
+            failed_import = False
+            _exc = ''
+            while not success_import and not failed_import:
+                try:
+                    module = importlib.import_module('.'.join(parts[:-1]))
+                    routine_cls = getattr(module, parts[-1])
+                    if routine_cls is None:
+                        log.warning(f'Failed to load routine {routine_path}. '
+                                    f'No routine with name {parts[-1]} in {module.__qualname__}')
+                        failed_import = True
+                except ModuleNotFoundError as _exc:
+                    missing_mod_name = _exc.name
+                    log.warning(f'Routine {routine_path} missing module \'{missing_mod_name}\'. Trying to auto-install')
+                    import pip
+                    pip.main(['install', missing_mod_name])
+                except BaseException as _exc:
+                    log.warning(f'Unable to load routine {routine_path} // Exc: {_exc}')
+                    failed_import = True
+                else:
+                    success_import = True
+
+            if failed_import:
+                log.error(f'Unable to import routine {routine_path} // {_exc}')
                 continue
 
             process_name = routine_cls.process_name
@@ -234,6 +243,8 @@ class Controller(vxprocess.AbstractProcess):
             _states=vxipc.STATE,
             _routines=self._routines,
             _controls=vxipc.CONTROL,
+            _devices=vxserial.devices,
+            _daq_pins=vxserial.daq_pins,
             _log_queue=vxlogger.get_queue(),
             _log_history=vxlogger.get_history(),
             _attrs=vxattribute.Attribute.all
@@ -663,7 +674,7 @@ class Controller(vxprocess.AbstractProcess):
         self.phase_start_time = time
         self.phase_end_time = time + phase.duration
 
-    def main(self):
+    def main(self, dt: float):
 
         # Write record group id
         record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1

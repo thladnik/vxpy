@@ -120,6 +120,7 @@ _local_time = 0.0
 
 
 def update_time():
+    """Don't you dare call this outside of vxpy.core.process!"""
     global _local_time
     _local_time = time.time() - LocalProcess.program_start_time
 
