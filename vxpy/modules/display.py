@@ -6,6 +6,7 @@ from typing import Callable, Dict, Union, Type
 import glfw
 import time
 
+import numpy as np
 from vispy import app
 from vispy import gloo
 
@@ -128,6 +129,9 @@ class Display(vxprocess.AbstractProcess):
         # Create datasets for all variable visual parameters
         for param in self.current_visual.variable_parameters:
             vxcontainer.create_phase_dataset(param.name, param.shape, param.dtype)
+
+        # Create dataset for global time
+        vxcontainer.create_phase_dataset('__time', (1,), np.float64)
 
         if self.current_protocol is not None:
             vxcontainer.add_phase_attributes({'__target_duration': self.current_protocol.current_phase.duration})
@@ -295,6 +299,9 @@ class Canvas(app.Canvas):
             # Write variable display parameters to file
             for parameter in self.current_visual.variable_parameters:
                 vxcontainer.add_to_phase_dataset(parameter.name, parameter.data)
+
+            # Add global time
+            vxcontainer.add_to_phase_dataset('__time', vxipc.get_time())
 
         # Update
         # WARNING: display is going to get stuck if update() is conditional,
