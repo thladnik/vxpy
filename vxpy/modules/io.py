@@ -1,23 +1,8 @@
-"""
-MappApp ./modules/display_calibration.py - General purpose digital/analog input/output modules.
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+""" General purpose digital/analog input/output module
 """
 import importlib
 import time
-from typing import Dict, Union
+from typing import Dict, Union, Any
 
 import numpy as np
 
@@ -109,6 +94,7 @@ class Io(vxprocess.AbstractProcess):
         # Allow timeout during idle
         # self.enable_idle_timeout = True
 
+        self.TEST_time = vxipc.get_time()
         # Run event loop
         self.run(interval=1. / config.IO_MAX_SR)
 
@@ -126,7 +112,18 @@ class Io(vxprocess.AbstractProcess):
         if control is None:
             control = self.current_protocol.current_phase.control
 
+        # Prepare parameters
+        if parameters is None:
+            if self.current_protocol is None:
+                parameters = {}
+            else:
+                # Fetch protocol-defined parameters
+                parameters = self.current_protocol.current_phase.control_parameters
+
         self.current_control = control
+
+    def update_control(self, parameters: Dict[str, Any]):
+        self.current_control.update(parameters)
 
     def start_static_protocol_phase(self):
         self.start_control()
@@ -188,6 +185,16 @@ class Io(vxprocess.AbstractProcess):
             # Write output pins
             else:
                 pin.write_hw()
+
+        # TEST!!!
+        # dev = vxserial.get_serial_device_by_id('Dev_kebab')
+        #
+        # if vxipc.get_time() > self.TEST_time + 5:
+        #     dev.board.stepper_set_max_speed(dev.motor, 1000)
+        #     dev.board.stepper_set_speed(dev.motor, 50 * np.random.randint(10))
+        #     dev.board.stepper_run_speed(dev.motor)
+        #
+        #     self.TEST_time = vxipc.get_time()
 
         # Run routines
         self.update_routines(**self._daq_pins)

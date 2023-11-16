@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Any
+
 
 class BaseControl(ABC):
 
@@ -7,6 +9,10 @@ class BaseControl(ABC):
 
     def start(self):
         self.is_active = True
+
+    def update(self, parameters: Dict[str, Any]):
+        for name, value in parameters.items():
+            setattr(self, name, value)
 
     def end(self):
         self.is_active = False

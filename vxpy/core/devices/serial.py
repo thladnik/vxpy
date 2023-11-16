@@ -40,7 +40,12 @@ def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], Type[DaqDev
 
 
 def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, DaqDevice, None]:
-    """Fetch the device by its string identifier"""
+    """Fetch the device by its string identifier
+    """
+    global devices
+    if device_id in devices:
+        return devices[device_id]
+
     # Get camera properties from config
     device_props = config.IO_DEVICES.get(device_id)
 
@@ -292,9 +297,8 @@ class DaqDevice:
 class SerialDevice:
     """Base class of any serial device"""
 
-    def __init__(self, device_id, baud_rate, **kwargs):
+    def __init__(self, device_id: str, **kwargs):
         self.device_id: str = device_id
-        self.baud_rate: int = baud_rate
         self.properties: Dict[str, Any] = kwargs
 
         # Add device to global dictionary

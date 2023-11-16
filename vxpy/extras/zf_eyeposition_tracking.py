@@ -2,7 +2,7 @@
 """
 from __future__ import annotations
 
-from typing import Dict, Hashable, Tuple
+from typing import Dict, Hashable, Tuple, Union
 
 import cv2
 import numpy as np
@@ -21,7 +21,7 @@ import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
 from vxpy.definitions import *
 from vxpy.utils import geometry
-from vxpy.utils.widgets import Checkbox, IntSliderWidget, UniformWidth
+from vxpy.utils.widgets import Checkbox, DoubleSliderWidget, IntSliderWidget, UniformWidth
 
 log = vxlogger.getLogger(__name__)
 
@@ -37,58 +37,81 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
     def __init__(self, *args, **kwargs):
         vxui.CameraAddonWidget.__init__(self, *args, **kwargs)
 
+        self.central_widget.setLayout(QtWidgets.QHBoxLayout())
 
-        self.central_widget.setLayout(QtWidgets.QVBoxLayout())
-
+        # Set up control panel
         self.ctrl_panel = QtWidgets.QWidget(self)
-        self.ctrl_panel.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-                                      QtWidgets.QSizePolicy.Policy.Maximum)
+        self.ctrl_panel.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum,
+                                      QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         self.ctrl_panel.setLayout(QtWidgets.QVBoxLayout())
         self.central_widget.layout().addWidget(self.ctrl_panel)
 
-        # Set up control panel
-        self.ctrl_panel.layout().addWidget(QLabel('<b>Eye detection</b>'))
+        # Image processing
+        self.img_proc = QtWidgets.QGroupBox('Image processing')
+        self.ctrl_panel.layout().addWidget(self.img_proc)
+        self.img_proc.setLayout(QtWidgets.QVBoxLayout())
+        self.use_img_corr = Checkbox('Use image correction', ZFEyeTracking.instance().use_image_correction)
+        self.use_img_corr.connect_callback(self.update_use_img_corr)
+        self.img_proc.layout().addWidget(self.use_img_corr)
+        self.img_contrast = DoubleSliderWidget(self.ctrl_panel, 'Contrast', ZFEyeTracking.instance().contrast, (0, 3), 0.01)
+        self.img_contrast.connect_callback(self.update_contrast)
+        self.img_proc.layout().addWidget(self.img_contrast)
+        self.img_brightness = IntSliderWidget(self.ctrl_panel, 'Brightness', ZFEyeTracking.instance().brightness, (0, 300), 1)
+        self.img_brightness.connect_callback(self.update_brightness)
+        self.img_proc.layout().addWidget(self.img_brightness)
+        self.use_motion_corr = Checkbox('Use motion correction', ZFEyeTracking.instance().use_motion_correction)
+        self.use_motion_corr.connect_callback(self.update_use_motion_corr)
+        self.img_proc.layout().addWidget(self.use_motion_corr)
 
+        # Eye position detection
+        self.eye_detect = QtWidgets.QGroupBox('Eye position detection')
+        self.eye_detect.setLayout(QtWidgets.QVBoxLayout())
+        self.ctrl_panel.layout().addWidget(self.eye_detect)
         label_width = 125
         self.uniform_label_width = UniformWidth()
 
         # Flip direction option
         self.flip_direction = Checkbox('Flip directions', ZFEyeTracking.instance().flip_direction)
         self.flip_direction.connect_callback(self.update_flip_direction)
-        self.ctrl_panel.layout().addWidget(self.flip_direction)
+        self.eye_detect.layout().addWidget(self.flip_direction)
         self.uniform_label_width.add_widget(self.flip_direction.label)
 
         # Image threshold
-        self.image_threshold = IntSliderWidget(self, 'Threshold',
-                                               limits=(1, 255),
-                                               default=ZFEyeTracking.instance().binary_threshold,
-                                               label_width=label_width,
-                                               step_size=1)
-        self.image_threshold.connect_callback(self.update_image_threshold)
-        self.ctrl_panel.layout().addWidget(self.image_threshold)
-        self.uniform_label_width.add_widget(self.image_threshold.label)
+        self.particle_threshold = IntSliderWidget(self, 'Threshold',
+                                                  limits=(1, 255),
+                                                  default=ZFEyeTracking.instance().binary_threshold,
+                                                  step_size=1)
+        self.particle_threshold.connect_callback(self.update_particle_threshold)
+        self.eye_detect.layout().addWidget(self.particle_threshold)
+        self.uniform_label_width.add_widget(self.particle_threshold.label)
 
         # Particle size
         self.particle_minsize = IntSliderWidget(self, 'Min. particle size',
                                                 limits=(1, 1000),
                                                 default=ZFEyeTracking.instance().min_particle_size,
-                                                label_width=label_width,
                                                 step_size=1)
         self.particle_minsize.connect_callback(self.update_particle_minsize)
-        self.ctrl_panel.layout().addWidget(self.particle_minsize)
+        self.eye_detect.layout().addWidget(self.particle_minsize)
         self.uniform_label_width.add_widget(self.particle_minsize.label)
 
         # Saccade detection
-        self.ctrl_panel.layout().addItem(self._vspacer)
-        self.ctrl_panel.layout().addWidget(QLabel('<b>Saccade detection</b>'))
+        self.saccade_detect = QtWidgets.QGroupBox('Saccade detection')
+        self.saccade_detect.setLayout(QtWidgets.QHBoxLayout())
+        self.ctrl_panel.layout().addWidget(self.saccade_detect)
         self.sacc_threshold = IntSliderWidget(self, 'Sacc. threshold [deg/s]',
                                               limits=(1, 10000),
                                               default=ZFEyeTracking.instance().saccade_threshold,
                                               label_width=label_width,
                                               step_size=1)
         self.sacc_threshold.connect_callback(self.update_sacc_threshold)
-        self.ctrl_panel.layout().addWidget(self.sacc_threshold)
+        self.saccade_detect.layout().addWidget(self.sacc_threshold)
         self.uniform_label_width.add_widget(self.sacc_threshold.label)
+
+        # Add button for new ROI creation
+        self.ctrl_panel.layout().addItem(self._vspacer)
+        self.add_roi_btn = QtWidgets.QPushButton('Add ROI')
+        self.add_roi_btn.clicked.connect(self.add_roi)
+        self.ctrl_panel.layout().addWidget(self.add_roi_btn)
 
         # Set up image plot
         self.graphics_widget = FramePlot(parent=self)
@@ -96,20 +119,33 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
                                            QtWidgets.QSizePolicy.Policy.MinimumExpanding)
         self.central_widget.layout().addWidget(self.graphics_widget)
 
-        # Add button for new ROI creation
-        self.ctrl_panel.layout().addItem(self._vspacer)
-        self.add_roi_btn = QtWidgets.QPushButton('Add ROI')
-        self.add_roi_btn.clicked.connect(self.graphics_widget.add_marker)
-        self.ctrl_panel.layout().addWidget(self.add_roi_btn)
-
         self.connect_to_timer(self.update_frame)
+
+    def add_roi(self):
+        self.graphics_widget.add_marker()
+
+    @staticmethod
+    def update_use_img_corr(value):
+        ZFEyeTracking.instance().use_image_correction = bool(value)
+
+    @staticmethod
+    def update_contrast(value):
+        ZFEyeTracking.instance().contrast = value
+
+    @staticmethod
+    def update_brightness(value):
+        ZFEyeTracking.instance().brightness = value
+
+    @staticmethod
+    def update_use_motion_corr(value):
+        ZFEyeTracking.instance().use_motion_correction = value
 
     @staticmethod
     def update_flip_direction(state):
         ZFEyeTracking.instance().flip_direction = bool(state)
 
     @staticmethod
-    def update_image_threshold(im_thresh):
+    def update_particle_threshold(im_thresh):
         ZFEyeTracking.instance().binary_threshold = im_thresh
 
     @staticmethod
@@ -121,12 +157,22 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
         ZFEyeTracking.instance().saccade_threshold = sacc_thresh
 
     def update_frame(self):
-        idx, time, frame = vxattribute.read_attribute(ZFEyeTracking.frame_name)
-        frame = frame[0]
 
+        frame = None
+        if ZFEyeTracking.instance().use_image_correction or ZFEyeTracking.instance().use_motion_correction:
+            # Try to read corrected frame
+            idx, time, frame = vxattribute.read_attribute(ZFEyeTracking.frame_corrected_name)
+            frame = frame[0]
+
+        # Fallback to raw frame
         if frame is None:
-            return
+            idx, time, frame = vxattribute.read_attribute(ZFEyeTracking.frame_name)
+            frame = frame[0]
 
+            if frame is None:
+                return
+
+        # Update image
         self.graphics_widget.image_item.setImage(frame)
 
 
@@ -288,8 +334,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
     # Set required device
     camera_device_id = 'fish_embedded'
 
+    # Names
     routine_prefix = 'eyepos_'
-
     extracted_rect_prefix = f'{routine_prefix}extracted_rect_'
     ang_le_pos_prefix = f'{routine_prefix}ang_le_pos_'
     ang_re_pos_prefix = f'{routine_prefix}ang_re_pos_'
@@ -300,13 +346,25 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
     le_sacc_direction_prefix = f'{routine_prefix}le_saccade_direction_'
     re_sacc_direction_prefix = f'{routine_prefix}re_saccade_direction_'
     frame_name = f'{routine_prefix}frame'
+    frame_corrected_name = f'{routine_prefix}corrected_frame'
     sacc_trigger_name = f'{routine_prefix}saccade_trigger'
 
+    # Parameters
+    # Image corrections
+    use_image_correction = False
+    contrast = 1.0
+    brightness = 100
+    use_motion_correction = False
+    # Eye detection
     roi_maxnum = 5
     flip_direction = False
     binary_threshold = 60
     min_particle_size = 20
+    # Saccade detection
     saccade_threshold = 600
+
+    # Internal
+    reference_frame: np.ndarray = None
 
     def __init__(self, *args, **kwargs):
         vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
@@ -327,8 +385,9 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             log.error(f'Camera {self.camera_device_id} unavailable for eye position tracking')
             return
 
-        # Add frame
+        # Add frames
         vxattribute.ArrayAttribute(self.frame_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
+        vxattribute.ArrayAttribute(self.frame_corrected_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
 
         # Add saccade trigger buffer
         vxattribute.ArrayAttribute(self.sacc_trigger_name, (1, ), vxattribute.ArrayType.bool)
@@ -392,7 +451,10 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         # Resgister buffer attributes with plotter
 
         # Position
-        # vxattribute.get_1
+        vxui.register_with_plotter(f'{self.ang_le_pos_prefix}{roi_num}', name=f'eye_pos(LE {roi_num})', axis='eye_pos',
+                                   units='deg')
+        vxui.register_with_plotter(f'{self.ang_re_pos_prefix}{roi_num}', name=f'eye_pos(RE {roi_num})', axis='eye_pos',
+                                   units='deg')
 
         # Velocity
         vxui.register_with_plotter(f'{self.ang_le_vel_prefix}{roi_num}', name=f'eye_vel(LE {roi_num})', axis='eye_vel',
@@ -535,6 +597,37 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         return [thetas[le_idx], thetas[re_idx]], thresh
 
+    def apply_motion_correction(self, frame: np.ndarray) -> Union[np.ndarray, None]:
+        if self.reference_frame is None:
+            self.reference_frame = frame.copy()
+            return
+
+        ref_points = cv2.goodFeaturesToTrack(self.reference_frame,
+                                             maxCorners=200,
+                                             qualityLevel=0.01,
+                                             minDistance=30,
+                                             blockSize=3)
+
+        new_points, status, _ = cv2.calcOpticalFlowPyrLK(self.reference_frame, frame, ref_points, None)
+
+        if ref_points.shape != new_points.shape:
+            log.warning('Motion correction failed. Reference point number != frame point number')
+            return
+
+        # Filter valid points
+        idx = np.where(status == 1)[0]
+        ref_points = ref_points[idx]
+        new_points = new_points[idx]
+
+        # Get transform matrix
+        M, _ = cv2.estimateAffinePartial2D(new_points, ref_points)
+
+        # Apply & return
+        return cv2.warpAffine(frame, M, (frame.shape[1], frame.shape[0]))
+
+    def apply_image_correction(self, frame: np.ndarray) -> np.ndarray:
+        return np.clip(self.contrast * frame + self.brightness, 0, 255).astype(np.uint8)
+
     def main(self, **frames):
 
         # Read frame
@@ -550,6 +643,21 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         # Write frame to buffer
         vxattribute.write_attribute(self.frame_name, frame.T)
+
+        # Apply motion correction
+        if self.use_motion_correction:
+            stabilized_frame = self.apply_motion_correction(frame)
+
+            if stabilized_frame is not None:
+                frame = stabilized_frame
+
+        # Apply image correction
+        if self.use_image_correction:
+            frame = self.apply_image_correction(frame)
+
+        if self.use_image_correction or self.use_motion_correction:
+            # Write corrected frame to buffer
+            vxattribute.write_attribute(self.frame_corrected_name, frame.T)
 
         # If there are no ROIs, there's nothing to detect
         if len(self.rois) == 0:

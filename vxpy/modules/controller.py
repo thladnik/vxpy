@@ -93,7 +93,11 @@ class Controller(vxprocess.AbstractProcess):
 
                 # Get device for device_id
                 device = vxserial.get_serial_device_by_id(device_id)
-                device.setup_pins()
+                print(vxserial.devices)
+
+                # Set up pins for DAQs
+                if isinstance(device, vxserial.DaqDevice):
+                    device.setup_pins()
 
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
