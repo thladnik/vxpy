@@ -1154,7 +1154,8 @@ class ProtocolWidget(IntegratedWidget):
         if self.current_phase is None:
             return
 
-        self.current_visual_name.setText(self.current_phase.visual.__qualname__)
+        if self.current_phase.visual is not None:
+            self.current_visual_name.setText(self.current_phase.visual.__qualname__)
 
         # Update current visual properties in table
         self.visual_properties.clearContents()

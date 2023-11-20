@@ -12,6 +12,7 @@ class Telemetrix(vxserial.SerialDevice):
         _arduino_instance_id = self.properties.get('arduino_instance_id', 1)
 
         self.board = telemetrix.Telemetrix(arduino_instance_id=_arduino_instance_id)
+        self.board.start()
 
     def _close(self) -> bool:
         self.board.shutdown()

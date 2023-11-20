@@ -10,12 +10,14 @@ from vxpy.api.attribute import read_attribute
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.attribute as vxattribute
+import vxpy.core.container as vxcontainer
 import vxpy.core.control as vxcontrol
 import vxpy.core.ipc as vxipc
 import vxpy.core.process as vxprocess
 import vxpy.core.logger as vxlogger
 import vxpy.core.ui as vxui
 import vxpy.core.devices.serial as vxserial
+
 
 log = vxlogger.getLogger(__name__)
 
@@ -121,6 +123,10 @@ class Io(vxprocess.AbstractProcess):
                 parameters = self.current_protocol.current_phase.control_parameters
 
         self.current_control = control
+        self.current_control.update(parameters)
+
+        # Create dataset for global time
+        vxcontainer.create_phase_dataset('__time', (1,), np.float64)
 
     def update_control(self, parameters: Dict[str, Any]):
         self.current_control.update(parameters)
@@ -132,6 +138,7 @@ class Io(vxprocess.AbstractProcess):
         if self.current_control is None:
             return
 
+        self.current_control.initialize()
         self.current_control.start()
 
     def end_static_protocol_phase(self):
@@ -186,18 +193,11 @@ class Io(vxprocess.AbstractProcess):
             else:
                 pin.write_hw()
 
-        # TEST!!!
-        # dev = vxserial.get_serial_device_by_id('Dev_kebab')
-        #
-        # if vxipc.get_time() > self.TEST_time + 5:
-        #     dev.board.stepper_set_max_speed(dev.motor, 1000)
-        #     dev.board.stepper_set_speed(dev.motor, 50 * np.random.randint(10))
-        #     dev.board.stepper_run_speed(dev.motor)
-        #
-        #     self.TEST_time = vxipc.get_time()
-
         # Run routines
         self.update_routines(**self._daq_pins)
+
+        # Add global time
+        vxcontainer.add_to_phase_dataset('__time', vxipc.get_time())
 
     def _start_shutdown(self):
 
