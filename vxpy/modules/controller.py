@@ -438,10 +438,10 @@ class Controller(vxprocess.AbstractProcess):
 
     @staticmethod
     def _handle_logging():
-        while not vxlogger.get_log_queue().empty():
+        while not vxlogger.get_queue().empty():
 
             # Fetch next record
-            record = vxlogger.get_log_queue().get()
+            record = vxlogger.get_queue().get()
 
             try:
                 vxlogger.add_to_file(record)
