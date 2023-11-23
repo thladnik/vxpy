@@ -114,6 +114,9 @@ class Io(vxprocess.AbstractProcess):
         if control is None:
             control = self.current_protocol.current_phase.control
 
+            if control is None:
+                return
+
         # Prepare parameters
         if parameters is None:
             if self.current_protocol is None:

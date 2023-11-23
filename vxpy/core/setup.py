@@ -16,9 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
 from typing import Union
-import h5py
 import requests
-import sys
 import zipfile
 
 import vxpy
@@ -47,8 +45,6 @@ def patch_dir(use_path: str = None):
         # Create empty default folders
         if not os.path.exists(PATH_LOG):
             os.mkdir(PATH_LOG)
-        if not os.path.exists(PATH_SAMPLE):
-            os.mkdir(PATH_SAMPLE)
         if not os.path.exists(PATH_TEMP):
             os.mkdir(PATH_TEMP)
         if not os.path.exists(PATH_RECORDING_OUTPUT):
@@ -75,6 +71,7 @@ def setup_resources(use_path: str = None):
         dst_file = 'vxPy_app.zip'
 
         # Try source address order
+        response = None
         for addr in src_addrs:
             print(f'Try {addr}')
             response = requests.get(addr)
@@ -83,21 +80,25 @@ def setup_resources(use_path: str = None):
             if response.status_code == 404:
                 print('Address unavailable')
                 response.close()
+                response = None
                 continue
 
-            # Open file for download
-            print(f'Download app files from {addr} to {dst_file}')
-            content_length = response.headers.get('content-length')
-            with open(dst_file, 'wb') as fobj:
+        if response is None:
+            print('Failed to load application data')
+            return
 
-                # If it is unknown
-                if content_length is None:
-                    fobj.write(response.content)
-                else:
-                    for data in response.iter_content(chunk_size=1024):
-                        fobj.write(data)
+        # Open file for download
+        print(f'Download app files from {addr} to {dst_file}')
+        content_length = response.headers.get('content-length')
+        with open(dst_file, 'wb') as fobj:
 
-            break
+            # If it is unknown
+            if content_length is None:
+                fobj.write(response.content)
+            else:
+                for data in response.iter_content(chunk_size=1024):
+                    # Write
+                    fobj.write(data)
 
         # Upzip contents
         print('Unboxing')
@@ -115,80 +116,3 @@ def setup_resources(use_path: str = None):
         os.remove(dst_file)
 
         print(f'Setup complete')
-
-
-def download_samples(use_path: str = None):
-    """Download binary sample files from vxPy core's release tag (if available)"""
-
-    with WorkInDirectory(use_path):
-
-        # Check availability
-        source_url = f'https://github.com/thladnik/vxpy/releases/download/v{vxpy.__version__}/samples_compr.h5'
-        local_path = os.path.join(PATH_SAMPLE, 'samples_compr.hdf5')
-
-        # Connect
-        response = requests.get(source_url, stream=True)
-
-        # Check availability
-        if response.status_code == 404:
-            print('No sample file matching this release version found')
-            response.close()
-            return
-
-        # Download, if it is available
-        with open(local_path, 'wb') as fobj:
-            print(f'Download sample file for release {source_url} to {local_path}')
-
-            # If it is unknown
-            content_length = response.headers.get('content-length')
-            if content_length is None:
-                fobj.write(response.content)
-            else:
-                cur_length = 0
-                content_length = int(content_length)
-                print(f'Downloading samples files for release at {source_url}')
-
-                for data in response.iter_content(chunk_size=4096):
-                    cur_length += len(data)
-                    fobj.write(data)
-                    print_download_progress(cur_length, content_length)
-                    sys.stdout.flush()
-
-        # Unpack compressed sample files
-        unpack_samples()
-
-
-def unpack_samples():
-    """Decompress binary sample files (avoid laggs or poor performance at runtime)"""
-
-    in_path = os.path.join(PATH_SAMPLE, 'samples_compr.hdf5')
-    out_path = os.path.join(PATH_SAMPLE, 'samples.hdf5')
-
-    with h5py.File(in_path, 'r') as fin:
-        with h5py.File(out_path, 'w') as fout:
-            for key in fin.keys():
-                fout.create_dataset(key, data=fin[key][:])
-
-
-def print_download_progress(cur_length, total_length, unit=None):
-    """Print simple CLI progress bar"""
-
-    if unit == 'B':
-        num = 10**0
-    elif unit == 'KB':
-        num = 10 ** 3
-    elif unit == 'MB':
-        num = 10 ** 6
-    else:
-        p = total_length // 100
-        if p > 10 ** 6:
-            num = 10 ** 6
-            unit = 'MB'
-        else:
-            num = 10 ** 3
-            unit = 'KB'
-
-    progress = int(100 * cur_length / total_length)
-    sys.stdout.write(f'\r[{"#" * progress}{" " * (100-progress)}]'
-                     + '({:.2f} / {:.2f} '.format(cur_length / num, total_length / num)
-                     + f'{unit})')

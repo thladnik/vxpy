@@ -19,7 +19,6 @@ import logging
 import logging.handlers
 import multiprocessing as mp
 
-from vxpy.definitions import *
 
 _log_queue: mp.Queue = None
 _log_history: list = None

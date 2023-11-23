@@ -39,14 +39,14 @@ def run_process(target: AbstractProcess, **kwargs):
     """
 
     # Set up logging
-    vxlogger.setup_log_queue(kwargs.get('_log_queue'))
+    vxlogger.setup_log_queue(kwargs.pop('_log_queue'))
     log = vxlogger.getLogger(target.name)
     # Bind logging functions
     vxlogger.debug = log.debug
     vxlogger.info = log.info
     vxlogger.warning = log.warning
     vxlogger.error = log.error
-    vxlogger.setup_log_history(kwargs.get('_log_history'))
+    vxlogger.setup_log_history(kwargs.pop('_log_history'))
 
     return target(**kwargs)
 
@@ -311,9 +311,13 @@ class AbstractProcess:
     @property
     def phase_is_active(self) -> bool:
         """Flag which is True if the current local time is within
-        the defined start and end times of of the currently active protocol phase
+        the defined start and end times of the currently active protocol phase
         """
-        return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
+        if vxipc.CONTROL[CTRL_PRCL_TYPE] == vxprotocol.StaticProtocol:
+            return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
+
+        if vxipc.CONTROL[CTRL_PRCL_TYPE] == vxprotocol.TriggeredProtocol:
+            return self.phase_start_time <= vxipc.get_time()
 
     def prepare_static_protocol(self):
         """To be reimplemented in fork. Method is called by _prepare_static_protocol"""

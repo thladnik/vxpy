@@ -18,13 +18,11 @@ DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE = 2 * 10**8  # Default ~200MB
 PATH_PACKAGE = 'vxpy'
 PATH_CONFIG = 'configurations'
 PATH_GUI = 'extras'
-PATH_DLL = os.path.join('lib', 'dll')
 PATH_LOG = 'logs'
 PATH_VISUALS = 'visuals'
 PATH_PROTOCOL = 'protocols'
 PATH_RECORDING_OUTPUT = 'recordings'
 PATH_TEMP = 'temp'
-PATH_SAMPLE = 'samples'
 PATH_DEVICE = 'devices'
 PATH_ROUTINES = 'routines'
 PATH_SHADERS = 'shaders'
@@ -107,10 +105,3 @@ class SIGNAL(Enum):
 class DeviceType(Enum):
     Camera = 1
     Io = 2
-
-
-def get_sample_path():
-    """Return path for example files, based on configuration"""
-    if len(config.PATH_EXAMPLES) > 0:
-        return config.PATH_EXAMPLES
-    return PATH_SAMPLE

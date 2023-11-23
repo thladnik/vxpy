@@ -93,7 +93,6 @@ class Controller(vxprocess.AbstractProcess):
 
                 # Get device for device_id
                 device = vxserial.get_serial_device_by_id(device_id)
-                print(vxserial.devices)
 
                 # Set up pins for DAQs
                 if isinstance(device, vxserial.DaqDevice):
@@ -385,10 +384,6 @@ class Controller(vxprocess.AbstractProcess):
 
         return 0
 
-    # Shared control properties
-
-    # Recording
-
     @vxprocess.AbstractProcess.record_base_path.setter
     def record_base_path(self, val):
 
@@ -443,10 +438,10 @@ class Controller(vxprocess.AbstractProcess):
 
     @staticmethod
     def _handle_logging():
-        while not vxlogger.get_queue().empty():
+        while not vxlogger.get_log_queue().empty():
 
             # Fetch next record
-            record = vxlogger.get_queue().get()
+            record = vxlogger.get_log_queue().get()
 
             try:
                 vxlogger.add_to_file(record)
@@ -648,7 +643,6 @@ class Controller(vxprocess.AbstractProcess):
             pass
 
     def _process_trigger_protocol(self):
-
         # End protocol after phase_end_time is reached during the last stimulation phase
         if self.phase_id >= (self.current_protocol.phase_count - 1) and self.phase_end_time < vxipc.get_time():
             vxipc.set_state(STATE.PRCL_STOP_REQ)

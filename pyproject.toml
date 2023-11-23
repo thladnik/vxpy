@@ -42,6 +42,7 @@ dependencies = [
     'setuptools>=65.5.0', 
     'vispy>=0.11.0',
     'tomli; python_version <= "3.11"',
+    'h5gview@git+https://github.com/thladnik/h5gview'
 ]
 requires-python = ">=3.8"
 

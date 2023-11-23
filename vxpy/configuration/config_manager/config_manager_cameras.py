@@ -1,13 +1,22 @@
+"""Camera configuration widget
+"""
 import sys
 from typing import Any, Dict, Tuple
 
 import yaml
 from PySide6 import QtCore, QtWidgets
 from vxpy import config
-from vxpy import utils
 from vxpy.utils import widgets
 import vxpy.core.devices.camera as vxcamera
-import vxpy.extras
+
+api_paths = {
+    'win32': ['vxpy.devices.camera.tis_windows_tisgrabber.TISCamera',
+              'vxpy.devices.camera.basler_pylon.BaslerCamera',
+              'vxpy.devices.camera.virtual_camera.VirtualCamera'],
+    'linux': ['vxpy.devices.camera.tis_linux_gst.TISCamera',
+              'vxpy.devices.camera.basler_pylon.BaslerCamera',
+              'vxpy.devices.camera.virtual_camera.VirtualCamera']
+}
 
 
 class CameraManager(QtWidgets.QWidget):
@@ -22,7 +31,7 @@ class CameraManager(QtWidgets.QWidget):
         self.controls.setLayout(QtWidgets.QVBoxLayout())
         self.layout().addWidget(self.controls)
         self.add_camera_btn = QtWidgets.QPushButton('Add camera')
-        self.add_camera_btn.clicked.connect(self._new_routine)
+        self.add_camera_btn.clicked.connect(self._new_camera)
         self.controls.layout().addWidget(self.add_camera_btn)
         self.remove_camera_btn = QtWidgets.QPushButton('Remove camera')
         self.remove_camera_btn.clicked.connect(self._remove_camera)
@@ -68,7 +77,7 @@ class CameraManager(QtWidgets.QWidget):
         for path in config.CAMERA_DEVICES:
             self.list.add_item(path)
 
-    def _new_routine(self):
+    def _new_camera(self):
 
         dialog = AvailableCameras(self)
         answer = dialog.exec_()
@@ -216,22 +225,15 @@ class AvailableCameras(QtWidgets.QDialog):
         self.current_camera_item: str = None
 
     def reload_cameras(self):
-        self.list.clear()
+        global api_paths
 
-        if sys.platform == 'win32':
-            api_paths = ['vxpy.devices.camera.tis_windows_tisgrabber.TISCamera',
-                         'vxpy.devices.camera.basler_pylon.BaslerCamera',
-                         'vxpy.devices.camera.virtual_camera.VirtualCamera']
-        elif sys.platform == 'linux':
-            api_paths = ['vxpy.devices.camera.tis_linux_gst.TISCamera',
-                         'vxpy.devices.camera.basler_pylon.BaslerCamera',
-                         'vxpy.devices.camera.virtual_camera.VirtualCamera']
-        else:
+        if sys.platform not in api_paths:
             print(f'ERROR: no camera interfaces available for system {sys.platform}')
             return
 
         # Go through all camera APIs
-        for api in api_paths:
+        self.list.clear()
+        for api in api_paths[sys.platform]:
             camera_cls = vxcamera.get_camera_interface(api)
             if camera_cls is None:
                 print(f'ERROR: unable to load camera interface {api}')
@@ -240,7 +242,8 @@ class AvailableCameras(QtWidgets.QDialog):
             # Get list of available camera devices for API
             for camera in camera_cls.get_camera_list():
                 opts = {'api': api,
-                        **camera.get_settings()}
+                        **camera.get_settings(),
+                        **camera.properties}
                 self.list.add_item(f'{camera} ({api})', opts)
 
     def selection_confirmed(self):
