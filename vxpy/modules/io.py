@@ -100,10 +100,19 @@ class Io(vxprocess.AbstractProcess):
         # Run event loop
         self.run(interval=1. / config.IO_MAX_SR)
 
+    def prepare_trigger_protocol(self):
+        # Create all controls during protocol preparation (ahead of protocol run)
+        #  This may come with some initial overhead, but reduces latency between stimulation phases
+        self.current_protocol.create_controls()
+
     def prepare_static_protocol(self):
         # Create all controls during protocol preparation (ahead of protocol run)
         #  This may come with some initial overhead, but reduces latency between stimulation phases
         self.current_protocol.create_controls()
+
+    def prepare_trigger_protocol_phase(self):
+        # Prepare visual associated with phase
+        self.prepare_control()
 
     def prepare_static_protocol_phase(self):
         # Prepare visual associated with phase
@@ -126,13 +135,26 @@ class Io(vxprocess.AbstractProcess):
                 parameters = self.current_protocol.current_phase.control_parameters
 
         self.current_control = control
-        self.current_control.update(parameters)
+        self.update_control(parameters)
 
         # Create dataset for global time
         vxcontainer.create_phase_dataset('__time', (1,), np.float64)
 
+        # Set phase attributes
+        attributes = {
+            '__target_start_time': self.phase_start_time,
+            '__target_end_time': self.phase_end_time,
+            '__target_sample_rate': config.DISPLAY_FPS,
+            '__visual_module': self.current_control.__module__,
+            '__visual_name': str(self.current_control.__class__.__qualname__)
+        }
+        vxcontainer.add_phase_attributes(attributes)
+
     def update_control(self, parameters: Dict[str, Any]):
         self.current_control.update(parameters)
+
+    def start_trigger_protocol_phase(self):
+        self.start_control()
 
     def start_static_protocol_phase(self):
         self.start_control()
@@ -145,6 +167,13 @@ class Io(vxprocess.AbstractProcess):
         self.current_control.start()
 
     def end_static_protocol_phase(self):
+        if self.current_control is None:
+            return
+
+        self.current_control.end()
+        self.current_control = None
+
+    def end_trigger_protocol_phase(self):
         if self.current_control is None:
             return
 
