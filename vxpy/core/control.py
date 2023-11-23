@@ -14,7 +14,11 @@ class BaseControl(ABC):
         for name, value in parameters.items():
             setattr(self, name, value)
 
+    def _end(self):
+        pass
+
     def end(self):
+        self._end()
         self.is_active = False
 
     @abstractmethod

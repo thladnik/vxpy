@@ -537,6 +537,7 @@ class AbstractProcess:
         if self.last_phase_id == self.phase_id:
             return
 
+        self.end_trigger_protocol_phase()
         self.prepare_trigger_protocol_phase()
         self.start_trigger_protocol_phase()
 

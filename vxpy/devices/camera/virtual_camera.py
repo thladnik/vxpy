@@ -147,7 +147,6 @@ class VirtualCamera(vxcamera.CameraDevice):
         elif self.properties['data_source'] == 'AVI':
             ret, frame = self._cap.read()
             if not ret:
-                print('Reset')
                 self._cap = cv2.VideoCapture(self.properties['data_path'])
                 ret, frame = self._cap.read()
 
