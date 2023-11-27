@@ -40,6 +40,10 @@ class Routine(ABC):
         # Create interprocess syncs
         self._synchronize_attributes()
 
+        for key, value in kwargs.items():
+            log.info(f'Set {key} to {value} in routine {self.__class__.__name__}')
+            setattr(self, key, value)
+
         # List of methods open to rpc calls
         if self.callback_ops is None:
             self.callback_ops = []

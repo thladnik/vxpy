@@ -21,7 +21,8 @@ _available_datasets: Dict[str, Tuple[str, str, str]] = {
     'multiple_zf_driven_eye_movements_20Hz': ('0.1.4', 'multiple_zf_driven_eye_movements_20Hz.hdf5', 'camera'),
     'single_zf_freeswim_dot_chased_50Hz': ('0.1.4', 'single_zf_freeswim_dot_chased_50Hz.hdf5', 'camera'),
     'single_zf_freeswim_random_motion': ('0.1.4', 'single_zf_freeswim_random_motion.hdf5', 'camera'),
-    'zf_optic_tectum_driven_activity_2Hz': ('0.1.4', 'zf_optic_tectum_driven_activity_2Hz.hdf5', 'imaging')
+    'zf_optic_tectum_driven_activity_2Hz': ('0.1.4', 'zf_optic_tectum_driven_activity_2Hz.hdf5', 'imaging'),
+    'zf_vor_eye_movements_50Hz': ('0.1.4', 'zf_vor_eye_movements_50Hz.hdf5', 'camera')
 }
 
 # List of all locally available (downloaded) example dataset keys

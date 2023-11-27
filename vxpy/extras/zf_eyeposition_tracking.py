@@ -6,7 +6,7 @@ from typing import Dict, Hashable, List, Tuple, Union
 
 import cv2
 import numpy as np
-from PySide6 import QtWidgets
+from PySide6 import QtWidgets, QtCore
 import pyqtgraph as pg
 from scipy.spatial import distance
 
@@ -110,6 +110,9 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
         self.saccade_detect.layout().addWidget(self.sacc_threshold)
         self.uniform_label_width.add_widget(self.sacc_threshold.label)
 
+        self.hist_plot = HistogramPlot(parent=self)
+        self.ctrl_panel.layout().addWidget(self.hist_plot)
+
         # Add button for new ROI creation
         self.ctrl_panel.layout().addItem(self._vspacer)
         self.add_roi_btn = QtWidgets.QPushButton('Add ROI')
@@ -117,15 +120,15 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
         self.ctrl_panel.layout().addWidget(self.add_roi_btn)
 
         # Set up image plot
-        self.graphics_widget = FramePlot(parent=self)
-        self.graphics_widget.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
-                                           QtWidgets.QSizePolicy.Policy.MinimumExpanding)
-        self.central_widget.layout().addWidget(self.graphics_widget)
+        self.frame_plot = FramePlot(parent=self)
+        self.frame_plot.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding,
+                                      QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        self.central_widget.layout().addWidget(self.frame_plot)
 
         self.connect_to_timer(self.update_frame)
 
     def add_roi(self):
-        self.graphics_widget.add_roi()
+        self.frame_plot.add_roi()
 
     @staticmethod
     def update_use_img_corr(value):
@@ -176,7 +179,47 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
                 return
 
         # Update image
-        self.graphics_widget.image_item.setImage(frame)
+        self.frame_plot.image_item.setImage(frame)
+        # Update pixel histogram
+        self.hist_plot.update_histogram(self.frame_plot.image_item)
+
+
+class HistogramPlot(QtWidgets.QGroupBox):
+
+    find_range = True
+
+    def __init__(self, **kwargs):
+        QtWidgets.QGroupBox.__init__(self, 'Histogram', **kwargs)
+        self.setLayout(QtWidgets.QHBoxLayout())
+
+        self.histogram = pg.HistogramLUTWidget(orientation='horizontal')
+        self.histogram.item.setHistogramRange(0, 255)
+        self.layout().addWidget(self.histogram)
+
+        self.histogram.item.sigLevelsChanged.connect(self.update_levels)
+
+    def update_histogram(self, image_item: pg.ImageItem):
+
+        bins, counts = image_item.getHistogram()
+        self.histogram.item.plot.setData(bins, counts)
+
+        if self.find_range:
+            self.histogram.item.setLevels(bins[0], bins[-1])
+            self.find_range = False
+
+    def update_levels(self, item: pg.HistogramLUTItem):
+        lower, upper = item.getLevels()
+
+        # Correct out of bounds values
+        if lower < 0:
+            lower = 0
+            item.setLevels(lower, upper)
+        if upper > 255:
+            upper = 255
+            item.setLevels(lower, upper)
+
+        ZFEyeTracking.instance().brightness_min = int(lower)
+        ZFEyeTracking.instance().brightness_max = int(upper)
 
 
 class FramePlot(pg.GraphicsLayoutWidget):
@@ -192,11 +235,11 @@ class FramePlot(pg.GraphicsLayoutWidget):
 
         # Set up plot image item
         self.image_plot = self.addPlot(0, 0, 1, 10)
-        self.image_item = pg.ImageItem()
         self.image_plot.hideAxis('left')
         self.image_plot.hideAxis('bottom')
         self.image_plot.invertY(True)
         self.image_plot.setAspectLocked(True)
+        self.image_item = pg.ImageItem()
         self.image_plot.addItem(self.image_item)
 
         # Make subplots update with whole camera frame
@@ -293,12 +336,18 @@ class EyeMarker:
     def __init__(self, roi_id, line_coordinates):
         self.roi_id = roi_id
 
-        self.line = pg.LineSegmentROI(positions=line_coordinates, movable=False, removable=True)
-        self.line.setPen(pg.mkPen(color=pg.mkColor((1.0, 0.0, 0.0)), width=2))
+        roi_pen = pg.mkPen(color='red', width=4)
+        handle_pen = pg.mkPen(color='blue')
+        hover_pen = pg.mkPen(color='green')
 
-        self.rect = pg.RectROI(pos=[0, 0], size=[1, 1], movable=False, centered=True)
+        # Create line
+        self.line = pg.LineSegmentROI(positions=line_coordinates, movable=False, removable=True,
+                               pen=roi_pen, handlePen=handle_pen, handleHoverPen=hover_pen)
+
+        # Create rect
+        self.rect = pg.RectROI(pos=[0, 0], size=[1, 1], movable=False, centered=True,
+                               pen=roi_pen, handlePen=handle_pen, handleHoverPen=hover_pen)
         self.rect.setSize(np.linalg.norm(line_coordinates[0] - line_coordinates[1]) * np.array([0.8, 1.3]))
-        self.rect.setPen(pg.mkPen(color=pg.mkColor((1.0, 0.0, 0.0)), width=2))
 
         self.line.sigRegionChangeFinished.connect(self.update)
         self.rect.sigRegionChangeFinished.connect(self.update_size)
@@ -310,6 +359,9 @@ class EyeMarker:
 
         # Check if this one was removed by routine
         if self.roi_id >= len(ZFEyeTracking.instance().rois):
+            self.line.getViewBox().removeItem(self.line)
+            self.rect.getViewBox().removeItem(self.rect)
+            del self
             return
 
         p1, p2 = [np.array(p.pos()) for p in line_segment.endpoints]
@@ -372,6 +424,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
     use_image_correction = False
     contrast = 1.0
     brightness = 100
+    brightness_min = 0
+    brightness_max = 255
     use_motion_correction = False
     # Eye detection
     roi_maxnum = 5
@@ -388,8 +442,6 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
     def __init__(self, *args, **kwargs):
         vxroutine.CameraRoutine.__init__(self, *args, **kwargs)
-
-        log.info(f'Set max number of ROIs to {self.roi_maxnum}')
 
     def require(self):
         # Add camera device to deps
@@ -439,7 +491,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         """Register buffer attributes with plotter
         """
 
-        if len(self.rois) >= self.roi_maxnum:
+        if len(self.rois) > self.roi_maxnum:
             log.error(f'Maximum number of ROIs for eye tracking ({self.roi_maxnum}) exceeded')
             self.rois.pop(-1)
             return
@@ -628,10 +680,10 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             traceback.print_exc()
 
         # Draw eye label
-        le_center = np.array(barycenters[le_idx]) + np.linalg.norm(axes[le_idx]) / 2
-        cv2.putText(rgb, 'L', (int(le_center[0]), int(le_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), line_thickness, cv2.LINE_AA)
-        re_center = np.array(barycenters[re_idx]) + np.linalg.norm(axes[re_idx]) / 2
-        cv2.putText(rgb, 'R', (int(re_center[0]), int(re_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), line_thickness, cv2.LINE_AA)
+        le_center = np.array(barycenters[le_idx]) - np.array([1, -1]) * np.linalg.norm(axes[le_idx]) / 4
+        cv2.putText(rgb, 'L', (int(le_center[0]), int(le_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), line_thickness, cv2.LINE_AA)
+        re_center = np.array(barycenters[re_idx]) - np.array([1, -1]) * np.linalg.norm(axes[le_idx]) / 4
+        cv2.putText(rgb, 'R', (int(re_center[0]), int(re_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), line_thickness, cv2.LINE_AA)
 
         return [thetas[le_idx], thetas[re_idx]], rgb
 
@@ -664,7 +716,10 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         return cv2.warpAffine(frame, M, (frame.shape[1], frame.shape[0]))
 
     def apply_image_correction(self, frame: np.ndarray) -> np.ndarray:
-        return np.clip(self.contrast * frame + self.brightness, 0, 255).astype(np.uint8)
+        return np.clip(self.contrast*frame+self.brightness, 0, 255).astype(np.uint8)
+
+    def apply_range(self, frame: np.ndarray) -> np.ndarray:
+        return np.clip(frame, self.brightness_min, self.brightness_max).astype(np.uint8)
 
     def main(self, **frames):
 
@@ -685,7 +740,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             frame = frame[:, :, 0]
 
         # Write frame to buffer
-        vxattribute.write_attribute(self.frame_name, frame.T)
+        vxattribute.write_attribute(self.frame_name, self.apply_range(frame.T))
 
         # Apply motion correction
         if self.use_motion_correction:
@@ -700,7 +755,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         if self.use_image_correction or self.use_motion_correction:
             # Write corrected frame to buffer
-            vxattribute.write_attribute(self.frame_corrected_name, frame.T)
+            vxattribute.write_attribute(self.frame_corrected_name, self.apply_range(frame.T))
 
         # If there are no ROIs, there's nothing to detect
         if len(self.rois) == 0:

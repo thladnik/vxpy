@@ -64,8 +64,9 @@ class VirtualCamera(vxcamera.CameraDevice):
         self.f_last = None
         self.res_x = None
         self.res_y = None
-        self._data = None
         self._cap = None
+        self._tstart = None
+        self._times = None
         self.index = None
         self._h5: Union[h5py.File, None] = None
         self.next_time_get_image = vxipc.get_time()
@@ -77,6 +78,12 @@ class VirtualCamera(vxcamera.CameraDevice):
         if self.properties['data_source'].lower() == 'dataset':
             self._h5 = examples.load_dataset(self.properties['data_path'])
             self._cap = self._h5['frames']
+
+            # Check for precise timing information
+            if 'times' in self._h5:
+                self._times = self._h5['times'][:]
+                self._tstart = vxipc.get_time()
+
             if self.properties['preload_data']:
                 log.debug('Preload frame data')
                 self._cap = self._cap[:]
@@ -108,11 +115,16 @@ class VirtualCamera(vxcamera.CameraDevice):
         return vxipc.get_time() >= self.next_time_get_image
 
     def get_image(self):
-        self.index += 1
         frame = None
         if self.properties['data_source'].lower() in ['dataset', 'hdf5']:
             if self._cap.shape[0] <= self.index:
                 self.index = 0
+
+            if self._tstart is not None and self.index < self._cap.shape[0]-1:
+                tmin = self._times[self.index+1]
+
+                if tmin > vxipc.get_time() - self._tstart:
+                    return
 
             frame = self._cap[self.index][:self.res_y, :self.res_x]
 
@@ -130,6 +142,8 @@ class VirtualCamera(vxcamera.CameraDevice):
 
         # Set next frame time
         self.next_time_get_image = vxipc.get_time() + 1. / self.frame_rate
+
+        self.index += 1
 
         return np.asarray(frame, dtype=np.uint8)
 
