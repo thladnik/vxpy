@@ -8,6 +8,7 @@ from multiprocessing.managers import ValueProxy
 from typing import Callable, List, Type, Union, Dict, Any
 
 from vxpy.definitions import *
+import vxpy.core.devices.serial as vxserial
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
@@ -38,6 +39,10 @@ class Routine(ABC):
 
         # Create interprocess syncs
         self._synchronize_attributes()
+
+        for key, value in kwargs.items():
+            log.info(f'Set {key} to {value} in routine {self.__class__.__name__}')
+            setattr(self, key, value)
 
         # List of methods open to rpc calls
         if self.callback_ops is None:
@@ -169,6 +174,10 @@ class IoRoutine(Routine, ABC):
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
+
+    @abstractmethod
+    def main(self, **pins: Dict[str, vxserial.DaqPin]):
+        pass
 
 
 class WorkerRoutine(Routine, ABC):

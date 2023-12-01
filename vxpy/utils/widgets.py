@@ -36,7 +36,8 @@ class WidgetInteraction:
 
 
 class UniformWidth:
-    """Simple object to synchronize the widths of QWidget and its descendants (makes stuff look prettier)"""
+    """Simple object to synchronize the widths of QWidget and its descendants (makes stuff look prettier)
+    """
 
     def __init__(self):
         self._widgets: List[QtWidgets.QWidget] = []
@@ -65,7 +66,8 @@ class UniformWidth:
 
 
 class SearchableListWidget(QtWidgets.QWidget):
-    """Wrapper around QListWidget with an integrated QLineEdit that allows for simple filtering of list items"""
+    """Wrapper around QListWidget with an integrated QLineEdit that allows for simple filtering of list items
+    """
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent=parent)
@@ -108,7 +110,6 @@ class SearchableListWidget(QtWidgets.QWidget):
 
         if custom_data is not None:
             item.setData(QtCore.Qt.ItemDataRole.UserRole, custom_data)
-            item.data
 
         # Return created item
         return item
@@ -140,22 +141,25 @@ class DoubleSliderWidget(QtWidgets.QWidget):
     max_precision = -5
 
     def __init__(self, parent,
-                 label: str = None,
-                 default: float = None,
-                 limits: Tuple[float, float] = None,
-                 step_size: float = None,
-                 *args, **kwargs):
+                 label: str = None, label_width: Union[int, UniformWidth] = None,
+                 default: float = None, limits: Tuple[float, float] = None, step_size: float = None):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
+        self.setMaximumHeight(30)
 
         # Add label
-        self.label = None
-        if label is not None:
-            self.label = QLabel(label)
-            self.layout().addWidget(self.label)
-        self.setMaximumHeight(30)
+        if label is None:
+            label = ''
+        self.label = QLabel(label)
+        self.layout().addWidget(self.label)
+        # Width
+        if label_width is not None:
+            if isinstance(label_width, int):
+                self.label.setFixedWidth(label_width)
+            elif isinstance(label_width, UniformWidth):
+                label_width.add_widget(self.label)
 
         # Double spinner
         self.spinner = QtWidgets.QDoubleSpinBox()
@@ -220,11 +224,8 @@ class IntSliderWidget(QtWidgets.QWidget):
     """Synchronized combination of a QSpinBox with a QSlider"""
 
     def __init__(self, parent,
-                 label: str = None,
-                 default: int = None,
-                 limits: Tuple[int, int] = None,
-                 step_size: int = None,
-                 *args, **kwargs):
+                 label: str = None, label_width: Union[int, UniformWidth] = None,
+                 default: int = None, limits: Tuple[int, int] = None, step_size: int = None):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
@@ -232,11 +233,16 @@ class IntSliderWidget(QtWidgets.QWidget):
         self.setMaximumHeight(30)
 
         # Add label
-        self.label = None
-        if label is not None:
-            self.label = QLabel(label)
-            self.layout().addWidget(self.label)
-        self.setMaximumHeight(30)
+        if label is None:
+            label = ''
+        self.label = QLabel(label)
+        self.layout().addWidget(self.label)
+        # Width
+        if label_width is not None:
+            if isinstance(label_width, int):
+                self.label.setFixedWidth(label_width)
+            elif isinstance(label_width, UniformWidth):
+                label_width.add_widget(self.label)
 
         # Double spinner
         self.spinner = QtWidgets.QSpinBox()
@@ -248,9 +254,6 @@ class IntSliderWidget(QtWidgets.QWidget):
         self.slider.setTickPosition(QtWidgets.QSlider.TickPosition.NoTicks)
         self.slider.valueChanged.connect(self.slider_value_changed)
         self.layout().addWidget(self.slider)
-
-        # Force slider update
-        # self.spinner.valueChanged.emit(self.spinner.value())
 
         # Apply optional args
         if limits is not None:
@@ -294,16 +297,37 @@ class IntSliderWidget(QtWidgets.QWidget):
 class ComboBox(QtWidgets.QWidget):
     """Wrapper around QComboBox which mimics the interface and style of IntSliderWidget and DoubleSliderWidget"""
 
-    def __init__(self, parent):
+    def __init__(self, parent,
+                 label: str = None, label_width: Union[int, UniformWidth] = None,
+                 default: str = None, options: List[str] = None):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
         self.setMaximumHeight(30)
 
+        # Add label
+        if label is None:
+            label = ''
+        self.label = QLabel(label)
+        self.layout().addWidget(self.label)
+        # Width
+        if label_width is not None:
+            if isinstance(label_width, int):
+                self.label.setFixedWidth(label_width)
+            elif isinstance(label_width, UniformWidth):
+                label_width.add_widget(self.label)
+
+        # Add combobox
         self.combobox = QtWidgets.QComboBox(self)
         self.combobox.setContentsMargins(0, 0, 0, 0)
         self.layout().addWidget(self.combobox)
+
+        # Set optionals
+        if options is not None:
+            self.add_items(options)
+        if default is not None and options is not None:
+            self.set_value(default)
 
     def add_items(self, items):
         self.combobox.addItems(items)
@@ -321,23 +345,26 @@ class ComboBox(QtWidgets.QWidget):
 class Checkbox(QtWidgets.QWidget):
     """Wrapper around QCheckBox which mimics the interface and style of IntSliderWidget and DoubleSliderWidget"""
 
-    def __init__(self, name, default_val, label_width=None):
-        QtWidgets.QWidget.__init__(self)
+    def __init__(self, parent, label: str, default: bool = False, label_width: Union[int, UniformWidth] = None):
+        QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.setLayout(QtWidgets.QHBoxLayout())
         self.layout().setContentsMargins(0, 0, 0, 0)
         self.setMaximumHeight(30)
 
         # Label
-        self.label = QtWidgets.QLabel(name)
+        self.label = QtWidgets.QLabel(label)
         if label_width is not None:
-            self.label.setFixedWidth(label_width)
+            if isinstance(label_width, int):
+                self.label.setFixedWidth(label_width)
+            elif isinstance(label_width, UniformWidth):
+                label_width.add_widget(self.label)
         self.layout().addWidget(self.label)
 
         # Checkbox
         self.checkbox = QtWidgets.QCheckBox()
         self.checkbox.setTristate(False)
-        self.checkbox.setChecked(default_val)
+        self.checkbox.setChecked(default)
         self.layout().addWidget(self.checkbox)
 
     def get_value(self):

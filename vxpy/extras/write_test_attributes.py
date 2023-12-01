@@ -50,7 +50,7 @@ class WriteRandoms(IoRoutine):
         register_with_plotter(self.test_poisson_p2Hz, axis=WriteRandoms.__name__)
 
         # Set binary signal to be written to output channel named "ch_do01"
-        set_digital_output('ch_do01', self.test_poisson_p2Hz)
+        # set_digital_output('ch_do01', self.test_poisson_p2Hz)
 
     def main(self, *args, **kwargs):
         t = vxipc.get_time()
@@ -129,3 +129,19 @@ class SinesAddedWhiteNoise(IoRoutine):
         for p, f in zip(self.phases, self.frequencies):
             y += np.sin(vxipc.get_time() * 2 * np.pi * f + p * f) / 5
         vxattribute.get_attribute(self.attr_name).write(y)
+
+
+class RunCtrlLed(IoRoutine):
+    """Runs a routine that controls a digital LED output channel
+    """
+
+    def __init__(self, *args):
+        IoRoutine.__init__(self, *args)
+
+    def main(self, **pins):
+        ctrl_led = pins.get('ctrl_led')
+
+        if ctrl_led is None:
+            return
+
+        ctrl_led.write(np.random.rand() < 0.01)

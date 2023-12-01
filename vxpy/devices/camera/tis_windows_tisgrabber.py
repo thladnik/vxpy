@@ -1,22 +1,4 @@
-"""
-vxPy ./devices/camera/tis_windows_tisgrabber.py
-Copyright (C) 2022 Tim Hladnik
-
-Based on TIS' tisgrabber usage examples for Python
-at https://github.com/TheImagingSource/IC-Imaging-Control-Samples/
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Windows API for TheImagingSource cameras
 """
 from typing import Any, Dict, List, Tuple, Type
 import ctypes
@@ -147,9 +129,9 @@ class TISCamera(vxcamera.CameraDevice):
     def _set_property(self, property_name, value):
         limits = self._get_property_value_range(property_name)
         if not limits[0] <= value <= limits[1]:
-            log.warning(f'Cannot set value of property {property_name} to {value} '
+            log.warning(f'May not be able to set value of property {property_name} to {value} '
                         f'on camera device {self}. Out of range {limits}')
-            return
+            # return
 
         # Set
         log.debug(f'Set property value of property {property_name} to {value} on device {self}')
@@ -196,6 +178,11 @@ class TISCamera(vxcamera.CameraDevice):
         self._set_property_switch('Exposure', 'Auto', 0)
         self._set_property('Exposure', self.properties['exposure'])
         self._set_property('Gain', self.properties['gain'])
+
+        # Add custom settings
+        settings = self.properties.get('settings', {})
+        for name, value in settings.items():
+            self._set_property(name, value)
 
         # Start
         ic.IC_StartLive(self.h_grabber, 0)

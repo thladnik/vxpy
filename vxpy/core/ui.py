@@ -1,19 +1,4 @@
-"""
-vxPy ./core/ui.py
-Copyright (C) 2022 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Core user interface module
 """
 from __future__ import annotations
 
@@ -25,6 +10,7 @@ from typing import Callable, List, Type, Union, Dict, Tuple, Any
 
 
 import h5py
+import matplotlib.colors
 import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtCore, QtWidgets, QtGui
@@ -315,18 +301,7 @@ def register_with_plotter(attr_name: str, *args, **kwargs):
 
 
 class PlottingWindow(WindowWidget, ExposedWidget):
-    # Colormap is tab10 from matplotlib:
-    # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
-    cmap = (np.array([(0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
-                      (1.0, 0.4980392156862745, 0.054901960784313725),
-                      (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
-                      (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
-                      (0.5803921568627451, 0.403921568627451, 0.7411764705882353),
-                      (0.5490196078431373, 0.33725490196078434, 0.29411764705882354),
-                      (0.8901960784313725, 0.4666666666666667, 0.7607843137254902),
-                      (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
-                      (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
-                      (0.09019607843137255, 0.7450980392156863, 0.8117647058823529)]) * 255).astype(int)
+    colors = (np.array([matplotlib.colormaps['tab20'](i)[:3] for i in range(20)]) * 2**8-1).astype(int)
 
     cache_chunk_size = 10 ** 4
 
@@ -372,7 +347,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         # Start timer
         self.tmr_update_data = QtCore.QTimer()
-        self.tmr_update_data.setInterval(1000 // 20)
+        self.tmr_update_data.setInterval(1000 // 50)
         self.tmr_update_data.timeout.connect(self._read_buffer_data)
         self.tmr_update_data.start()
 
@@ -404,7 +379,6 @@ class PlottingWindow(WindowWidget, ExposedWidget):
                 else:
                     # Read this attribute starting from the last_idx
                     n_idcs, n_times, n_data = vxattribute.read_attribute(attr_name, from_idx=last_idx)
-
 
             except Exception as exc:
                 log.warning(f'Problem trying to read attribute "{attr_name}" from_idx={grp.attrs["last_idx"]}'
@@ -451,9 +425,6 @@ class PlottingWindow(WindowWidget, ExposedWidget):
             except Exception as exc:
                 import traceback
                 print(traceback.print_exc())
-
-        # if grp is not None and grp['t'].shape[0] > 0:
-        #     self._update_xrange(grp['t'][-1])
 
         self.update_plots()
 
@@ -569,7 +540,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
     def _dataitem(self, subplot, attr_name):
 
         i = len(subplot.getViewBox().addedItems)
-        color = self.cmap[i]
+        color = self.colors[i]
 
         # idcs, times, values = vxattribute.read_attribute(attr_name)
         new_dataitem = pg.PlotDataItem([], [], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
@@ -1170,7 +1141,8 @@ class ProtocolWidget(IntegratedWidget):
         if self.current_phase is None:
             return
 
-        self.current_visual_name.setText(self.current_phase.visual.__qualname__)
+        if self.current_phase.visual is not None:
+            self.current_visual_name.setText(self.current_phase.visual.__qualname__)
 
         # Update current visual properties in table
         self.visual_properties.clearContents()

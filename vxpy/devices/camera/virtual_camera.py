@@ -24,33 +24,9 @@ import numpy as np
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.devices.camera as vxcamera
-from vxpy.definitions import *
+from vxpy.utils import examples
 
 log = vxlogger.getLogger(__name__)
-
-_sample_filename_full = 'samples.hdf5'
-_sample_filename_compressed = 'samples_compr.hdf5'
-
-
-def _get_filepath():
-    uncompr_path = os.path.join(PATH_SAMPLE, _sample_filename_full)
-    if os.path.exists(uncompr_path):
-        return uncompr_path
-    return os.path.join(PATH_SAMPLE, _sample_filename_compressed)
-
-
-available_datasets = [
-    'Multi_Fish_Eyes_Cam_20fps',
-    'Single_Fish_Eyes_Cam_20fps',
-    'Single_Fish_Spontaneous_1_115fps',
-    'Single_Fish_Spontaneous_2_115fps',
-    'Single_Fish_Spontaneous_3_115fps',
-    'Single_Fish_Spontaneous_4_115fps',
-    'Single_Fish_Spontaneous_1_30fps',
-    'Single_Fish_Free_Swim_Dot_Chased_50fps',
-    'Single_Fish_Free_Swim_On_random_motion_100fps',
-    'Single_Fish_OKR_embedded_30fps'
-]
 
 
 class VirtualCamera(vxcamera.CameraDevice):
@@ -88,26 +64,39 @@ class VirtualCamera(vxcamera.CameraDevice):
         self.f_last = None
         self.res_x = None
         self.res_y = None
-        self._data = None
         self._cap = None
+        self._tstart = None
+        self._times = None
         self.index = None
         self._h5: Union[h5py.File, None] = None
         self.next_time_get_image = vxipc.get_time()
 
     def _open(self):
 
-        log.debug(f'Open {_get_filepath()}')
-        self._h5 = h5py.File(_get_filepath(), 'r')
+        self.index = 0
+        log.debug(f'Open dummy camera data file')
+        if self.properties['data_source'].lower() == 'dataset':
+            self._h5 = examples.load_dataset(self.properties['data_path'])
+            self._cap = self._h5['frames']
 
-        if self.properties['data_source'] == 'HDF5':
-            self._cap = self._h5[self.properties['data_path']]
+            # Check for precise timing information
+            if 'times' in self._h5:
+                self._times = self._h5['times'][:]
+                self._tstart = vxipc.get_time()
+
             if self.properties['preload_data']:
                 log.debug('Preload frame data')
-                self._data = self._cap[:]
-            self.index = 0
-        elif self.properties['data_source'] == 'AVI':
+                self._cap = self._cap[:]
+
+        elif self.properties['data_source'].lower() == 'hdf5':
+            self._h5 = h5py.File(self.properties['data_path'], 'r')
+            self._cap = self._h5[self.properties['data_name']]
+            if self.properties['preload_data']:
+                log.debug('Preload frame data')
+                self._cap = self._cap[:]
+
+        elif self.properties['data_source'].lower() == 'avi':
             self._cap = cv2.VideoCapture(self.properties['data_path'])
-            self.index = 0
         else:
             return False
 
@@ -126,38 +115,35 @@ class VirtualCamera(vxcamera.CameraDevice):
         return vxipc.get_time() >= self.next_time_get_image
 
     def get_image(self):
-        self.index += 1
-
-        if self.properties['data_source'] == 'HDF5':
+        frame = None
+        if self.properties['data_source'].lower() in ['dataset', 'hdf5']:
             if self._cap.shape[0] <= self.index:
                 self.index = 0
 
-            if self.properties['preload_data']:
-                # From preloaded data
-                frame = self._data[self.index][:self.res_y, :self.res_x]
+            if self._tstart is not None and self.index < self._cap.shape[0]-1:
+                tmin = self._times[self.index+1]
 
-            else:
-                # From dataset
-                try:
-                    frame = self._cap[self.index][:self.res_y, :self.res_x]
-                except:
-                    log.error(f'Error reading frame for device {self}')
-                    return None
+                if tmin > vxipc.get_time() - self._tstart:
+                    return
 
-        elif self.properties['data_source'] == 'AVI':
+            frame = self._cap[self.index][:self.res_y, :self.res_x]
+
+        elif self.properties['data_source'].lower() == 'avi':
             ret, frame = self._cap.read()
             if not ret:
-                print('Reset')
                 self._cap = cv2.VideoCapture(self.properties['data_path'])
                 ret, frame = self._cap.read()
 
-            if frame is None:
-                return
+        if frame is None:
+            return
 
+        if len(frame.shape) > 2:
             frame = frame[:, :, 0]
 
         # Set next frame time
         self.next_time_get_image = vxipc.get_time() + 1. / self.frame_rate
+
+        self.index += 1
 
         return np.asarray(frame, dtype=np.uint8)
 
@@ -173,20 +159,18 @@ class VirtualCamera(vxcamera.CameraDevice):
 
     @classmethod
     def get_camera_list(cls) -> List[vxcamera.CameraDevice]:
-        h5file = h5py.File(_get_filepath(), 'r')
         camera_list = []
-        for dataset_name in available_datasets:
-            if dataset_name not in h5file:
-                continue
+        for key in examples.get_local_dataset_names():
 
-            parts = dataset_name.split('_')
-            fps = float(parts[-1].replace('fps', ''))
+            with examples.load_dataset(key) as h5f:
 
-            # Get dataset and append camera to list
-            dataset = h5file[dataset_name]
-            props = {'width': dataset.shape[2], 'height': dataset.shape[1],
-                     'data_path': dataset.name, 'frame_rate': fps}
-            camera_list.append(VirtualCamera(**props))
+                parts = key.split('_')
+                fps = float(parts[-1].replace('Hz', ''))
+
+                # Get dataset and append camera to list
+                props = {'width': h5f['frames'].shape[2], 'height': h5f['frames'].shape[1],
+                         'data_source': 'dataset', 'data_path': key, 'frame_rate': fps}
+                camera_list.append(VirtualCamera(**props))
 
         return camera_list
 

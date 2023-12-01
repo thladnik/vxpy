@@ -17,6 +17,7 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
+# import vxpy.core.ui as vxui
 
 log = vxlogger.getLogger(__name__)
 
@@ -85,9 +86,6 @@ def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
                 return True, False, {}
             return True, True, record_ops
 
-    #     # Update
-    #     matched = matched or match
-    #
     # No matches
     return True, False, {}
 
@@ -358,10 +356,10 @@ class Attribute(ABC):
         #  Regular occurrences may indicate an underlying issue with the timing precision of the system
         #  or repeated erreneous calls to the write function of the attribute during a
         #  single event loop iteration of the corresponding producer module
-        if np.isclose(self._last_time, vxipc.get_time(), rtol=0., atol=vxipc.LocalProcess.interval / 4.):
-            log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
-                        f'in process {vxipc.LocalProcess.name} during same iteration. '
-                        f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
+        # if np.isclose(self._last_time, vxipc.get_time(), rtol=0., atol=vxipc.LocalProcess.interval / 4.):
+        #     log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
+        #                 f'in process {vxipc.LocalProcess.name} during same iteration. '
+        #                 f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
 
         internal_idx = self.index % self.length
 

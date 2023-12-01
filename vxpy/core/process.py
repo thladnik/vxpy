@@ -16,6 +16,7 @@ import vxpy.configuration
 from vxpy import config
 import vxpy.core.attribute as vxattribute
 import vxpy.core.container as vxcontainer
+import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
@@ -38,14 +39,14 @@ def run_process(target: AbstractProcess, **kwargs):
     """
 
     # Set up logging
-    vxlogger.setup_log_queue(kwargs.get('_log_queue'))
+    vxlogger.setup_log_queue(kwargs.pop('_log_queue'))
     log = vxlogger.getLogger(target.name)
     # Bind logging functions
     vxlogger.debug = log.debug
     vxlogger.info = log.info
     vxlogger.warning = log.warning
     vxlogger.error = log.error
-    vxlogger.setup_log_history(kwargs.get('_log_history'))
+    vxlogger.setup_log_history(kwargs.pop('_log_history'))
 
     return target(**kwargs)
 
@@ -83,6 +84,8 @@ class AbstractProcess:
                  _controls=None,
                  _log=None,
                  _pipes=None,
+                 _devices=None,
+                 _daq_pins=None,
                  _routines=None,
                  _states=None,
                  _attrs=None,
@@ -103,6 +106,12 @@ class AbstractProcess:
 
         # Add handlers to modules that were imported before process class initialization
         vxlogger.add_handlers()
+
+        # Add devices and pins
+        if _devices is not None:
+            vxserial.devices.update(_devices)
+        if _daq_pins is not None:
+            vxserial.daq_pins.update(_daq_pins)
 
         # Set modules instance
         vxipc.init(self, pipes=_pipes, states=_states, controls=_controls)
@@ -159,6 +168,7 @@ class AbstractProcess:
         signal.signal(signal.SIGINT, self.handle_sigint)
 
         self.next_iteration_time: float = 0.0
+        self.last_iteration_time: float = -np.inf
         self.loop_times: List[float] = [time.perf_counter()]
 
     def run(self, interval: float):
@@ -205,7 +215,10 @@ class AbstractProcess:
             vxipc.update_time()
 
             # Execute main method
-            self.main()
+            self.main(vxipc.get_time()-self.last_iteration_time)
+
+            # Update last iteration time
+            self.last_iteration_time = vxipc.get_time()
 
             # Process triggers
             for trigger in vxevent.Trigger.all:
@@ -224,7 +237,7 @@ class AbstractProcess:
             # Set next iteration time
             self.next_iteration_time = vxipc.get_time() + self.interval
 
-    def main(self):
+    def main(self, dt: float):
         """Event loop to be re-implemented in subclass"""
         raise NotImplementedError(f'Event loop of modules base class is not implemented in {self.name}.')
 
@@ -298,9 +311,13 @@ class AbstractProcess:
     @property
     def phase_is_active(self) -> bool:
         """Flag which is True if the current local time is within
-        the defined start and end times of of the currently active protocol phase
+        the defined start and end times of the currently active protocol phase
         """
-        return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
+        if vxipc.CONTROL[CTRL_PRCL_TYPE] == vxprotocol.StaticProtocol:
+            return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
+
+        if vxipc.CONTROL[CTRL_PRCL_TYPE] == vxprotocol.TriggeredProtocol:
+            return self.phase_start_time <= vxipc.get_time()
 
     def prepare_static_protocol(self):
         """To be reimplemented in fork. Method is called by _prepare_static_protocol"""
@@ -524,6 +541,7 @@ class AbstractProcess:
         if self.last_phase_id == self.phase_id:
             return
 
+        self.end_trigger_protocol_phase()
         self.prepare_trigger_protocol_phase()
         self.start_trigger_protocol_phase()
 

@@ -63,7 +63,7 @@ class Display(vxprocess.AbstractProcess):
         # self.enable_idle_timeout = False
         self.run(interval=_interval)
 
-    def main(self):
+    def main(self, dt: float):
 
         # Process app events
         # This is going call the canvas' on_draw method

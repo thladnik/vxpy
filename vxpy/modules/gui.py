@@ -63,7 +63,7 @@ class Gui(vxprocess.AbstractProcess):
         # Run event loop
         self.run(interval=1 / config.GUI_REFRESH)
 
-    def main(self):
+    def main(self, dt: float):
         self.app.processEvents()
 
     def prompt_shutdown_confirmation(self):
