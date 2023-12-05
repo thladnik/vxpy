@@ -256,7 +256,7 @@ class H5File:
             try:
                 grp.attrs[attr_name] = value
             except:
-                print(attr_name, type(value))
+                log.warning(f'Failed to write attribute {attr_name} to file. Type: {type(value)}')
 
     def add_attributes(self, attributes: Dict[str, Any]):
         self._add_attributes(self._h5_handle['/'], attributes)

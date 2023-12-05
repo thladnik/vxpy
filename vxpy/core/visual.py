@@ -325,9 +325,8 @@ class Parameter:
         pass
 
     def _set_start_data(self, data):
-        if self._data is None:
-            self._shape = data.shape if hasattr(data, 'shape') else (1,)
-            self._data = np.array(data, dtype=self.dtype)
+        self._shape = data.shape if hasattr(data, 'shape') else (1,)
+        self._data = np.array(data, dtype=self.dtype)
 
     @property
     def data(self):
@@ -335,7 +334,8 @@ class Parameter:
 
     @data.setter
     def data(self, data):
-        self._set_start_data(data)
+        if self._data is None:
+            self._set_start_data(data)
 
         # If value_map is a callable, use it to transform data
         if callable(self.value_map):
@@ -627,10 +627,10 @@ class Attribute(Parameter):
         Parameter.__init__(self, *args, **kwargs)
         self._buffer_data_contents = None
 
-    # def _set_start_data(self, data):
-    #     if self._data is None or self._shape != data.shape:
-    #         self._shape = data.shape
-    #         self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
+    def _set_start_data(self, data):
+        if self._data is None or self._shape != data.shape:
+            self._shape = data.shape
+            self._data = gloo.VertexBuffer(np.ascontiguousarray(data, dtype=self.dtype))
 
 
 class BoolAttribute(Parameter):
