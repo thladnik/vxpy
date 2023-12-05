@@ -59,7 +59,7 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
         self.uniform_label_width.add_widget(self.img_contrast.label)
         self.img_proc.layout().addWidget(self.img_contrast)
         self.img_brightness = IntSliderWidget(self.ctrl_panel, 'Brightness',
-                                              default=ZFEyeTracking.instance().brightness, limits=(0, 300))
+                                              default=ZFEyeTracking.instance().brightness, limits=(-200, 200))
         self.img_brightness.connect_callback(self.update_brightness)
         self.uniform_label_width.add_widget(self.img_brightness.label)
         self.img_proc.layout().addWidget(self.img_brightness)
@@ -165,6 +165,8 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
     def update_frame(self):
 
         frame = None
+
+        # If image or motion correction is enabled, display corrected frame
         if ZFEyeTracking.instance().use_image_correction or ZFEyeTracking.instance().use_motion_correction:
             # Try to read corrected frame
             idx, time, frame = vxattribute.read_attribute(ZFEyeTracking.frame_corrected_name)
@@ -186,14 +188,13 @@ class ZFEyeTrackingUI(vxui.CameraAddonWidget):
 
 class HistogramPlot(QtWidgets.QGroupBox):
 
-    find_range = True
-
     def __init__(self, **kwargs):
         QtWidgets.QGroupBox.__init__(self, 'Histogram', **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
         self.histogram = pg.HistogramLUTWidget(orientation='horizontal')
         self.histogram.item.setHistogramRange(0, 255)
+        self.histogram.item.setLevels(0, 255)
         self.layout().addWidget(self.histogram)
 
         self.histogram.item.sigLevelsChanged.connect(self.update_levels)
@@ -201,11 +202,11 @@ class HistogramPlot(QtWidgets.QGroupBox):
     def update_histogram(self, image_item: pg.ImageItem):
 
         bins, counts = image_item.getHistogram()
-        self.histogram.item.plot.setData(bins, counts)
-
-        if self.find_range:
-            self.histogram.item.setLevels(bins[0], bins[-1])
-            self.find_range = False
+        logcounts = counts.astype(np.float64)
+        logcounts[counts == 0] = 0.1
+        logcounts = np.log10(logcounts)
+        logcounts[np.isclose(logcounts, -1)] = 0
+        self.histogram.item.plot.setData(bins, logcounts)
 
     def update_levels(self, item: pg.HistogramLUTItem):
         lower, upper = item.getLevels()
@@ -423,7 +424,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
     # Image corrections
     use_image_correction = False
     contrast = 1.0
-    brightness = 100
+    brightness = 0
     brightness_min = 0
     brightness_max = 255
     use_motion_correction = False
@@ -436,7 +437,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
     saccade_threshold = 600
 
     # Internal
-    reference_frame: np.ndarray = None
+    reference_frame: Union[None, np.ndarray] = None
     rois: List[tuple] = []
     current_roi_count = 0
 
@@ -457,8 +458,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         # Add frames
         vxattribute.ArrayAttribute(self.frame_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
-        vxattribute.ArrayAttribute(self.frame_corrected_name, (camera.width, camera.height),
-                                   vxattribute.ArrayType.uint8)
+        vxattribute.ArrayAttribute(self.frame_corrected_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
 
         # Add saccade trigger buffer
         vxattribute.ArrayAttribute(self.sacc_trigger_name, (1,), vxattribute.ArrayType.bool)
@@ -739,23 +739,35 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         if frame.ndim > 2:
             frame = frame[:, :, 0]
 
-        # Write frame to buffer
-        vxattribute.write_attribute(self.frame_name, self.apply_range(frame.T))
+        corrected_frame = None
 
         # Apply motion correction
         if self.use_motion_correction:
-            stabilized_frame = self.apply_motion_correction(frame)
-
-            if stabilized_frame is not None:
-                frame = stabilized_frame
+            corrected_frame = self.apply_motion_correction(frame)
+        # Reset reference frame for motion correction (if set) in case motion correction is disabled
+        else:
+            if self.reference_frame is not None:
+                self.reference_frame = None
 
         # Apply image correction
         if self.use_image_correction:
-            frame = self.apply_image_correction(frame)
+            corrected_frame = self.apply_image_correction(frame if corrected_frame is None else corrected_frame)
 
-        if self.use_image_correction or self.use_motion_correction:
-            # Write corrected frame to buffer
-            vxattribute.write_attribute(self.frame_corrected_name, self.apply_range(frame.T))
+        # Apply range after image/motion correction
+        frame = self.apply_range(frame)
+
+        # Write original frame to buffer
+        vxattribute.write_attribute(self.frame_name, frame.T)
+
+        # After original frame has been written to attribute:
+        # If any image processing was enabled, write result to corrected frame's attribute and use as default frame
+        if corrected_frame is not None:
+            frame = self.apply_range(corrected_frame)
+            vxattribute.write_attribute(self.frame_corrected_name, frame.T)
+        # # If not corrected frame exists, fix range of original one and use that one
+        # else:
+        #     # Fix intensity range
+        #     frame = self.apply_range(frame)
 
         # If there are no ROIs, there's nothing to detect
         if len(self.rois) == 0:
