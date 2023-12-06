@@ -148,30 +148,48 @@ def add_to_dataset(dataset_name: str, data: Any):
     _instance.add_to_dataset(dataset_name, data)
 
 
-def dump(**data):
+def dump(data, group: str = None):
     """Dump arbitrary data into currently opened container"""
 
     if _noinstance():
         return
 
-    for k, d in data.items():
-        if isinstance(d, np.ndarray):
-            # TODO: this is not a great solution
-            saved = False
-            i = 0
-            while not saved:
-                try:
-                    _instance.create_dataset(f'{k}_{i}', d.shape, d.dtype)
-                    _instance.add_to_dataset(f'{k}_{i}', d)
-                except:
-                    pass
-                else:
-                    saved = True
-        else:
-            log.error('Unable to dump data to file. Unknown data type.')
+    if group is None:
+        group = ''
+
+    # Save anything with a simple Python type as attribute
+    attributes = {k: d for k, d in data.items() if type(d) in (str, int, float, complex, bool, list, tuple, dict)}
+    if len(attributes) > 0:
+        try:
+            log.info(f'Dump attributes {list(attributes.keys())} to file')
+            _instance.add_attributes(attributes, group=group)
+        except Exception as _exc:
+            log.error(f'Failed to dump attributes {list(attributes.keys())} to file')
+
+    # Safe arrays
+    arrays = {k: d for k, d in data.items() if isinstance(d, np.ndarray) and np.issubdtype(d.dtype, np.number)}
+    for k, d in arrays.items():
+
+        saved = False
+        i = 0
+        while not saved:
+            try:
+                _instance.create_dataset(f'{group}/{k}_{i}', d.shape, d.dtype)
+                _instance.add_to_dataset(f'{group}/{k}_{i}', d)
+            except:
+                pass
+            else:
+                saved = True
+
+            i += 1
+
+            # Escape condition
+            if i > 1000:
+                log.error(f'Failed to dump data {k} of type {type(d)} to file')
+                break
 
 
-def temporary_dump(**data):
+def temporary_dump(data):
     """Dump arbitrary data to temp folder
     """
 
@@ -258,8 +276,12 @@ class H5File:
             except:
                 log.warning(f'Failed to write attribute {attr_name} to file. Type: {type(value)}')
 
-    def add_attributes(self, attributes: Dict[str, Any]):
-        self._add_attributes(self._h5_handle['/'], attributes)
+    def add_attributes(self, attributes: Dict[str, Any], group: str = None):
+        if group is None:
+            grp = self._h5_handle['/']
+        else:
+            grp = self._h5_handle.require_group(group)
+        self._add_attributes(grp, attributes)
 
     def add_protocol_attributes(self, attributes: Dict[str, Any]):
         # Get group path from current record_protocol_group_id
@@ -284,7 +306,6 @@ class H5File:
 
     def _add_to_dataset(self, path: str, data: Any):
         if path not in self._h5_handle:
-            # print('WRONG, path does not exist yet', path, data)
             return
 
         try:

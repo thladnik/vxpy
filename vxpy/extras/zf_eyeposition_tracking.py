@@ -224,7 +224,6 @@ class HistogramPlot(QtWidgets.QGroupBox):
 
 
 class FramePlot(pg.GraphicsLayoutWidget):
-
     # Set up basics
     eye_markers: List[EyeMarker] = []
     subplots: List[EyePlot] = []
@@ -242,6 +241,10 @@ class FramePlot(pg.GraphicsLayoutWidget):
         self.image_plot.setAspectLocked(True)
         self.image_item = pg.ImageItem()
         self.image_plot.addItem(self.image_item)
+
+        # Set up scatter item for tracking motion correction features
+        self.scatter_item = pg.ScatterPlotItem(pen=pg.mkPen(color='blue'), brush=None)
+        self.image_plot.addItem(self.scatter_item)
 
         # Make subplots update with whole camera frame
         self.image_item.sigImageChanged.connect(self.update_subplots)
@@ -283,6 +286,14 @@ class FramePlot(pg.GraphicsLayoutWidget):
             self.line_coordinates = None
 
     def update_subplots(self):
+
+        ref_points = np.array(ZFEyeTracking.instance().reference_points).squeeze()
+        if ref_points.ndim == 2:
+            self.scatter_item.setData(pos=ref_points)
+        else:
+            self.scatter_item.clear()
+
+        # print(ZFEyeTracking.instance().reference_points)
 
         # Draw rectangular ROIs
         for roi_id in range(len(ZFEyeTracking.instance().rois)):
@@ -343,7 +354,7 @@ class EyeMarker:
 
         # Create line
         self.line = pg.LineSegmentROI(positions=line_coordinates, movable=False, removable=True,
-                               pen=roi_pen, handlePen=handle_pen, handleHoverPen=hover_pen)
+                                      pen=roi_pen, handlePen=handle_pen, handleHoverPen=hover_pen)
 
         # Create rect
         self.rect = pg.RectROI(pos=[0, 0], size=[1, 1], movable=False, centered=True,
@@ -383,7 +394,7 @@ class EyeMarker:
         # Update ROI information / format: center, size, angle
         _center = (int(p1[0]), int(p1[1]))
         _size = (int(self.rect.size()[0]), int(self.rect.size()[1]))
-        _angle = line_angle*180/np.pi
+        _angle = line_angle * 180 / np.pi
         ZFEyeTracking.instance().rois[self.roi_id] = _center, _size, _angle
 
     def update_size(self, *args, **kwargs):
@@ -438,6 +449,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
     # Internal
     reference_frame: Union[None, np.ndarray] = None
+    reference_points = []
     rois: List[tuple] = []
     current_roi_count = 0
 
@@ -458,7 +470,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         # Add frames
         vxattribute.ArrayAttribute(self.frame_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
-        vxattribute.ArrayAttribute(self.frame_corrected_name, (camera.width, camera.height), vxattribute.ArrayType.uint8)
+        vxattribute.ArrayAttribute(self.frame_corrected_name, (camera.width, camera.height),
+                                   vxattribute.ArrayType.uint8)
 
         # Add saccade trigger buffer
         vxattribute.ArrayAttribute(self.sacc_trigger_name, (1,), vxattribute.ArrayType.bool)
@@ -582,7 +595,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         cnts = list(cnts)
 
         # Make RGB
-        rgb = np.repeat(thresh[:,:,None], 3, -1) #np.stack((thresh, thresh, thresh), axis=-1)
+        rgb = np.repeat(thresh[:, :, None], 3, -1)  # np.stack((thresh, thresh, thresh), axis=-1)
 
         # Collect contour parameters and filter contours
         areas = []
@@ -681,23 +694,47 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         # Draw eye label
         le_center = np.array(barycenters[le_idx]) - np.array([1, -1]) * np.linalg.norm(axes[le_idx]) / 4
-        cv2.putText(rgb, 'L', (int(le_center[0]), int(le_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), line_thickness, cv2.LINE_AA)
+        cv2.putText(rgb, 'L', (int(le_center[0]), int(le_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0),
+                    line_thickness, cv2.LINE_AA)
         re_center = np.array(barycenters[re_idx]) - np.array([1, -1]) * np.linalg.norm(axes[le_idx]) / 4
-        cv2.putText(rgb, 'R', (int(re_center[0]), int(re_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), line_thickness, cv2.LINE_AA)
+        cv2.putText(rgb, 'R', (int(re_center[0]), int(re_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0),
+                    line_thickness, cv2.LINE_AA)
 
         return [thetas[le_idx], thetas[re_idx]], rgb
 
-    def apply_motion_correction(self, frame: np.ndarray) -> Union[np.ndarray, None]:
-        if self.reference_frame is None:
-            self.reference_frame = frame.copy()
-            return
+    def update_motion_reference(self, frame: np.ndarray):
 
+        # Update reference frame
+        self.reference_frame = frame.copy()
+
+        # Find reference points
         ref_points = cv2.goodFeaturesToTrack(self.reference_frame,
                                              maxCorners=200,
                                              qualityLevel=0.01,
                                              minDistance=30,
                                              blockSize=3)
 
+        # Filter to make sure they are not within a ROI (i.e. on the tracked eyes)
+        good_ref_points = np.zeros(ref_points.shape[0])
+        for i, pt in enumerate(ref_points):
+            for center, size, angle in self.rois:
+                if ((pt[0][0] - center[0])**2 + (pt[0][1] - center[1])**2) < max(size)**2:
+                    good_ref_points[i] = 1
+                    break
+
+        # Update reference points
+        valid_ref_points = ref_points[good_ref_points.astype(bool)]
+        self.reference_points[:] = valid_ref_points
+
+    def apply_motion_correction(self, frame: np.ndarray) -> Union[np.ndarray, None]:
+        if self.reference_frame is None:
+            self.update_motion_reference(frame)
+            return
+
+        # ListProxy needs to be re-converted into array for OpenCV
+        ref_points = np.array(self.reference_points)
+
+        # Calculate optic flow
         new_points, status, _ = cv2.calcOpticalFlowPyrLK(self.reference_frame, frame, ref_points, None)
 
         if ref_points.shape != new_points.shape:
@@ -716,7 +753,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         return cv2.warpAffine(frame, M, (frame.shape[1], frame.shape[0]))
 
     def apply_image_correction(self, frame: np.ndarray) -> np.ndarray:
-        return np.clip(self.contrast*frame+self.brightness, 0, 255).astype(np.uint8)
+        return np.clip(self.contrast * frame + self.brightness, 0, 255).astype(np.uint8)
 
     def apply_range(self, frame: np.ndarray) -> np.ndarray:
         return np.clip(frame, self.brightness_min, self.brightness_max).astype(np.uint8)
@@ -725,11 +762,14 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         # New ROI?
         if len(self.rois) > self.current_roi_count:
-            self._create_roi(len(self.rois)-1)
+            self._create_roi(len(self.rois) - 1)
             self.current_roi_count += 1
 
         # Read frame
         frame = frames.get(self.camera_device_id)
+
+        # for point in self.reference_points:
+        #     frame = cv2.circle(frame, (int(point[0][0]), int(point[0][1])), radius=3, color=255, thickness=-1)
 
         # Check if frame was returned
         if frame is None:
@@ -748,6 +788,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         else:
             if self.reference_frame is not None:
                 self.reference_frame = None
+                self.reference_points[:] = []
 
         # Apply image correction
         if self.use_image_correction:

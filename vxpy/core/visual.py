@@ -263,6 +263,7 @@ class Parameter:
 
     def __init__(self, name: str,
                  shape: Tuple[int, ...] = None,
+                 dtype: Type = None,
                  static: bool = False,
                  value_map: Union[dict, Callable] = None,
                  internal: bool = False,
@@ -274,6 +275,8 @@ class Parameter:
         self._programs: List[gloo.Program] = []
         self._downstream_link: List[Parameter] = []
 
+        if dtype is not None:
+            self.dtype = dtype
         self._shape = shape
         if shape is not None:
             self._data: np.ndarray = np.zeros(shape, dtype=self.dtype)
