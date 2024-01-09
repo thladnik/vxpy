@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vxpy"
-version = "0.1.5"
+version = "0.1.6"
 description = "vxPy - Vision experiments in Python"
 readme = "README.md"
 authors = [{ name = 'Tim Hladnik', email = "contact@vxpy.org" }]
