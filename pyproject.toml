@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vxpy"
-version = "0.1.3"
+version = "0.1.6"
 description = "vxPy - Vision experiments in Python"
 readme = "README.md"
 authors = [{ name = 'Tim Hladnik', email = "contact@vxpy.org" }]
@@ -42,8 +42,7 @@ dependencies = [
     'scipy>=1.9.2', 
     'setuptools>=65.5.0', 
     'vispy>=0.11.0',
-    'tomli; python_version <= "3.11"',
-    'h5gview@git+https://github.com/thladnik/h5gview'
+    'tomli; python_version <= "3.11"'
 ]
 requires-python = ">=3.8"
 
