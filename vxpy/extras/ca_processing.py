@@ -35,7 +35,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
 
         self.roi_slice_params: Dict[tuple, tuple] = {}
-        self._f0 = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self._f0 = [0] * 20
 
     def require(self) -> bool:
 
@@ -58,6 +58,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
                 # Register with plotter
                 vxui.register_with_plotter(self.roi_name(layer_idx, roi_idx),
                                            name=f'ROI {roi_idx}', axis=f'Layer {layer_idx}')
+                vxattribute.write_to_file(self, self.roi_name(layer_idx, roi_idx))
 
             # Create trigger attribute
             vxattribute.ArrayAttribute(self.trigger_name(layer_idx), (1,), vxattribute.ArrayType.uint8)
@@ -118,16 +119,17 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
             # Get sliced array and activity
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
-            # activity = np.mean(_slice)
+            #activity = np.mean(_slice)
 
             # DF/F
-            # activity = (np.mean(_slice) - np.mean(self._f0)) / np.mean(self._f0)
-            # self._f0.insert(0, np.mean(_slice))
-            # self._f0.pop()
-            activity = np.mean(_slice)
+            #activity = (np.mean(_slice) - np.mean(self._f0)) / np.mean(self._f0)
+            #self._f0.insert(0, np.mean(_slice))
+            #self._f0.pop()
+            activity = np.std(_slice) * np.mean(_slice)
 
             # Write activity attribute
             vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
+            print(activity)
 
             if activity > self.roi_activity_threshold:
                 over_thresh = True
