@@ -5,6 +5,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pyqtgraph as pg
+import scipy.stats
 from PySide6 import QtWidgets
 
 import vxpy.core.attribute as vxattribute
@@ -23,13 +24,12 @@ def get_roi_color(index: int):
 
 
 class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
-
     input_frame_name: str = 'tcp_server_frame'
     input_num_interlaced_layers: int = 2
     output_frame_name: str = 'roi_activity_tracker_frame'
     roi_max_num: int = 5
-    roi_activity_prefix: str = 'roi_activity'
-    roi_activity_threshold: int = 500
+    roi_name_prefix: str = 'roi_activity'
+    roi_thresholds: Dict[tuple, int] = {}
     lower_px_threshold: int = 10
     roi_activity_trigger_name: str = 'roi_activity_trigger'
     frame_width: int = 256
@@ -56,13 +56,20 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
             for roi_idx in range(self.roi_max_num):
                 self.roi_slice_params[(layer_idx, roi_idx)] = ()
+                self.roi_thresholds[(layer_idx, roi_idx)] = 3
 
                 # Create ROI attribute
                 vxattribute.ArrayAttribute(self.roi_name(layer_idx, roi_idx), (1,), vxattribute.ArrayType.float64)
+                vxattribute.ArrayAttribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', (1,),
+                                           vxattribute.ArrayType.float64)
 
                 # Register with plotter
                 vxui.register_with_plotter(self.roi_name(layer_idx, roi_idx),
-                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx}', color=get_roi_color(roi_idx))
+                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx}',
+                                           color=get_roi_color(roi_idx))
+                vxui.register_with_plotter(f'{self.roi_name(layer_idx, roi_idx)}_zscore',
+                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx} zscore',
+                                           color=get_roi_color(roi_idx))
                 vxattribute.write_to_file(self, self.roi_name(layer_idx, roi_idx))
 
             # Create trigger attribute
@@ -87,8 +94,6 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
         last_frame = last_frame.astype(np.float64)
 
-        # frame = last_frame # instead of frame_equalized
-
         # frame preprocessing
         preprocessed_frame = np.where(last_frame < np.histogram(last_frame, bins=2)[1][1], last_frame, 0)
         preprocessed_frame = np.where(preprocessed_frame > self.lower_px_threshold, preprocessed_frame, 0)
@@ -104,21 +109,26 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
             # Get ROI data
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
+
             # Calculate activity
             activity = np.std(_slice) * np.mean(_slice)
-
             # Write activity attribute
             vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
-            # print(activity)
 
-            if activity > self.roi_activity_threshold:
-                over_thresh = True
+            # Calculate zscore
+            _, _, past_activities = vxattribute.read_attribute(self.roi_name(layer_idx, roi_idx), last=40)
+            past_activities = past_activities.flatten()
+            current_zscore = scipy.stats.zmap(past_activities[-1], past_activities[:-1])
+            vxattribute.write_attribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', current_zscore)
+
+            # Threshold exceeded for this ROI?
+            over_thresh = current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
 
         # Write trigger
         vxattribute.write_attribute(self.trigger_name(current_layer_idx), int(over_thresh))
 
     def roi_name(self, layer_idx: int, roi_idx: int) -> str:
-        return f'{self.roi_activity_prefix}_{layer_idx}_{roi_idx}'
+        return f'{self.roi_name_prefix}_{layer_idx}_{roi_idx}'
 
     def trigger_name(self, layer_idx: int) -> str:
         return f'{self.roi_activity_trigger_name}_{layer_idx}'
@@ -130,14 +140,8 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
         # self.roi_slice_params[layer_idx][roi_idx] = new_slice_params
         # print(self.roi_slice_params)
 
-    @vxroutine.WorkerRoutine.callback
-    def update_activity_threshold(self, value: int):
-        pass
-        # self.roi_activity_threshold = value
-
 
 class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
-
     display_name = 'ROI activity tracker'
 
     def __init__(self, *args, **kwargs):
@@ -146,20 +150,14 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
         # Get datatype
         _dtype = np.dtype(getattr(np, RoiActivityTrackerRoutine.instance().frame_dtype))
         assert np.issubdtype(_dtype, np.integer), 'dtype is not an integer'
-        upper_lim = 2**(8*_dtype.itemsize)
+        upper_lim = 2 ** (8 * _dtype.itemsize)
 
         self.central_widget.setLayout(QtWidgets.QVBoxLayout())
 
-        self.activity_threshold = widgets.IntSliderWidget(self.central_widget,
-                                                             label='ROI activity threshold',
-                                                             default=RoiActivityTrackerRoutine.instance().roi_activity_threshold,
-                                                          limits=(1, upper_lim), step_size=10)
-        self.activity_threshold.connect_callback(self.update_activity_threshold)
-        self.central_widget.layout().addWidget(self.activity_threshold)
         self.pixel_threshold = widgets.IntSliderWidget(self.central_widget,
-                                                             label='Lower pixel threshold',
-                                                             default=RoiActivityTrackerRoutine.instance().lower_px_threshold,
-                                                            limits=(1, upper_lim), step_size=10)
+                                                       label='Lower pixel threshold',
+                                                       default=RoiActivityTrackerRoutine.instance().lower_px_threshold,
+                                                       limits=(1, upper_lim), step_size=10)
         self.pixel_threshold.connect_callback(self.update_pixel_threshold)
         self.central_widget.layout().addWidget(self.pixel_threshold)
 
@@ -168,11 +166,11 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
         self.central_widget.layout().addWidget(self.img_plot_widget)
 
         self.frame_name = RoiActivityTrackerRoutine.instance().output_frame_name
-        self.interlaced_layers = RoiActivityTrackerRoutine.instance().input_num_interlaced_layers
+        self.layer_num = RoiActivityTrackerRoutine.instance().input_num_interlaced_layers
 
         # Create image widgets for each layer
         self.image_widgets: List[ImageWidget] = []
-        for layer_idx in range(self.interlaced_layers):
+        for layer_idx in range(self.layer_num):
             image_widget = ImageWidget(layer_idx, parent=self)
             self.img_plot_widget.layout().addWidget(image_widget, layer_idx // 2, layer_idx % 2)
             self.image_widgets.append(image_widget)
@@ -182,15 +180,13 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
 
     @staticmethod
     def update_pixel_threshold(value: int):
+        """Set minimum pixel brightness threshold on routine"""
         RoiActivityTrackerRoutine.instance().lower_px_threshold = value
 
-    @staticmethod
-    def update_activity_threshold(value: int):
-        RoiActivityTrackerRoutine.instance().roi_activity_threshold = value
-
     def update_frame(self):
+        """Update frame on for each interleaved sublayer"""
 
-        for layer_idx in range(self.interlaced_layers):
+        for layer_idx in range(self.layer_num):
             idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}')
 
             if len(idx) == 0:
@@ -199,15 +195,23 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
             self.image_widgets[layer_idx].update_frame(frame[0])
 
 
-class ImageWidget(pg.GraphicsLayoutWidget):
+class ImageWidget(QtWidgets.QGroupBox):
 
     def __init__(self, layer_idx: int, **kwargs):
-        pg.GraphicsLayoutWidget.__init__(self, **kwargs)
-        # Hide builtin ROI option
-        # self.ui.roiBtn.hide()
+        QtWidgets.QGroupBox.__init__(self, **kwargs)
+        self.layer_idx = layer_idx
+
+        self.setLayout(QtWidgets.QVBoxLayout())
+        # Add pyqtgraph graphics widget
+        self.graphics_widget = pg.GraphicsLayoutWidget(parent=self)
+        self.layout().addWidget(self.graphics_widget)
+        # Add controls
+        self.controls = QtWidgets.QWidget(parent=self)
+        self.layout().addWidget(self.controls)
+        self.controls.setLayout(QtWidgets.QGridLayout())
 
         # Add plot
-        self.image_plot = self.addPlot(0, 0, 1, 10)
+        self.image_plot = self.graphics_widget.addPlot(0, 0, 1, 10)
         # Set up plot image item
         self.image_item = pg.ImageItem()
         self.image_plot.invertY(True)
@@ -215,23 +219,47 @@ class ImageWidget(pg.GraphicsLayoutWidget):
         self.image_plot.hideAxis('bottom')
         self.image_plot.setAspectLocked(True)
         self.image_plot.addItem(self.image_item)
-        self.text = pg.TextItem(f'Layer {layer_idx}', color=(255, 0, 0))
+        self.text = pg.TextItem(f'Layer {self.layer_idx}', color=(255, 0, 0))
         self.image_plot.addItem(self.text)
-        self.text.setPos(0,0)
-
-        self.layer_idx = layer_idx
+        self.text.setPos(0, 0)
 
         # Add ROI
         self.rois: List[Roi] = []
-        for idx in range(RoiActivityTrackerRoutine.instance().roi_max_num):
-            roi = Roi(idx, self, [0, 0], [10, 10])
-            self.rois.append(roi)
-            self.image_plot.getViewBox().addItem(roi)
+        self.threshold_widgets: List[widgets.DoubleSliderWidget] = []
+
+        # spacer = QtWidgets.QSpacerItem(1, 1, QtWidgets.QSizePolicy.Policy.Maximum,
+        #                                QtWidgets.QSizePolicy.Policy.MinimumExpanding)
+        # self.controls.layout().addItem(spacer, RoiActivityTrackerRoutine.instance().roi_max_num, 0)
+
+        self.add_roi_btn = QtWidgets.QPushButton('Add ROI')
+        self.add_roi_btn.clicked.connect(self.add_roi)
+        self.controls.layout().addWidget(self.add_roi_btn, RoiActivityTrackerRoutine.instance().roi_max_num + 1, 0)
+
+    def add_roi(self):
+        # Get next index
+        roi_idx = len(self.rois)
+        if roi_idx >= RoiActivityTrackerRoutine.instance().roi_max_num:
+            log.warning('Failed to add ROI. Maximum number of ROIs exceeded')
+            return
+
+        # Add ROI
+        width = RoiActivityTrackerRoutine.instance().frame_width
+        roi = Roi(self.layer_idx, roi_idx, self, (0, 0), (1, 1))
+        self.image_plot.getViewBox().addItem(roi)
+        roi.setPos([width//2, width//2])
+        roi.setSize([width//4, width//4])
+        self.rois.append(roi)
+
+        # Add ROI threshold widget
+        thresh = widgets.DoubleSliderWidget(self.controls,
+                                            label=f'ROI {roi_idx}',
+                                            default=RoiActivityTrackerRoutine.instance().roi_thresholds[(self.layer_idx, roi_idx)],
+                                            limits=(-5, 5), step_size=0.01)
+        thresh.connect_callback(roi.update_threshold)
+        self.controls.layout().addWidget(thresh, roi_idx, 0)
 
     def update_frame(self, frame: np.ndarray):
-        # self.setImage(frame, autoHistogramRange=False, autoLevels=False)
-        self.image_item.setImage(frame)#, autoHistogramRange=False, autoLevels=False)
-        # self.ui.histogram.disableAutoHistogramRange()
+        self.image_item.setImage(frame)
 
     def roi_updated(self, roi: Roi):
         log.debug(f'Update ROI for layer {self.layer_idx}')
@@ -241,8 +269,9 @@ class ImageWidget(pg.GraphicsLayoutWidget):
 
 class Roi(pg.RectROI):
 
-    def __init__(self, idx: int, image_widget: ImageWidget, *args, **kwargs):
+    def __init__(self, layer_idx: int, idx: int, image_widget: ImageWidget, *args, **kwargs):
         pg.RectROI.__init__(self, *args, sideScalers=True, **kwargs)
+        self.layer_idx = layer_idx
         self.idx = idx
         self.image_widget = image_widget
 
@@ -254,5 +283,16 @@ class Roi(pg.RectROI):
 
         self.sigRegionChanged.connect(self.position_changed)
 
+    def set_visible(self):
+        self.label.setVisible(True)
+        self.setVisible(True)
+
+    def set_invisible(self):
+        self.label.setVisible(False)
+        self.setVisible(False)
+
     def position_changed(self, roi: Roi):
         self.label.setPos(roi.pos())
+
+    def update_threshold(self, value: int):
+        RoiActivityTrackerRoutine.instance().roi_thresholds[(self.layer_idx, self.idx)] = value
