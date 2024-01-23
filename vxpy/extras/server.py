@@ -13,7 +13,7 @@ log = vxlogger.getLogger(__name__)
 
 class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
-    port: int = 55000
+    port: int = 55002
     frame_name: str = 'tcp_server_frame'
     frame_width: int = 256
     frame_height: int = 256

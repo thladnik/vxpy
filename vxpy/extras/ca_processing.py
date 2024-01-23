@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pyqtgraph as pg
@@ -15,6 +16,10 @@ import vxpy.core.ui as vxui
 from vxpy.utils import widgets
 
 log = vxlogger.getLogger(__name__)
+
+
+def get_roi_color(index: int):
+    return (255 * np.array(mpl.colormaps['tab10'](index)[:3])).astype(np.uint8)
 
 
 class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
@@ -57,7 +62,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
                 # Register with plotter
                 vxui.register_with_plotter(self.roi_name(layer_idx, roi_idx),
-                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx}')
+                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx}', color=get_roi_color(roi_idx))
                 vxattribute.write_to_file(self, self.roi_name(layer_idx, roi_idx))
 
             # Create trigger attribute
@@ -88,26 +93,6 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
         preprocessed_frame = np.where(last_frame < np.histogram(last_frame, bins=2)[1][1], last_frame, 0)
         preprocessed_frame = np.where(preprocessed_frame > self.lower_px_threshold, preprocessed_frame, 0)
 
-
-        # print(last_frame.mean(), preprocessed_frame.mean())
-
-        # # histogram equalization
-        # # http://www.janeriksolem.net/histogram-equalization-with-python-and.html
-        # no_bins = 20
-        # image_histogram, bins = np.histogram(preprocessed_frame.flatten(), no_bins, density=False)
-        # cdf = image_histogram.cumsum()  # cumulative distribution function
-        # cdf = (no_bins - 1) * cdf / cdf[-1]  # normalize
-        #
-        # # use linear interpolation of cdf to find new pixel values
-        # equalized_frame = np.interp(preprocessed_frame.flatten(), bins[:-1], cdf).reshape(preprocessed_frame.shape)
-        #
-        #
-        # equalized_frame = np.where(equalized_frame > bins[1], equalized_frame, 0)
-        # equalized_frame = np.where(equalized_frame < bins[-2], equalized_frame, 0)
-        #
-        # equalized_frame -= equalized_frame.min()
-        # equalized_frame /= equalized_frame.max()
-
         # Write to corresponding attribute for interleaved layer
         current_layer_idx = int(last_counter) % self.input_num_interlaced_layers
         vxattribute.write_attribute(f'{self.output_frame_name}_{current_layer_idx}', preprocessed_frame)
@@ -117,19 +102,14 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
             if layer_idx != current_layer_idx or len(slice_params) == 0:
                 continue
 
-            # Get sliced array and activity
+            # Get ROI data
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
-            #activity = np.mean(_slice)
-
-            # DF/F
-            #activity = (np.mean(_slice) - np.mean(self._f0)) / np.mean(self._f0)
-            #self._f0.insert(0, np.mean(_slice))
-            #self._f0.pop()
+            # Calculate activity
             activity = np.std(_slice) * np.mean(_slice)
 
             # Write activity attribute
             vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
-            print(activity)
+            # print(activity)
 
             if activity > self.roi_activity_threshold:
                 over_thresh = True
@@ -163,12 +143,10 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
     def __init__(self, *args, **kwargs):
         vxui.WorkerAddonWidget.__init__(self, *args, **kwargs)
 
-        _dtype = RoiActivityTrackerRoutine.instance().frame_dtype
-        upper_lim = 10**4
-        if _dtype.endswith('8'):
-            upper_lim = 2**8
-        elif _dtype.endswith('16'):
-            upper_lim = 2**16
+        # Get datatype
+        _dtype = np.dtype(getattr(np, RoiActivityTrackerRoutine.instance().frame_dtype))
+        assert np.issubdtype(_dtype, np.integer), 'dtype is not an integer'
+        upper_lim = 2**(8*_dtype.itemsize)
 
         self.central_widget.setLayout(QtWidgets.QVBoxLayout())
 
@@ -237,6 +215,9 @@ class ImageWidget(pg.GraphicsLayoutWidget):
         self.image_plot.hideAxis('bottom')
         self.image_plot.setAspectLocked(True)
         self.image_plot.addItem(self.image_item)
+        self.text = pg.TextItem(f'Layer {layer_idx}', color=(255, 0, 0))
+        self.image_plot.addItem(self.text)
+        self.text.setPos(0,0)
 
         self.layer_idx = layer_idx
 
@@ -266,3 +247,12 @@ class Roi(pg.RectROI):
         self.image_widget = image_widget
 
         self.sigRegionChangeFinished.connect(self.image_widget.roi_updated)
+        self.setPen(pg.mkPen(color=get_roi_color(self.idx)))
+        self.label = pg.TextItem(f'ROI {self.idx}', color=get_roi_color(self.idx))
+        self.label.setAnchor((0, 1))
+        self.image_widget.image_plot.addItem(self.label)
+
+        self.sigRegionChanged.connect(self.position_changed)
+
+    def position_changed(self, roi: Roi):
+        self.label.setPos(roi.pos())
