@@ -537,10 +537,11 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         return new_plot
 
-    def _dataitem(self, subplot, attr_name):
+    def _dataitem(self, subplot, attr_name, color):
 
         i = len(subplot.getViewBox().addedItems)
-        color = self.colors[i]
+        if color is None:
+            color = self.colors[i]
 
         # idcs, times, values = vxattribute.read_attribute(attr_name)
         new_dataitem = pg.PlotDataItem([], [], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
@@ -550,7 +551,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         return new_dataitem
 
-    def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None):
+    def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None, color=None):
 
         if attr_name in self.cache:
             log.warning(f'Tried to add buffer attribute "{attr_name}" again')
@@ -566,7 +567,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         subplot = self._subplot(axis_name, units=units)
 
         # Add dataitem
-        dataitem = self._dataitem(subplot, attr_name)
+        dataitem = self._dataitem(subplot, attr_name, color)
 
         # Add dataitem to legend
         self.legend_items[axis_name].addItem(dataitem, name)
