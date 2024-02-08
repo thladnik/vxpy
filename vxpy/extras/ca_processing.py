@@ -122,7 +122,8 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
             vxattribute.write_attribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', current_zscore)
 
             # Threshold exceeded for this ROI?
-            over_thresh = current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
+            # over_thresh = current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
+            over_thresh = over_thresh or current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
 
         # Write trigger
         vxattribute.write_attribute(self.trigger_name(current_layer_idx), int(over_thresh))
