@@ -104,3 +104,27 @@ class RegularMesh(vxvisual.SphericalVisual):
 
     def render(self, frame_time):
         self.mesh.draw('triangles', self.index_buffer)
+
+
+class QuadrantChecker(vxvisual.SphericalVisual):
+
+    def __init__(self, *args, **kwargs):
+        vxvisual.SphericalVisual.__init__(self, *args, **kwargs)
+
+        self.sphere = sphere.UVSphere(azim_lvls=100, elev_lvls=50, azimuth_range=2 * np.pi, upper_elev=np.pi / 2)
+        self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
+        self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
+        self.azimuth_buffer = gloo.VertexBuffer(self.sphere.a_azimuth)
+        self.elevation_buffer = gloo.VertexBuffer(self.sphere.a_elevation)
+
+        self.mesh = gloo.Program(self.load_vertex_shader('./quadrant_checker.vert'),
+                                 self.load_shader('./quadrant_checker.frag'))
+        self.mesh['a_position'] = self.position_buffer
+        self.mesh['a_azimuth'] = self.azimuth_buffer
+        self.mesh['a_elevation'] = self.elevation_buffer
+
+    def initialize(self, *args, **kwargs):
+        pass
+
+    def render(self, frame_time):
+        self.mesh.draw('triangles', self.index_buffer)
