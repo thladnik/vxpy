@@ -28,7 +28,7 @@ log = vxlogger.getLogger(__name__)
 
 class Trigger:
     all: List[Trigger] = []
-    attribute: vxattribute.Attribute = None
+    attribute: Union[vxattribute.Attribute, None] = None
 
     @staticmethod
     def _return_empty() -> (bool, np.ndarray):
@@ -37,36 +37,43 @@ class Trigger:
     def condition(self, data) -> (bool, np.ndarray):
         return self._return_empty()
 
-    def __init__(self, attr: Union[str, vxattribute.Attribute],
-                 callback: Union[Callable, List[Callable]] = None):
+    def __init__(self, attr: Union[str, vxattribute.Attribute], callback: Union[Callable, List[Callable]] = None):
         if isinstance(attr, str):
-            self.attribute = vxattribute.get_attribute(attr)
+            self.attribute_name = attr
+            self.attribute = None
         elif isinstance(attr, vxattribute.Attribute):
+            self.attribute_name = attr.name
             self.attribute = attr
         else:
             log.error('Trigger attribute has to be either valid attribute name or attribute object.')
             return
 
-        log.info(f'Add {self.__class__.__name__} on attribute "{self.attribute.name}"')
+        log.info(f'Add {self.__class__.__name__} on attribute "{self.attribute_name}"')
 
         self.callbacks: List[Callable] = []
         if callback is not None:
             self.add_callback(callback)
 
-        self.all.append(self)
-
         # Find last index
-        self._last_read_idx: int = self.attribute.index
+        self._last_read_idx: int = 0
         self._active = False
 
     def __repr__(self):
         return f"{self.__class__.__name__}('{self.attribute.name}', {self.callbacks})"
 
-    def set_active(self, active):
-        self._active = active
+    def set_active(self):
+        if self not in self.all:
+            self.all.append(self)
 
-    def set_inactive(self, inactive):
-        self._active = not inactive
+        if self.attribute is None:
+            self.attribute = vxattribute.get_attribute(self.attribute_name)
+
+        # Set index and active
+        self._last_read_idx = self.attribute.index
+        self._active = True
+
+    def set_inactive(self):
+        self._active = False
 
     def add_callback(self, callback: Union[Callable, Iterable[Callable]]):
 
@@ -172,17 +179,41 @@ class RisingEdgeTrigger(Trigger):
             return self._return_empty()
 
 
-# class FallingEdgeTrigger(Trigger):
-#
-#     @staticmethod
-#     def condition(data):
-#         if not isinstance(data, np.ndarray):
-#             data = np.array(data)
-#
-#         data = np.squeeze(data)
-#         results = np.diff(data) < 0
-#         results = np.append(results, [False])
-#         if np.any(results):
-#             return True, results
-#         else:
-#             return False, []
+class FallingEdgeTrigger(Trigger):
+
+    def condition(self, data):
+
+        # Convert if necessary
+        if not isinstance(data, np.ndarray):
+            data = np.array(data)
+
+        # Remove extra dimensions
+        data = np.squeeze(data)
+
+        if data.ndim == 0 or data.shape[0] < 2:
+            return self._return_empty()
+
+        # Compute condition: type of data CANNOT be bool, because np.diff on boolean arrays
+        #  always evaluates to True if there's any difference - regardless of sign
+        results = np.diff(data.astype(int)) < 0
+        # Prepend False to fix length
+        results = np.append([False], results)
+
+        # Return results
+        if np.any(results):
+            return True, results
+        else:
+            return self._return_empty()
+
+
+class NewDataTrigger(Trigger):
+
+    def condition(self, data) -> (bool, np.ndarray):
+
+        success = False
+        instances = np.zeros(len(data), dtype=bool)
+        if len(data) > 1:
+            success = True
+            instances[1:] = True
+
+        return success, instances

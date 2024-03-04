@@ -17,6 +17,7 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
+# import vxpy.core.ui as vxui
 
 log = vxlogger.getLogger(__name__)
 
@@ -47,6 +48,7 @@ def write_attribute(attr_name: str, *args, **kwargs) -> None:
     """Convenience method for calling an attribute's write function via its name"""
     if attr_name in Attribute.all:
         return Attribute.all[attr_name].write(*args, **kwargs)
+    raise AttributeError(f'Attribute {attr_name} not found.')
 
 
 def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
@@ -84,9 +86,6 @@ def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
                 return True, False, {}
             return True, True, record_ops
 
-    #     # Update
-    #     matched = matched or match
-    #
     # No matches
     return True, False, {}
 
@@ -303,6 +302,8 @@ class Attribute(ABC):
             return self[-1]
 
     def __getitem__(self, item):
+        # TODO:
+        #  handle lists/arrays of ints or bools?
         # Determine what the index_list should be for the selected subset
         #  Note that index_list should ultimately be a list of relative indices within the ring buffer
         if isinstance(item, int):
@@ -355,10 +356,10 @@ class Attribute(ABC):
         #  Regular occurrences may indicate an underlying issue with the timing precision of the system
         #  or repeated erreneous calls to the write function of the attribute during a
         #  single event loop iteration of the corresponding producer module
-        if np.isclose(self._last_time, vxipc.get_time(), rtol=0., atol=vxipc.LocalProcess.interval / 4.):
-            log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
-                        f'in process {vxipc.LocalProcess.name} during same iteration. '
-                        f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
+        # if np.isclose(self._last_time, vxipc.get_time(), rtol=0., atol=vxipc.LocalProcess.interval / 4.):
+        #     log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
+        #                 f'in process {vxipc.LocalProcess.name} during same iteration. '
+        #                 f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
 
         internal_idx = self.index % self.length
 
@@ -422,6 +423,10 @@ class ArrayType:
     float32 = (ctypes.c_float, np.float32)
     float64 = (ctypes.c_double, np.float64)
 
+    @classmethod
+    def get_type_by_str(cls, name: str) -> Tuple[ctypes.py_object, np.number]:
+        return getattr(cls, name)
+
 
 class ArrayAttribute(Attribute):
     """Array buffer attribute for synchronization of datasets.
@@ -439,7 +444,7 @@ class ArrayAttribute(Attribute):
 
     # TODO: chunked and un-chunked data structures can be unified (un-chunked attributes are chunked with chunk_num 1)
 
-    def __init__(self, name, shape, dtype: Tuple[object, np.number], **kwargs):
+    def __init__(self, name, shape, dtype: Tuple[ctypes.py_object, np.number], **kwargs):
         Attribute.__init__(self, name, **kwargs)
 
         assert isinstance(shape, tuple), 'size must be tuple with dimension sizes'

@@ -252,7 +252,7 @@ class CMNIcoSphere:
     def __init__(self, subdivisionTimes : int = 1):
 
         ### Create sphere
-        self.r = 1#(1 + np.sqrt(5)) / 2
+        self.r = (1 + np.sqrt(5)) / 2
         self.init_vertices = np.array([
                     [-1.0, self.r, 0.0],
                     [1.0, self.r, 0.0],
@@ -293,6 +293,7 @@ class CMNIcoSphere:
         [usV, usF] = geometry.subdivide_triangle(self.init_vertices,self.init_faces,self.sdtimes) # Compute the radius of all the vertices
         sphereR = geometry.vecNorm(usV[0,:])  # Compute the radius of all the vertices
         tileCen = np.mean(usV[usF, :], axis=1)  # Compute the center of each triangle tiles
+        tileCen = geometry.vecNormalize(tileCen)
 
         # Create index buffer
         Iout = np.arange(usF.size, dtype=np.uint32)
@@ -301,52 +302,17 @@ class CMNIcoSphere:
         # Create vertex buffer
         # The orientation of each triangle tile is defined as the direction perpendicular to the first edge of the triangle;
         # Here each orientation vector is represented by a complex number for the convenience of later computation
-        tileOri = geometry.vecNormalize(np.cross(tileCen,usV[usF[:,1],:] - usV[usF[:,0],:])) \
+        tile_orientation = geometry.vecNormalize(np.cross(tileCen,usV[usF[:,1],:] - usV[usF[:,0],:])) \
                   + 1.j * geometry.vecNormalize(usV[usF[:,1],:] - usV[usF[:,0],:])
         tileDist = geometry.sphAngle(tileCen,sphereR)  # Spherical distance for each tile pair
-        usF = np.uint32(usF.flatten())
+        usF = np.int64(usF.flatten())
         # Triangles must not share edges/vertices while doing texture mapping, this line duplicate the shared vertices for each triangle
         self.a_position = geometry.vecNormalize(usV[usF,:])
-        self.a_texcoord = geometry.cen2tri(np.random.rand(np.int(Iout.size / 3)),np.random.rand(np.int(Iout.size / 3)),.1).reshape([Iout.size,2])
+        self.a_texcoord = geometry.cen2tri(np.random.rand(int(Iout.size / 3)),np.random.rand(int(Iout.size / 3)),.1).reshape([Iout.size,2])
 
-        self.tile_orientation = tileOri
+        self.tile_orientation = tile_orientation
         self.tile_center      = tileCen
         self.intertile_distance = tileDist
-
-
-class Insta360Calibrated:
-    """
-    !!! DOESN'T WORK CURRENTLY !!!
-    """
-
-    def __init__(self, filename):
-
-        self.addAttribute(('a_texcoord', np.float32, 2))
-
-        self.filename = '{}.mat'.format(filename)
-
-        self.file = h5py.File(os.path.join(Path.Model, 'LUTs', self.filename), 'r')
-        data = self.file['xyz0'][:]
-        self.validIdcs = np.arange(data.shape[0])[np.isfinite(data[:,0])]
-
-        x = (self.validIdcs / 315) / 630
-        y = (self.validIdcs % 315) / 315
-
-        self.a_texcoord = np.array([x,y])
-        vertices = geometry.vecNormalize(data[self.validIdcs,:])
-        vertices = geometry.qn(vertices)
-
-        vertices = geometry.rotate(geometry.qn([1,0,0]),vertices,np.pi / 2)
-        #vertices = Geometry.rotate(Geometry.qn([0, 0, 1]), vertices, -np.pi / 4)
-        #vertices = Geometry.rotate(Geometry.qn([0, 1, 0]), vertices, np.pi / 2)
-
-        vertices = vertices.matrixform[:,1:]
-        self.a_position = vertices
-
-        self.indices = Delaunay(self.a_texcoord.T).simplices
-
-
-        self.createBuffers()
 
 
 if __name__ == '__main__':

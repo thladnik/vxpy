@@ -24,7 +24,6 @@ import numpy as np
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.devices.serial as vxserial
-from vxpy.core.devices.serial import DaqPin, PINSIGTYPE, PINSIGDIR
 
 log = vxlogger.getLogger(__name__)
 
@@ -43,7 +42,7 @@ def whitenoise_sinewave(t, freq, t_offset, nlvl):
 
 class VirtualDaqDevice(vxserial.DaqDevice):
 
-    def get_pin_info(self) -> Iterator[Tuple[str, PINSIGTYPE, PINSIGDIR]]:
+    def get_pin_info(self) -> Iterator[Tuple[str, vxserial.PINSIGTYPE, vxserial.PINSIGDIR]]:
         pass
 
     def _setup_pins(self) -> None:
@@ -52,7 +51,7 @@ class VirtualDaqDevice(vxserial.DaqDevice):
         for pin_id, pin_config in self.properties['pins'].items():
             pin = VirtualDaqPin(pin_id, self, pin_config)
 
-            self._pins[pin_id] = pin
+            self.pins[pin_id] = pin
 
     def _open(self) -> bool:
         return True
@@ -77,28 +76,17 @@ class VirtualDaqPin(vxserial.DaqPin):
     def __init__(self, *args, **kwargs):
         vxserial.DaqPin.__init__(self, *args, **kwargs)
 
-        self.fun: Callable = self._available_methods[self.properties['fun']]
-        self.arguments: Dict[str, Any] = self.properties['args']
-
-        # Set signal type and direction
-        sigal_type, signal_dir = list(self.properties['signal'])
-        if 'a' == sigal_type:
-            self.signal_type = PINSIGTYPE.ANALOG
-        else:
-            self.signal_type = PINSIGTYPE.DIGITAL
-        if 'i' == signal_dir:
-            self.signal_direction = PINSIGDIR.IN
-        else:
-            self.signal_direction = PINSIGDIR.OUT
+        self._dummy_data = 0
+        self.fun: Callable = self._available_methods.get(self.properties.get('fun'))
+        self.arguments: Dict[str, Any] = self.properties.get('args', {})
 
     def initialize(self):
-        log.info(f'Initialize pin {self} on device {self._board}')
         pass
 
-    def write(self, value) -> bool:
-        """VirtualDaqPin has no write implementation"""
+    def _write_hw(self, value):
         pass
 
-    def read(self) -> Union[bool, int, float]:
-        """Return value based on pin's function and configured arguments"""
-        return self.fun(vxipc.get_time(), **self.arguments)
+    def _read_hw(self) -> Union[bool, int, float]:
+        if self.fun is not None:
+            return self.fun(vxipc.get_time(), **self.arguments)
+        return self._dummy_data

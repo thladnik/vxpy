@@ -8,7 +8,7 @@ import sys
 
 import numpy as np
 from numpy.typing import DTypeLike
-from typing import List, Tuple, Any, Union, Callable, Dict
+from typing import List, Tuple, Any, Union, Callable, Dict, Type
 from vispy import app
 from vispy import gloo
 from vispy.gloo import gl
@@ -43,9 +43,16 @@ class AbstractVisual(ABC):
     available_transforms: Dict[str, vxtransforms.BaseTransform] = {}
     transform: vxtransforms.BaseTransform = None
 
-    description: str = ''
+    static_parameters: List[Parameter]
+    variable_parameters: List[Parameter]
+    trigger_functions: List[Callable]
+
+    instance: Type[AbstractVisual] = None
 
     def __init__(self, canvas=None, _protocol=None, _transform=None):
+        # Set instance
+        AbstractVisual.instance = self
+
         if canvas is None:
             canvas = gloo.context.FakeCanvas()
         self.canvas: app.Canvas = canvas
@@ -55,7 +62,7 @@ class AbstractVisual(ABC):
         self.protocol: protocol.BaseProtocol = _protocol
 
         if _transform is None:
-            _transform = vxtransforms.BaseTransform()
+            _transform = vxtransforms.get_config_transform()()
         self.transform = _transform
 
         self.parameters: Dict[str, Any] = {}
@@ -63,12 +70,10 @@ class AbstractVisual(ABC):
         self.data_appendix: Dict[str, Any] = {}
 
         # Get all visual parameters
-        self.static_parameters: List[Parameter] = []
-        self.variable_parameters: List[Parameter] = []
-        self.trigger_functions: List[Callable] = []
-        self._collect_parameters()
+        self.collect_parameters()
 
-        self.is_active = True
+        # Set inactive
+        self.is_active = False
 
         gloo.set_state(depth_test=True)
 
@@ -83,13 +88,19 @@ class AbstractVisual(ABC):
     def get_programs(self) -> Dict[str, gloo.Program]:
         return self.custom_programs
 
-    def _collect_parameters(self):
-        """Function goes through all attributes within visual and collects anything derived from Parameter"""
+    @classmethod
+    def collect_parameters(cls):
+        """Function goes through all attributes within visual and collects anything derived from Parameter
+        """
+
+        cls.static_parameters = []
+        cls.variable_parameters = []
+        cls.trigger_functions = []
 
         # Iterate through instance attributes
-        for name in dir(self):
+        for name in dir(cls):
 
-            param = getattr(self, name)
+            param = getattr(cls, name)
 
             # Skip anything that is not a parameter
             if not isinstance(param, Parameter):
@@ -97,9 +108,9 @@ class AbstractVisual(ABC):
 
             # Add to static or variable list
             if param.static:
-                self.static_parameters.append(param)
+                cls.static_parameters.append(param)
             else:
-                self.variable_parameters.append(param)
+                cls.variable_parameters.append(param)
 
     def _add_data_appendix(self, name, data):
         """Deprecated thanks to static parameters?"""
@@ -107,10 +118,11 @@ class AbstractVisual(ABC):
 
     @classmethod
     def load_shader(cls, filepath: str):
-        if filepath.startswith('./'):
+        if not filepath.startswith('/') or filepath.startswith('\\'):
             # Use path relative to visual
             pyfileloc = inspect.getfile(cls)
-            path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath[2:]])
+            filepath_clean = filepath.replace('./', '')
+            path = os.sep.join([*pyfileloc.split(os.sep)[:-1], filepath_clean])
         else:
             # Use absolute path to global shader folder
             path = os.path.join(PATH_SHADERS, filepath)
@@ -136,14 +148,15 @@ class AbstractVisual(ABC):
     def start(self):
         for attr in self.__dict__.values():
             if issubclass(type(attr), vxevent.Trigger):
-                attr.set_active(True)
+                attr.set_active()
         self.is_active = True
 
     def end(self):
         for attr in self.__dict__.values():
             if issubclass(type(attr), vxevent.Trigger):
-                attr.set_active(False)
+                attr.set_inactive()
         self.is_active = False
+        self.destroy()
 
     def update(self, params: dict, _update_verbosely=True):
         """Update parameters of the visual
@@ -197,6 +210,9 @@ class AbstractVisual(ABC):
     def render(self, dt):
         """Method to be implemented in final visual."""
 
+    def destroy(self):
+        """Method to close and delete objects after visual is finished"""
+
 
 class SphericalVisual(AbstractVisual, ABC):
 
@@ -248,6 +264,7 @@ class Parameter:
 
     def __init__(self, name: str,
                  shape: Tuple[int, ...] = None,
+                 dtype: Type = None,
                  static: bool = False,
                  value_map: Union[dict, Callable] = None,
                  internal: bool = False,
@@ -259,6 +276,8 @@ class Parameter:
         self._programs: List[gloo.Program] = []
         self._downstream_link: List[Parameter] = []
 
+        if dtype is not None:
+            self.dtype = dtype
         self._shape = shape
         if shape is not None:
             self._data: np.ndarray = np.zeros(shape, dtype=self.dtype)
@@ -282,6 +301,17 @@ class Parameter:
     def __add__(self, other):
         self.data = self.data + other
 
+    # def __getitem__(self, item):
+    #     if item == slice(None, None, None):
+    #         return self.data
+    #     raise KeyError(f'Invalid key for class {self.__class__.__name__}')
+    #
+    # def __setitem__(self, key, value):
+    #     if key == slice(None, None, None):
+    #         self.data = value
+    #     else:
+    #         raise KeyError(f'Invalid key for class {self.__class__.__name__}')
+
     @property
     def shape(self):
         return self._shape
@@ -299,9 +329,8 @@ class Parameter:
         pass
 
     def _set_start_data(self, data):
-        if self._data is None:
-            self._shape = data.shape if hasattr(data, 'shape') else (1,)
-            self._data = np.array(data, dtype=self.dtype)
+        self._shape = data.shape if hasattr(data, 'shape') else (1,)
+        self._data = np.array(data, dtype=self.dtype)
 
     @property
     def data(self):
@@ -309,7 +338,8 @@ class Parameter:
 
     @data.setter
     def data(self, data):
-        self._set_start_data(data)
+        if self._data is None:
+            self._set_start_data(data)
 
         # If value_map is a callable, use it to transform data
         if callable(self.value_map):

@@ -1,25 +1,11 @@
-"""
-vxPy ./core/container.py
-Custom file container formats to facilitate save builtin save-to-disk operations.
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+# -*- coding: utf-8 -*-
+"""Custom file container formats to facilitate save builtin save-to-disk operations.
 """
 from __future__ import annotations
 
 import abc
-from typing import Union, Type, Any, Tuple, Dict
+import os.path
+from typing import List, Union, Type, Any, Tuple, Dict
 
 import cv2
 import ffmpeg
@@ -42,6 +28,7 @@ _instance: Union[H5File, None] = None
 # Dictionary of open video stream containers
 _video_writers: Dict[str, VideoWriter] = {}
 _text_writers: Dict[str, TextWriter] = {}
+
 
 def init():
     global log
@@ -66,6 +53,12 @@ def new(file_type: str, file_path: str):
 
     _instance = _file_types[file_type](file_path)
 
+
+def set_fallback_phase_id(phase_id: str):
+    if _noinstance():
+        return
+
+    _instance.fallback_phase_id = phase_id
 
 def close():
     global _instance
@@ -126,8 +119,8 @@ def add_phase_attributes(attributes: Dict[str, Any]):
         return
 
     # There are no negative phase ids
-    if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
-        return
+    # if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
+    #     return
 
     # Call on instance
     _instance.add_phase_attributes(attributes)
@@ -139,8 +132,8 @@ def add_to_phase_dataset(dataset_name: str, data: Any):
         return
 
     # There are no negative phase ids
-    if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
-        return
+    # if vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID] < 0:
+    #     return
 
     # Call on instance
     _instance.add_to_phase_dataset(dataset_name, data)
@@ -155,6 +148,85 @@ def add_to_dataset(dataset_name: str, data: Any):
     _instance.add_to_dataset(dataset_name, data)
 
 
+def dump(data, group: str = None):
+    """Dump arbitrary data into currently opened container"""
+
+    if _noinstance():
+        return
+
+    if group is None:
+        group = ''
+
+    # Save anything with a simple Python type as attribute
+    attributes = {k: d for k, d in data.items() if type(d) in (str, int, float, complex, bool, list, tuple, dict)}
+    if len(attributes) > 0:
+        try:
+            log.info(f'Dump attributes {list(attributes.keys())} to file')
+            _instance.add_attributes(attributes, group=group)
+        except Exception as _exc:
+            log.error(f'Failed to dump attributes {list(attributes.keys())} to file')
+
+    # Safe arrays
+    arrays = {k: d for k, d in data.items() if isinstance(d, np.ndarray) and np.issubdtype(d.dtype, np.number)}
+    for k, d in arrays.items():
+
+        saved = False
+        i = 0
+        while not saved:
+            try:
+                _instance.create_dataset(f'{group}/{k}_{i}', d.shape, d.dtype)
+                _instance.add_to_dataset(f'{group}/{k}_{i}', d)
+            except:
+                pass
+            else:
+                saved = True
+
+            i += 1
+
+            # Escape condition
+            if i > 1000:
+                log.error(f'Failed to dump data {k} of type {type(d)} to file')
+                break
+
+
+def temporary_dump(data):
+    """Dump arbitrary data to temp folder
+    """
+
+    for k, d in data.items():
+        if isinstance(d, np.ndarray):
+            np.save(os.path.join(PATH_TEMP, f'{k}.temp.npy'), d)
+        else:
+            log.error('Unable to dump data to file. Unknown data type.')
+
+
+def temporary_exists(*keys):
+    """Check if all names in keys list are in temp folder
+    """
+
+    contained = []
+    for k in keys:
+        contained.append(any([True for name in os.listdir(PATH_TEMP) if name.startswith(f'{k}.temp.')]))
+
+    return all(contained)
+
+
+def temporary_load(*keys) -> List[Any]:
+    """Load data for names in keys list from temp folder
+    """
+    data = []
+    for k in keys:
+        # TODO: checks for different types
+        try:
+            d = np.load(os.path.join(PATH_TEMP, f'{k}.temp.npy'))
+        except:
+            pass
+        else:
+            data.append(d)
+
+    return data
+
+
 class H5File:
     _protocol_prefix = 'protocol'
     _phase_prefix = 'phase'
@@ -167,9 +239,16 @@ class H5File:
         log.info(f'Open HDF5 file {self._file_path}')
         self._h5_handle = h5py.File(self._file_path, 'w')
 
+        self.fallback_phase_id = None
+
     @property
     def _phase_str(self):
-        return f'{self._phase_prefix}{vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]}'
+        phase_id = vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]
+
+        if phase_id < 0 and self.fallback_phase_id is not None:
+            return self.fallback_phase_id
+
+        return f'{self._phase_prefix}{phase_id}'
 
     @property
     def _protocol_str(self):
@@ -195,10 +274,14 @@ class H5File:
             try:
                 grp.attrs[attr_name] = value
             except:
-                print(attr_name, type(value))
+                log.warning(f'Failed to write attribute {attr_name} to file. Type: {type(value)}')
 
-    def add_attributes(self, attributes: Dict[str, Any]):
-        self._add_attributes(self._h5_handle['/'], attributes)
+    def add_attributes(self, attributes: Dict[str, Any], group: str = None):
+        if group is None:
+            grp = self._h5_handle['/']
+        else:
+            grp = self._h5_handle.require_group(group)
+        self._add_attributes(grp, attributes)
 
     def add_protocol_attributes(self, attributes: Dict[str, Any]):
         # Get group path from current record_protocol_group_id
@@ -223,7 +306,6 @@ class H5File:
 
     def _add_to_dataset(self, path: str, data: Any):
         if path not in self._h5_handle:
-            # print('WRONG, path does not exist yet', path, data)
             return
 
         try:
@@ -417,7 +499,6 @@ class AVIVideoWriter(VideoWriter):
             vcodec = 'MJPG'
 
         self.width, self.height = self.attribute.shape[:2]
-
 
         self.colorplanes = 1
         if len(self.attribute.shape) > 2:

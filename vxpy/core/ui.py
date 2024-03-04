@@ -1,40 +1,26 @@
-"""
-vxPy ./core/ui.py
-Copyright (C) 2022 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Core user interface module
 """
 from __future__ import annotations
 
-import sys
-import time
 from abc import abstractmethod
 from collections import OrderedDict
+import sys
+import time
+from typing import Callable, List, Type, Union, Dict, Tuple, Any
+
+
+import h5py
+import matplotlib.colors
+import numpy as np
+import pyqtgraph as pg
+from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import *
 
 try:
     import h5gview
 except ImportError:
     h5gview = None
-
-import h5py
-import numpy as np
-import pyqtgraph as pg
-
-from PySide6 import QtCore, QtWidgets, QtGui
-from typing import Callable, List, Union, Dict, Tuple, Any
-
-from PySide6.QtWidgets import QLabel
 
 from vxpy import config
 import vxpy.modules as vxmodules
@@ -51,9 +37,12 @@ log = vxlogger.getLogger(__name__)
 class ExposedWidget:
     """Widget base class for widgets which expose bound methods to be called from external sources"""
 
+    instance: Type[ExposedWidget] = None
+
     def __init__(self):
         # List of exposed methods to register for rpc callbacks
         self.exposed: List[Callable] = []
+        ExposedWidget.instance = self
 
     def create_hooks(self):
         """Register exposed functions as callbacks with the local process"""
@@ -98,7 +87,8 @@ class WindowWidget(QtWidgets.QWidget):
 
         # If window is activated (e.g. brought to front),
         # this also raises all other windows
-        if event.type() == QtCore.QEvent.Type.WindowActivate:
+        if (type(event) == QtCore.QEvent
+                and event.type() == QtCore.QEvent.Type.WindowActivate):
             # Raise main window
             self.main_window.raise_()
             # Raise all subwindows
@@ -193,7 +183,7 @@ class AddonWidget(WindowWidget, ExposedWidget):
         self.setLayout(QtWidgets.QVBoxLayout())
 
         hspacer = QtWidgets.QWidget()
-        hspacer.setSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        hspacer.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Minimum)
 
         # Create topbar
         self.topbar = QtWidgets.QToolBar()
@@ -311,18 +301,7 @@ def register_with_plotter(attr_name: str, *args, **kwargs):
 
 
 class PlottingWindow(WindowWidget, ExposedWidget):
-    # Colormap is tab10 from matplotlib:
-    # https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
-    cmap = (np.array([(0.12156862745098039, 0.4666666666666667, 0.7058823529411765),
-                      (1.0, 0.4980392156862745, 0.054901960784313725),
-                      (0.17254901960784313, 0.6274509803921569, 0.17254901960784313),
-                      (0.8392156862745098, 0.15294117647058825, 0.1568627450980392),
-                      (0.5803921568627451, 0.403921568627451, 0.7411764705882353),
-                      (0.5490196078431373, 0.33725490196078434, 0.29411764705882354),
-                      (0.8901960784313725, 0.4666666666666667, 0.7607843137254902),
-                      (0.4980392156862745, 0.4980392156862745, 0.4980392156862745),
-                      (0.7372549019607844, 0.7411764705882353, 0.13333333333333333),
-                      (0.09019607843137255, 0.7450980392156863, 0.8117647058823529)]) * 255).astype(int)
+    colors = (np.array([matplotlib.colormaps['tab20'](i)[:3] for i in range(20)]) * 2**8-1).astype(int)
 
     cache_chunk_size = 10 ** 4
 
@@ -368,7 +347,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         # Start timer
         self.tmr_update_data = QtCore.QTimer()
-        self.tmr_update_data.setInterval(1000 // 20)
+        self.tmr_update_data.setInterval(1000 // 50)
         self.tmr_update_data.timeout.connect(self._read_buffer_data)
         self.tmr_update_data.start()
 
@@ -400,7 +379,6 @@ class PlottingWindow(WindowWidget, ExposedWidget):
                 else:
                     # Read this attribute starting from the last_idx
                     n_idcs, n_times, n_data = vxattribute.read_attribute(attr_name, from_idx=last_idx)
-
 
             except Exception as exc:
                 log.warning(f'Problem trying to read attribute "{attr_name}" from_idx={grp.attrs["last_idx"]}'
@@ -448,13 +426,11 @@ class PlottingWindow(WindowWidget, ExposedWidget):
                 import traceback
                 print(traceback.print_exc())
 
-        if grp is not None and grp['t'].shape[0] > 0:
-            self._update_xrange(grp['t'][-1])
-
         self.update_plots()
 
     def update_plots(self):
-        times = None
+
+        new_tmax = -np.inf
         for attr_name, dataitem in self.data_items.items():
 
             grp = self.cache[attr_name]
@@ -472,6 +448,17 @@ class PlottingWindow(WindowWidget, ExposedWidget):
             data = grp['y'][start_idx:]
 
             dataitem.setData(x=times, y=data)
+
+            # Get rid of NaN's, they break everything
+            if np.all(np.isnan(times)):
+                continue
+            plot_tmax = np.nanmax(times)
+
+            if plot_tmax > new_tmax:
+                new_tmax = plot_tmax
+
+        if new_tmax > -np.inf:
+            self._update_xrange(new_tmax)
 
     def _update_xrange(self, new_xmax):
 
@@ -550,10 +537,11 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         return new_plot
 
-    def _dataitem(self, subplot, attr_name):
+    def _dataitem(self, subplot, attr_name, color):
 
         i = len(subplot.getViewBox().addedItems)
-        color = self.cmap[i]
+        if color is None:
+            color = self.colors[i]
 
         # idcs, times, values = vxattribute.read_attribute(attr_name)
         new_dataitem = pg.PlotDataItem([], [], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
@@ -563,7 +551,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         return new_dataitem
 
-    def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None):
+    def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None, color=None):
 
         if attr_name in self.cache:
             log.warning(f'Tried to add buffer attribute "{attr_name}" again')
@@ -579,7 +567,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         subplot = self._subplot(axis_name, units=units)
 
         # Add dataitem
-        dataitem = self._dataitem(subplot, attr_name)
+        dataitem = self._dataitem(subplot, attr_name, color)
 
         # Add dataitem to legend
         self.legend_items[axis_name].addItem(dataitem, name)
@@ -926,6 +914,7 @@ class RecordingWidget(IntegratedWidget):
 class LogTextEdit(QtWidgets.QTextEdit):
 
     default_stylesheet = 'font-family: Courier;'
+    scroll_to_bottom = True
 
     def __init__(self, *args, **kwargs):
         QtWidgets.QTextEdit.__init__(self, *args, **kwargs)
@@ -947,8 +936,16 @@ class LogTextEdit(QtWidgets.QTextEdit):
         self.timer_logging.timeout.connect(self.print_log)
         self.timer_logging.start(50)
 
+        self.setStyleSheet(self.default_stylesheet)
+
     def print_log(self):
         self.setFont(self.font)
+
+        if self.verticalScrollBar().pos().y() < self.verticalScrollBar().maximum():
+            self.scroll_to_bottom = False
+
+        if self.verticalScrollBar().pos() == self.verticalScrollBar().maximum():
+            self.scroll_to_bottom = True
 
         if len(vxlogger.get_history()) > self.logccount:
             for rec in vxlogger.get_history()[self.logccount:]:
@@ -976,6 +973,7 @@ class LogTextEdit(QtWidgets.QTextEdit):
                 if self.last_high_level < rec.levelno:
                     self.setStyleSheet(f'{self.default_stylesheet} border-color:{cur_color};')
                     self.last_high_level = rec.levelno
+                    self.parent().set_warning(rec.levelname)
 
                 # Crop name if necessary
                 name = rec.name
@@ -989,9 +987,13 @@ class LogTextEdit(QtWidgets.QTextEdit):
                 # Add line
                 self.append(line)
 
+        if self.scroll_to_bottom:
+            self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         self.last_high_level = self.log_level
         self.setStyleSheet(self.default_stylesheet)
+        self.parent().set_warning(None)
         event.accept()
 
 
@@ -1000,12 +1002,36 @@ class LoggingWidget(IntegratedWidget):
     def __init__(self, *args):
         IntegratedWidget.__init__(self, 'Log', *args)
 
-        self.setLayout(QtWidgets.QHBoxLayout())
-        self.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
+        self.setLayout(QVBoxLayout())
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
+        # # Add autoscroll widget
+        # self.autoscroll_widget = QtWidgets.QWidget()
+        # self.autoscroll_widget.setLayout(QtWidgets.QHBoxLayout())
+        # # Spacer
+        # self.autoscroll_widget.layout().addItem(QSpacerItem(1, 1, hData=QSizePolicy.Policy.MinimumExpanding))
+        # # Checkbox
+        # self.autoscoll_check = QCheckBox('Autoscroll')
+        # self.autoscoll_check.setLayoutDirection(QtCore.Qt.LayoutDirection.RightToLeft)
+        # self.autoscoll_check.setCheckState(QtCore.Qt.CheckState(True))
+        # self.autoscoll_check.setTristate(False)
+        # self.autoscoll_check.clicked.connect(self.toggle_autoscroll)
+        # self.autoscroll_widget.layout().addWidget(self.autoscoll_check)
+        # self.layout().addWidget(self.autoscoll_check)
+
+        # Add text box
         self.txe_log = LogTextEdit(parent=self)
         self.txe_log.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
         self.layout().addWidget(self.txe_log)
+
+    # def toggle_autoscroll(self, value):
+    #     self.txe_log.scroll_to_bottom = value
+
+    def set_warning(self, level: Union[str, None]):
+        if level is not None:
+            self.setTitle(f'Log (new {level.upper()})')
+            return
+        self.setTitle('Log')
 
 
 class ProtocolWidget(IntegratedWidget):
@@ -1116,7 +1142,8 @@ class ProtocolWidget(IntegratedWidget):
         if self.current_phase is None:
             return
 
-        self.current_visual_name.setText(self.current_phase.visual.__qualname__)
+        if self.current_phase.visual is not None:
+            self.current_visual_name.setText(self.current_phase.visual.__qualname__)
 
         # Update current visual properties in table
         self.visual_properties.clearContents()

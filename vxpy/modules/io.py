@@ -1,23 +1,8 @@
-"""
-MappApp ./modules/display_calibration.py - General purpose digital/analog input/output modules.
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+""" General purpose digital/analog input/output module
 """
 import importlib
 import time
-from typing import Dict
+from typing import Dict, Union, Any
 
 import numpy as np
 
@@ -25,11 +10,14 @@ from vxpy.api.attribute import read_attribute
 from vxpy import config
 from vxpy.definitions import *
 import vxpy.core.attribute as vxattribute
+import vxpy.core.container as vxcontainer
+import vxpy.core.control as vxcontrol
 import vxpy.core.ipc as vxipc
 import vxpy.core.process as vxprocess
 import vxpy.core.logger as vxlogger
 import vxpy.core.ui as vxui
 import vxpy.core.devices.serial as vxserial
+
 
 log = vxlogger.getLogger(__name__)
 
@@ -37,61 +25,42 @@ log = vxlogger.getLogger(__name__)
 class Io(vxprocess.AbstractProcess):
     name = PROCESS_IO
 
+    # Protocol settings
+    current_control: Union[vxcontrol.BaseControl, None] = None
+    fallback_phase_counter = 0
+
+    # Device settings
     _pin_id_attr_map: Dict[str, str] = {}
     _daq_pins: Dict[str, vxserial.DaqPin] = {}
     _serial_devices: Dict[str, vxserial.SerialDevice] = {}
     _daq_devices: Dict[str, vxserial.DaqDevice] = {}
 
-    @staticmethod
-    def get_pin_prefix(pin: vxserial.DaqPin) -> str:
-        if pin.signal_type == vxserial.PINSIGTYPE.ANALOG:
-            if pin.signal_direction == vxserial.PINSIGDIR.IN:
-                prefix = 'ai'
-            else:
-                prefix = 'ao'
-        else:
-            if pin.signal_direction == vxserial.PINSIGDIR.IN:
-                prefix = 'di'
-            else:
-                prefix = 'do'
-
-        return prefix
-
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
 
         # Configure devices
-        for device_id, dev_config in config.IO_DEVICES.items():
-
-            api_path = dev_config['api']
-            if api_path is None:
-                log.error(f'Could not configure device {device_id}. No API provided.')
-                continue
-
-            # Get device API
-            device = vxserial.get_serial_device_by_id(device_id)
-            log.info(f'Set up device {device_id}: {device}')
+        for device in vxserial.devices.values():
 
             # If device is a DAQ device
             if isinstance(device, vxserial.DaqDevice):
 
                 # Add DAQ device
-                self._daq_devices[device_id] = device
+                self._daq_devices[device.device_id] = device
 
             # If device is a generic Serial device
             elif isinstance(device, vxserial.SerialDevice):
 
                 # Add serial device
-                self._serial_devices[device_id] = device
+                self._serial_devices[device.device_id] = device
             else:
-                log.warning(f'Unknown device {device_id}. Device was set up but may not be usable.')
+                log.warning(f'Unknown {device}. Device was set up but may not be usable.')
 
             # Open device
             try:
                 device.open()
 
             except Exception as exc:
-                log.error(f'Failed to open device {device_id} // Exc: {exc}')
+                log.error(f'Failed to open {device} // Exc: {exc}')
                 import traceback
                 print(traceback.print_exc())
                 continue
@@ -101,7 +70,7 @@ class Io(vxprocess.AbstractProcess):
                 device.start()
 
             except Exception as exc:
-                log.error(f'Failed to start device {device_id} // Exc: {exc}')
+                log.error(f'Failed to start {device} // Exc: {exc}')
                 import traceback
                 print(traceback.print_exc())
                 continue
@@ -110,34 +79,106 @@ class Io(vxprocess.AbstractProcess):
         for daq_device in self._daq_devices.values():
 
             # Add configured pins on device
-            for pin_id, pin in daq_device.get_pins():
-                if pin_id in self._daq_pins:
-                    log.error(f'Pin {pin_id} is already configured. Unable to add to device {daq_device}')
-                    continue
+            for pin in daq_device.pins.values():
+                log.info(f'Initialize {pin}')
 
                 # Initialize pin
                 pin.initialize()
 
                 # Save pin to dictionary
-                self._daq_pins[pin_id] = pin
+                self._daq_pins[pin.pin_id] = pin
 
                 # Add pin data to be written to file
-                prefix = self.get_pin_prefix(pin)
-                attr_name = f'{prefix}_{pin_id}'
-                vxattribute.write_to_file(self, attr_name)
+                vxattribute.write_to_file(self, pin.attribute.name)
 
-                vxui.register_with_plotter(attr_name, axis=prefix)
+                vxui.register_with_plotter(pin.attribute.name, axis=vxserial.get_pin_prefix(pin))
 
         # Allow timeout during idle
         # self.enable_idle_timeout = True
 
-        self.timetrack = []
+        self.TEST_time = vxipc.get_time()
         # Run event loop
         self.run(interval=1. / config.IO_MAX_SR)
 
+    def prepare_trigger_protocol(self):
+        # Create all controls during protocol preparation (ahead of protocol run)
+        #  This may come with some initial overhead, but reduces latency between stimulation phases
+        self.current_protocol.create_controls()
+
     def prepare_static_protocol(self):
-        # Initialize actions related to protocol
-        self.current_protocol.initialize_actions()
+        # Create all controls during protocol preparation (ahead of protocol run)
+        #  This may come with some initial overhead, but reduces latency between stimulation phases
+        self.current_protocol.create_controls()
+
+    def prepare_trigger_protocol_phase(self):
+        # Prepare visual associated with phase
+        self.prepare_control()
+
+    def prepare_static_protocol_phase(self):
+        # Prepare visual associated with phase
+        self.prepare_control()
+
+    def prepare_control(self, control: vxcontrol.BaseControl = None, parameters: dict = None):
+
+        if control is None:
+            control = self.current_protocol.current_phase.control
+
+            if control is None:
+                return
+
+        # Prepare parameters
+        if parameters is None:
+            if self.current_protocol is None:
+                parameters = {}
+            else:
+                # Fetch protocol-defined parameters
+                parameters = self.current_protocol.current_phase.control_parameters
+
+        self.current_control = control
+        self.update_control(parameters)
+
+        # Create dataset for global time
+        vxcontainer.create_phase_dataset('__time', (1,), np.float64)
+
+        # Set phase attributes
+        attributes = {
+            '__target_start_time': self.phase_start_time,
+            '__target_end_time': self.phase_end_time,
+            '__target_sample_rate': config.DISPLAY_FPS,
+            '__visual_module': self.current_control.__module__,
+            '__visual_name': str(self.current_control.__class__.__qualname__)
+        }
+        vxcontainer.add_phase_attributes(attributes)
+
+    def update_control(self, parameters: Dict[str, Any]):
+        self.current_control.update(parameters)
+
+    def start_trigger_protocol_phase(self):
+        self.start_control()
+
+    def start_static_protocol_phase(self):
+        self.start_control()
+
+    def start_control(self):
+        if self.current_control is None:
+            return
+
+        self.current_control.initialize()
+        self.current_control.start()
+
+    def end_static_protocol_phase(self):
+        if self.current_control is None:
+            return
+
+        self.current_control.end()
+        self.current_control = None
+
+    def end_trigger_protocol_phase(self):
+        if self.current_control is None:
+            return
+
+        self.current_control.end()
+        self.current_control = None
 
     def set_outpin_to_attr(self, pin_id, attr_name):
         """Connect an output pin ID to a shared attribute. Attribute will be used as data to be written to pin."""
@@ -153,7 +194,7 @@ class Io(vxprocess.AbstractProcess):
         pin = self._daq_pins[pin_id]
 
         # Check if pin is configured as output
-        if pin.signal_direction != vxserial.PINSIGDIR.OUT:
+        if pin.signal_direction != vxserial.PINSIGDIR.OUTPUT:
             log.warning(f'Pin {pin} cannot be configured as output. Not an output channel.')
             return
 
@@ -168,36 +209,27 @@ class Io(vxprocess.AbstractProcess):
 
             log.warning(f'Pin {pin} is already set.')
 
-    def main(self):
+    def main(self, dt: float):
 
-        tt = []
-
-        # # Read data on pins once
-        # t = time.perf_counter()
-        # for pin in self._daq_pins.values():
-        #     pin._read_data()
-        # tt.append(time.perf_counter()-t)
+        if self.current_control is not None and self.current_control.is_active:
+            self.current_control.main(dt)
 
         # Go through all configured pins
-        for pin_id, pin in self._daq_pins.items():
-
-            prefix = self.get_pin_prefix(pin)
+        for pin in self._daq_pins.values():
 
             # Read input pins
-            if pin.signal_direction == vxserial.PINSIGDIR.IN:
-                input_attr_name = f'{prefix}_{pin_id}'
-                vxattribute.write_attribute(input_attr_name, pin.read())
+            if pin.signal_direction == vxserial.PINSIGDIR.INPUT:
+                pin.read_hw()
 
             # Write output pins
             else:
-                # Write attribute data to output pins if mapped
-                if pin_id in self._pin_id_attr_map:
-                    output_attr_name = self._pin_id_attr_map[pin_id]
-                    _, _, vals = read_attribute(output_attr_name)
-                    self._daq_pins[pin_id].write(vals[0][0])
+                pin.write_hw()
 
         # Run routines
         self.update_routines(**self._daq_pins)
+
+        # Add global time
+        vxcontainer.add_to_phase_dataset('__time', vxipc.get_time())
 
     def _start_shutdown(self):
 

@@ -1,29 +1,14 @@
-"""
-vxpy ./core/routine.py
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Routine core module
 """
 from __future__ import annotations
 
 import importlib
 from abc import ABC, abstractmethod
-from typing import Callable, List, Type, Union
-
-from deprecation import deprecated
+from multiprocessing.managers import ValueProxy
+from typing import Callable, List, Type, Union, Dict, Any
 
 from vxpy.definitions import *
+import vxpy.core.devices.serial as vxserial
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 
@@ -46,25 +31,95 @@ class Routine(ABC):
     """
 
     process_name: str = None
-    instance: Routine = None
+    _instance: Routine = None
     callback_ops: List[Callable] = None
 
     def __init__(self, *args, **kwargs):
+        self.mp_manager()
 
-        # Set attributes based on (config) initialization parameters
-        for key, val in kwargs.items():
-            self.__setattr__(key, val)
+        # Create interprocess syncs
+        self._synchronize_attributes()
+
+        for key, value in kwargs.items():
+            log.info(f'Set {key} to {value} in routine {self.__class__.__name__}')
+            setattr(self, key, value)
 
         # List of methods open to rpc calls
         if self.callback_ops is None:
             self.callback_ops = []
 
     def __new__(cls, *args, **kwargs):
-        """Ensure each routine can only be used as Singleton"""
-        if cls.instance is None:
-            cls.instance = super(Routine, cls).__new__(cls)
+        """Ensure each routine can only be used as Singleton
+        """
+        if cls._instance is None:
+            cls._instance = super(Routine, cls).__new__(cls)
 
-        return cls.instance
+        return cls._instance
+
+    def mp_manager(self):
+        """Get multiprocessing manager for this routine
+        ---
+        NOTE to future self:
+            This is a Windows thing. You may not keep a reference to
+            a SyncManager when pickling an object during process *spawn*ing.
+            Linux' *clone* doesn't have an issue here.
+            -> Just leave the sync managers in ipc module.
+        """
+        return vxipc.get_manager(self.__class__.__name__)
+
+    def _synchronize_attributes(self):
+        """Iterate through all public class attributes and create remote proxies
+        """
+        for name in dir(self):
+            if name.startswith('_'):
+                continue
+
+            val = self.__getattribute__(name)
+            self._create_proxy_value(name, val)
+            self._create_proxy_methods()
+
+    def _create_proxy_value(self, name, val):
+        _type = type(val)
+        if _type in [int, str, float, bool]:
+            log.debug(f'Create ValueProxy for {self.__class__.__name__}.{name} ({_type})')
+            self.__setattr__(name, self.mp_manager().Value(_type, val))
+            return True
+        elif _type == dict:
+            log.debug(f'Create DictProxy for {self.__class__.__name__}.{name}')
+            self.__setattr__(name, self.mp_manager().dict(val))
+            return True
+        elif _type == list:
+            log.debug(f'Create ListProxy for {self.__class__.__name__}.{name}')
+            self.__setattr__(name, self.mp_manager().list(val))
+            return True
+        return False
+
+    def _create_proxy_methods(self):
+        # TODO: implement remote method calls (including return values)
+        pass
+
+    def __getattribute__(self, item):
+
+        attr = super().__getattribute__(item)
+        if type(attr) == ValueProxy:
+            return attr.value
+        return attr
+
+    def __setattr__(self, key, value):
+        try:
+            attr = super().__getattribute__(key)
+
+            if type(attr) == ValueProxy:
+                attr.value = value
+            else:
+                super().__setattr__(key, value)
+        except:
+            if not self._create_proxy_value(key, value):
+                super().__setattr__(key, value)
+
+    @classmethod
+    def instance(cls):
+        return cls._instance
 
     @classmethod
     def callback(cls, fun: Callable):
@@ -81,7 +136,6 @@ class Routine(ABC):
     def require(self) -> bool:
         return True
 
-    @deprecated(details='Use require method instead', deprecated_in='0.1.0', removed_in='0.2.0')
     def setup(self):
         pass
 
@@ -120,6 +174,10 @@ class IoRoutine(Routine, ABC):
 
     def __init__(self, *args, **kwargs):
         Routine.__init__(self, *args, **kwargs)
+
+    @abstractmethod
+    def main(self, **pins: Dict[str, vxserial.DaqPin]):
+        pass
 
 
 class WorkerRoutine(Routine, ABC):

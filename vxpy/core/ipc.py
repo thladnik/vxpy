@@ -1,22 +1,9 @@
-"""
-MappApp ./core/ipc.py - Inter-modules-communication placeholders and functions.
-Copyright (C) 2020 Tim Hladnik
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+"""Inter-modules-communication placeholders and functions.
 """
 from __future__ import annotations
 import multiprocessing as mp
 import time
-from multiprocessing.managers import SyncManager
+from multiprocessing.managers import SyncManager, ValueProxy
 
 import vxpy.core.logger as vxlogger
 from vxpy.definitions import *
@@ -31,8 +18,16 @@ if TYPE_CHECKING:
 
 log = vxlogger.getLogger(__name__)
 
-# Manager for shared objects
+# Main manager for shared objects
 Manager: SyncManager
+_sub_managers: Dict[str, SyncManager] = {}
+
+
+def get_manager(sub_name: str):
+    if sub_name not in _sub_managers:
+        _sub_managers[sub_name] = mp.Manager()
+    return _sub_managers[sub_name]
+
 
 # Local modules reference
 LocalProcess: AbstractProcess
@@ -100,12 +95,6 @@ def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs)
 
     Convenience function for sending messages to modules with process_name.
     All messages have the format [Signal code, Argument list, Keyword argument dictionary]
-
-    @param process_name:
-    @param signal:
-    @param args:
-    @param kwargs:
-
     """
     if _send_verbosely:
         log.debug(f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
@@ -133,6 +122,7 @@ _local_time = 0.0
 
 
 def update_time():
+    """Don't you dare call this outside of vxpy.core.process!"""
     global _local_time
     _local_time = time.time() - LocalProcess.program_start_time
 

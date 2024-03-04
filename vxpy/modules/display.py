@@ -2,10 +2,11 @@
 """
 from __future__ import annotations
 from inspect import isclass
-from typing import Callable, Dict, Union
+from typing import Callable, Dict, Union, Type
 import glfw
 import time
 
+import numpy as np
 from vispy import app
 from vispy import gloo
 
@@ -31,7 +32,9 @@ vxvisual.set_vispy_env()
 class Display(vxprocess.AbstractProcess):
     name = PROCESS_DISPLAY
 
+    # Protocol settings
     current_visual: Union[vxvisual.AbstractVisual, None] = None
+    fallback_phase_counter = 0
 
     def __init__(self, **kwargs):
         vxprocess.AbstractProcess.__init__(self, **kwargs)
@@ -42,6 +45,7 @@ class Display(vxprocess.AbstractProcess):
         self.times = []
 
         # Create canvas
+        # _interval = 1. / (2 * config.DISPLAY_FPS)
         _interval = 1. / config.DISPLAY_FPS
         self.canvas = Canvas()
 
@@ -59,22 +63,20 @@ class Display(vxprocess.AbstractProcess):
         # self.enable_idle_timeout = False
         self.run(interval=_interval)
 
-    def _write_default_visual_phase_attributes(self):
-        display_attrs = {'start_time': vxipc.get_time(),
-                         'target_start_time': self.phase_start_time,
-                         'target_end_time': self.phase_end_time,
-                         'target_duration': self.current_protocol.current_phase.duration,
-                         'target_sample_rate': config.DISPLAY_FPS,
-                         'visual_module': self.current_visual.__module__,
-                         'visual_name': str(self.current_visual.__class__.__qualname__)}
+    def main(self, dt: float):
 
-        # Use double underscores to set process-level attribute apart from visual-defined ones
-        vxcontainer.add_phase_attributes({f'__{key}': val for key, val in display_attrs.items()})
+        # Process app events
+        # This is going call the canvas' on_draw method
+        app.process_events()
+
+        # Update routines IF visual is set and active
+        if self.current_visual is not None and self.current_visual.is_active:
+            self.update_routines(self.current_visual)
 
     def prepare_static_protocol(self):
-        # Initialize all visuals during protocol preparation
-        #  This may come with some overhead, but reduces latency between stimulation phases
-        self.current_protocol.initialize_visuals(self.canvas, _transform=self.current_transform)
+        # Create all visuals during protocol preparation (ahead of protocol run)
+        #  This may come with some initial overhead, but reduces latency between stimulation phases
+        self.current_protocol.create_visuals(self.canvas, _transform=self.current_transform)
 
     def prepare_static_protocol_phase(self):
         # Prepare visual associated with phase
@@ -83,13 +85,10 @@ class Display(vxprocess.AbstractProcess):
     def start_static_protocol_phase(self):
         self.start_visual()
 
-        # Write visual attributes for this phase (needs to happen after start of visual)
-        self._write_default_visual_phase_attributes()
-
     def prepare_trigger_protocol(self):
         # Initialize all visuals during protocol preparation
         #  This may come with some overhead, but reduces latency between stimulation phases
-        self.current_protocol.initialize_visuals(self.canvas, _transform=self.current_transform)
+        self.current_protocol.create_visuals(self.canvas, _transform=self.current_transform)
 
     def prepare_trigger_protocol_phase(self):
         # Prepare visual associated with phase
@@ -98,47 +97,75 @@ class Display(vxprocess.AbstractProcess):
     def start_trigger_protocol_phase(self):
         self.start_visual()
 
-        # Write visual attributes for this phase (needs to happen after start of visual)
-        self._write_default_visual_phase_attributes()
+    def prepare_visual(self, visual: vxvisual.AbstractVisual = None, parameters: dict = None) -> None:
 
-    def prepare_visual(self, new_visual: vxvisual.AbstractVisual = None) -> None:
         # If no visual is given, this should be a protocol-controlled run -> fetch current visual from phase
-        if new_visual is None:
-            new_visual = self.current_protocol.current_phase.visual
+        if visual is None:
+            visual = self.current_protocol.current_phase.visual
+
+        # Prepare parameters
+        if parameters is None:
+            if self.current_protocol is None:
+                parameters = {}
+            else:
+                # Fetch protocol-defined parameters
+                parameters = self.current_protocol.current_phase.visual_parameters
 
         # If new_visual hasn't been instantiated yet, do it now
-        if isclass(new_visual):
-            log.debug(f'Prepare new visual from class {new_visual.__name__}')
-            self.current_visual = new_visual(self.canvas, _transform=self.current_transform)
+        if isclass(visual):
+            log.debug(f'Create new visual of class {visual.__name__}')
+            self.current_visual = visual(self.canvas, _transform=self.current_transform)
         else:
-            log.debug(f'Set visual from instance of {new_visual.__class__.__name__}')
-            self.current_visual = new_visual
+            log.debug(f'Set visual to existing instance of {visual.__class__.__name__}')
+            self.current_visual = visual
 
-        # Create datasets for all variable visual parameters
-        for parameter in self.current_visual.variable_parameters:
-            vxcontainer.create_phase_dataset(parameter.name, parameter.shape, parameter.dtype)
-
-    def start_visual(self, parameters: dict = None):
-        log.info(f'Start new visual {self.current_visual.__class__.__name__}')
-
-        # If a protocol is set, the phase information dictates the parameters to be used
-        # Setting of parameters need to happen BEFORE visual initialization in case initialize uses
-        # some parameters to derive fixed, internal variables
-        if self.current_protocol is not None:
-            parameters = self.current_protocol.current_phase.visual_parameters
         # Update visual parameters
         self.update_visual(parameters)
+
+        # Set fallback counter in case this is outside a stimulation protocol
+        vxcontainer.set_fallback_phase_id(f'{self.current_visual.__class__.__name__}_{self.fallback_phase_counter}')
+        self.fallback_phase_counter += 1
+
+        # Create datasets for all variable visual parameters
+        for param in self.current_visual.variable_parameters:
+            vxcontainer.create_phase_dataset(param.name, param.shape, param.dtype)
+
+        # Create dataset for global time
+        vxcontainer.create_phase_dataset('__time', (1,), np.float64)
+
+        if self.current_protocol is not None:
+            vxcontainer.add_phase_attributes({'__target_duration': self.current_protocol.current_phase.duration})
+
+        # Set phase attributes
+        attributes = {
+            '__target_start_time': self.phase_start_time,
+            '__target_end_time': self.phase_end_time,
+            '__target_sample_rate': config.DISPLAY_FPS,
+            '__visual_module': self.current_visual.__module__,
+            '__visual_name': str(self.current_visual.__class__.__qualname__)
+        }
+        vxcontainer.add_phase_attributes(attributes)
+
+    def start_visual(self):
+        log.info(f'Start new visual {self.current_visual.__class__.__name__}')
 
         # Initialize and update visual on canvas
         self.current_visual.initialize(**self.phase_info)
         self.canvas.set_visual(self.current_visual)
 
-        # Save static parameter data to container attributes (AFTER initialization and parameter updates!!)
-        parameter_data = {param.name: param.data for param in self.current_visual.static_parameters}
-        vxcontainer.add_phase_attributes(parameter_data)
+        # Save static parameter data to container attributes
+        # (needs to happen AFTER initialization and parameter updates!!)
+        static_params = {param.name: param.data for param in self.current_visual.static_parameters}
+        vxcontainer.add_phase_attributes(static_params)
 
         # Start visual
         self.current_visual.start()
+
+        # Update time
+        self.canvas.update_current_time()
+
+        # Set start time precisely
+        vxcontainer.add_phase_attributes({f'__start_time': vxipc.get_time()})
 
     def end_static_protocol_phase(self):
         self.stop_visual()
@@ -147,9 +174,9 @@ class Display(vxprocess.AbstractProcess):
         self.current_protocol = None
         self.canvas.current_visual = self.current_visual
 
-    def run_visual(self, new_visual, parameters):
-        self.prepare_visual(new_visual)
-        self.start_visual(parameters)
+    def run_visual(self, new_visual: Union[vxvisual.AbstractVisual, Type[vxvisual.AbstractVisual]], parameters: dict):
+        self.prepare_visual(new_visual, parameters)
+        self.start_visual()
 
     def update_visual(self, parameters: Dict):
         if self.current_visual is None:
@@ -174,16 +201,6 @@ class Display(vxprocess.AbstractProcess):
 
     def clear_canvas(self):
         self.canvas.clear()
-
-    def main(self):
-
-        # Process app events
-        # This is going call the canvas' on_draw method
-        app.process_events()
-
-        # Update routines IF visual is set and active
-        if self.current_visual is not None and self.current_visual.is_active:
-            self.update_routines(self.current_visual)
 
     def _start_shutdown(self):
         vxprocess.AbstractProcess._start_shutdown(self)
@@ -222,7 +239,7 @@ class Canvas(app.Canvas):
         self.current_transform: vxtransform.BaseTransform = None
 
         # Set display transform
-        self.t: float = time.perf_counter()
+        self.current_t: float = time.perf_counter()
         self.new_t: float = time.perf_counter()
 
         gloo.set_clear_color((0.0, 0.0, 0.0, 1.0))
@@ -236,6 +253,9 @@ class Canvas(app.Canvas):
 
         # Clear after show
         self.clear()
+
+    def update_current_time(self):
+        self.current_t = time.perf_counter()
 
     def set_transform(self, _transform: vxtransform.BaseTransform):
         self.current_transform = _transform
@@ -270,7 +290,7 @@ class Canvas(app.Canvas):
         if self.current_visual is not None and self.current_visual.is_active:
 
             # Draw visual
-            self.current_transform.apply(self.current_visual, self.new_t - self.t)
+            self.current_transform.apply(self.current_visual, self.new_t - self.current_t)
 
             # If visual is the core's KeepLast visual, don't swap buffers
             if not isinstance(self.current_visual, vxvisual.KeepLast):
@@ -280,13 +300,16 @@ class Canvas(app.Canvas):
             for parameter in self.current_visual.variable_parameters:
                 vxcontainer.add_to_phase_dataset(parameter.name, parameter.data)
 
+            # Add global time
+            vxcontainer.add_to_phase_dataset('__time', vxipc.get_time())
+
         # Update
         # WARNING: display is going to get stuck if update() is conditional,
         #  so update() needs to be called on each iteration
         self.update()
 
         # Set time to new one
-        self.t = self.new_t
+        self.current_t = self.new_t
 
     def on_resize(self, event):
         gloo.set_viewport(0, 0, *event.physical_size)

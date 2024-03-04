@@ -60,7 +60,7 @@ def main():
         configure(parsed_args.config)
 
     elif CMD_SETUP in sys.argv:
-        from vxpy import setup
+        import vxpy.core.setup as vxsetup
 
         root_path = parsed_args.root
         if root_path is None:
@@ -77,20 +77,16 @@ def main():
             sys.exit(1)
 
         # Prepare directory
-        setup.patch_dir(use_path=root_path)
+        vxsetup.patch_dir(use_path=root_path)
 
         # Setup files
-        setup.setup_resources(use_path=root_path)
-
-        # Download sample files for release (if not explicitly excluded)
-        if not parsed_args.nosample:
-            setup.download_samples(use_path=root_path)
+        vxsetup.setup_resources(use_path=root_path)
 
     elif parsed_args.command == CMD_GETSAMPLES:
-        from vxpy import setup
+        from vxpy.utils import examples
 
         # Get path if specified
-        setup.download_samples(use_path=path_from_args())
+        examples.download_all_datasets()
 
 
 if __name__ == '__main__':

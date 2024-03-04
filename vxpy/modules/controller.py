@@ -7,6 +7,7 @@ import ctypes
 import importlib
 import logging
 import multiprocessing as mp
+import threading
 
 import sys
 import time
@@ -19,7 +20,7 @@ from vxpy import config
 from vxpy.definitions import *
 import vxpy.modules as vxmodules
 import vxpy.core.attribute as vxattribute
-import vxpy.core.dependency as vxdep #register_camera_device, register_io_device, assert_device_requirements
+import vxpy.core.dependency as vxdep  # register_camera_device, register_io_device, assert_device_requirements
 import vxpy.core.devices.serial as vxserial
 import vxpy.core.event as vxevent
 import vxpy.core.ipc as vxipc
@@ -37,7 +38,8 @@ class Controller(vxprocess.AbstractProcess):
 
     configfile: str = None
 
-    _processes: Dict[str, mp.Process] = dict()
+    _script_threads: Dict[str,threading.Thread] = {}
+    _processes: Dict[str, mp.Process] = {}
     _registered_processes: Dict[str, Tuple[Type[vxprocess.AbstractProcess], Dict]] = {}
 
     _active_process_list: List[str] = []
@@ -73,7 +75,6 @@ class Controller(vxprocess.AbstractProcess):
         log.info(f'Running vxPy {vxpy.get_version()}')
 
         # Set up processes
-        _routines_to_load = {}
         # Camera
         if config.CAMERA_USE:
             self._register_process(vxmodules.Camera)
@@ -92,17 +93,9 @@ class Controller(vxprocess.AbstractProcess):
                 # Get device for device_id
                 device = vxserial.get_serial_device_by_id(device_id)
 
-                # Go through alle pins
-                for pin_id, pin in device.get_pins():
-
-                    # Determine signal type
-                    prefix = vxmodules.Io.get_pin_prefix(pin)
-                    if pin.signal_type == vxserial.PINSIGTYPE.ANALOG:
-                        datatype = vxattribute.ArrayType.float64
-                    else:
-                        datatype = vxattribute.ArrayType.bool
-
-                    vxattribute.ArrayAttribute(f'{prefix}_{pin_id}', (1,), datatype)
+                # Set up pins for DAQs
+                if isinstance(device, vxserial.DaqDevice):
+                    device.setup_pins()
 
             # Register process and get configured routines
             self._register_process(vxmodules.Io)
@@ -157,17 +150,54 @@ class Controller(vxprocess.AbstractProcess):
             for device_id in config.IO_DEVICES:
                 vxdep.register_io_device(device_id)
 
-        # Load routine modules
+        # Routines
         self._routines: Dict[str, Dict[str, vxroutine.Routine]] = {}
-        for routine_path, routine_ops in config.ROUTINES.items():
-            log.info(f'Load routine {routine_path}')
 
-            # Load routine
+        # Figure out load priorities
+        _prios = []
+        last_prio = 1000
+        for path, ops in config.ROUTINES.items():
+            prio = ops.get('_load_order')
+            if prio is None:
+                prio = last_prio
+            elif prio < 0:
+                prio = last_prio - prio
+
+            _prios.append((prio, path))
+        _prios = sorted(_prios)
+
+        # Load routines
+        for prio, routine_path in _prios:
+
+            routine_ops = config.ROUTINES[routine_path]
+            log.info(f'Load routine {routine_path} (load priority {prio})')
+
+            # Import routine
             parts = routine_path.split('.')
-            module = importlib.import_module('.'.join(parts[:-1]))
-            routine_cls = getattr(module, parts[-1])
-            if routine_cls is None:
-                log.error(f'Unable to load routine {routine_path}. Routine not found.')
+            success_import  = False
+            failed_import = False
+            _exc = ''
+            while not success_import and not failed_import:
+                try:
+                    module = importlib.import_module('.'.join(parts[:-1]))
+                    routine_cls = getattr(module, parts[-1])
+                    if routine_cls is None:
+                        log.warning(f'Failed to load routine {routine_path}. '
+                                    f'No routine with name {parts[-1]} in {module.__qualname__}')
+                        failed_import = True
+                except ModuleNotFoundError as _exc:
+                    missing_mod_name = _exc.name
+                    log.warning(f'Routine {routine_path} missing module \'{missing_mod_name}\'. Trying to auto-install')
+                    import pip
+                    pip.main(['install', missing_mod_name])
+                except BaseException as _exc:
+                    log.warning(f'Unable to load routine {routine_path} // Exc: {_exc}')
+                    failed_import = True
+                else:
+                    success_import = True
+
+            if failed_import:
+                log.error(f'Unable to import routine {routine_path} // {_exc}')
                 continue
 
             process_name = routine_cls.process_name
@@ -215,6 +245,8 @@ class Controller(vxprocess.AbstractProcess):
             _states=vxipc.STATE,
             _routines=self._routines,
             _controls=vxipc.CONTROL,
+            _devices=vxserial.devices,
+            _daq_pins=vxserial.daq_pins,
             _log_queue=vxlogger.get_queue(),
             _log_history=vxlogger.get_history(),
             _attrs=vxattribute.Attribute.all
@@ -223,6 +255,15 @@ class Controller(vxprocess.AbstractProcess):
         # Initialize all processes
         for target, kwargs in self._registered_processes.values():
             self.initialize_process(target, **kwargs)
+
+        # Initialize all test scripts
+        for script_path, script_ops in config.TEST_SCRIPTS.items():
+            parts = script_path.split('.')
+            _module = importlib.import_module('.'.join(parts[:-1]))
+            _fun = getattr(_module, parts[-1])
+            _thread = threading.Thread(target=_fun, name=script_path, kwargs=script_ops)
+            _thread.start()
+            self._script_threads[script_path] = _thread
 
     @staticmethod
     def _create_shared_controls():
@@ -303,14 +344,12 @@ class Controller(vxprocess.AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
-        # ctx = mp.get_context('fork')  # Currently, spawn does not work (possible serialization issues)
-        self._processes[process_name] = mp.Process(target=vxprocess.run_process,
-                                                    name=process_name,
-                                                    args=(target,),
-                                                    kwargs=kwargs)
+        _proc = mp.Process(target=vxprocess.run_process, name=process_name, args=(target,), kwargs=kwargs)
+        self._processes[process_name] = _proc
 
         # Start subprocess
         self._processes[process_name].start()
+        log.info(f'Start process {process_name} (PID: {_proc.ident})')
 
         # Set state to IDLE
         self.set_state(STATE.IDLE)
@@ -343,10 +382,6 @@ class Controller(vxprocess.AbstractProcess):
         self.set_state(STATE.STOPPED)
 
         return 0
-
-    # Shared control properties
-
-    # Recording
 
     @vxprocess.AbstractProcess.record_base_path.setter
     def record_base_path(self, val):
@@ -607,7 +642,6 @@ class Controller(vxprocess.AbstractProcess):
             pass
 
     def _process_trigger_protocol(self):
-
         # End protocol after phase_end_time is reached during the last stimulation phase
         if self.phase_id >= (self.current_protocol.phase_count - 1) and self.phase_end_time < vxipc.get_time():
             vxipc.set_state(STATE.PRCL_STOP_REQ)
@@ -637,7 +671,7 @@ class Controller(vxprocess.AbstractProcess):
         self.phase_start_time = time
         self.phase_end_time = time + phase.duration
 
-    def main(self):
+    def main(self, dt: float):
 
         # Write record group id
         record_phase_group_id = self.record_phase_group_id if self.phase_is_active else -1
@@ -757,7 +791,7 @@ class Controller(vxprocess.AbstractProcess):
             if self.protocol_type == vxprotocol.StaticProtocol:
                 pass
             elif self.protocol_type == vxprotocol.TriggeredProtocol:
-                self.current_protocol.phase_trigger.set_active(True)
+                self.current_protocol.phase_trigger.set_active()
             elif self.protocol_type == vxprotocol.ContinuousProtocol:
                 pass
 
@@ -797,7 +831,7 @@ class Controller(vxprocess.AbstractProcess):
             if self.protocol_type == vxprotocol.StaticProtocol:
                 pass
             elif self.protocol_type == vxprotocol.TriggeredProtocol:
-                self.current_protocol.phase_trigger.set_active(False)
+                self.current_protocol.phase_trigger.set_inactive()
             elif self.protocol_type == vxprotocol.ContinuousProtocol:
                 pass
 

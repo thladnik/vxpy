@@ -17,6 +17,6 @@ class Recorder(process.AbstractProcess):
         # Run event loop
         self.run(interval=1./50)
 
-    def main(self):
+    def main(self, dt: float):
 
         self.update_routines()

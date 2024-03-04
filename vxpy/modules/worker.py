@@ -44,6 +44,6 @@ class Worker(process.AbstractProcess):
     def run_task(self, task_name, *args, **kwargs):
         self._load_task(task_name).run(*args, **kwargs)
 
-    def main(self):
+    def main(self, dt: float):
 
         self.update_routines()
