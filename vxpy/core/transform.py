@@ -613,6 +613,72 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
             self.transform_uniforms['u_mapcalib_projection'] = projection
 
             self.apply_transforms_to_all(visual)
-            visual.render(dt)
+            visual.render(dt if i == 0 else 0.0)
+
+        # self._display_prog.draw('triangle_strip')
+
+class Spherical2ScreenCylindricalTransform(BaseTransform):
+
+    vertex_map = """
+        uniform mat4 u_mapcalib_model;
+        uniform mat4 u_mapcalib_view;
+        uniform mat4 u_mapcalib_projection;
+
+        vec4 transform_position(vec3 position) {
+            vec4 pos = u_mapcalib_projection * u_mapcalib_view * u_mapcalib_model * vec4(position, 1.0);
+
+            return pos;
+        }
+    """
+
+    def __init__(self):
+        BaseTransform.__init__(self)
+        # Create mask model
+
+        self._display_texture = gloo.Texture2D(self._buffer_shape + (3,), format='rgb')
+        self._display_fb = gloo.FrameBuffer(self._display_texture)
+
+    def apply(self, visual, dt: float):
+
+        gloo.clear()
+
+        win_width = config.DISPLAY_WIN_SIZE_WIDTH_PX
+        viewport_width = win_width // 2
+        win_height = config.DISPLAY_WIN_SIZE_HEIGHT_PX
+
+        side_width = calib.CALIB_DISP_CYL_SIDE_WIDTH_MM
+        screen_width = calib.CALIB_DISP_CYL_SCREEN_WIDTH_MM
+        screen_height = calib.CALIB_DISP_CYL_SCREEN_HEIGHT_MM
+
+        azim_orientation = calib.CALIB_DISP_CYL_VIEW_AZIM_ORIENT
+
+        # Calculate vertical field of view
+        distance_to_center = side_width / 2
+        fovy = 2 * np.arctan(screen_height / 2 / distance_to_center) / np.pi * 180
+
+        gl.glEnable(gl.GL_DEPTH_TEST)
+
+        gloo.clear()
+
+        # with self._out_fb:
+        for i in range(2):
+            vp_start = i * viewport_width
+            gloo.set_viewport(vp_start, 0, viewport_width, win_height)
+
+            # Calculate rotation based on iteration
+            view_rot = np.dot(transforms.rotate(i * 180 + azim_orientation, (0, 0, 1)), transforms.rotate(-90, (1, 0, 0)))
+            # Calculate complete view
+            view = np.dot(transforms.translate((0, 0, 0)), view_rot)
+
+            # Calculate projection
+            projection = transforms.perspective(fovy, screen_width/screen_height, 0.1, 10.0)
+            # projection = transforms.perspective(fovy, viewport_width/win_height, 0.1, 10.0)
+
+            self.transform_uniforms['u_mapcalib_model'] = np.eye(4, dtype=np.float32)
+            self.transform_uniforms['u_mapcalib_view'] = view
+            self.transform_uniforms['u_mapcalib_projection'] = projection
+
+            self.apply_transforms_to_all(visual)
+            visual.render(dt if i == 0 else 0.0)
 
         # self._display_prog.draw('triangle_strip')

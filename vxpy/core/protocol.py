@@ -4,7 +4,7 @@ from __future__ import annotations
 import importlib
 from abc import abstractmethod
 from inspect import isclass
-from typing import List, Union, Callable, Type, Dict, Any
+from typing import Dict, List, Union, Callable, Type
 
 import vispy.app
 
