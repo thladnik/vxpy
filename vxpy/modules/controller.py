@@ -197,7 +197,7 @@ class Controller(vxprocess.AbstractProcess):
                     success_import = True
 
             if failed_import:
-                log.error(f'Unable to import routine {routine_path} // {_exc}')
+                log.error(f'Unable to import routine {routine_path}')# // {_exc}')
                 continue
 
             process_name = routine_cls.process_name
