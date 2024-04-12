@@ -189,15 +189,21 @@ def dump(data, group: str = None):
                 break
 
 
-def temporary_dump(data):
+def _temporary_dump(name: str, data: Any):
+
+    if isinstance(data, np.ndarray):
+        np.save(os.path.join(PATH_TEMP, f'{name}.temp.npy'), data)
+        return
+
+    log.error(f'Failed to dump data {name} to file. Unknown data type {type(data)}')
+
+
+def temporary_dump(**data: Dict[str, Any]):
     """Dump arbitrary data to temp folder
     """
 
-    for k, d in data.items():
-        if isinstance(d, np.ndarray):
-            np.save(os.path.join(PATH_TEMP, f'{k}.temp.npy'), d)
-        else:
-            log.error('Unable to dump data to file. Unknown data type.')
+    for name, d in data.items():
+        _temporary_dump(name, d)
 
 
 def temporary_exists(*keys):
@@ -211,20 +217,60 @@ def temporary_exists(*keys):
     return all(contained)
 
 
-def temporary_load(*keys) -> List[Any]:
+def _temporary_load(file_path: str) -> Any:
+
+    ext = file_path.split('.')[-1]
+
+    if ext == 'npy':
+        return np.load(file_path)
+    elif ext == 'txt':
+        return ''  # TODO: implement
+
+    return None
+
+
+def temporary_load(*names: List[str]) -> List[Any]:
     """Load data for names in keys list from temp folder
     """
+    # TODO: checks for different types
+
     data = []
-    for k in keys:
-        # TODO: checks for different types
-        try:
-            d = np.load(os.path.join(PATH_TEMP, f'{k}.temp.npy'))
-        except:
-            pass
-        else:
-            data.append(d)
+
+    for name in names:
+        d = None
+        for existing_file_name in os.listdir(PATH_TEMP):
+            file_name = f'{name}.temp.'
+            if not existing_file_name.startswith(file_name):
+                continue
+
+            d = _temporary_load(os.path.join(PATH_TEMP, existing_file_name))
+            break
+
+        data.append(d)
 
     return data
+
+
+def temporary_dump_group(name: str, data: Dict[str, Any]):
+    group_path = os.path.join(PATH_TEMP, name)
+    if not os.path.exists(group_path):
+        os.mkdir(group_path)
+
+    temporary_dump(**{os.path.join(name, key): value for key, value in data.items()})
+
+
+def temporary_group_exists(name: str) -> bool:
+    group_path = os.path.join(PATH_TEMP, name)
+    return os.path.exists(group_path) and os.path.isdir(group_path)
+
+
+def temporary_load_group(name: str) -> Dict[str, Any]:
+    if not temporary_group_exists(name):
+        return {}
+
+    group_path = os.path.join(PATH_TEMP, name)
+    return {file_path.split('.temp.')[0]: _temporary_load(os.path.join(group_path, file_path))
+            for file_path in os.listdir(group_path)}
 
 
 class H5File:
