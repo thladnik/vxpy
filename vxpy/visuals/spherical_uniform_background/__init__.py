@@ -1,1 +1,1 @@
-from .spherical_uniform_background import SphereUniformBackground
+from .spherical_uniform_background import SphereUniformBackground, SphereUniformBrightness

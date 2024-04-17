@@ -41,3 +41,26 @@ class SphereUniformBackground(vxvisual.SphericalVisual):
     def render(self, frame_time):
         self.apply_transform(self.bg)
         self.bg.draw('triangles', self.index_buffer)
+
+
+class SphereUniformBrightness(vxvisual.SphericalVisual):
+
+    brightness = vxvisual.FloatParameter('brightness', default=.5, limits=(0., 1.), step_size=0.01, static=True)
+
+    def __init__(self, *args, **kwargs):
+        vxvisual.SphericalVisual.__init__(self, *args, **kwargs)
+
+        self.sphere = sphere.UVSphere(azim_lvls=50, elev_lvls=25)
+        self.index_buffer = gloo.IndexBuffer(self.sphere.indices)
+        self.position_buffer = gloo.VertexBuffer(self.sphere.a_position)
+        self.bg = gloo.Program(self.load_vertex_shader('./static_background.vert'),
+                               self.load_shader('./background_brightness.frag'))
+        self.bg['a_position'] = self.position_buffer
+        self.brightness.connect(self.bg)
+
+    def initialize(self, *args, **kwargs):
+        pass
+
+    def render(self, frame_time):
+        self.apply_transform(self.bg)
+        self.bg.draw('triangles', self.index_buffer)

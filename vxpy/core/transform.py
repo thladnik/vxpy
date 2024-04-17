@@ -343,12 +343,19 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
             float elev = u_mapcalib_elevation_angle / 180. * PI;
             vec3 optical_axis = sph2cart(azim, elev);        
 
-            float dist_from_optical_axis = distance(v_position, optical_axis);
-
+            // float dist_from_optical_axis = distance(v_position, optical_axis);
+            // 
+            // gl_FragColor = vec4(1.0, 
+            //         offset + gradient * dist_from_optical_axis / 2., 
+            //         0.0, 
+            //         1.0);
+            
+            float local_brightness = 1.0;//-dot(v_position, optical_axis)/10;
             gl_FragColor = vec4(1.0, 
-                    offset + gradient * dist_from_optical_axis / 2., 
-                    0.0, 
-                    1.0);
+                     local_brightness, 
+                     0.0, 
+                     1.0);
+
 
         }
     """
