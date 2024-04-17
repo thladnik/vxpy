@@ -421,6 +421,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
     extracted_rect_prefix = f'{routine_prefix}extracted_rect_'
     ang_le_pos_prefix = f'{routine_prefix}ang_le_pos_'
     ang_re_pos_prefix = f'{routine_prefix}ang_re_pos_'
+    le_axes_prefix = f'{routine_prefix}le_axes_'
+    re_axes_prefix = f'{routine_prefix}re_axes_'
     ang_le_vel_prefix = f'{routine_prefix}ang_le_vel_'
     ang_re_vel_prefix = f'{routine_prefix}ang_re_vel_'
     le_sacc_prefix = f'{routine_prefix}le_saccade_'
@@ -485,6 +487,10 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             vxattribute.ArrayAttribute(f'{self.ang_le_pos_prefix}{i}', (1,), vxattribute.ArrayType.float64)
             vxattribute.ArrayAttribute(f'{self.ang_re_pos_prefix}{i}', (1,), vxattribute.ArrayType.float64)
 
+            # Major/minor axes length attribute
+            vxattribute.ArrayAttribute(f'{self.le_axes_prefix}{i}', (2,), vxattribute.ArrayType.float64)
+            vxattribute.ArrayAttribute(f'{self.re_axes_prefix}{i}', (2,), vxattribute.ArrayType.float64)
+
             # Velocity
             vxattribute.ArrayAttribute(f'{self.ang_le_vel_prefix}{i}', (1,), vxattribute.ArrayType.float64)
             vxattribute.ArrayAttribute(f'{self.ang_re_vel_prefix}{i}', (1,), vxattribute.ArrayType.float64)
@@ -540,6 +546,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         # Add attributes to save-to-file list:
         vxattribute.write_to_file(self, f'{self.ang_le_pos_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.ang_re_pos_prefix}{roi_num}')
+        vxattribute.write_to_file(self, f'{self.le_axes_prefix}{roi_num}')
+        vxattribute.write_to_file(self, f'{self.re_axes_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.ang_le_vel_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.ang_re_vel_prefix}{roi_num}')
         vxattribute.write_to_file(self, f'{self.le_sacc_prefix}{roi_num}')
@@ -635,8 +643,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
             # Ellipse's major axis angle
             theta = (1 / 2 * np.arctan(b / (a - c)) + (a < c) - 1) / np.pi * 180  # * np.pi / 2
-            W = np.sqrt(8 * (a + c - np.sqrt(b ** 2 + (a - c) ** 2))) / 2
-            L = np.sqrt(8 * (a + c + np.sqrt(b ** 2 + (a - c) ** 2))) / 2
+            L = np.sqrt(8 * (a + c + np.sqrt(b ** 2 + (a - c) ** 2)))
+            W = np.sqrt(8 * (a + c - np.sqrt(b ** 2 + (a - c) ** 2)))
 
             thetas.append(theta)
             barycenters.append(center)
@@ -668,7 +676,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
 
         # If less than two particles, return
         if len(cnts) < 2:
-            return [np.nan, np.nan], rgb
+            return np.nan, np.nan, np.nan, np.nan, rgb
 
         # At this point there should only be 2 particles left
         le_idx = 0 if (barycenters[0][0] < rect_center[0]) else 1
@@ -678,7 +686,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         try:
             for center, axis, theta in zip(barycenters, axes, thetas):
                 center = tuple((int(i) for i in center))
-                axis = tuple((int(i) for i in axis))
+                axis = tuple((int(i//2) for i in axis))
                 angle = float(theta)
                 start_angle = 0.
                 end_angle = 360.
@@ -700,7 +708,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
         cv2.putText(rgb, 'R', (int(re_center[0]), int(re_center[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0),
                     line_thickness, cv2.LINE_AA)
 
-        return [thetas[le_idx], thetas[re_idx]], rgb
+        return thetas[le_idx], thetas[re_idx], axes[le_idx][::-1], axes[re_idx][::-1], rgb
 
     def update_motion_reference(self, frame: np.ndarray):
 
@@ -825,7 +833,7 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             rot_rect = self._extract_roi_rect(frame, rect_params)
 
             # Apply detection function on cropped rect which contains eyes
-            (le_pos, re_pos), new_rect = self._get_eye_positions(rot_rect)
+            le_pos, re_pos, le_axes, re_axes, new_rect = self._get_eye_positions(rot_rect)
 
             if self.flip_direction:
                 le_pos = -le_pos
@@ -834,6 +842,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             # Get shared attributes
             le_pos_attr = vxattribute.get_attribute(f'{self.ang_le_pos_prefix}{roi_num}')
             re_pos_attr = vxattribute.get_attribute(f'{self.ang_re_pos_prefix}{roi_num}')
+            le_axes_attr = vxattribute.get_attribute(f'{self.le_axes_prefix}{roi_num}')
+            re_axes_attr = vxattribute.get_attribute(f'{self.re_axes_prefix}{roi_num}')
             le_vel_attr = vxattribute.get_attribute(f'{self.ang_le_vel_prefix}{roi_num}')
             re_vel_attr = vxattribute.get_attribute(f'{self.ang_re_vel_prefix}{roi_num}')
             le_sacc_attr = vxattribute.get_attribute(f'{self.le_sacc_prefix}{roi_num}')
@@ -888,6 +898,8 @@ class ZFEyeTracking(vxroutine.CameraRoutine):
             # Write to buffer
             le_pos_attr.write(le_pos)
             re_pos_attr.write(re_pos)
+            le_axes_attr.write(le_axes)
+            re_axes_attr.write(re_axes)
             le_vel_attr.write(np.abs(le_vel))
             re_vel_attr.write(np.abs(re_vel))
             le_sacc_dir_attr.write(le_sacc_dir)
