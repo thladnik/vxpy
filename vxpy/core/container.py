@@ -308,10 +308,15 @@ class H5File:
         self._create_dataset(dataset_name, shape, data_type)
 
     def _create_dataset(self, dataset_name: str, shape: Tuple[int, ...], data_type):
-        self._h5_handle.create_dataset(dataset_name, shape=(0, *shape,),
+        # Set chunk size to approx 1MB
+        itemsize = np.prod(shape) * np.dtype(data_type).itemsize
+        chunksize = (10**6//itemsize,) + shape
+
+        #
+        self._h5_handle.create_dataset(dataset_name, shape=(0,) + shape,
                                        dtype=data_type,
-                                       maxshape=(None, *shape,),
-                                       chunks=(1, *shape,))
+                                       maxshape=(None,) + shape,
+                                       chunks=chunksize)
 
     @staticmethod
     def _add_attributes(grp: h5py.Group, attributes: Dict[str, Any]):
@@ -358,7 +363,7 @@ class H5File:
             # Get dataset
             dataset = self._h5_handle[path]
             # Increase time dimension (0) size by 1
-            dataset.resize((dataset.shape[0] + 1, *dataset.shape[1:]))
+            dataset.resize(dataset.shape[0] + 1, axis=0)
             # Write new value
             dataset[dataset.shape[0] - 1] = data
 
