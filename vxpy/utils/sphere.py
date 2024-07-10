@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 """
-from typing import Tuple
+from typing import List, Tuple
 
 import numpy as np
 
@@ -137,52 +137,12 @@ class UVSphere:
     #     return np.stack([u, v]).T
 
 
-class IcosahedronSphere:
-    gr = 1.61803398874989484820
+class PlatonicSolid:
 
-    corners = [
-        [-1, gr,  0],
-        [1,  gr,  0],
-        [-1, -gr, 0],
-        [1,  -gr, 0],
-        [0,  -1,  gr],
-        [0,  1,   gr],
-        [0,  -1,  -gr],
-        [0,  1,   -gr],
-        [gr, 0,   -1],
-        [gr, 0,   1],
-        [-gr, 0,  -1],
-        [-gr, 0,  1],
-    ]
+    corners: List[List[float]]
+    _faces: List[List[int]]
 
-    _faces = [
-
-        [0, 11, 5],
-        [0, 5, 1],
-        [0, 1, 7],
-        [0, 7, 10],
-        [0, 10, 11],
-
-        [3, 9, 4],
-        [3, 4, 2],
-        [3, 2, 6],
-        [3, 6, 8],
-        [3, 8, 9],
-
-        [1, 5, 9],
-        [5, 11, 4],
-        [11, 10, 2],
-        [10, 7, 6],
-        [7, 1, 8],
-
-        [4, 9, 5],
-        [2, 4, 11],
-        [6, 2, 10],
-        [8, 6, 7],
-        [9, 8, 1],
-    ]
-
-    def __init__(self, subdiv_lvl, **kwargs):
+    def __init__(self, subdiv_lvl):
 
         # Calculate initial vertices
         self._vertices = [self._vertex(*v) for v in self.corners]
@@ -245,6 +205,91 @@ class IcosahedronSphere:
 
             self._faces = new_faces
 
+
+class Tetrahedron(PlatonicSolid):
+
+    corners = [
+        [1 / np.sqrt(2), 1 / np.sqrt(6), 1 / np.sqrt(3)],  # V0
+        [-1 / np.sqrt(2), 1 / np.sqrt(6), 1 / np.sqrt(3)],  # V1
+        [0, -np.sqrt(2 / 3), 1 / np.sqrt(3)],  # V2
+        [0, 0, -np.sqrt(3)]  # V3
+    ]
+
+    _faces = [
+        [0, 1, 2],  # Face 1
+        [0, 1, 3],  # Face 2
+        [0, 2, 3],  # Face 3
+        [1, 2, 3]  # Face 4
+    ]
+
+class Octahedron(PlatonicSolid):
+
+    corners = np.array([
+        [1, 0, 0],  # V0
+        [-1, 0, 0],  # V1
+        [0, 1, 0],  # V2
+        [0, -1, 0],  # V3
+        [0, 0, 1],  # V4
+        [0, 0, -1]  # V5
+    ])
+
+    # Define the face indices of the octahedron
+    _faces = np.array([
+        [0, 2, 4],  # Face 0
+        [0, 2, 5],  # Face 1
+        [0, 3, 4],  # Face 2
+        [0, 3, 5],  # Face 3
+        [1, 2, 4],  # Face 4
+        [1, 2, 5],  # Face 5
+        [1, 3, 4],  # Face 6
+        [1, 3, 5]  # Face 7
+    ])
+
+
+class IcosahedronSphere(PlatonicSolid):
+    gr = (1 + np.sqrt(5)) / 2
+
+    corners = [
+        [-1, gr,  0],
+        [1,  gr,  0],
+        [-1, -gr, 0],
+        [1,  -gr, 0],
+        [0,  -1,  gr],
+        [0,  1,   gr],
+        [0,  -1,  -gr],
+        [0,  1,   -gr],
+        [gr, 0,   -1],
+        [gr, 0,   1],
+        [-gr, 0,  -1],
+        [-gr, 0,  1],
+    ]
+
+    _faces = [
+
+        [0, 11, 5],
+        [0, 5, 1],
+        [0, 1, 7],
+        [0, 7, 10],
+        [0, 10, 11],
+
+        [3, 9, 4],
+        [3, 4, 2],
+        [3, 2, 6],
+        [3, 6, 8],
+        [3, 8, 9],
+
+        [1, 5, 9],
+        [5, 11, 4],
+        [11, 10, 2],
+        [10, 7, 6],
+        [7, 1, 8],
+
+        [4, 9, 5],
+        [2, 4, 11],
+        [6, 2, 10],
+        [8, 6, 7],
+        [9, 8, 1],
+    ]
 
 
 class CMNIcoSphere:
