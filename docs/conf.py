@@ -11,10 +11,6 @@ copyright = '2023, Tim Hladnik'
 author = 'Tim Hladnik'
 release = '2020'
 
-import os
-import sys
-sys.path.insert(0, os.path.abspath('../../'))
-
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
@@ -24,7 +20,7 @@ extensions = ['myst_parser',
               'sphinx.ext.napoleon']
 
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # Napoleon settings
 napoleon_google_docstring = True

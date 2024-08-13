@@ -11,12 +11,12 @@ vxPy - vision experiments in Python
    :maxdepth: 1
    :caption: Quickstart
 
-   installation
-   create_visual
-   create_protocol
-   create_routine
-   create_visual_base_advanced
-   api_reference
+   quickstart/installation
+   quickstart/create_visual
+   quickstart/create_protocol
+   quickstart/create_routine
+   quickstart/create_visual_base_advanced
+   quickstart/api_reference
 
 
 Indices and tables
