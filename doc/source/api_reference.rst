@@ -3,7 +3,7 @@ API reference
 =======================================================
 
 .. autosummary::
-   :toctree: _autosummary1
+   :toctree: _autosummary
    :recursive:
 
    vxpy
