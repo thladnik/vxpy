@@ -56,7 +56,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
             for roi_idx in range(self.roi_max_num):
                 self.roi_slice_params[(layer_idx, roi_idx)] = ()
-                self.roi_thresholds[(layer_idx, roi_idx)] = 3
+                self.roi_thresholds[(layer_idx, roi_idx)] = 2000
 
                 # Create ROI attribute
                 vxattribute.ArrayAttribute(self.roi_name(layer_idx, roi_idx), (1,), vxattribute.ArrayType.float64)
@@ -74,7 +74,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
             # Create trigger attribute
             vxattribute.ArrayAttribute(self.trigger_name(layer_idx), (1,), vxattribute.ArrayType.uint8)
-            vxui.register_with_plotter(self.trigger_name(layer_idx), name=f'ROI activity', axis='Trigger')
+            vxui.register_with_plotter(self.trigger_name(layer_idx), name=f'ROI activity {layer_idx}', axis='Trigger')
 
         return True
 
@@ -111,7 +111,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
 
             # Calculate activity
-            activity = np.std(_slice) * np.mean(_slice)
+            activity = (np.std(_slice) * np.mean(_slice)) / 1000
             # Write activity attribute
             vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
 
@@ -123,7 +123,8 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
 
             # Threshold exceeded for this ROI?
             # over_thresh = current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
-            over_thresh = over_thresh or current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
+            # over_thresh = over_thresh or current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
+            over_thresh = over_thresh or activity > self.roi_thresholds[(layer_idx, roi_idx)]
 
         # Write trigger
         vxattribute.write_attribute(self.trigger_name(current_layer_idx), int(over_thresh))
@@ -255,7 +256,7 @@ class ImageWidget(QtWidgets.QGroupBox):
         thresh = widgets.DoubleSliderWidget(self.controls,
                                             label=f'ROI {roi_idx}',
                                             default=RoiActivityTrackerRoutine.instance().roi_thresholds[(self.layer_idx, roi_idx)],
-                                            limits=(-5, 5), step_size=0.01)
+                                            limits=(0, 50), step_size=0.1)
         thresh.connect_callback(roi.update_threshold)
         self.controls.layout().addWidget(thresh, roi_idx, 0)
 

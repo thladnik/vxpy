@@ -7,6 +7,7 @@ from typing import Dict, Any, Type, Union, Iterator, Tuple, List
 import vxpy.core.attribute as vxattribute
 import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
+from vxpy.definitions import *
 from vxpy import config
 
 log = vxlogger.getLogger(__name__)
@@ -39,25 +40,32 @@ def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], Type[DaqDev
     return device_cls
 
 
-def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, DaqDevice, None]:
+def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, SerialDeviceProxy, DaqDevice, None]:
     """Fetch the device by its string identifier
     """
     global devices
     if device_id in devices:
         return devices[device_id]
 
-    # Get camera properties from config
+    # Get device properties from config
     device_props = config.IO_DEVICES.get(device_id)
 
-    # Camera not configured?
+    # Device not configured?
     if device_props is None:
         return None
+
 
     # Get camera api class
     api_cls = get_serial_interface(device_props['api'])
 
     # Return the camera api object
-    return api_cls(device_id, **device_props)
+    _device = api_cls(device_id, **device_props)
+
+    # # Return proxy, if local process is not IO
+    # if vxipc.LocalProcess != PROCESS_IO:
+    #     return SerialDeviceProxy(device_id, _device)
+
+    return _device
 
 
 def get_pin(pin_id: str) -> Union[DaqPin, None]:
@@ -365,3 +373,18 @@ class SerialDevice:
         except Exception as exc:
             log.error(f'Failed to close {self}: {exc}')
             return False
+
+
+# class SerialDeviceProxy:
+#
+#     def __init__(self, device_id: str, device: SerialDevice):
+#         self.device_id: str  = device_id
+#         self._device: SerialDevice = device
+#
+#
+#     # def __getattribute__(self, item):
+#     #
+#     #     # Intercept all function calls
+#     #     attr = getattr(self._device, item)
+#     #     if hasattr(attr, '__call__'):
+#     #         vxipc.io_rpc('execute_serial_device_call', self.device_id)

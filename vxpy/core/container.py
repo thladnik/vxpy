@@ -176,8 +176,9 @@ def dump(data, group: str = None):
             try:
                 _instance.create_dataset(f'{group}/{k}_{i}', d.shape, d.dtype)
                 _instance.add_to_dataset(f'{group}/{k}_{i}', d)
-            except:
-                pass
+            except Exception as _exc:
+                import traceback
+                # print(traceback.print_exc())
             else:
                 saved = True
 
@@ -310,7 +311,7 @@ class H5File:
     def _create_dataset(self, dataset_name: str, shape: Tuple[int, ...], data_type):
         # Set chunk size to approx 1MB
         itemsize = np.prod(shape) * np.dtype(data_type).itemsize
-        chunksize = (10**6//itemsize,) + shape
+        chunksize = (round(np.ceil(10**6/itemsize)),) + shape
 
         #
         self._h5_handle.create_dataset(dataset_name, shape=(0,) + shape,

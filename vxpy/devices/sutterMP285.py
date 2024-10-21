@@ -3,22 +3,30 @@ import serial
 import serial.tools.list_ports
 import numpy as np
 import struct
-import sys
 
+from vxpy.core.devices import serial as vxserial
 import vxpy.core.logger as vxlogger
 log = vxlogger.getLogger(__name__)
 
 
-class SutterMP285:
+class SutterMP285(vxserial.SerialDevice):
 
-    # constructor
-    def __init__(self):
-        self.time_out = 12  # timeout in sec
+    def __init__(self, *args, **kwargs):
+        vxserial.SerialDevice.__init__(self, *args, **kwargs)
+
+    def open(self)-> bool:
+
+        self.time_out = 30  # timeout in sec
         self.ser = serial.Serial()
+        self.set_connection_parameters(port=self.properties['port'], baudrate=9600)
+        self._open_connection()
 
-    # destructor
-    def __del__(self):
-        self.ser.close()
+        return True
+
+    def close(self)-> bool:
+        self._close_connection()
+
+        return True
 
     def set_connection_parameters(self, port, baudrate=9600):
 
@@ -36,7 +44,7 @@ class SutterMP285:
         self.ser.bytesize = serial.EIGHTBITS
         self.ser.timeout = self.time_out
 
-    def open_and_start_device(self):
+    def _open_connection(self):
 
         """
          open serial connection, set velocity and check if sutterMP285 is responding
@@ -47,7 +55,7 @@ class SutterMP285:
             self.ser.open()
             log.info('sutterMP285 connected')
         except serial.serialutil.SerialException as e:
-            log.errror(e)
+            log.error(e)
             return
 
         self.set_velocity(200, 10)
@@ -58,7 +66,7 @@ class SutterMP285:
         else:
             log.warning('sutterMP285 did not respond at startup.')
 
-    def close_connection(self):
+    def _close_connection(self):
 
         """
         close serial connection
@@ -133,7 +141,7 @@ class SutterMP285:
             return
 
         xyzb = self.ser.read(13)
-        xyz_um = np.array(struct.unpack('lll', xyzb[:12])) / self.step_mult
+        xyz_um = np.array(struct.unpack('iii', xyzb[:12])) / self.step_mult
 
         log.info('sutterMP285 stage position: X=%g um, Y=%g um, Z= %g um' % (xyz_um[0], xyz_um[1], xyz_um[2]))
 
@@ -157,7 +165,7 @@ class SutterMP285:
             log.warning('length of move_to_position argument has to be three')
             return
 
-        xyzb = struct.pack('lll', int(pos[0] * self.step_mult), int(pos[1] * self.step_mult), int(pos[2] * self.step_mult))
+        xyzb = struct.pack('iii', int(pos[0] * self.step_mult), int(pos[1] * self.step_mult), int(pos[2] * self.step_mult))
         startt = time.time()
 
         try:
@@ -290,6 +298,7 @@ class SutterMP285:
 
         rrr = self.ser.read(32)
         self.ser.read(1)
+
         statusbytes = struct.unpack(32 * 'B', rrr)
 
         self.step_mult = np.double(statusbytes[25]) * 256 + np.double(statusbytes[24])

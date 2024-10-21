@@ -3,6 +3,7 @@
 import os.path
 from typing import Any, Dict, List, Tuple, Union
 
+import cv2
 import h5py
 import numpy as np
 import requests
@@ -22,7 +23,9 @@ _available_datasets: Dict[str, Tuple[str, str, str]] = {
     'single_zf_freeswim_dot_chased_50Hz': ('0.1.4', 'single_zf_freeswim_dot_chased_50Hz.hdf5', 'camera'),
     'single_zf_freeswim_random_motion': ('0.1.4', 'single_zf_freeswim_random_motion.hdf5', 'camera'),
     'zf_optic_tectum_driven_activity_2Hz': ('0.1.4', 'zf_optic_tectum_driven_activity_2Hz.hdf5', 'imaging'),
-    'zf_vor_eye_movements_50Hz': ('0.1.4', 'zf_vor_eye_movements_50Hz.hdf5', 'camera')
+    'zf_vor_eye_movements_50Hz': ('0.1.4', 'zf_vor_eye_movements_50Hz.hdf5', 'camera'),
+    'zf_embedded_eyes_and_tail': ('0.1.6', 'zf_embedded_eyes_and_tail.hdf5', 'camera'),
+    'zf_embedded_eyes_and_tail2': ('0.1.6', 'zf_embedded_eyes_and_tail2.hdf5', 'camera')
 }
 
 # List of all locally available (downloaded) example dataset keys
@@ -169,3 +172,47 @@ def _update_locals():
         # Add if new key
         if len(keys) > 0 and keys[0] not in _local_datasets:
             _local_datasets.append(keys[0])
+
+
+def avi_to_hdf5(avi_fn, hdf_fn):
+    # Open the AVI file
+    cap = cv2.VideoCapture(avi_fn)
+
+    # Check if the file opened successfully
+    if not cap.isOpened():
+        print(f"Error opening video file: {avi_fn}")
+        return
+
+    frame_count = 0
+
+    # Write to HDF5 file
+    with h5py.File(hdf_fn, 'w') as h5f:
+
+
+        # Read frames from the video
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame_count += 1
+
+            frame = np.array(frame)
+            frame = frame[:,:,0]
+
+
+            if frame_count == 1:
+                dataset = h5f.create_dataset('frames', shape=(0, *frame.shape), maxshape=(None, *frame.shape), dtype=np.uint8)
+
+            dataset.resize(dataset.shape[0] + 1, axis=0)
+            # Write new value
+            dataset[dataset.shape[0] - 1] = frame
+
+    # Release the video capture object
+    cap.release()
+
+if __name__ == '__main__':
+    # Example usage
+    avi_filename = './temp/zf_embedded_eyes_and_tail2.avi'  # Replace with your AVI file
+    hdf5_filename = './temp/zf_embedded_eyes_and_tail2.hdf5'  # Desired output HDF5 file
+
+    avi_to_hdf5(avi_filename, hdf5_filename)

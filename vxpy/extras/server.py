@@ -1,5 +1,6 @@
 import ctypes
 import datetime
+import select
 import socket
 
 import numpy as np
@@ -72,6 +73,10 @@ class FrameReceiverTcpServer(vxroutine.WorkerRoutine):
             self.counter = 0
 
         # Receive data stream. It won't accept data packet greater than 1024 bytes
+        readable, _, _ = select.select([self.client_conn], [], [], 0.1)
+        if not readable:
+            return
+
         data_len = self.client_conn.recv(8)
         data_len = int.from_bytes(data_len, byteorder='big')
         # print(f'Got length: {data_len}')

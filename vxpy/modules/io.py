@@ -99,6 +99,18 @@ class Io(vxprocess.AbstractProcess):
         self.TEST_time = vxipc.get_time()
         # Run event loop
         self.run(interval=1. / config.IO_MAX_SR)
+    #
+    # def execute_serial_device_call(self, device_id: str, fun: str, *args, **kwargs):
+    #
+    #     _device = self._serial_devices[device_id]
+    #
+    #     # Check if it exists
+    #     if not hasattr(_device, fun):
+    #         log.error(f'Failed to call {fun} on device {_device}')
+    #         return
+    #
+    #     # Call function
+    #     getattr(_device, fun)(*args, *kwargs)
 
     def prepare_trigger_protocol(self):
         # Create all controls during protocol preparation (ahead of protocol run)

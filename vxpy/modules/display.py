@@ -128,6 +128,7 @@ class Display(vxprocess.AbstractProcess):
 
         # Create datasets for all variable visual parameters
         for param in self.current_visual.variable_parameters:
+            print('>>', param.name)
             vxcontainer.create_phase_dataset(param.name, param.shape, param.dtype)
 
         # Create dataset for global time
