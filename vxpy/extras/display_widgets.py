@@ -294,6 +294,7 @@ class VisualInteractorInnerWidget(QtWidgets.QWidget):
             self.tuner.layout().addWidget(label, row_id, 1)
             return True
 
+        wdgt = None
         value_map = parameter.value_map
         if bool(value_map):
 
@@ -310,7 +311,10 @@ class VisualInteractorInnerWidget(QtWidgets.QWidget):
                 wdgt = self._get_widget(parameter)
 
         else:
-            wdgt = self._get_widget(parameter)
+            try:
+                wdgt = self._get_widget(parameter)
+            except Exception as _:
+                pass
 
         # No widget returned: skip
         if wdgt is None:

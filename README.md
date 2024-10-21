@@ -62,7 +62,7 @@ Within the Python environment, you then need to install `pycairo` and `PyGObject
 (venv) user@machine: ~/vxPy_app$ pip install pycairo PyGObject
 ```
 
-**WARNING**: starting with version 1.0.0, `tiscamera` no longer supports older camera models (see list in TIS repository). 
+**WARNING**: starting with version 1.0.0, `tiscamera` no longer supports older camera models (see table [supported devices](https://www.theimagingsource.com/en-us/documentation/tiscamera/supported-devices.html)). 
 If you're using one of those, instead install the latest pre-1.0.0 stable release (0.14.0) by checking it out with
 ```console
 user@machine: ~/tiscamera$ git checkout tags/v-tiscamera-0.14.0
