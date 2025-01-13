@@ -16,138 +16,24 @@ import vxpy.core.routine as vxroutine
 log = vxlogger.getLogger(__name__)
 
 
-class MScanFrameReceiverTcpServer(vxroutine.WorkerRoutine):
-
-    port: int = 55002
-    frame_name: str = 'tcp_server_frame'
-    frame_width: int = 256
-    frame_height: int = 256
-    frame_dtype: str = 'uint16'
-
-    def __init__(self, *args, **kwargs):
-        vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
-
-        self.server = None
-
-        self.listening = False
-        self.connected = False
-        self.client_conn = None
-        self.client_addr = None
-        self.counter = 0
-
-    def require(self) -> bool:
-
-        # Create frame attribute
-        shape = (self.frame_width, self.frame_height)
-        dtype = vxattribute.ArrayType.get_type_by_str(self.frame_dtype)
-        vxattribute.ArrayAttribute(self.frame_name, shape, dtype=dtype)
-        vxattribute.write_to_file(self, self.frame_name)
-        vxattribute.ArrayAttribute(f'{self.frame_name}_counter', (1,), vxattribute.ArrayType.uint64)
-
-        return True
-
-    def initialize(self):
-        try:
-            log.info(f'Listening for clients on port {self.port}')
-            self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server.bind(('', self.port))  # Don't restrict host
-            self.server.settimeout(0.1)
-            self.server.listen(1)
-            self.listening = False
-        except Exception as _exc:
-            log.error(f'Unable to listen for clients on {self.port} // Exception: {_exc}')
-            self.listening = False
-
-    def main(self):
-
-        # If not connected, check for new connection
-        if not self.connected:
-            self.connected = self._accept_connection()
-
-            # If no new connection, return
-            if not self.connected:
-                return
-
-            # New connection established
-
-            frame_info = f'{self.frame_width}x{self.frame_height} [{self.frame_dtype}]'
-            log.info(f'Started new connection to {self.client_addr[0]}:{self.client_addr[1]} to receive {frame_info}')
-
-            # Reset counter on new connection
-            self.counter = 0
-
-        # Receive data stream. It won't accept data packet greater than 1024 bytes
-        data_len = self.client_conn.recv(8)
-        data_len = int.from_bytes(data_len, byteorder='big')
-        # print(f'Got length: {data_len}')
-
-        data = self._readnbyte(data_len)
-        if not data:
-            # If data is not received, reset state
-            self.connected = False
-            log.warning(f'Lost connection to {self.client_addr[0]}:{self.client_addr[1]}')
-            return
-        # print("---------------------------------------------------")
-        # print(self.counter)
-        # print("new message: " + str(datetime.datetime.now()))
-
-        # decode bytes and convert to 2D-array
-        bytes_decode = np.frombuffer(data, ctypes.c_uint16)
-        frame = np.reshape(bytes_decode, (-1, int(np.sqrt(len(bytes_decode)))), order='F')
-
-        vxattribute.write_attribute(self.frame_name, frame)
-        vxattribute.write_attribute(f'{self.frame_name}_counter', self.counter)
-
-        # print("received " + str(len(data)) + " bytes")
-        # print("size of array: " + str(read_frame.shape))
-        # print("max element: " + str(np.max(read_frame)) + " | min element: " + str(np.min(read_frame)))
-
-        # Increment counter
-        self.counter += 1
-
-    def _readnbyte(self, n):
-        buff = bytearray(n)
-        pos = 0
-        while pos < n:
-            cr = self.client_conn.recv_into(memoryview(buff)[pos:])
-            if cr == 0:
-                raise EOFError
-            pos += cr
-        return buff
-
-    def _accept_connection(self):
-        try:
-            conn, addr = self.server.accept()
-            success = True
-        except socket.timeout:
-            success = False
-        else:
-            self.client_conn = conn
-            self.client_addr = addr
-
-        return success
-
-
 class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
     port: int = 55004
     frame_name: str = 'tcp_server_frame'
     frame_width: int = 512
     frame_height: int = 512
-    frame_dtype: str = 'uint16'
+    frame_dtype: str = 'int16'
+    acquisition_metadata: dict = {}
+    frame_header: dict = {}
+    last_time: float = time.perf_counter()
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
 
         self.server = None
-
         self.connected = False
         self.acquisition_running = False
         self.client_conn = None
         self.client_addr = None
-        self.next_buffer_length: int = 0
-        self.acquisition_metadata = {}
-        self.frame_header = {}
-        self.last_time = time.perf_counter()
 
     def require(self) -> bool:
 
@@ -227,6 +113,13 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
         # Check signals
         if signal == 'acq_start':
 
+            # Format:
+            # 'acquisition_mode': 'grab' or 'focus' (str)
+            # 'rolling_avg_factor': 5 (int)
+            # 'stack_num_slices': 2 (int)
+            # 'stack_num_frames_per_volume': 10 (int)
+            # 'stack_num_frames_per_slice': 1 (int)
+            # 'channels_data_type': 'int16' (str)
             self.acquisition_metadata = json.loads(buffer.decode('ascii'))
             self.acquisition_running = True
 
@@ -241,7 +134,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             # print(f'> Received frame header: {self.frame_header}')
             # print(f'>> Fetch frame data')
 
-            # Read frame data
+            # Read frame data to buffer
             next_signal, frame_buffer = self._recv()
 
             # Check if correct data was received
@@ -256,7 +149,8 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             frame_width = self.frame_header['frame_width']
             frame_height = self.frame_header['frame_height']
 
-            bytes_decoded = np.frombuffer(frame_buffer, ctypes.c_uint16)
+            # Convert frame buffer to array
+            bytes_decoded = np.frombuffer(frame_buffer, ctypes.c_int16)
             frame_in = np.reshape(bytes_decoded, (frame_width, frame_height), order='C')
 
             # Pad frame in case incoming frames shape is smaller
@@ -283,14 +177,17 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
     def _recv(self):
 
+        # Check if connection is still open
         readable, _, _ = select.select([self.client_conn], [], [], 0.1)
 
+        # Return False if not
         if not readable:
             return False, b''
 
+        # Read 16 bytes to buffer
         com_buffer = self._read_n_bytes(16)
 
-        # Read com buffer
+        # Convert to signal code and following data length (in bytes)
         signal_code, data_length = np.frombuffer(com_buffer, ctypes.c_int64)
 
         if signal_code == -1:
@@ -309,6 +206,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
         # print(f'COM CODE [{signal_code}, {data_length}]')
 
+        # Read to data buffer
         data_buffer = self._read_n_bytes(data_length)
 
         return signal, data_buffer

@@ -90,13 +90,14 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
     def _process_frame(self, last_idx, last_time, last_frame):
         """Method gets last written input frame data as arguments"""
 
-        _, _, last_counter = vxattribute.get_attribute(f'{self.input_frame_name}_counter')[int(last_idx)]
+        _, _, last_counter = vxattribute.get_attribute(f'{self.input_frame_name}_index')[int(last_idx)]
 
         last_frame = last_frame.astype(np.float64)
 
         # frame preprocessing
-        preprocessed_frame = np.where(last_frame < np.histogram(last_frame, bins=2)[1][1], last_frame, 0)
-        preprocessed_frame = np.where(preprocessed_frame > self.lower_px_threshold, preprocessed_frame, 0)
+        # preprocessed_frame = np.where(last_frame < np.histogram(last_frame, bins=2)[1][1], last_frame, 0)
+        # preprocessed_frame = np.where(preprocessed_frame > self.lower_px_threshold, preprocessed_frame, 0)
+        preprocessed_frame = last_frame
 
         # Write to corresponding attribute for interleaved layer
         current_layer_idx = int(last_counter) % self.input_num_interlaced_layers
@@ -174,7 +175,7 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
         self.image_widgets: List[ImageWidget] = []
         for layer_idx in range(self.layer_num):
             image_widget = ImageWidget(layer_idx, parent=self)
-            self.img_plot_widget.layout().addWidget(image_widget, layer_idx // 2, layer_idx % 2)
+            self.img_plot_widget.layout().addWidget(image_widget, layer_idx // self.layer_num, layer_idx % self.layer_num)
             self.image_widgets.append(image_widget)
 
         # Connect timer
