@@ -16,6 +16,9 @@ import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
 from vxpy.utils import widgets
 
+from vxpy.extras.server import ScanImageFrameReceiverTcpServer
+
+
 log = vxlogger.getLogger(__name__)
 
 
@@ -24,22 +27,22 @@ def get_roi_color(index: int):
 
 
 class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
-    input_frame_name: str = 'tcp_server_frame'
-    input_num_interlaced_layers: int = 2
     output_frame_name: str = 'roi_activity_tracker_frame'
+    layer_max_num: int = 20
     roi_max_num: int = 5
-    roi_name_prefix: str = 'roi_activity'
+    roi_slice_params: Dict[tuple, tuple] = {}
     roi_thresholds: Dict[tuple, int] = {}
     lower_px_threshold: int = 10
-    roi_activity_trigger_name: str = 'roi_activity_trigger'
     frame_width: int = 256
     frame_height: int = 256
     frame_dtype: str = 'float64'
+    trigger: vxevent.NewDataTrigger = None
+    current_layer_num: int = -1
+    new_metadata: bool = False
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
 
-        self.roi_slice_params: Dict[tuple, tuple] = {}
         self._f0 = [0] * 20
 
     def require(self) -> bool:
@@ -49,7 +52,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
         shape = (self.frame_width, self.frame_height)
 
         # Set up all layer/ROI attributes
-        for layer_idx in range(self.input_num_interlaced_layers):
+        for layer_idx in range(self.layer_max_num):
 
             # Create frame attribute
             vxattribute.ArrayAttribute(f'{self.output_frame_name}_{layer_idx}', shape, dtype)
@@ -64,23 +67,16 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
                                            vxattribute.ArrayType.float64)
 
                 # Register with plotter
-                vxui.register_with_plotter(self.roi_name(layer_idx, roi_idx),
-                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx}',
-                                           color=get_roi_color(roi_idx))
-                vxui.register_with_plotter(f'{self.roi_name(layer_idx, roi_idx)}_zscore',
-                                           name=f'ROI {roi_idx}', axis=f'Layer {layer_idx} zscore',
-                                           color=get_roi_color(roi_idx))
                 vxattribute.write_to_file(self, self.roi_name(layer_idx, roi_idx))
 
             # Create trigger attribute
             vxattribute.ArrayAttribute(self.trigger_name(layer_idx), (1,), vxattribute.ArrayType.uint8)
-            vxui.register_with_plotter(self.trigger_name(layer_idx), name=f'ROI activity {layer_idx}', axis='Trigger')
 
         return True
 
     def initialize(self):
-        # Creatre trigger to which routine should react to
-        self.trigger = vxevent.NewDataTrigger(self.input_frame_name, callback=self._process_frame)
+        # Create trigger to which routine should react to
+        self.trigger = vxevent.NewDataTrigger('scanimage_frame', callback=self._process_frame)
         self.trigger.set_active()
 
     def main(self, *args, **kwargs):
@@ -90,19 +86,30 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
     def _process_frame(self, last_idx, last_time, last_frame):
         """Method gets last written input frame data as arguments"""
 
-        _, _, last_counter = vxattribute.get_attribute(f'{self.input_frame_name}_index')[int(last_idx)]
+        layer_num = ScanImageFrameReceiverTcpServer.instance().layer_num
+
+        # If current layer number does not match information from server, reset everything
+        if self.current_layer_num != layer_num:
+
+            self.new_metadata = True
+            self.current_layer_num = layer_num
+
+            for idx in self.roi_slice_params.keys():
+                self.roi_slice_params[idx] = ()
+
+        _, _, last_frame_index = vxattribute.get_attribute('scanimage_frame_index')[int(last_idx)]
 
         last_frame = last_frame.astype(np.float64)
 
-        # frame preprocessing
-        # preprocessed_frame = np.where(last_frame < np.histogram(last_frame, bins=2)[1][1], last_frame, 0)
-        # preprocessed_frame = np.where(preprocessed_frame > self.lower_px_threshold, preprocessed_frame, 0)
-        preprocessed_frame = last_frame
+        # Frame preprocessing
+        preprocessed_frame = np.where(last_frame < np.histogram(last_frame, bins=2)[1][1], last_frame, 0)
+        preprocessed_frame = np.where(preprocessed_frame > self.lower_px_threshold, preprocessed_frame, 0)
 
         # Write to corresponding attribute for interleaved layer
-        current_layer_idx = int(last_counter) % self.input_num_interlaced_layers
+        current_layer_idx = int(last_frame_index) % ScanImageFrameReceiverTcpServer.instance().layer_num
         vxattribute.write_attribute(f'{self.output_frame_name}_{current_layer_idx}', preprocessed_frame)
 
+        # Calculate ROI activity and check against threshold
         over_thresh = False
         for (layer_idx, roi_idx), slice_params in self.roi_slice_params.items():
             if layer_idx != current_layer_idx or len(slice_params) == 0:
@@ -112,7 +119,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
 
             # Calculate activity
-            activity = (np.std(_slice) * np.mean(_slice)) / 1000
+            activity = (np.std(_slice) * np.mean(_slice)) / 1000  # TODO: ???
             # Write activity attribute
             vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
 
@@ -130,37 +137,35 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
         # Write trigger
         vxattribute.write_attribute(self.trigger_name(current_layer_idx), int(over_thresh))
 
-    def roi_name(self, layer_idx: int, roi_idx: int) -> str:
-        return f'{self.roi_name_prefix}_{layer_idx}_{roi_idx}'
+    @staticmethod
+    def roi_name(layer_idx: int, roi_idx: int) -> str:
+        return f'roi_activity_{layer_idx}_{roi_idx}'
 
-    def trigger_name(self, layer_idx: int) -> str:
-        return f'{self.roi_activity_trigger_name}_{layer_idx}'
-
-    @vxroutine.WorkerRoutine.callback
-    def update_roi(self, layer_idx: int, roi_idx, new_slice_params: tuple):
-        log.debug(f'Received slice params for layer {layer_idx}: {new_slice_params}')
-        # print(new_slice_params)
-        # self.roi_slice_params[layer_idx][roi_idx] = new_slice_params
-        # print(self.roi_slice_params)
+    @staticmethod
+    def trigger_name(layer_idx: int) -> str:
+        return f'roi_activity_trigger_{layer_idx}'
 
 
 class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
-    display_name = 'ROI activity tracker'
+    display_name = 'Imaging stream'
+
+    current_num_layers = -1
 
     def __init__(self, *args, **kwargs):
         vxui.WorkerAddonWidget.__init__(self, *args, **kwargs)
 
-        # Get datatype
-        _dtype = np.dtype(getattr(np, RoiActivityTrackerRoutine.instance().frame_dtype))
-        assert np.issubdtype(_dtype, np.integer), 'dtype is not an integer'
-        upper_lim = 2 ** (8 * _dtype.itemsize)
-
         self.central_widget.setLayout(QtWidgets.QVBoxLayout())
+
+        # Add warning label to close connection before exiting vxpy
+        warning_label = QtWidgets.QLabel('!!! WARNING: disconnect imaging client BEFORE closing vxpy !!!')
+        warning_label.setStyleSheet('font-weight:bold; color: #FF0000; text-align: center; '
+                                    'border: 1px solid #FF0000; padding: 5px;')
+        self.central_widget.layout().addWidget(warning_label)
 
         self.pixel_threshold = widgets.IntSliderWidget(self.central_widget,
                                                        label='Lower pixel threshold',
                                                        default=RoiActivityTrackerRoutine.instance().lower_px_threshold,
-                                                       limits=(1, upper_lim), step_size=10)
+                                                       limits=(1, 2**16), step_size=10)
         self.pixel_threshold.connect_callback(self.update_pixel_threshold)
         self.central_widget.layout().addWidget(self.pixel_threshold)
 
@@ -169,14 +174,8 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
         self.central_widget.layout().addWidget(self.img_plot_widget)
 
         self.frame_name = RoiActivityTrackerRoutine.instance().output_frame_name
-        self.layer_num = RoiActivityTrackerRoutine.instance().input_num_interlaced_layers
 
-        # Create image widgets for each layer
         self.image_widgets: List[ImageWidget] = []
-        for layer_idx in range(self.layer_num):
-            image_widget = ImageWidget(layer_idx, parent=self)
-            self.img_plot_widget.layout().addWidget(image_widget, layer_idx // self.layer_num, layer_idx % self.layer_num)
-            self.image_widgets.append(image_widget)
 
         # Connect timer
         self.connect_to_timer(self.update_frame)
@@ -189,7 +188,36 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
     def update_frame(self):
         """Update frame on for each interleaved sublayer"""
 
-        for layer_idx in range(self.layer_num):
+        layer_num = RoiActivityTrackerRoutine.instance().current_layer_num
+
+        # If new metadata was provided, remove and add widgets
+        if RoiActivityTrackerRoutine.instance().new_metadata:
+            # print(f'Reset view for {layer_num} layers')
+
+            # Remove all previous widgets
+            for i in range(len(self.image_widgets))[::-1]:
+                # Reset widget
+                self.image_widgets[i].reset()
+
+                # Remove widget
+                self.img_plot_widget.layout().removeWidget(self.image_widgets[i])
+                self.image_widgets[i].setParent(None)
+                del self.image_widgets[i]
+
+            self.current_num_layers = layer_num
+
+            # Create image widgets for each layer
+            for layer_idx in range(self.current_num_layers):
+                image_widget = ImageWidget(layer_idx)
+                self.img_plot_widget.layout().addWidget(image_widget,
+                                                        layer_idx // self.current_num_layers,
+                                                        layer_idx % self.current_num_layers)
+                self.image_widgets.append(image_widget)
+
+            # Reset flag
+            RoiActivityTrackerRoutine.instance().new_metadata = False
+
+        for layer_idx in range(self.current_num_layers):
             idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}')
 
             if len(idx) == 0:
@@ -245,6 +273,18 @@ class ImageWidget(QtWidgets.QGroupBox):
             log.warning('Failed to add ROI. Maximum number of ROIs exceeded')
             return
 
+        if roi_idx == 0:
+            vxui.register_with_plotter(RoiActivityTrackerRoutine.trigger_name(self.layer_idx),
+                                       name=f'Activity trigger for layer {self.layer_idx}',
+                                       axis='Trigger')
+
+        vxui.register_with_plotter(RoiActivityTrackerRoutine.roi_name(self.layer_idx, roi_idx),
+                                   name=f'ROI {roi_idx}', axis=f'Layer {self.layer_idx}',
+                                   color=get_roi_color(roi_idx))
+        vxui.register_with_plotter(f'{RoiActivityTrackerRoutine.roi_name(self.layer_idx, roi_idx)}_zscore',
+                                   name=f'ROI {roi_idx}', axis=f'Layer {self.layer_idx} zscore',
+                                   color=get_roi_color(roi_idx))
+
         # Add ROI
         width = RoiActivityTrackerRoutine.instance().frame_width
         roi = Roi(self.layer_idx, roi_idx, self, (0, 0), (1, 1))
@@ -269,11 +309,20 @@ class ImageWidget(QtWidgets.QGroupBox):
         slice_params = roi.getAffineSliceParams(self.image_item.image, self.image_item)
         RoiActivityTrackerRoutine.instance().roi_slice_params[(self.layer_idx, roi.idx)] = slice_params
 
+    def reset(self):
 
-class Roi(pg.RectROI):
+        for roi_idx in range(len(self.rois)):
+            vxui.remove_from_plotter(RoiActivityTrackerRoutine.roi_name(self.layer_idx, roi_idx),
+                                     axis=f'Layer {self.layer_idx}')
+            vxui.remove_from_plotter(f'{RoiActivityTrackerRoutine.roi_name(self.layer_idx, roi_idx)}_zscore',
+                                     axis=f'Layer {self.layer_idx} zscore')
+
+
+class Roi(pg.EllipseROI):
 
     def __init__(self, layer_idx: int, idx: int, image_widget: ImageWidget, *args, **kwargs):
-        pg.RectROI.__init__(self, *args, sideScalers=True, **kwargs)
+        # pg.RectROI.__init__(self, *args, sideScalers=True, **kwargs)
+        pg.EllipseROI.__init__(self, *args, **kwargs)
         self.layer_idx = layer_idx
         self.idx = idx
         self.image_widget = image_widget

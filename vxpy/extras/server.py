@@ -18,13 +18,17 @@ log = vxlogger.getLogger(__name__)
 
 class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
     port: int = 55004
-    frame_name: str = 'tcp_server_frame'
+    connection_timeout: float = 0.001  # s
+    blanking_duration = 4 * 10 ** -3
+    frame_name: str = 'scanimage_frame'
     frame_width: int = 512
     frame_height: int = 512
     frame_dtype: str = 'int16'
     acquisition_metadata: dict = {}
     frame_header: dict = {}
     last_time: float = time.perf_counter()
+    layer_num: int = 1
+    last_frame_number: int = -1
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
@@ -32,17 +36,21 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
         self.server = None
         self.connected = False
         self.acquisition_running = False
-        self.client_conn = None
+        self.client_socket: socket.socket = None
         self.client_addr = None
+
+        self.contiguous_frame_index = -1
 
     def require(self) -> bool:
 
         # Create frame attribute
         dtype = vxattribute.ArrayType.get_type_by_str(self.frame_dtype)
         vxattribute.ArrayAttribute(self.frame_name, (self.frame_width, self.frame_height), dtype=dtype)
+        vxattribute.ArrayAttribute(f'{self.frame_name}_number', (1,), vxattribute.ArrayType.int64)
         vxattribute.ArrayAttribute(f'{self.frame_name}_index', (1,), vxattribute.ArrayType.int64)
         vxattribute.ArrayAttribute(f'{self.frame_name}_timestamp', (1,), vxattribute.ArrayType.float64)
         vxattribute.write_to_file(self, self.frame_name)
+        vxattribute.write_to_file(self, f'{self.frame_name}_number',)
         vxattribute.write_to_file(self, f'{self.frame_name}_index',)
         vxattribute.write_to_file(self, f'{self.frame_name}_timestamp')
 
@@ -53,7 +61,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             log.info(f'Listening for clients on port {self.port}')
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind(('', self.port))  # Don't restrict host
-            self.server.settimeout(0.1)
+            self.server.settimeout(self.connection_timeout)
             self.server.listen(1)
             self.connected = False
         except Exception as _exc:
@@ -71,7 +79,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
                 return
 
             # Set client connection
-            self.client_conn = conn
+            self.client_socket = conn
             self.client_addr = addr
             self.connected = True
 
@@ -90,12 +98,12 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
             # Try to close connection properly, just in case
             try:
-                self.client_conn.close()
+                self.client_socket.close()
             except Exception:
                 pass
 
             # Reset client connection
-            self.client_conn = None
+            self.client_socket = None
             self.client_addr = None
             self.connected = False
 
@@ -123,7 +131,17 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             self.acquisition_metadata = json.loads(buffer.decode('ascii'))
             self.acquisition_running = True
 
+            print(f'Get metadata: {self.acquisition_metadata}')
+
             log.info(f'Acquisition mode started. Metadata: {self.acquisition_metadata}')
+
+            if self.acquisition_metadata['acquisition_mode'] == 'focus':
+                self.layer_num = 1
+            else:
+                self.layer_num = self.acquisition_metadata['stack_num_slices']
+
+            self.last_frame_number = -1
+            self.contiguous_frame_index = -1
 
         elif signal == 'recv_frame_header':
 
@@ -131,11 +149,15 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
             self.frame_header = json.loads(buffer.decode('ascii'))
 
+            # print(f'Frame header {self.frame_header}')
+
             # print(f'> Received frame header: {self.frame_header}')
             # print(f'>> Fetch frame data')
 
             # Read frame data to buffer
             next_signal, frame_buffer = self._recv()
+
+            # print(f'Next: {next_signal}')
 
             # Check if correct data was received
             if not next_signal or next_signal != 'recv_frame_data':
@@ -146,12 +168,30 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             if not self.acquisition_running:
                 return
 
+            # Skip duplicate frames (this happens when SI skips a frame during stack imaging with flyback delay)
+            if self.last_frame_number == self.frame_header['frame_number']:
+                return
+            self.last_frame_number = self.frame_header['frame_number']
+
+            # Increment counter
+            self.contiguous_frame_index += 1
+
             frame_width = self.frame_header['frame_width']
             frame_height = self.frame_header['frame_height']
 
             # Convert frame buffer to array
             bytes_decoded = np.frombuffer(frame_buffer, ctypes.c_int16)
             frame_in = np.reshape(bytes_decoded, (frame_width, frame_height), order='C')
+
+            # Calculate number of lines to discard during blanking
+            pixel_dwell_time = self.acquisition_metadata['scan_pixel_time_mean']
+            pixel_num = self.blanking_duration // pixel_dwell_time
+            blank_line_num = int(pixel_num // frame_width)
+
+            # Set blanked lines low
+            frame_in[:, :blank_line_num] = -2**15
+
+            # print(f'Frame in {frame_in.sum()}')
 
             # Pad frame in case incoming frames shape is smaller
             if frame_width != self.frame_width or frame_height != self.frame_height:
@@ -160,9 +200,14 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             else:
                 frame_out = frame_in
 
+            # print(f'Write frame {frame_out.sum()}')
+
+            print(self.frame_header['frame_number'], frame_in.sum())
+
             # Write frame data
             vxattribute.write_attribute(self.frame_name, frame_out)
-            vxattribute.write_attribute(f'{self.frame_name}_index', self.frame_header['frame_number'])
+            vxattribute.write_attribute(f'{self.frame_name}_number', self.frame_header['frame_number'])
+            vxattribute.write_attribute(f'{self.frame_name}_index', self.contiguous_frame_index)
             vxattribute.write_attribute(f'{self.frame_name}_timestamp', self.frame_header['last_frame_time_stamp'])
 
         # Wait for metadata to start frame stream
@@ -175,10 +220,17 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             log.warning(f'Lost connection to client {self.client_addr}')
             self.connected = False
 
+    def _send_bytes(self, _bytes):
+        if self.client_socket is None:
+            log.error('Failed to send data to client. No client connected')
+            return
+
+        self.client_socket.send(_bytes)
+
     def _recv(self):
 
         # Check if connection is still open
-        readable, _, _ = select.select([self.client_conn], [], [], 0.1)
+        readable, _, _ = select.select([self.client_socket], [], [], self.connection_timeout)
 
         # Return False if not
         if not readable:
@@ -218,12 +270,17 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
         buff = bytearray(n)
         pos = 0
         while pos < n:
-            cr = self.client_conn.recv_into(memoryview(buff)[pos:])
+            cr = self.client_socket.recv_into(memoryview(buff)[pos:])
             if cr == 0:
                 raise EOFError
             pos += cr
 
         return buff
+
+    # def layer_num(self):
+    #     if len(self.acquisition_metadata) == 0 or self.acquisition_metadata['acquisition_mode'] == 'focus':
+    #         return 1
+    #     return self.acquisition_metadata['stack_num_slices']
 
 
 if __name__ == '__main__':

@@ -300,6 +300,10 @@ def register_with_plotter(attr_name: str, *args, **kwargs):
     vxipc.rpc(PROCESS_GUI, PlottingWindow.add_buffer_attribute, attr_name, *args, **kwargs)
 
 
+def remove_from_plotter(attr_name: str, *args, **kwargs):
+    vxipc.rpc(PROCESS_GUI, PlottingWindow.remove_buffer_attribute, attr_name, *args, **kwargs)
+
+
 class PlottingWindow(WindowWidget, ExposedWidget):
     colors = (np.array([matplotlib.colormaps['tab20'](i)[:3] for i in range(20)]) * 2**8-1).astype(int)
 
@@ -579,6 +583,21 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         grp.create_dataset('mt', shape=(1,), chunks=(self.cache_chunk_size,), maxshape=(None,), dtype=np.float32)
         grp.attrs['last_idx'] = -1
         grp['mt'][0] = 0.
+
+    def remove_buffer_attribute(self, attr_name, axis=None):
+
+        # Determine axis name
+        axis_name = axis if axis is not None else 'Default'
+
+        # Fetch subplot
+        subplot = self._subplot(axis_name)
+
+        dataitem = self.data_items[attr_name]
+
+        subplot.getViewBox().addItem(dataitem)
+
+        # Add dataitem to legend
+        self.legend_items[axis_name].removeItem(dataitem)
 
 
 class ProcessInfo(QtWidgets.QWidget):
@@ -941,11 +960,11 @@ class LogTextEdit(QtWidgets.QTextEdit):
     def print_log(self):
         self.setFont(self.font)
 
-        if self.verticalScrollBar().pos().y() < self.verticalScrollBar().maximum():
-            self.scroll_to_bottom = False
-
-        if self.verticalScrollBar().pos() == self.verticalScrollBar().maximum():
-            self.scroll_to_bottom = True
+        # if self.verticalScrollBar().pos().y() < self.verticalScrollBar().maximum():
+        #     self.scroll_to_bottom = False
+        #
+        # if self.verticalScrollBar().pos() == self.verticalScrollBar().maximum():
+        #     self.scroll_to_bottom = True
 
         if len(vxlogger.get_history()) > self.logccount:
             for rec in vxlogger.get_history()[self.logccount:]:
@@ -987,8 +1006,11 @@ class LogTextEdit(QtWidgets.QTextEdit):
                 # Add line
                 self.append(line)
 
-        if self.scroll_to_bottom:
-            self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+            # print(self.verticalScrollBar().maximum())
+            self.verticalScrollBar().setValue(self.logccount)
+
+        # if self.scroll_to_bottom:
+        #     self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
         self.last_high_level = self.log_level
