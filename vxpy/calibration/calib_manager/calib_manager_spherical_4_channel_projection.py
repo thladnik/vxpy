@@ -45,7 +45,7 @@ class Settings(QtWidgets.QWidget):
         self.edits: Dict[str, DoubleSliderWidget] = {}
 
         wdgt = DoubleSliderWidget(self, 'Azimuth orientation [deg]',
-                                                 limits=(0., 360), default=0., step_size=.1, decimals=1)
+                                                 limits=(0., 360), default=0., step_size=.1)
 
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_AZIM_ORIENT'))
         self.uniform_width_label.add_widget(wdgt.label)
@@ -55,8 +55,7 @@ class Settings(QtWidgets.QWidget):
         self.channel_independent.layout().addWidget(wdgt)
 
         wdgt = DoubleSliderWidget(self, 'Lateral luminance offset',
-                                                 limits=(0., 1.), default=0., step_size=.01, decimals=2,
-                                                 label_width=200)
+                                                 limits=(0., 1.), default=0., step_size=.01, label_width=200)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_LAT_LUM_OFFSET'))
         self.uniform_width_label.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -65,8 +64,7 @@ class Settings(QtWidgets.QWidget):
         self.channel_independent.layout().addWidget(wdgt)
 
         wdgt = DoubleSliderWidget(self, 'Lateral luminance gradient',
-                                                   limits=(0., 10.), default=1., step_size=.05, decimals=2,
-                                                   label_width=200)
+                                                   limits=(0., 10.), default=1., step_size=.05, label_width=200)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_LAT_LUM_GRADIENT'))
         self.uniform_width_label.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -75,7 +73,7 @@ class Settings(QtWidgets.QWidget):
         self.channel_independent.layout().addWidget(wdgt)
 
         wdgt = DoubleSliderWidget(self, 'Global position X',
-                                                 limits=(-1., 1.), default=0., step_size=.01, decimals=2)
+                                                 limits=(-1., 1.), default=0., step_size=.01)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_GLOB_POS_X'))
         self.uniform_width_label.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -84,7 +82,7 @@ class Settings(QtWidgets.QWidget):
         self.channel_independent.layout().addWidget(wdgt)
 
         wdgt = DoubleSliderWidget(self, 'Global position Y',
-                                                 limits=(-1., 1.), default=0., step_size=.01, decimals=2)
+                                                 limits=(-1., 1.), default=0., step_size=.01)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_GLOB_POS_Y'))
         self.uniform_width_label.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -151,7 +149,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # Radial offset
         wdgt = DoubleSliderWidget(self, 'Radial offset',
                                   limits=(0., 1.), default=0.,
-                                  step_size=.001, decimals=3)
+                                  step_size=.001)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_POS_RADIAL_OFFSET'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -161,7 +159,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # Lateral offset
         wdgt = DoubleSliderWidget(self, 'Lateral offset',
                                   limits=(-1., 1.), default=0.,
-                                  step_size=.001, decimals=3)
+                                  step_size=.001)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_POS_LATERAL_OFFSET'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -171,7 +169,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # Elevation
         wdgt = DoubleSliderWidget(self, 'Elevation [deg]',
                                   limits=(-45., 45.), default=0.,
-                                  step_size=.1, decimals=1)
+                                  step_size=.1)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_ELEV_ANGLE'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -181,7 +179,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # Azimuth
         wdgt = DoubleSliderWidget(self, 'Azimuth [deg]',
                                   limits=(-20., 20.), default=0.,
-                                  step_size=.1, decimals=1)
+                                  step_size=.1)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_AZIM_ANGLE'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -191,7 +189,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # View distance
         wdgt = DoubleSliderWidget(self, 'Distance [norm]',
                                   limits=(1., 50.), default=5.,
-                                  step_size=.05, decimals=2)
+                                  step_size=.05)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_DISTANCE'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -201,7 +199,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # FOV
         wdgt = DoubleSliderWidget(self, 'FOV [deg]',
                                   limits=(.1, 179.), default=70.,
-                                  step_size=.05, decimals=2)
+                                  step_size=.05)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_FOV'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)
@@ -211,7 +209,7 @@ class ChannelParameters(QtWidgets.QGroupBox):
         # View scale
         wdgt = DoubleSliderWidget(self, 'Scale [norm]',
                                   limits=(.001, 10.), default=1.,
-                                  step_size=.001, decimals=3)
+                                  step_size=.001)
         wdgt.connect_callback(self.set_parameter_callback('CALIB_DISP_SPH_VIEW_SCALE'))
         self.uniform_width.add_widget(wdgt.label)
         self.uniform_width_spinner.add_widget(wdgt.spinner)

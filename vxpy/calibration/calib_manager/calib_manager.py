@@ -3,6 +3,7 @@ import ctypes
 import importlib
 import os
 import sys
+import time
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -82,3 +83,4 @@ class CalibrationWindow(QtWidgets.QMainWindow):
 
     def trigger_on_draw(self):
         self.canvas.on_draw(event=None)
+        self.canvas.app.process_events()

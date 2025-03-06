@@ -32,6 +32,7 @@ class VisualInteractorCalibWidget(display_widgets.VisualInteractorInnerWidget):
         visual.initialize()
         CalibrationWindow.canvas.set_visual(visual)
         CalibrationWindow.canvas.set_transform(_transform)
+        CalibrationWindow.canvas.current_visual.is_active = True
 
     @staticmethod
     def call_visual_execution_stop():
