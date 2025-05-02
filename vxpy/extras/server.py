@@ -131,7 +131,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
             self.acquisition_metadata = json.loads(buffer.decode('ascii'))
             self.acquisition_running = True
 
-            print(f'Get metadata: {self.acquisition_metadata}')
+            # print(f'Get metadata: {self.acquisition_metadata}')
 
             log.info(f'Acquisition mode started. Metadata: {self.acquisition_metadata}')
 
@@ -202,7 +202,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
             # print(f'Write frame {frame_out.sum()}')
 
-            print(self.frame_header['frame_number'], frame_in.sum())
+            # print(self.frame_header['frame_number'], frame_in.sum())
 
             # Write frame data
             vxattribute.write_attribute(self.frame_name, frame_out)

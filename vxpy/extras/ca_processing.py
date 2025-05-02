@@ -218,12 +218,15 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
             RoiActivityTrackerRoutine.instance().new_metadata = False
 
         for layer_idx in range(self.current_num_layers):
-            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}')
+            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}', last=10)
+
+            frame = np.mean(frame, axis=0)
 
             if len(idx) == 0:
                 return
 
-            self.image_widgets[layer_idx].update_frame(frame[0])
+            # self.image_widgets[layer_idx].update_frame(frame[0])
+            self.image_widgets[layer_idx].update_frame(frame)
 
 
 class ImageWidget(QtWidgets.QGroupBox):
@@ -242,7 +245,7 @@ class ImageWidget(QtWidgets.QGroupBox):
         self.controls.setLayout(QtWidgets.QGridLayout())
 
         # Add plot
-        self.image_plot = self.graphics_widget.addPlot(0, 0, 1, 10)
+        self.image_plot = self.graphics_widget.addPlot(0, 0)
         # Set up plot image item
         self.image_item = pg.ImageItem()
         self.image_plot.invertY(True)
@@ -253,6 +256,11 @@ class ImageWidget(QtWidgets.QGroupBox):
         self.text = pg.TextItem(f'Layer {self.layer_idx}', color=(255, 0, 0))
         self.image_plot.addItem(self.text)
         self.text.setPos(0, 0)
+
+        self.histogram = pg.HistogramLUTItem()
+        self.histogram.setImageItem(self.image_item)
+        self.graphics_widget.addItem(self.histogram, 0, 1)
+        self.no_init = True
 
         # Add ROI
         self.rois: List[Roi] = []
@@ -302,7 +310,13 @@ class ImageWidget(QtWidgets.QGroupBox):
         self.controls.layout().addWidget(thresh, roi_idx, 0)
 
     def update_frame(self, frame: np.ndarray):
-        self.image_item.setImage(frame)
+        if self.no_init:
+            immin, immax = np.min(frame), np.max(frame)
+            self.histogram.setHistogramRange(immin, immax)
+            self.histogram.setLevels(immin, immax)
+            self.no_init = False
+
+        self.image_item.setImage(frame, autoLevels=False)
 
     def roi_updated(self, roi: Roi):
         log.debug(f'Update ROI for layer {self.layer_idx}')
