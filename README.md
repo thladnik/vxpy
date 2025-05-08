@@ -1,8 +1,8 @@
 
 [//]: # (<img align="right" width="140" height="140" src="vxpy/vxpy_icon.png">)
-<img align="right" width="140" height="140" src="https://raw.githubusercontent.com/thladnik/vxPy/3e75107a8dc7e70b898c50e8b95209126ed3f856/vxpy/vxpy_icon.svg">
-
-
+<img align="right" width="140" height="140" src="https://raw.githubusercontent.com/thladnik/vxpy/d535fb2760869eaf18000ba0d6425815b8cd8f03/vxpy/vxpy_icon.svg">
+ <br/><br/><br/>
+  
 # vxPy
 
 `vxPy` is a multiprocessing-based software for vision experiments in Python. 
