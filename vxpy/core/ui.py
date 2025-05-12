@@ -574,6 +574,8 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         self.update_xaxes()
 
     def remove_buffer_attribute(self, attr_name, axis=None):
+        # TODO: not working right atm
+        return
 
         print(f'Remove {attr_name} from axis {axis}')
 

@@ -39,6 +39,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
     trigger: vxevent.NewDataTrigger = None
     current_layer_num: int = -1
     new_metadata: bool = False
+    attrs_written_to_file: List[str] = []
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
@@ -65,9 +66,6 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
                 vxattribute.ArrayAttribute(self.roi_name(layer_idx, roi_idx), (1,), vxattribute.ArrayType.float64)
                 vxattribute.ArrayAttribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', (1,),
                                            vxattribute.ArrayType.float64)
-
-                # Register with plotter
-                vxattribute.write_to_file(self, self.roi_name(layer_idx, roi_idx))
 
             # Create trigger attribute
             vxattribute.ArrayAttribute(self.trigger_name(layer_idx), (1,), vxattribute.ArrayType.uint8)
@@ -115,27 +113,41 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
             if layer_idx != current_layer_idx or len(slice_params) == 0:
                 continue
 
+            roi_str = self.roi_name(layer_idx, roi_idx)
+
             # Get ROI data
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
 
             # Calculate activity
             activity = (np.std(_slice) * np.mean(_slice)) / 1000  # TODO: ???
             # Write activity attribute
-            vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
+            vxattribute.write_attribute(roi_str, activity)
 
             # Calculate zscore
             _, _, past_activities = vxattribute.read_attribute(self.roi_name(layer_idx, roi_idx), last=40)
             past_activities = past_activities.flatten()
             current_zscore = scipy.stats.zmap(past_activities[-1], past_activities[:-1])
-            vxattribute.write_attribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', current_zscore)
+            vxattribute.write_attribute(f'{roi_str}_zscore', current_zscore)
 
             # Threshold exceeded for this ROI?
             # over_thresh = current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
             # over_thresh = over_thresh or current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
             over_thresh = over_thresh or activity > self.roi_thresholds[(layer_idx, roi_idx)]
 
+            # Add attribute to be written to file
+            if roi_str not in self.attrs_written_to_file:
+                # Register with plotter
+                vxattribute.write_to_file(self, roi_str)
+                self.attrs_written_to_file.append(roi_str)
+
         # Write trigger
-        vxattribute.write_attribute(self.trigger_name(current_layer_idx), int(over_thresh))
+        trigger_str = self.trigger_name(current_layer_idx)
+        vxattribute.write_attribute(trigger_str, int(over_thresh))
+
+        # Add attribute to be written to file
+        if trigger_str not in self.attrs_written_to_file:
+            vxattribute.write_to_file(self, trigger_str)
+            self.attrs_written_to_file.append(trigger_str)
 
     @staticmethod
     def roi_name(layer_idx: int, roi_idx: int) -> str:
