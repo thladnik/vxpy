@@ -1,19 +1,16 @@
+<h1 align="center">
+<img src="https://raw.githubusercontent.com/thladnik/vxpy/d535fb2760869eaf18000ba0d6425815b8cd8f03/vxpy/vxpy_icon.svg" width="200">
+</h1><br>
 
-[//]: # (<img align="right" width="140" height="140" src="vxpy/vxpy_icon.png">)
-<img align="right" width="140" height="140" src="https://raw.githubusercontent.com/thladnik/vxPy/3e75107a8dc7e70b898c50e8b95209126ed3f856/vxpy/vxpy_icon.svg">
+**VxPy** is a multiprocessing-based software for vision experiments in Python. 
 
+It leverages OpenGL-based 3D graphics rendering, using the Python visualization library [VisPy](https://github.com/vispy/vispy), for dynamic generation and realtime updating of visual stimuli. VxPy utilizes multicore hardware for fast online aquisition and analysis of behavioral and other sensor data, as well as control of external devices, such as actuators or LEDs, via configurable microcontroller interfaces. 
 
-# vxPy
-
-`vxPy` is a multiprocessing-based software for vision experiments in Python. 
-
-It leverages OpenGL-based 3D graphics rendering, using the Python visualization library [VisPy](https://github.com/vispy/vispy), for dynamic generation and realtime updating of visual stimuli. `vxPy` utilizes multicore hardware for fast online aquisition and analysis of behavioral and other sensor data, as well as control of external devices, such as actuators or LEDs, via configurable microcontroller interfaces. 
-
-This is the core package for `vxPy`. The accompanying application to configure and run the UI is hosted at [vxPy_app](https://github.com/thladnik/vxPy_app).
+This is the core package for VxPy. The accompanying application to configure and run the UI is hosted at [VxPy_app](https://github.com/thladnik/vxPy_app).
 
 ## Requirements
 
-`vxPy` has been tested on Windows 11 and Ubuntu 20.04 and 22.04 LTS. It requires Python 3.8 or higher. For best performance Ubuntu is recommended.
+VxPy has been tested on Windows 11 and Ubuntu 20.04 and 22.04 LTS. It requires Python 3.8 or higher. For best performance Ubuntu is recommended.
 
 ## Installation
 
@@ -33,8 +30,8 @@ user@machine: ~$ sudo apt-get install python3.x
 
 #### Linux
 
-Create a new folder where you'd like to install the vxPy application (here`vxPy_app`).
-Using a terminal, create a virtual environment inside the empty folder, install `vxPy` and set up the application folder 
+Create a new folder where you'd like to install the vxPy application (here vxPy_app).
+Using a terminal, create a virtual environment inside the empty folder, install VxPy and set up the application folder 
 ```console
 user@machine: ~/vxPy_app$ python3.x -m venv venv
 user@machine: ~/vxPy_app$ ./venv/bin/activate
