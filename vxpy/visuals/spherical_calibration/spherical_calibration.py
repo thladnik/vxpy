@@ -28,6 +28,7 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
     u_azimuth_phase = vxvisual.FloatParameter('u_azimuth_phase', static=True, default=0.0, limits=(0, 360), step_size=5.)
     u_elevation_sp = vxvisual.FloatParameter('u_elevation_sp', static=True, default=45.0, limits=(5, 180), step_size=5.)
     u_elevation_phase = vxvisual.FloatParameter('u_elevation_phase', static=True, default=0.0, limits=(0, 360), step_size=5.)
+    brightness = vxvisual.FloatParameter('brightness', static=True, default=1.0, limits=(0.0, 1.0), step_size=0.001)
 
     _frag_shader = './static_checker.frag'
 
@@ -52,6 +53,7 @@ class BlackWhiteCheckerboard(vxvisual.SphericalVisual):
         self.u_elevation_phase.connect(self.checker)
         self.u_azimuth_sp.connect(self.checker)
         self.u_azimuth_phase.connect(self.checker)
+        self.brightness.connect(self.checker)
 
     def initialize(self, *args, **kwargs):
         pass
