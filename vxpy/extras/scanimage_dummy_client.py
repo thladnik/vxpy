@@ -61,9 +61,9 @@ def run_client():
                 # sock.close()
                 # reconnect()
                 acq_metadata = {
-                    'acquisition_mode': 'focus',
+                    'acquisition_mode': '', # focus
                     'rolling_avg_factor': 5,
-                    'stack_num_slices': 2,
+                    'stack_num_slices': 3,
                     'stack_num_frames_per_volume': 10,
                     'stack_num_frames_per_slice': 1,
                     'channels_data_type': 'int16',
@@ -98,6 +98,7 @@ def run_client():
         except Exception as _exc:
             print('Client: connection possibly terminated by remote host')
             import traceback
+            print(traceback.print_exc())
             run = False
 
         idx += 1

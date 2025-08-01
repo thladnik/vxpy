@@ -7,16 +7,20 @@ from multiprocessing import Queue
 from functools import partial
 import copy
 
-
+import math
 import cv2
 import numpy as np
 import pyqtgraph as pg
 
-from PySide6 import QtWidgets
-
+from PySide6 import QtCore, QtWidgets
+import pyqtgraph as pg
+from PySide6.QtWidgets import QGraphicsEllipseItem
+from PySide6.QtGui import QBrush, QPen, QColor
 
 import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
+import vxpy.core.attribute as vxattribute
+from vxpy.extras.server import ScanImageFrameReceiverTcpServer
 
 
 
@@ -25,16 +29,13 @@ class SysConRoutine(vxroutine.WorkerRoutine):
 
     rois_to_stimulate = {}
     new_rois_set = False
-
+    num_layers = 0
     ui_update_rois = False
 
 
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
-
-        self.command_queue = Queue()
-
 
 
 
@@ -55,351 +56,317 @@ class SysConRoutine(vxroutine.WorkerRoutine):
             pass
 
 
-# class SysConControlWindow(vxui.WorkerAddonWidget):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#
-#         # ===================================================
-#         # Main layout: attach to central_widget (not self)
-#         # ===================================================
-#         main_layout = QtWidgets.QHBoxLayout()
-#         self.central_widget.setLayout(main_layout)
-#
-#         # ===================================================
-#         # Left side: Scroll area for ROI controls
-#         # ===================================================
-#         self.scroll_area = QtWidgets.QScrollArea()
-#         self.scroll_area.setWidgetResizable(True)
-#
-#         self.scroll_widget = QtWidgets.QWidget()
-#         self.scroll_layout = QtWidgets.QGridLayout(self.scroll_widget)
-#
-#         self.scroll_area.setWidget(self.scroll_widget)
-#         main_layout.addWidget(self.scroll_area)
-#
-#         # ===================================================
-#         # Right side: Buttons and settings vertical layout
-#         # ===================================================
-#         button_layout = QtWidgets.QVBoxLayout()
-#
-#         # ---- Label ----
-#         label = QtWidgets.QLabel("SysCon export and controls.")
-#         button_layout.addWidget(label)
-#
-#         # ---- Set all laser intensity field ----
-#         intensity_layout = QtWidgets.QHBoxLayout()
-#         intensity_label = QtWidgets.QLabel("Set all laser intensity:")
-#         self.intensity_field = QtWidgets.QLineEdit()
-#         self.intensity_field.setPlaceholderText("%")
-#         intensity_layout.addWidget(intensity_label)
-#         intensity_layout.addWidget(self.intensity_field)
-#         button_layout.addLayout(intensity_layout)
-#         self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
-#
-#         # ---- Toggle all ROI for Laser ----
-#         self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
-#         self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
-#         button_layout.addWidget(self.toggle_all_button)
-#
-#         # ---- Duration field ----
-#         duration_layout = QtWidgets.QHBoxLayout()
-#         duration_label = QtWidgets.QLabel("Duration:")
-#         self.duration_field = QtWidgets.QLineEdit()
-#         self.duration_field.setPlaceholderText("ms")
-#         duration_layout.addWidget(duration_label)
-#         duration_layout.addWidget(self.duration_field)
-#         button_layout.addLayout(duration_layout)
-#
-#         # ---- Scanning mode selection ----
-#         scanning_layout = QtWidgets.QHBoxLayout()
-#         scanning_label = QtWidgets.QLabel("Scanning mode:")
-#         self.scanning_combo = QtWidgets.QComboBox()
-#         self.scanning_combo.addItems(["spiral scanning", "parallel scanning"])
-#         scanning_layout.addWidget(scanning_label)
-#         scanning_layout.addWidget(self.scanning_combo)
-#         button_layout.addLayout(scanning_layout)
-#
-#         # ---- Diameter field (wrapped in a QWidget for visibility toggle) ----
-#         self.diameter_widget = QtWidgets.QWidget()
-#         diameter_layout = QtWidgets.QHBoxLayout(self.diameter_widget)
-#         diameter_label = QtWidgets.QLabel("Diameter:")
-#         self.diameter_field = QtWidgets.QLineEdit()
-#         self.diameter_field.setPlaceholderText("µm")
-#         diameter_layout.addWidget(diameter_label)
-#         diameter_layout.addWidget(self.diameter_field)
-#         button_layout.addWidget(self.diameter_widget)
-#
-#         # ---- Update diameter field visibility based on scanning mode ----
-#         self.update_diameter_visibility()
-#         self.scanning_combo.currentTextChanged.connect(self.update_diameter_visibility)
-#
-#         # ---- Write SysCon File button ----
-#         self.write_button = QtWidgets.QPushButton("Write SysCon File")
-#         self.write_button.clicked.connect(self.write_SysCon_file)
-#         button_layout.addWidget(self.write_button)
-#
-#         # ---- Stretch to push everything up ----
-#         button_layout.addStretch()
-#
-#         # ===================================================
-#         # Wrap button layout in a widget and add to main layout
-#         # ===================================================
-#         button_widget = QtWidgets.QWidget()
-#         button_widget.setLayout(button_layout)
-#         main_layout.addWidget(button_widget)
-#
-#         # ===================================================
-#         # Final initializations
-#         # ===================================================
-#         self.connect_to_timer(self.check_state)
-#
-#         self.global_laser_intensity = 0.0
-#         self.laser_prep_list = []
-#         self.intensity_edits = []
-#
-#     def update_diameter_visibility(self):
-#         if self.scanning_combo.currentText() == "spiral scanning":
-#             self.diameter_widget.setVisible(True)
-#         else:
-#             self.diameter_widget.setVisible(False)
-#
-#     def check_state(self):
-#         if SysConRoutine.instance().ui_update_rois:
-#             self.populate_roi_rows()
-#             SysConRoutine.instance().ui_update_rois = False
-#
-#     def populate_roi_rows(self):
-#         roi_dict = SysConRoutine.instance().rois_to_stimulate
-#
-#         tracked_rois = [
-#             ((layer_idx, roi_idx), roi)
-#             for (layer_idx, roi_idx), roi in roi_dict.items()
-#             if roi.tracked]
-#
-#         # === ADDED: clear intensity_edits to avoid duplicates ===
-#         self.intensity_edits.clear()
-#
-#         for row_idx, ((layer_idx, roi_idx), roi) in enumerate(tracked_rois):
-#
-#             roi_label = QtWidgets.QLabel(
-#                 f"Layer {layer_idx}, ROI {roi_idx}, x: {roi.x_center:.2f}, y: {roi.y_center:.2f}, z: {roi.z_center:.2f}")
-#             self.scroll_layout.addWidget(roi_label, row_idx, 0)
-#
-#             # Checkbox for prep_laser
-#             prep_checkbox = QtWidgets.QCheckBox("Prep Laser")
-#             prep_checkbox.setChecked(roi.prep_laser)
-#
-#             # LineEdit for laser_intensity
-#             intensity_edit = QtWidgets.QLineEdit()
-#             intensity_edit.setPlaceholderText("Intensity")
-#             intensity_edit.setFixedWidth(80)
-#             intensity_edit.setText(str(self.global_laser_intensity))
-#             intensity_edit.setVisible(roi.prep_laser)  # visible only if prep_laser is True
-#
-#             # === ADDED: store intensity_edit globally ===
-#             self.intensity_edits.append((intensity_edit, layer_idx, roi_idx))
-#
-#             # === Checkbox callback ===
-#             # def on_checkbox_toggled(state, layer_idx=layer_idx, roi_idx=roi_idx, intensity_edit=intensity_edit):
-#             #
-#             #     existing_entry = None
-#             #     for entry in self.laser_prep_list:
-#             #         if entry[0] == layer_idx and entry[1] == roi_idx:
-#             #             existing_entry = entry
-#             #             break
-#             #
-#             #     if bool(state) == False:
-#             #         # If checkbox is unchecked, remove the existing entry if found
-#             #         if existing_entry is not None:
-#             #             self.laser_prep_list.remove(existing_entry)
-#             #     else:
-#             #         # If checkbox is checked, add new entry
-#             #         self.laser_prep_list.append((layer_idx, roi_idx, self.global_laser_intensity))
-#             #
-#             #     intensity_edit.setVisible(bool(state))
-#             #     intensity_edit.setText(str(self.global_laser_intensity))
-#
-#
-#             # prep_checkbox.stateChanged.connect(on_checkbox_toggled)
-#             prep_checkbox.stateChanged.connect(
-#                 lambda state, l=layer_idx, r=roi_idx, e=intensity_edit: self.on_checkbox_toggled(state, l, r, e))
-#
-#
-#             # === Intensity edit callback ===
-#             def on_intensity_changed(edit, layer_idx, roi_idx):
-#                 text = edit.text()
-#                 try:
-#                     intensity_value = float(text)
-#                     if intensity_value < 0.0:
-#                         intensity_value = 0.0
-#                         edit.setText(str(0))
-#                     elif intensity_value > 100.0:
-#                         intensity_value = 100.0
-#                         edit.setText(str(100))
-#
-#                 except ValueError:
-#                     intensity_value = 0.0
-#                     edit.setText(str(0))
-#
-#                 for idx, entry in enumerate(self.laser_prep_list):
-#                     if entry[0] == layer_idx and entry[1] == roi_idx:
-#                         self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value)
-#
-#             intensity_edit.editingFinished.connect(
-#                 partial(on_intensity_changed, intensity_edit, layer_idx, roi_idx))
-#
-#             # Add checkbox and intensity edit to layout
-#             self.scroll_layout.addWidget(prep_checkbox, row_idx, 1)
-#             self.scroll_layout.addWidget(intensity_edit, row_idx, 2)
-#
-#     def on_checkbox_toggled(self, state, layer_idx, roi_idx, intensity_edit):
-#         existing_entry = None
-#         for entry in self.laser_prep_list:
-#             if entry[0] == layer_idx and entry[1] == roi_idx:
-#                 existing_entry = entry
-#                 break
-#
-#         if bool(state) == False:
-#             if existing_entry is not None:
-#                 self.laser_prep_list.remove(existing_entry)
-#         else:
-#             if existing_entry is None:
-#                 self.laser_prep_list.append((layer_idx, roi_idx, self.global_laser_intensity))
-#
-#         intensity_edit.setVisible(bool(state))
-#         intensity_edit.setText(str(self.global_laser_intensity))
-#
-#     def set_all_laser_intensity(self):
-#         text = self.intensity_field.text()
-#         try:
-#             intensity_value = float(text)
-#             if intensity_value < 0.0:
-#                 intensity_value = 0.0
-#                 self.intensity_field.setText(str(0))
-#             elif intensity_value > 100.0:
-#                 intensity_value = 100.0
-#                 self.intensity_field.setText(str(100))
-#
-#         except ValueError:
-#             # intensity_value = 0.0
-#             self.intensity_field.clear()
-#             intensity_value = self.global_laser_intensity
-#
-#         self.global_laser_intensity = intensity_value
-#
-#         for idx, (layer_idx, roi_idx, _) in enumerate(self.laser_prep_list):
-#             self.laser_prep_list[idx] = (layer_idx, roi_idx, self.global_laser_intensity)
-#
-#         # Update all visible intensity_edit fields and laser_prep_list entries
-#         for edit, _, _ in self.intensity_edits:
-#             if edit.isVisible():
-#                 edit.setText(str(intensity_value))
-#
-#         self.intensity_field.clear()
-#
-#     def toggle_all_roi_for_laser(self):
-#         tracked_rois = [
-#             (layer_idx, roi_idx)
-#             for (layer_idx, roi_idx), roi in SysConRoutine.instance().rois_to_stimulate.items()
-#             if roi.tracked
-#         ]
-#
-#         # Create a set of existing (layer_idx, roi_idx) pairs for quick lookup
-#         existing_rois = {(layer_idx, roi_idx) for layer_idx, roi_idx, _ in self.laser_prep_list}
-#
-#         # Determine if we need to add missing ROIs or update existing ones
-#         if len(self.laser_prep_list) != len(tracked_rois):
-#             # Add missing tracked ROIs with global intensity
-#             for idx, (layer_idx, roi_idx) in enumerate(tracked_rois):
-#                 if (layer_idx, roi_idx) not in existing_rois:
-#                     # self.laser_prep_list.append((layer_idx, roi_idx, self.global_laser_intensity))
-#                     self.on_checkbox_toggled(state= True, layer_idx=layer_idx, roi_idx=roi_idx, intensity_edit=self.intensity_edits[idx][0])
-#         else:
-#             # Update all tracked ROIs to global intensity
-#             for idx, (layer_idx, roi_idx, _) in enumerate(self.laser_prep_list):
-#                 # self.laser_prep_list[idx] = (layer_idx, roi_idx, self.global_laser_intensity)
-#                 self.on_checkbox_toggled(state=False, layer_idx=layer_idx, roi_idx=roi_idx,
-#                                          intensity_edit=self.intensity_edits[idx][0])
-
 class SysConControlWindow(vxui.WorkerAddonWidget):
+
+    frame_name: str = 'roi_activity_tracker_frame'
+
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
+    #
+    #     self.mode = "mean"
+    #     self.image_plots = {}
+    #     self.layer_num = SysConRoutine.instance().num_layers
+    #
+    #     # --- Create splitter between left plot area and right control panel ---
+    #     splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+    #     self.central_widget.setLayout(QtWidgets.QVBoxLayout())  # Root layout
+    #     self.central_widget.layout().addWidget(splitter)
+    #
+    #     # === Left Side: Placeholder for future plots ===
+    #     self.image_tiles = pg.GraphicsLayoutWidget()
+    #     splitter.addWidget(self.image_tiles)
+    #
+    #     # === Right Side: Container with vertical layout ===
+    #     right_container = QtWidgets.QWidget()
+    #     right_layout = QtWidgets.QVBoxLayout(right_container)
+    #     splitter.addWidget(right_container)
+    #
+    #     # --- Top Right: Scrollable ROI control section ---
+    #     self.roi_group_box = QtWidgets.QGroupBox("ROI Controls")
+    #     self.roi_group_box.setLayout(QtWidgets.QVBoxLayout())
+    #
+    #     self.scroll_area = QtWidgets.QScrollArea()
+    #     self.scroll_area.setWidgetResizable(True)
+    #     self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+    #     self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+    #     self.scroll_widget = QtWidgets.QWidget()
+    #     self.scroll_layout = QtWidgets.QGridLayout(self.scroll_widget)
+    #     self.scroll_area.setWidget(self.scroll_widget)
+    #     self.roi_group_box.layout().addWidget(self.scroll_area)
+    #
+    #     # --- Bottom Right: Settings and Buttons ---
+    #     button_container = QtWidgets.QWidget()
+    #     button_layout = QtWidgets.QVBoxLayout(button_container)
+    #
+    #     # Label
+    #     label = QtWidgets.QLabel("SysCon export and controls.")
+    #     button_layout.addWidget(label)
+    #
+    #     # Laser Intensity
+    #     intensity_layout = QtWidgets.QHBoxLayout()
+    #     intensity_label = QtWidgets.QLabel("Set all laser intensity:")
+    #     self.intensity_field = QtWidgets.QLineEdit()
+    #     self.intensity_field.setPlaceholderText("%")
+    #     intensity_layout.addWidget(intensity_label)
+    #     intensity_layout.addWidget(self.intensity_field)
+    #     button_layout.addLayout(intensity_layout)
+    #     self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
+    #
+    #     # Toggle all
+    #     self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
+    #     self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
+    #     button_layout.addWidget(self.toggle_all_button)
+    #
+    #     # Duration
+    #     duration_layout = QtWidgets.QHBoxLayout()
+    #     duration_label = QtWidgets.QLabel("Duration:")
+    #     self.duration_field = QtWidgets.QLineEdit()
+    #     self.duration_field.setPlaceholderText("ms")
+    #     duration_layout.addWidget(duration_label)
+    #     duration_layout.addWidget(self.duration_field)
+    #     button_layout.addLayout(duration_layout)
+    #
+    #     # Scanning mode
+    #     scanning_layout = QtWidgets.QHBoxLayout()
+    #     scanning_label = QtWidgets.QLabel("Scanning mode:")
+    #     self.scanning_combo = QtWidgets.QComboBox()
+    #     self.scanning_combo.addItems(["spiral scanning", "parallel scanning"])
+    #     scanning_layout.addWidget(scanning_label)
+    #     scanning_layout.addWidget(self.scanning_combo)
+    #     button_layout.addLayout(scanning_layout)
+    #
+    #     # Diameter field
+    #     self.diameter_widget = QtWidgets.QWidget()
+    #     diameter_layout = QtWidgets.QHBoxLayout(self.diameter_widget)
+    #     diameter_label = QtWidgets.QLabel("Diameter:")
+    #     self.diameter_field = QtWidgets.QLineEdit()
+    #     self.diameter_field.setPlaceholderText("µm")
+    #     self.diameter_field.editingFinished.connect(self.update_all_circle_diameters)
+    #     diameter_layout.addWidget(diameter_label)
+    #     diameter_layout.addWidget(self.diameter_field)
+    #     button_layout.addWidget(self.diameter_widget)
+    #     self.update_diameter_visibility()
+    #     self.scanning_combo.currentTextChanged.connect(self.update_diameter_visibility)
+    #
+    #     # Write button
+    #     self.write_button = QtWidgets.QPushButton("Write SysCon File")
+    #     self.write_button.clicked.connect(self.write_SysCon_file)
+    #     button_layout.addWidget(self.write_button)
+    #
+    #
+    #     vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+    #     # Top: Scrollable ROI controls
+    #     vertical_splitter.addWidget(self.roi_group_box)
+    #     # Bottom: Button/control container
+    #     vertical_splitter.addWidget(button_container)
+    #     # Optional: Set initial size ratio
+    #     vertical_splitter.setStretchFactor(0, 3)  # Top
+    #     vertical_splitter.setStretchFactor(1, 1)  # Bottom
+    #     right_layout.addWidget(vertical_splitter)
+    #
+    #
+    #     self.connect_to_timer(self.check_state)
+    #
+    #     self.global_laser_intensity = 0.0
+    #     self.laser_prep_list = []
+    #
+    #     # Store tuples: (checkbox, intensity_edit, layer_idx, roi_idx)
+    #     self.roi_widgets = []
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Main layout
-        main_layout = QtWidgets.QHBoxLayout()
-        self.central_widget.setLayout(main_layout)
+        self.mode = "mean"
+        self.image_plots = {}
+        self.layer_num = SysConRoutine.instance().num_layers
 
-        # Left: Scroll area for ROI controls
+        self.global_laser_intensity = 0.0
+        self.laser_prep_list = []
+        self.roi_widgets = []  # Tuples: (checkbox, intensity_edit, layer_idx, roi_idx)
+
+        # === Layout: Split left (plots) and right (controls) ===
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        self.central_widget.setLayout(QtWidgets.QVBoxLayout())
+        self.central_widget.layout().addWidget(splitter)
+
+        # --- Left: Image tiles ---
+        self.image_tiles = pg.GraphicsLayoutWidget()
+        splitter.addWidget(self.image_tiles)
+
+        # --- Right: Control panel ---
+        right_container = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right_container)
+        right_layout.setContentsMargins(10, 10, 10, 10)
+        right_layout.setSpacing(10)
+        splitter.addWidget(right_container)
+
+        # === Top Right: ROI Controls ===
+        self.roi_group_box = QtWidgets.QGroupBox("ROI Controls")
+        self.roi_group_box.setLayout(QtWidgets.QVBoxLayout())
+
         self.scroll_area = QtWidgets.QScrollArea()
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+
         self.scroll_widget = QtWidgets.QWidget()
+        self.scroll_widget.setMinimumWidth(270)  # Prevent label wrapping
         self.scroll_layout = QtWidgets.QGridLayout(self.scroll_widget)
         self.scroll_area.setWidget(self.scroll_widget)
-        main_layout.addWidget(self.scroll_area)
 
-        # Right: Buttons and settings layout
-        button_layout = QtWidgets.QVBoxLayout()
+        self.roi_group_box.layout().addWidget(self.scroll_area)
 
+        # === Bottom Right: Controls and Settings ===
+        button_container = QtWidgets.QWidget()
+        button_layout = QtWidgets.QVBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 10, 0, 10)
+        button_layout.setSpacing(8)
+
+        # Label
         label = QtWidgets.QLabel("SysCon export and controls.")
         button_layout.addWidget(label)
 
+        # --- Laser Intensity (%)
         intensity_layout = QtWidgets.QHBoxLayout()
-        intensity_label = QtWidgets.QLabel("Set all laser intensity:")
+        intensity_label = QtWidgets.QLabel("Laser Intensity:")
         self.intensity_field = QtWidgets.QLineEdit()
         self.intensity_field.setPlaceholderText("%")
+        intensity_unit = QtWidgets.QLabel("%")
         intensity_layout.addWidget(intensity_label)
+        intensity_layout.addStretch(1)
         intensity_layout.addWidget(self.intensity_field)
+        intensity_layout.addWidget(intensity_unit)
         button_layout.addLayout(intensity_layout)
         self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
 
+        # --- Toggle all button
         self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
         self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
         button_layout.addWidget(self.toggle_all_button)
 
+        # --- Duration (ms)
         duration_layout = QtWidgets.QHBoxLayout()
         duration_label = QtWidgets.QLabel("Duration:")
         self.duration_field = QtWidgets.QLineEdit()
         self.duration_field.setPlaceholderText("ms")
+        duration_unit = QtWidgets.QLabel("ms")
         duration_layout.addWidget(duration_label)
+        duration_layout.addStretch(1)
         duration_layout.addWidget(self.duration_field)
+        duration_layout.addWidget(duration_unit)
         button_layout.addLayout(duration_layout)
 
+        # --- Scanning mode combo box
         scanning_layout = QtWidgets.QHBoxLayout()
         scanning_label = QtWidgets.QLabel("Scanning mode:")
         self.scanning_combo = QtWidgets.QComboBox()
         self.scanning_combo.addItems(["spiral scanning", "parallel scanning"])
         scanning_layout.addWidget(scanning_label)
+        scanning_layout.addStretch(1)
         scanning_layout.addWidget(self.scanning_combo)
         button_layout.addLayout(scanning_layout)
 
+        # --- Diameter field (µm)
         self.diameter_widget = QtWidgets.QWidget()
         diameter_layout = QtWidgets.QHBoxLayout(self.diameter_widget)
         diameter_label = QtWidgets.QLabel("Diameter:")
         self.diameter_field = QtWidgets.QLineEdit()
         self.diameter_field.setPlaceholderText("µm")
+        diameter_unit = QtWidgets.QLabel("µm")
         diameter_layout.addWidget(diameter_label)
+        diameter_layout.addStretch(1)
         diameter_layout.addWidget(self.diameter_field)
+        diameter_layout.addWidget(diameter_unit)
         button_layout.addWidget(self.diameter_widget)
-
+        self.diameter_field.editingFinished.connect(self.update_all_circle_diameters)
         self.update_diameter_visibility()
         self.scanning_combo.currentTextChanged.connect(self.update_diameter_visibility)
 
+        # --- Write SysCon file button
         self.write_button = QtWidgets.QPushButton("Write SysCon File")
         self.write_button.clicked.connect(self.write_SysCon_file)
         button_layout.addWidget(self.write_button)
+        # Label at top
+        # label = QtWidgets.QLabel("SysCon export and controls.")
+        # button_layout.addWidget(label)
+        #
+        # # --- Form layout for all labeled fields ---
+        # form_layout = QtWidgets.QFormLayout()
+        # form_layout.setLabelAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        #
+        # # Laser Intensity (%)
+        # intensity_widget = QtWidgets.QWidget()
+        # intensity_layout = QtWidgets.QHBoxLayout(intensity_widget)
+        # intensity_layout.setContentsMargins(0, 0, 0, 0)
+        # self.intensity_field = QtWidgets.QLineEdit()
+        # self.intensity_field.setPlaceholderText("%")
+        # intensity_unit = QtWidgets.QLabel("%")
+        # intensity_layout.addWidget(self.intensity_field)
+        # intensity_layout.addWidget(intensity_unit)
+        # form_layout.addRow("Laser Intensity:", intensity_widget)
+        # self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
+        #
+        # # Duration (ms)
+        # duration_widget = QtWidgets.QWidget()
+        # duration_layout = QtWidgets.QHBoxLayout(duration_widget)
+        # duration_layout.setContentsMargins(0, 0, 0, 0)
+        # self.duration_field = QtWidgets.QLineEdit()
+        # self.duration_field.setPlaceholderText("ms")
+        # duration_unit = QtWidgets.QLabel("ms")
+        # duration_layout.addWidget(self.duration_field)
+        # duration_layout.addWidget(duration_unit)
+        # form_layout.addRow("Duration:", duration_widget)
+        #
+        # # Scanning Mode combo
+        # self.scanning_combo = QtWidgets.QComboBox()
+        # self.scanning_combo.addItems(["spiral scanning", "parallel scanning"])
+        # form_layout.addRow("Scanning mode:", self.scanning_combo)
+        #
+        # # Diameter (µm)
+        # diameter_widget = QtWidgets.QWidget()
+        # diameter_layout = QtWidgets.QHBoxLayout(diameter_widget)
+        # diameter_layout.setContentsMargins(0, 0, 0, 0)
+        # self.diameter_field = QtWidgets.QLineEdit()
+        # self.diameter_field.setPlaceholderText("µm")
+        # diameter_unit = QtWidgets.QLabel("µm")
+        # diameter_layout.addWidget(self.diameter_field)
+        # diameter_layout.addWidget(diameter_unit)
+        # form_layout.addRow("Diameter:", diameter_widget)
+        # self.diameter_field.editingFinished.connect(self.update_all_circle_diameters)
+        #
+        # # Add the form layout to the button_layout
+        # button_layout.addLayout(form_layout)
+        #
+        # # --- Buttons at the bottom ---
+        # button_box = QtWidgets.QWidget()
+        # button_box_layout = QtWidgets.QVBoxLayout(button_box)
+        # button_box_layout.setContentsMargins(0, 10, 0, 0)  # Add some spacing on top
+        #
+        # self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
+        # self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
+        # button_box_layout.addWidget(self.toggle_all_button)
+        #
+        # self.write_button = QtWidgets.QPushButton("Write SysCon File")
+        # self.write_button.clicked.connect(self.write_SysCon_file)
+        # button_box_layout.addWidget(self.write_button)
+        #
+        # button_layout.addWidget(button_box)
+        #
+        # # Connect scanning mode changes after creation
+        # self.scanning_combo.currentTextChanged.connect(self.update_diameter_visibility)
+        #
+        # # Update diameter visibility on startup
+        # self.update_diameter_visibility()
+        # === Combine Top/Bottom Right ===
+        vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        vertical_splitter.addWidget(self.roi_group_box)
+        vertical_splitter.addWidget(button_container)
+        vertical_splitter.setStretchFactor(0, 3)
+        vertical_splitter.setStretchFactor(1, 1)
+        right_layout.addWidget(vertical_splitter)
 
-        button_layout.addStretch()
-        button_widget = QtWidgets.QWidget()
-        button_widget.setLayout(button_layout)
-        main_layout.addWidget(button_widget)
-
+        # Timer hook
         self.connect_to_timer(self.check_state)
-
-        self.global_laser_intensity = 0.0
-        self.laser_prep_list = []
-
-        # Store tuples: (checkbox, intensity_edit, layer_idx, roi_idx)
-        self.roi_widgets = []
 
     def update_diameter_visibility(self):
         if self.scanning_combo.currentText() == "spiral scanning":
@@ -408,9 +375,15 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             self.diameter_widget.setVisible(False)
 
     def check_state(self):
-        if SysConRoutine.instance().ui_update_rois:
+        syscon = SysConRoutine.instance()
+        self.update_frame()
+        if syscon.ui_update_rois:
+            syscon.ui_update_rois = False
+
+            num_layers = syscon.num_layers
+            self.build_image_plots(num_layers)
             self.populate_roi_rows()
-            SysConRoutine.instance().ui_update_rois = False
+
 
     def clear_layout(self, layout):
         while layout.count():
@@ -421,6 +394,9 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
 
     def populate_roi_rows(self):
         roi_dict = SysConRoutine.instance().rois_to_stimulate
+
+        # print(f"num of layers: {self.layer_num}")
+        # self._rebuild_image_plots(num_layers = self.layer_num)
 
         tracked_rois = [
             ((layer_idx, roi_idx), roi)
@@ -435,8 +411,11 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
 
         for row_idx, ((layer_idx, roi_idx), roi) in enumerate(tracked_rois):
             roi_label = QtWidgets.QLabel(
-                f"Layer {layer_idx}, ROI {roi_idx}, x: {roi.x_center:.2f}, y: {roi.y_center:.2f}, z: {roi.z_center:.2f}")
-            self.scroll_layout.addWidget(roi_label, row_idx, 0)
+                f"ROI {roi_idx} [{layer_idx}]<br><span style='font-size:10px;'>"
+                f"x: {round(roi.x_center)}, y: {round(roi.y_center)}, z: {round(roi.z_center)}</span>"
+            )
+            roi_label.setTextFormat(QtCore.Qt.RichText)
+            roi_label.setWordWrap(True)
 
             prep_checkbox = QtWidgets.QCheckBox("Prep Laser")
             prep_checkbox.setChecked(roi.prep_laser)
@@ -450,10 +429,10 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             if roi.prep_laser:
                 # If you have stored intensity, use it, else global
                 intensity_edit.setText(str(initial_intensity))
-                intensity_edit.setVisible(True)
+                intensity_edit.setEnabled(True)
                 self.laser_prep_list.append((layer_idx, roi_idx, initial_intensity))
             else:
-                intensity_edit.setVisible(False)
+                intensity_edit.setEnabled(False)
 
             self.roi_widgets.append((prep_checkbox, intensity_edit, layer_idx, roi_idx))
 
@@ -483,30 +462,84 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             intensity_edit.editingFinished.connect(
                 partial(on_intensity_changed, intensity_edit, layer_idx, roi_idx))
 
-            self.scroll_layout.addWidget(prep_checkbox, row_idx, 1)
-            self.scroll_layout.addWidget(intensity_edit, row_idx, 2)
+            row_widget = QtWidgets.QWidget()
+            row_layout = QtWidgets.QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(4, 2, 4, 2)
+            row_layout.setSpacing(10)
+
+            # Add widgets
+            row_layout.addWidget(roi_label, stretch=3)
+            row_layout.addWidget(prep_checkbox, stretch=1)
+            row_layout.addWidget(intensity_edit, stretch=1)
+
+            self.scroll_layout.addWidget(row_widget)
+
+        for checkbox, edit, layer_idx, roi_idx in self.roi_widgets:
+            self.on_checkbox_toggled(checkbox.isChecked(), layer_idx, roi_idx, edit)
+    # def on_checkbox_toggled(self, state, layer_idx, roi_idx, intensity_edit):
+    #     existing_entry = None
+    #     for entry in self.laser_prep_list:
+    #         if entry[0] == layer_idx and entry[1] == roi_idx:
+    #             existing_entry = entry
+    #             break
+    #
+    #     if bool(state):
+    #         if existing_entry is None:
+    #             try:
+    #                 intensity_value = float(intensity_edit.text())
+    #             except ValueError:
+    #                 intensity_value = self.global_laser_intensity
+    #                 intensity_edit.setText(str(intensity_value))
+    #             self.laser_prep_list.append((layer_idx, roi_idx, intensity_value))
+    #     else:
+    #         if existing_entry is not None:
+    #             self.laser_prep_list.remove(existing_entry)
+    #
+    #     intensity_edit.setEnabled(bool(state))
+    #     # Do NOT overwrite intensity_edit text here to preserve user edits
 
     def on_checkbox_toggled(self, state, layer_idx, roi_idx, intensity_edit):
-        existing_entry = None
-        for entry in self.laser_prep_list:
-            if entry[0] == layer_idx and entry[1] == roi_idx:
-                existing_entry = entry
-                break
+        roi = SysConRoutine.instance().rois_to_stimulate.get((layer_idx, roi_idx))
+        if not roi:
+            return
 
-        if bool(state):
-            if existing_entry is None:
-                try:
-                    intensity_value = float(intensity_edit.text())
-                except ValueError:
-                    intensity_value = self.global_laser_intensity
-                    intensity_edit.setText(str(intensity_value))
-                self.laser_prep_list.append((layer_idx, roi_idx, intensity_value))
-        else:
-            if existing_entry is not None:
-                self.laser_prep_list.remove(existing_entry)
+        image_plot = self.image_plots.get(layer_idx)
+        if not image_plot:
+            return
 
-        intensity_edit.setVisible(bool(state))
-        # Do NOT overwrite intensity_edit text here to preserve user edits
+        is_checked = bool(state)
+        intensity_edit.setEnabled(is_checked)
+
+        # Read or fallback to default diameter
+        #TODO: find pixel to µm convertion
+        try:
+            diameter = float(self.diameter_field.text())
+        except ValueError:
+            diameter = 30.0
+
+        # Create or update the circle once (persistent)
+        image_plot.create_or_update_circle(
+            roi_idx=roi_idx,
+            center=(roi.x_center, roi.y_center),
+            diameter=diameter,
+            label=f"ROI {roi_idx}"
+        )
+
+        # Toggle visibility based on checkbox
+        image_plot.set_circle_visible(roi_idx, is_checked)
+
+        # Manage internal laser_prep_list
+        self.laser_prep_list = [
+            entry for entry in self.laser_prep_list if not (entry[0] == layer_idx and entry[1] == roi_idx)
+        ]
+        if is_checked:
+            try:
+                intensity_value = float(intensity_edit.text())
+            except ValueError:
+                intensity_value = self.global_laser_intensity
+                intensity_edit.setText(str(intensity_value))
+            self.laser_prep_list.append((layer_idx, roi_idx, intensity_value))
+
 
     def set_all_laser_intensity(self):
         text = self.intensity_field.text()
@@ -530,7 +563,7 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
 
         # Update all visible intensity edits
         for checkbox, edit, layer_idx, roi_idx in self.roi_widgets:
-            if edit.isVisible():
+            if edit.isEnabled():
                 edit.setText(str(intensity_value))
 
         self.intensity_field.clear()
@@ -541,6 +574,74 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         # Set all checkboxes to new_state, triggers stateChanged, updating all internals & visibility
         for checkbox, edit, layer_idx, roi_idx in self.roi_widgets:
             checkbox.setChecked(new_state)
+
+    def update_all_circle_diameters(self):
+        """Update the diameter of all visible circles across all layers."""
+        try:
+            new_diameter = float(self.diameter_field.text())
+        except ValueError:
+            return  # Invalid input — ignore
+
+        for image_plot in self.image_plots.values():
+            image_plot.update_all_circle_diameters(new_diameter)
+
+    def update_frame(self):
+        """Pull frames and update all plots."""
+
+        # if ScanImageFrameReceiverTcpServer.instance().layer_num != self.current_num_layers:
+        #     self._rebuild_image_plots(self.current_num_layers)
+
+        for layer_idx, image_plot in self.image_plots.items():
+            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}', last=10)
+            if len(idx) == 0:
+                continue
+            if self.mode == "mean":
+                frame_avg = np.mean(frame, axis=0)
+                image_plot.update_frame(frame_avg)
+            elif self.mode == "std":
+                frame_std = np.std(frame, axis=0)
+                image_plot.update_frame(frame_std)
+
+
+    # def _rebuild_image_plots(self, num_layers):
+    #     self.image_tiles.clear()  # Clear existing plots
+    #     self.image_plots.clear()
+    #
+    #     self.cols = math.ceil(math.sqrt(num_layers))
+    #     self.rows = math.ceil(math.sqrt(num_layers))
+    #
+    #     for i in range(num_layers):
+    #         image_plot = ImagePlot(i)
+    #         self.image_plots[i] = image_plot
+    #
+    #         row = i // self.cols
+    #         col = i % self.cols
+    #         self.image_tiles.addItem(image_plot.plot_item, row=row, col=col)
+
+        # self.current_num_layers = num_layers
+
+    def build_image_plots(self, num_layers):
+        if num_layers <= 0:
+            print("Cannot build image plots with 0 layers.")
+            return
+
+        self.layer_num = num_layers
+        self.image_tiles.clear()
+        self.image_plots.clear()
+
+        self.cols = math.ceil(math.sqrt(num_layers))
+        self.rows = math.ceil(math.sqrt(num_layers))
+
+        for i in range(num_layers):
+            image_plot = ImagePlot(i)
+            self.image_plots[i] = image_plot
+
+            row = i // self.cols
+            col = i % self.cols
+            self.image_tiles.addItem(image_plot.plot_item, row=row, col=col)
+
+        print(f"Built {num_layers} image plots.")
+
 
     def write_SysCon_file(self):
 
@@ -583,6 +684,126 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
 
         print(f"SysCon file {writer.filename} written successfully.")
 
+
+class ImagePlot:
+    def __init__(self, layer_idx):
+        self.layer_idx = layer_idx
+        self.no_init = True
+
+        self.plot_item = pg.PlotItem()
+        self.image_item = pg.ImageItem()
+        self.plot_item.addItem(self.image_item)
+
+        self.plot_item.invertY(True)
+        self.plot_item.hideAxis('left')
+        self.plot_item.hideAxis('bottom')
+        self.plot_item.setAspectLocked(True)
+
+        self.mask_item = pg.ImageItem()
+        self.mask_item.setOpacity(0.3)
+        self.mask_item.setVisible(False)
+        self.plot_item.addItem(self.mask_item)
+
+        self.text = pg.TextItem(f'Layer {self.layer_idx}', color=(255, 0, 0))
+        self.plot_item.addItem(self.text)
+        self.text.setPos(0, 0)
+
+        self.circles = {}  # roi_idx -> dict with ellipse, text, center, diameter
+
+    def update_frame(self, frame):
+        if self.no_init:
+            self.image_item.setImage(frame, autoLevels=False, levels=(frame.min(), frame.max()))
+            self.no_init = False
+        self.image_item.setImage(frame, autoLevels=False)
+
+    def create_or_update_circle(self, roi_idx, center, diameter, label=None, color=(0, 255, 0, 80), pen_color=(255, 0, 0)):
+        """
+        Create or update an ROI circle at center with label.
+        """
+        radius = diameter / 2
+        y = center[0] - radius
+        x = center[1] - radius
+
+        if roi_idx not in self.circles:
+            # Create new graphics items
+            ellipse = QGraphicsEllipseItem(x, y, diameter, diameter)
+            ellipse.setBrush(QBrush(QColor(*color)))
+            ellipse.setPen(QPen(QColor(*pen_color)))
+            ellipse.setZValue(10)
+            self.plot_item.addItem(ellipse)
+
+            text_item = pg.TextItem(label or f'ROI {roi_idx}', anchor=(0.5, 0.5), color=pen_color)
+            text_item.setPos(center[0], center[1])
+            text_item.setZValue(11)
+            self.plot_item.addItem(text_item)
+
+            self.circles[roi_idx] = {
+                'ellipse': ellipse,
+                'text': text_item,
+                'center': center,
+                'diameter': diameter
+            }
+        else:
+            # Update existing ellipse
+            ellipse = self.circles[roi_idx]['ellipse']
+            text_item = self.circles[roi_idx]['text']
+            ellipse.setRect(x, y, diameter, diameter)
+            text_item.setPos(center[1], center[0])
+            self.circles[roi_idx]['center'] = center
+            self.circles[roi_idx]['diameter'] = diameter
+
+    def set_circle_visible(self, roi_idx, visible: bool):
+        """Show or hide the circle and label for a given ROI."""
+        if roi_idx in self.circles:
+            self.circles[roi_idx]['ellipse'].setVisible(visible)
+            self.circles[roi_idx]['text'].setVisible(visible)
+
+    def update_all_circle_diameters(self, new_diameter):
+        """Apply a new diameter to all visible ROI circles."""
+        for roi_idx, info in self.circles.items():
+            self.create_or_update_circle(roi_idx, info['center'], new_diameter)
+
+# class ImagePlot:
+#     def __init__(self, layer_idx):
+#         self.layer_idx = layer_idx
+#         # self.on_roi_selected = on_roi_selected
+#         # self.on_histogram_selected = on_histogram_selected
+#         self.no_init = True
+#
+#         self.plot_item = pg.PlotItem()
+#         # self.vb = CustomViewBox(parent=self)
+#         # self.plot_item = pg.PlotItem(viewBox=self.vb)
+#         self.image_item = pg.ImageItem()
+#         self.plot_item.addItem(self.image_item)
+#
+#         self.plot_item.invertY(True)
+#         self.plot_item.hideAxis('left')
+#         self.plot_item.hideAxis('bottom')
+#         self.plot_item.setAspectLocked(True)
+#
+#         # ROI mask image overlay (initially hidden)
+#         self.mask_item = pg.ImageItem()
+#         self.mask_item.setOpacity(0.3)  # semi-transparent
+#         self.mask_item.setVisible(False)
+#         self.plot_item.addItem(self.mask_item)
+#         self.mask_visible = False
+#
+#         # Delay connection to avoid NoneType scene error
+#
+#         self.text = pg.TextItem(f'Layer {self.layer_idx}', color=(255, 0, 0))
+#         self.plot_item.addItem(self.text)
+#         self.text.setPos(0, 0)
+#
+#
+#     def update_frame(self, frame: np.ndarray):
+#         if self.no_init:
+#             immin, immax = np.min(frame), np.max(frame)
+#             # self.histogram.setHistogramRange(immin, immax)
+#             # self.histogram.setLevels(immin, immax)
+#             self.image_item.setImage(frame, autoLevels=False,levels= (np.min(frame), np.max(frame)))
+#             self.no_init = False
+#
+#         self.image_item.setImage(frame, autoLevels=False)
 
 class SysconHeader:
     """
