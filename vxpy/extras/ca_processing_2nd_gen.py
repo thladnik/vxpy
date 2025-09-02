@@ -5,11 +5,18 @@ import matplotlib as mpl
 import numpy as np
 import pyqtgraph as pg
 from PySide6 import QtWidgets, QtCore
+from PySide6.QtWidgets import QProgressBar
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
 #TODO: dependencies need an upgrade for cellpose (problem if vxpy is installed prior to cellpose --> cellpose dependency clash... solution install cellpose first)
 from cellpose.models import CellposeModel
+from cellpose import models
+# from stardist.models import StarDist2D
+from csbdeep.utils import normalize
+
 from multiprocessing import Process, Queue
 import multiprocessing as mp
-from skimage.measure import regionprops
+from skimage.measure import regionprops, label
 from scipy.ndimage import binary_erosion
 from skimage.segmentation import find_boundaries
 import torch
@@ -24,6 +31,7 @@ import vxpy.core.ui as vxui
 from vxpy.utils import widgets
 from vxpy.extras.server import ScanImageFrameReceiverTcpServer
 from vxpy.extras.sys_con import SysConRoutine, ROI
+from vxpy.extras.Watershed import WatershedSegmenter
 
 log = vxlogger.getLogger(__name__)
 
@@ -32,66 +40,77 @@ def get_roi_color(index: int):
     return (255 * np.array(mpl.colormaps['tab10'](index)[:3])).astype(np.uint8)
 
 
-# def run_detect_rois(pretrained_model_path, diameter, cellprob_threshold, flow_threshold, mproj, layer_idx, strategy, queue):
-#
-#     print(f"Running Cellpose on layer {layer_idx}, shape: {mproj.shape}")
-#     model = CellposeModel(gpu=True, pretrained_model=pretrained_model_path)
-#
-#     masks, flows, _ = model.eval(
-#         mproj,
-#         channels=[0, 0],
-#         diameter=diameter,
-#         cellprob_threshold=cellprob_threshold,
-#         flow_threshold=flow_threshold,
-#     )
-#
-#     # # Normalize structure
-#     # if isinstance(masks, np.ndarray):
-#     #     mask_list = [masks]
-#     #     prob_list = [flows[2]]
-#     # else:
-#     #     mask_list = masks
-#     #     prob_list = [f[2] for f in flows]
-#
-#     # TODO: maybe implement this for temporal handling but not needed for 2d case
-#     # merged_mask = NextGenTrackerRoutine.merge_masks_with_strategy(mask_list, prob_list, strategy)
-#
-#     contour_mask = NextGenTrackerRoutine.get_contour_mask(masks)
-#
-#     # print unique cells before and after merging
-#     print(f"unique cells before: {len(masks)}, after: {np.unique(masks)}")
-#
-#     queue.put((layer_idx, masks, contour_mask))
+def run_detect_rois(
+    pretrained_model,
+    diameter,
+    cellprob_threshold,
+    flow_threshold,
+    mproj,
+    layer_idx,
+    strategy,
+    queue,
+    device_id=0,
+):
+    print(f"Running {strategy} on layer {layer_idx}, shape: {mproj.shape, mproj.dtype} on GPU {device_id}")
 
-def run_detect_rois(pretrained_model_path, diameter, cellprob_threshold, flow_threshold,
-                    mproj, layer_idx, strategy, queue, device_id=0):
-    print(f"Running Cellpose on layer {layer_idx}, shape: {mproj.shape} on GPU {device_id}")
+    if strategy == "cellpose":
 
-    # Set correct GPU device for this process
-    torch.cuda.set_device(device_id)
+        torch.cuda.set_device(device_id)
+        model = CellposeModel(
+            gpu=True)
 
-    model = CellposeModel(gpu=True, pretrained_model=pretrained_model_path, device=torch.device(f"cuda:{device_id}"))
+        masks, flows, _ = model.eval(
+            mproj,
+            channels=[0, 0],
+            diameter=diameter,
+            cellprob_threshold=cellprob_threshold,
+            flow_threshold=flow_threshold)
 
-    masks, flows, _ = model.eval(
-        mproj,
-        channels=[0, 0],
-        diameter=diameter,
-        cellprob_threshold=cellprob_threshold,
-        flow_threshold=flow_threshold,
-    )
+        print(f"min {np.min(masks)} max {np.max(masks)}, unique: {np.unique(masks)}")
 
+
+    # Experimental addition
+    # elif strategy == "stardist":
+    #     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    #     model = StarDist2D.from_pretrained('2D_versatile_fluo')
+    #     # image_norm = normalize(mproj.astype(np.float32), 1, 99.8)
+    #     masks, _ = model.predict_instances(mproj)
+    #     plot_labeled_mask(masks, title=f"Instance Mask (Cellpose) {layer_idx}")
+    #     print(f"min {np.min(masks)} max {np.max(masks)}, unique: {np.unique(masks)}")
+
+    # elif strategy == "bioimageio":
+    #     print(f"Running bioimageio on layer {layer_idx}, shape: {mproj.shape}, dtype: {mproj.dtype} on GPU {device_id}")
+    #     # Normalize if needed (optional)
+    #     mproj_norm = (mproj - np.min(mproj)) / (np.max(mproj) - np.min(mproj))
+    #     # Prepare model
+    #     model = torch.jit.load("model.pt").to(f"cuda:{device_id}")
+    #     model.eval()
+    #     input_tensor = transforms.ToTensor()(mproj_norm).unsqueeze(0).to(f"cuda:{device_id}")
+    #     with torch.no_grad():
+    #         pred = model(input_tensor)[0, 0].cpu().numpy()
+    #     masks = label(pred > 0.5)[0].astype(np.uint16)
+
+
+    elif strategy == "watershed":
+            watershed_segmenter = WatershedSegmenter()
+            masks = watershed_segmenter.segment(mproj)
+
+    else:
+        raise ValueError(f"Unsupported strategy: {strategy}")
+
+    print(f"finished for layer {layer_idx}, masks: {masks.shape}, {masks.dtype}")
     contour_mask = NextGenTrackerRoutine.get_contour_mask(masks)
 
-    # Put results in the queue
-    queue.put((layer_idx, masks, contour_mask))
+    queue.put(('result', layer_idx, masks, contour_mask))
+
+
 
 class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
     # start_roi_segmentation: bool = False
     output_frame_name: str = 'roi_activity_tracker_frame'
     layer_max_num: int = 20
     roi_max_num: int = 5
-    # roi_slice_params: Dict[tuple, tuple] = {}
-    # roi_slice_params: Dict[tuple, Tuple[str, Any]] = {}
+    number_of_projection_frames = 60
     roi_slice_params: Dict[tuple, ROI] = {}
     roi_thresholds: Dict[tuple, int] = {}
     lower_px_threshold: int = 10
@@ -107,9 +126,23 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
     diameter = 10
     cellprob_threshold = 0.0
     flow_threshold = 1.5
-    pretrained_model = "cyto3"
+    pretrained_model = "cpsam"
+    segmentation_strategy = "cellpose"
 
+    q_min = 0
+    q_max = 100
+    projection_calculation = "mean"
 
+    eval_active = False
+    latest_measurements = {}
+
+    eval_n_frames = 10
+    eval_measurement_type = "mean"
+    eval_min_pixels = 7
+    eval_layer_indices = None
+
+    layer_progress: Dict[int, float] = {}
+    current_progress: float = 0.0
     # test_mask = np.zeros((512, 512), dtype=bool)
 
 
@@ -140,7 +173,6 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
             vxattribute.ArrayAttribute(f'{self.output_frame_name}_{layer_idx}', shape, dtype)
 
             for roi_idx in range(self.roi_max_num):
-                # self.roi_slice_params[(layer_idx, roi_idx)] = (None, ()) #()
                 self.roi_slice_params[(layer_idx, roi_idx)] = ROI()
                 self.roi_thresholds[(layer_idx, roi_idx)] = 2000
 
@@ -357,7 +389,8 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
             activity = roi.calculate_activity(preprocessed_frame)
             vxattribute.write_attribute(roi_str, activity)
 
-            over_thresh = over_thresh or activity > roi.threshold
+            over_thresh = over_thresh or activity > self.roi_thresholds[(layer_idx, roi_idx)] # roi.threshold
+            print(f"over_thresh: {over_thresh}, activity: {activity}, threshold: {self.roi_thresholds[(layer_idx, roi_idx)]}")
 
             # Add attribute to be written to file
             if roi_str not in self.attrs_written_to_file:
@@ -374,6 +407,24 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
             vxattribute.write_to_file(self, trigger_str)
             self.attrs_written_to_file.append(trigger_str)
 
+
+
+        #Experimental
+        if self.eval_active:
+            # Determine layers to evaluate:
+            layers_to_use = self.eval_layer_indices
+            if layers_to_use == "all" or layers_to_use is None:
+                layers_to_use = list(self.layer_masks.keys())
+
+            # Call calculate_measurements with current eval parameters
+            self.latest_measurements = self.calculate_measurements(
+                layer_indices=layers_to_use,
+                n_frames=self.eval_n_frames,
+                measurement_type=self.eval_measurement_type,
+                min_pixels=self.eval_min_pixels,
+            )
+
+
     @staticmethod
     def roi_name(layer_idx: int, roi_idx: int) -> str:
         return f'roi_activity_{layer_idx}_{roi_idx}'
@@ -383,7 +434,7 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
         return f'roi_activity_trigger_{layer_idx}'
 
 
-    def get_projection_for_layer(self, layer_idx: int, n_frames: int = 60, mode: str ='mean') -> np.ndarray:
+    def get_projection_for_layer(self, layer_idx: int, n_frames: int, mode: str ='mean') -> np.ndarray:    #, n_frames: int = 60,
         """Get an average or max projection of the last `n_frames` for a given layer."""
 
         _, _, frames = vxattribute.read_attribute(f'{self.output_frame_name}_{layer_idx}', last=n_frames)
@@ -393,16 +444,33 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
         if frames is None or len(frames) == 0:
             return None
 
-        if mode == 'max':
-            return np.max(frames, axis=0)
-
-        elif mode == 'mean':
+        if mode == 'mean':
             return np.mean(frames, axis=0)
-
+        elif mode == 'max':
+            return np.max(frames, axis=0)
+        elif mode == "min":
+            return np.min(frames, axis=0)
+        elif mode == "sum":
+            return np.sum(frames, axis=0)
+        elif mode =="std":
+            return np.std(frames, axis=0)
+        elif mode == "median":
+            return np.median(frames, axis=0)
         else:
             raise ValueError(f'Invalid mode {mode}. Must be either "max" or "mean".')
 
+    @staticmethod
+    def quantile_clipping(frame: np.array, q_min: float = 0.0, q_max: float = 100.0) -> np.array:
+        """Clamp values outside the quantile range (given in %) to the quantile boundaries."""
+        q_min_frac = q_min / 100
+        q_max_frac = q_max / 100
 
+        lower = np.quantile(frame, q_min_frac)
+        upper = np.quantile(frame, q_max_frac)
+        # Clamp values
+        frame = np.clip(frame, lower, upper)
+
+        return frame
 
     @staticmethod
     def get_contour_mask(label_mask, method='opencv'):
@@ -492,25 +560,42 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
         return label_mask
 
 
-    def button_start_segmentation_clicked(self):
+    # def button_start_segmentation_clicked(self):
+    #     print("Start segmentation")
+    #
+    #     num_layers = ScanImageFrameReceiverTcpServer.instance().layer_num
+    #     layer_indices = list(range(num_layers))
+    def button_start_segmentation_clicked(self, layer_id: int | None = None):
         print("Start segmentation")
 
-        num_layers = ScanImageFrameReceiverTcpServer.instance().layer_num
-        layer_indices = list(range(num_layers))
+        print(f"layer_id: {layer_id}")
 
+        if layer_id is None:
+            # run for ALL layers
+            num_layers = ScanImageFrameReceiverTcpServer.instance().layer_num
+            layer_indices = list(range(num_layers))
+        else:
+            # run for just one
+            layer_indices = [layer_id]
+            num_layers = 1
 
+        print(f"layer_indices: {layer_indices}")
         # self.current_auto_segment = True
         self.is_pool_closed = False
         self.current_run_results = 0
         self.expected_run_results = num_layers
 
+        self.layer_progress = {idx: 0.0 for idx in layer_indices}
+        self.current_progress = 0.0
+
         # Get projections for all layers
         projections = []
         for layer_idx in layer_indices:
-            mproj = self.get_projection_for_layer(layer_idx)
+            mproj = self.get_projection_for_layer(layer_idx, self.number_of_projection_frames, self.projection_calculation)
             if mproj is None:
                 log.warning(f"No data to segment for layer {layer_idx}")
                 return
+            mproj = self.quantile_clipping(mproj, self.q_min, self.q_max)
             projections.append(mproj)
 
         # Setup Manager and Queue
@@ -534,7 +619,7 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
                 self.flow_threshold,
                 mproj,
                 layer_idx,
-                "ignore",
+                self.segmentation_strategy,
                 self.segmentation_queue,
                 device_id
             )
@@ -563,20 +648,56 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
     #         self.segmentation_process.join()
     #         self.segmentation_process = None
     #         self.current_auto_segment = False
+    # def check_segmentation_result(self):
+    #     while self.current_auto_segment and self.segmentation_queue and not self.segmentation_queue.empty():
+    #         layer_idx, merged_mask, contour_mask = self.segmentation_queue.get()
+    #         print(f"Segmentation done for layer {layer_idx}, mask shape: {merged_mask.shape}")
+    #
+    #         self.layer_masks[layer_idx] = {
+    #             'merged_mask': merged_mask,
+    #             'contour_mask': contour_mask
+    #         }
+    #         self.current_run_results += 1
+    #
+    #     # If all layers finished
+    #     # if self.current_auto_segment and len(self.layer_masks) == ScanImageFrameReceiverTcpServer.instance().layer_num:
+    #
+    #     if self.expected_run_results == self.current_run_results and not self.is_pool_closed and self.current_auto_segment:
+    #         print("All segmentations complete.")
+    #         self.current_auto_segment = False
+    #
+    #         self.pool.close()
+    #         self.pool.join()
+    #         self.manager.shutdown()
+    #         self.is_pool_closed = True
+
+
     def check_segmentation_result(self):
         while self.current_auto_segment and self.segmentation_queue and not self.segmentation_queue.empty():
-            layer_idx, merged_mask, contour_mask = self.segmentation_queue.get()
-            print(f"Segmentation done for layer {layer_idx}, mask shape: {merged_mask.shape}")
+            msg = self.segmentation_queue.get()
 
-            self.layer_masks[layer_idx] = {
-                'merged_mask': merged_mask,
-                'contour_mask': contour_mask
-            }
-            self.current_run_results += 1
+            # if msg[0] == 'progress':
+            #     _, layer_idx, progress_fraction = msg
+            #     # Store per-layer progress
+            #     self.layer_progress[layer_idx] = progress_fraction
 
-        # If all layers finished
-        # if self.current_auto_segment and len(self.layer_masks) == ScanImageFrameReceiverTcpServer.instance().layer_num:
+            if msg[0] == 'result':
+                _, layer_idx, merged_mask, contour_mask = msg
+                self.layer_masks[layer_idx] = {
+                    'merged_mask': merged_mask,
+                    'contour_mask': contour_mask
+                }
+                self.current_run_results += 1
+                # Ensure final progress for this layer is 100%
+                self.layer_progress[layer_idx] = 1.0
 
+        # Compute overall progress across all layers
+        total_layers = self.expected_run_results
+        if total_layers > 0:
+            overall_progress = (sum(self.layer_progress.values()) / total_layers) * 100
+            self.current_progress = overall_progress
+
+        # When all layers are done, clean up
         if self.expected_run_results == self.current_run_results and not self.is_pool_closed and self.current_auto_segment:
             print("All segmentations complete.")
             self.current_auto_segment = False
@@ -585,6 +706,7 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
             self.pool.join()
             self.manager.shutdown()
             self.is_pool_closed = True
+
 
     # def calculate_elipse_parameters(mask_data, label_id):
     #     binary_mask = (mask_data == label_id).astype(np.uint8)
@@ -627,6 +749,7 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
     #     size = (height, width) ###
     #
     #     return pos, size, angle_deg
+
     @staticmethod
     def calculate_ellipse_parameters(mask_data, label_id):
         binary_mask = (mask_data == label_id).astype(np.uint8)
@@ -700,6 +823,90 @@ class NextGenTrackerRoutine(vxroutine.WorkerRoutine):
         return [(pt[0][1], pt[0][0]) for pt in max(contours, key=cv2.contourArea)]
 
 
+    def calculate_measurements(self, layer_indices, n_frames, measurement_type="mean", min_pixels=10):
+        """
+        Calculate measurements for ROIs from segmentation masks.
+
+        Parameters
+        ----------
+        layer_indices : list[int]
+            Which layer indices to process.
+        n_frames : int
+            Number of last frames to include in the calculation.
+        measurement_type : str
+            One of ["mean", "std", "median", "sum", "df/dt"].
+        min_pixels : int
+            Minimum number of pixels required in an ROI to be processed.
+
+        Returns
+        -------
+        dict
+            {
+                (layer_idx, label_id): {
+                    "trace": np.ndarray,   # 1D time series
+                    "coords": list[(y, x)],# pixel coordinates of ROI
+                    "n_pixels": int
+                },
+                ...
+            }
+        """
+        results = {}
+
+        # print(f" {layer_indices, n_frames, measurement_type, min_pixels}")
+        for layer_idx in layer_indices:
+            # Check if segmentation exists for this layer
+            if layer_idx not in self.layer_masks or "merged_mask" not in self.layer_masks[layer_idx]:
+                print(f"[calculate_measurements] No mask for layer {layer_idx}, skipping.")
+                continue
+
+            mask = self.layer_masks[layer_idx]["merged_mask"]
+
+            # Read the last n_frames for this layer
+            _, _, frames = vxattribute.read_attribute(f"{self.output_frame_name}_{layer_idx}", last=n_frames)
+            if frames is None or len(frames) == 0:
+                print(f"[calculate_measurements] No frames available for layer {layer_idx}, skipping.")
+                continue
+
+            # Ensure float for calculations
+            frames = frames.astype(np.float64)
+
+            for label_id in np.unique(mask):
+                if label_id == 0:
+                    continue  # skip background
+
+                # Pixel coordinates for this ROI
+                ys, xs = np.where(mask == label_id)
+                pixel_count = len(ys)
+                if pixel_count < min_pixels:
+                    continue  # skip small ROIs
+
+                # Extract ROI trace: shape (n_frames, n_pixels) -> mean over pixels
+                roi_values = frames[:, ys, xs]  # broadcasting: each frame index with all ROI coords
+                if measurement_type == "mean":
+                    trace = np.mean(roi_values, axis=1)
+                elif measurement_type == "std":
+                    trace = np.std(roi_values, axis=1)
+                elif measurement_type == "median":
+                    trace = np.median(roi_values, axis=1)
+                elif measurement_type == "sum":
+                    trace = np.sum(roi_values, axis=1)
+                elif measurement_type == "df/dt":
+                    # Compute relative change per frame
+                    mean_trace = np.mean(roi_values, axis=1)
+                    baseline = np.percentile(mean_trace, 10)  # 10th percentile as baseline
+                    trace = (mean_trace - baseline) / (baseline + 1e-9)
+                else:
+                    raise ValueError(f"Unsupported measurement_type '{measurement_type}'")
+
+                results[(layer_idx, int(label_id))] = {
+                    "trace": trace,
+                    "coords": list(zip(ys, xs)),
+                    "n_pixels": pixel_count
+                }
+        print(f"[calculate_measurements] Computed {len(results)} ROI traces")
+
+        return results
+
 
 
 class NextGenTrackerWidget(vxui.WorkerAddonWidget):
@@ -716,6 +923,8 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         self.histograms = {}
         self.init_histograms = []
 
+        self.selected_measurement = "mean"
+        self.frame_window = 10
 
         # === Layout Setup ===
         self.central_widget.setLayout(QtWidgets.QVBoxLayout())
@@ -727,14 +936,9 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
                                     'border: 1px solid #FF0000; padding: 5px;')
         self.central_widget.layout().addWidget(warning_label)
 
-        # --- Pixel threshold slider ---
-        self.pixel_threshold = widgets.IntSliderWidget(
-            self.central_widget,
-            label='Lower pixel threshold',
-            default=NextGenTrackerRoutine.instance().lower_px_threshold,
-            limits=(1, 2 ** 16), step_size=10)
-        self.pixel_threshold.connect_callback(self.update_pixel_threshold)
-        self.central_widget.layout().addWidget(self.pixel_threshold)
+        # --- Collapsible Help section ---
+        help_panel = CollapsibleHelp("Help", parent=self)
+        self.central_widget.layout().addWidget(help_panel)
 
         # --- Splitter between plots and control panel ---
         splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
@@ -767,38 +971,217 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         self.scroll_area.setWidget(self.scroll_widget)
 
         # Add the group box to the right side layout
-        right_layout.addWidget(self.selected_roi_container)
+        # right_layout.addWidget(self.selected_roi_container)
 
-        # --- Action buttons ---
+        # # --- Action buttons ---
+        # button_container = QtWidgets.QWidget()
+        # button_layout = QtWidgets.QVBoxLayout(button_container)
+        #
+        # self.add_auto_btn = QtWidgets.QPushButton('Automated ROI Search')
+        # self.add_auto_btn.clicked.connect(self.automated_roi_search)
+        # button_layout.addWidget(self.add_auto_btn)
+        #
+        # # Toggle mask button
+        # self.toggle_mask_btn = QtWidgets.QPushButton('Show ROI mask')
+        # button_layout.addWidget(self.toggle_mask_btn)
+        # # Left click shows full mask
+        # self.toggle_mask_btn.clicked.connect(lambda: self.toggle_mask(only_contours=False))
+        #
+        # # Right click shows contour mask
+        # self.toggle_mask_btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        # self.toggle_mask_btn.customContextMenuRequested.connect(lambda _: self.toggle_mask(only_contours=True))
+        #
+        #
+        # self.selected_histogram_layer = None
+        # self.plot_highlight_rect = None
+        #
+        #
+        # self.open_window_btn = QtWidgets.QPushButton('Export to SysCon')
+        # self.open_window_btn.clicked.connect(self.to_holo)
+        # button_layout.addWidget(self.open_window_btn)
+        #
+        #
+        # right_layout.addWidget(button_container)
+        # right_layout.addStretch()
+        # --- Controls and Settings Tabs ---
+        self.tabs = QtWidgets.QTabWidget()
+        # right_layout.addWidget(self.tabs)
+
+        # --- Controls tab (your original buttons) ---
         button_container = QtWidgets.QWidget()
         button_layout = QtWidgets.QVBoxLayout(button_container)
 
         self.add_auto_btn = QtWidgets.QPushButton('Automated ROI Search')
-        self.add_auto_btn.clicked.connect(self.automated_roi_search)
+        self.add_auto_btn.clicked.connect(lambda: self.automated_roi_search())
         button_layout.addWidget(self.add_auto_btn)
 
-        # Toggle mask button
+        # Progress bar (initially hidden)
+        self.progress_bar = QtWidgets.QProgressBar()
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(False)
+        button_layout.addWidget(self.progress_bar)
+
+        # # Toggle mask button
         self.toggle_mask_btn = QtWidgets.QPushButton('Show ROI mask')
         button_layout.addWidget(self.toggle_mask_btn)
-        # Left click shows full mask
-        self.toggle_mask_btn.clicked.connect(lambda: self.toggle_mask(only_contours=False))
-
-        # Right click shows contour mask
+        self.toggle_mask_btn.clicked.connect(lambda: self.toggle_mask(only_contours=True))
         self.toggle_mask_btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.toggle_mask_btn.customContextMenuRequested.connect(lambda _: self.toggle_mask(only_contours=True))
+        self.toggle_mask_btn.customContextMenuRequested.connect(lambda _: self.toggle_mask(only_contours=False))
+
+
+        # Open new tracking button
+        self.eval_button = QtWidgets.QPushButton('Get Evaluation')
+        self.eval_button.clicked.connect(self.get_evaluation)
+        button_layout.addWidget(self.eval_button)
+
 
 
         self.selected_histogram_layer = None
         self.plot_highlight_rect = None
 
-
         self.open_window_btn = QtWidgets.QPushButton('Export to SysCon')
         self.open_window_btn.clicked.connect(self.to_holo)
         button_layout.addWidget(self.open_window_btn)
 
+        button_layout.addStretch()
+        self.tabs.addTab(button_container, "Controls")
 
-        right_layout.addWidget(button_container)
-        right_layout.addStretch()
+        # --- Display Settings tab ---
+        display_settings_container = QtWidgets.QWidget()
+        display_settings_layout = QtWidgets.QFormLayout(display_settings_container)
+
+        # --- Measurement display type ---
+        self.measurement_selector = QtWidgets.QComboBox()
+        self.measurement_selector.addItems(["mean", "median", "std", "min", "max", "sum"])
+        display_settings_layout.addRow("Display Measurement:", self.measurement_selector)
+
+        # --- Frame averaging window size ---
+        self.frame_avg_spin = QtWidgets.QSpinBox()
+        self.frame_avg_spin.setRange(1, 1000)
+        self.frame_avg_spin.setValue(10)
+        display_settings_layout.addRow("Frames for Display:", self.frame_avg_spin)
+
+        self.pixel_threshold = widgets.IntSliderWidget(
+            display_settings_container,
+            label='Lower pixel threshold',
+            default=NextGenTrackerRoutine.instance().lower_px_threshold,
+            limits=(1, 2 ** 16),
+            step_size=10
+        )
+        self.pixel_threshold.connect_callback(self.update_pixel_threshold)
+        display_settings_layout.addRow(self.pixel_threshold)
+
+        # --- Display Reset Button ---
+        display_reset_btn = QtWidgets.QPushButton("Reset to Defaults")
+        display_reset_btn.clicked.connect(self.reset_display_settings_to_defaults)
+        display_settings_layout.addRow(display_reset_btn)
+
+        self.tabs.addTab(display_settings_container, "Display")
+
+        # --- Segmentation Settings tab ---
+        segmentation_settings_container = QtWidgets.QWidget()
+        segmentation_settings_layout = QtWidgets.QFormLayout(segmentation_settings_container)
+
+        # --- Measurement display type ---
+        self.segmentation_measurement_selector = QtWidgets.QComboBox()
+        self.segmentation_measurement_selector.addItems(["mean", "median", "std", "min", "max", "sum"])
+        segmentation_settings_layout.addRow("Segmentation Measurement:", self.segmentation_measurement_selector)
+
+
+        # --- Timeframe for Segmentation ---
+        self.segmentation_timeframe_edit = QtWidgets.QSpinBox()
+        self.segmentation_timeframe_edit.setRange(1, 1000000)  # Only positive ints within this range
+        self.segmentation_timeframe_edit.setValue(NextGenTrackerRoutine.instance().number_of_projection_frames)
+        segmentation_settings_layout.addRow("Timeframe:", self.segmentation_timeframe_edit)
+
+        # --- Quantile Remove Option with Min/Max SpinBoxes ---
+        quantile_widget = QtWidgets.QWidget()
+        quantile_layout = QtWidgets.QHBoxLayout(quantile_widget)
+        quantile_layout.setContentsMargins(0, 0, 0, 0)
+        quantile_layout.setSpacing(10)
+        # Min label and spin box
+        min_label = QtWidgets.QLabel("Min:")
+        quantile_layout.addWidget(min_label)
+        self.q_min_spin = QtWidgets.QSpinBox()
+        self.q_min_spin.setRange(0, 100)
+        self.q_min_spin.setValue(0)
+        self.q_min_spin.setSuffix(" %")
+        self.q_min_spin.setFixedWidth(60)
+        quantile_layout.addWidget(self.q_min_spin)
+
+        # Max label and spin box
+        max_label = QtWidgets.QLabel("Max:")
+        quantile_layout.addWidget(max_label)
+
+        self.q_max_spin = QtWidgets.QSpinBox()
+        self.q_max_spin.setRange(0, 100)
+        self.q_max_spin.setValue(100)
+        self.q_max_spin.setSuffix(" %")
+        self.q_max_spin.setFixedWidth(60)
+        quantile_layout.addWidget(self.q_max_spin)
+
+        # Add the quantile widget as a row in your layout
+        segmentation_settings_layout.addRow("Quantile Remove:", quantile_widget)
+
+        # --- Segmentation Strategy ---
+        self.segmentation_strategy = QtWidgets.QComboBox()
+        self.segmentation_strategy.addItems(["cellpose", "watershed"]) # , "stardist"
+        self.segmentation_strategy.setCurrentText("cellpose")
+        segmentation_settings_layout.addRow("Segmentation Strategy:", self.segmentation_strategy)
+
+        # Group Cellpose params in a widget
+        self.cellpose_params_widget = QtWidgets.QWidget()
+        cellpose_params_layout = QtWidgets.QFormLayout(self.cellpose_params_widget)
+
+        self.cellpose_diameter = QtWidgets.QSpinBox()
+        self.cellpose_diameter.setRange(1, 100)
+        self.cellpose_diameter.setValue(10)
+        cellpose_params_layout.addRow("Cellpose Diameter:", self.cellpose_diameter)
+
+        self.cellpose_cellprob = QtWidgets.QDoubleSpinBox()
+        self.cellpose_cellprob.setDecimals(2)
+        self.cellpose_cellprob.setRange(-1.0, 1.0)
+        self.cellpose_cellprob.setSingleStep(0.1)
+        self.cellpose_cellprob.setValue(0.0)
+        cellpose_params_layout.addRow("CellProb Threshold:", self.cellpose_cellprob)
+
+        self.cellpose_flow = QtWidgets.QDoubleSpinBox()
+        self.cellpose_flow.setDecimals(2)
+        self.cellpose_flow.setRange(0.0, 10.0)
+        self.cellpose_flow.setSingleStep(0.1)
+        self.cellpose_flow.setValue(1.5)
+        cellpose_params_layout.addRow("Flow Threshold:", self.cellpose_flow)
+
+        # self.cellpose_model = QtWidgets.QComboBox()
+        # self.cellpose_model.addItems(["cpsam", "cyto", "cyto2", "cyto3", "nuclei", "tissuenet", "livecell"])
+        # self.cellpose_model.setCurrentText("cpsam")
+        # cellpose_params_layout.addRow("Pretrained Model:", self.cellpose_model)
+
+        segmentation_settings_layout.addRow(self.cellpose_params_widget)
+
+        # Connect to update visibility
+        self.segmentation_strategy.currentTextChanged.connect(self.update_segmentation_params_visibility)
+
+        # Initialize visibility
+        self.update_segmentation_params_visibility()
+
+        # --- Display Reset Button ---
+        segmentation_reset_btn = QtWidgets.QPushButton("Reset to Defaults")
+        segmentation_reset_btn.clicked.connect(self.reset_segment_settings_to_defaults)
+        segmentation_settings_layout.addRow(segmentation_reset_btn)
+
+        self.tabs.addTab(segmentation_settings_container, "Segmentation")
+
+        # === Split ROI Controls and Tabbed Controls with a Vertical Splitter ===
+        vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
+        vertical_splitter.addWidget(self.selected_roi_container)
+        vertical_splitter.addWidget(self.tabs)
+        vertical_splitter.setStretchFactor(0, 3)  # ROI controls take more space
+        vertical_splitter.setStretchFactor(1, 1)  # Tabs take less
+
+        right_layout.addWidget(vertical_splitter)
 
         # --- Frame routine integration ---
         self.frame_name = NextGenTrackerRoutine.instance().output_frame_name
@@ -809,6 +1192,34 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         """Update threshold in the core processing routine."""
         NextGenTrackerRoutine.instance().lower_px_threshold = value
 
+    def update_segmentation_params_visibility(self):
+        strategy = self.segmentation_strategy.currentText()
+        if strategy == "cellpose":
+            self.cellpose_params_widget.show()
+        else:
+            self.cellpose_params_widget.hide()
+
+        # Update the segmentation strategy in the routine instance
+        NextGenTrackerRoutine.instance().segmentation_strategy = strategy
+
+    def reset_display_settings_to_defaults(self):
+        self.measurement_selector.setCurrentText("mean")
+        self.frame_avg_spin.setValue(10)
+        self.pixel_threshold.set_value(10)
+
+    def reset_segment_settings_to_defaults(self):
+        self.segmentation_measurement_selector.setCurrentText("mean")
+        self.segmentation_timeframe_edit.setValue(60)
+        self.q_min_spin.setValue(0)
+        self.q_max_spin.setValue(100)
+
+        self.segmentation_strategy.setCurrentText("cellpose")  # Reset segmentation strategy
+
+        self.cellpose_diameter.setValue(10)
+        self.cellpose_cellprob.setValue(0.0)
+        self.cellpose_flow.setValue(1.5)
+        # self.cellpose_model.setCurrentText("cyto3")
+
     # def toggle_histograms(self):
     #     if self.visible_histogram:
     #         self.img_plot_widget.removeItem(self.selected_histogram)
@@ -817,6 +1228,26 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
     #         self.img_plot_widget.addItem(self.selected_histogram, col= self.cols + 1, row=0, rowspan=self.cols)
     #         self.visible_histogram = True
 
+    def calculate_frame(self, frames: np.ndarray) -> np.ndarray:
+        """Apply the selected aggregation method to a stack of frames."""
+        method = self.measurement_selector.currentText()
+
+        if method == "mean":
+            return np.mean(frames, axis=0)
+        elif method == "std":
+            return np.std(frames, axis=0)
+        elif method == "min":
+            return np.min(frames, axis=0)
+        elif method == "max":
+            return np.max(frames, axis=0)
+        elif method == "sum":
+            return np.sum(frames, axis=0)
+        elif method == "median":
+            return np.median(frames, axis=0)
+        else:
+            # Fallback to mean
+            print(f"Invalid measurement type: {method}, select mean instead.")
+            return np.mean(frames, axis=0)
 
     def update_frame(self):
         """Pull frames and update all plots."""
@@ -824,15 +1255,20 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         layer_num = routine.current_layer_num
         routine.check_segmentation_result()
 
+        if hasattr(routine, 'current_progress'):
+            self.progress_bar.setValue(int(routine.current_progress))
+
+
         if routine.new_metadata or (layer_num != self.current_num_layers):
             self._rebuild_image_plots(layer_num)
             routine.new_metadata = False
 
         for layer_idx, image_plot in self.image_plots.items():
-            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}', last=10)
+            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}', last=self.frame_window)
             if len(idx) == 0:
                 continue
-            frame_avg = np.mean(frame, axis=0)
+
+            frame_avg = self.calculate_frame(frame)
             image_plot.update_frame(frame_avg)
 
             if self.init_histograms[layer_idx] == True:
@@ -843,6 +1279,21 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
 
 
         self.update_button_state()
+
+        self.selected_measurement = self.measurement_selector.currentText()
+        self.frame_window = self.frame_avg_spin.value()
+
+
+        NextGenTrackerRoutine.instance().number_of_projection_frames = self.segmentation_timeframe_edit.value()
+
+        NextGenTrackerRoutine.instance().q_min = self.q_min_spin.value()
+        NextGenTrackerRoutine.instance().q_max = self.q_max_spin.value()
+        NextGenTrackerRoutine.instance().projection_calculation = self.segmentation_measurement_selector.currentText()
+
+        NextGenTrackerRoutine.instance().diameter = self.cellpose_diameter.value()
+        NextGenTrackerRoutine.instance().cellprob_threshold= self.cellpose_cellprob.value()
+        NextGenTrackerRoutine.instance().flow_threshold = self.cellpose_flow.value()
+        # NextGenTrackerRoutine.instance().pretrained_model = self.cellpose_model.currentText()
 
         if self.plot_highlight_rect and self.selected_histogram_layer is not None:
             plot_item = self.image_plots[self.selected_histogram_layer].get_plot_item()
@@ -890,7 +1341,9 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         self.init_histograms = [True]*num_layers
 
         for i in range(num_layers):
-            image_plot = ImagePlot(i, on_roi_selected=self.handle_roi_click, on_histogram_selected=self.select_histogram)
+            # image_plot = ImagePlot(i, on_roi_selected=self.handle_roi_click, on_histogram_selected=self.select_histogram)
+            image_plot = ImagePlot(i, on_roi_selected=self.handle_roi_click, on_histogram_selected=self.select_histogram, on_segment_layer=self.automated_roi_search)
+
             self.image_plots[i] = image_plot
             self.histograms[i] = pg.HistogramLUTItem(image_plot.image_item)
             # self.histograms[i].disableAutoHistogramRange()
@@ -993,13 +1446,13 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
     #     self.img_plot_widget.scene().addItem(highlight_rect)
     #     self.plot_highlight_rect = highlight_rect
 
-    def handle_roi_click(self, layer, x, y, roi_style):
+    def handle_roi_click(self, layer, x, y, roi_style, zoom_factor=None):
         """Callback for interactive ROI selection via mouse."""
         routine = NextGenTrackerRoutine.instance()
         mask_data = routine.layer_masks.get(layer, {}).get('merged_mask')
 
         if roi_style == "ellipse":
-            self.add_roi(layer_idx=layer, roi_style=roi_style)
+            self.add_roi(layer_idx=layer, roi_style=roi_style, position = (x,y), zoom_factor=zoom_factor)
 
         if mask_data is None or not (0 <= x < mask_data.shape[1] and 0 <= y < mask_data.shape[0]):
             print("No valid mask")
@@ -1013,15 +1466,14 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
             print("No ROI found")
             return
 
-
-
         elif roi_style == "poly_line":
             outline = routine.get_contour_outline(mask_data, label_id)
             if outline:
                 self.add_roi(layer_idx=layer, roi_style=roi_style, contours=outline)
 
-    def add_roi(self, layer_idx: int, position=None, size=None, angle_degree=None,
-                roi_style="ellipse", contours=None):
+
+    def add_roi(self, layer_idx: int, position=None, size = None, angle_degree=None,
+                roi_style="ellipse", contours=None, zoom_factor=None):
         """Add a new ROI to the specified layer."""
         image_plot = self.image_plots.get(layer_idx)
         if image_plot is None:
@@ -1051,33 +1503,69 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
                                    color=get_roi_color(roi_idx))
 
 
+        # if roi_style == "ellipse":
+        #     # if all(v is None for v in (position, size)):
+        #     #     width = NextGenTrackerRoutine.instance().frame_width
+        #     #     diameter = width // 4
+        #     #     center = (width // 2, width // 2)
+        #     #     position = (center[0] - diameter / 2, center[1] - diameter / 2) # (0,0) #
+        #     #     size = (diameter, diameter) #(30,60) #
+        #     #     angle_degree = 0
+        #
+        #
+        #
+        #     # roi = EllipseRoi(layer_idx, roi_idx, image_plot, (0, 0), (1, 1))
+        #     roi = EllipseRoi(
+        #         layer_idx=layer_idx,
+        #         idx=roi_idx,
+        #         image_plot=image_plot,
+        #         update_callback=self.roi_updated,  # <--- hook it up here
+        #         pos=(0, 0),
+        #         size=(1, 1)
+        #     )
+        #     # TODO: 24.06 --> fix here for correct layout in pyqt image
+        #     image_plot.add_roi_to_plot(roi)
+        #
+        #     print(f"position in yx: {position[1], position[0]}")
+        #     roi.setPos((position[1], position[0]))
+        #     roi.setSize((size[1], size[0]))
+        #     roi.setAngle(angle_degree)
+
         if roi_style == "ellipse":
-            if all(v is None for v in (position, size)):
-                width = NextGenTrackerRoutine.instance().frame_width
-                diameter = width // 4
-                center = (width // 2, width // 2)
-                position = (center[0] - diameter / 2, center[1] - diameter / 2) # (0,0) #
-                size = (diameter, diameter) #(30,60) #
-                angle_degree = 0
+            # Define base diameter (you can adjust this)
+            base_diameter = NextGenTrackerRoutine.instance().frame_width // 4
 
+            # Use zoom_factor to scale diameter (avoid zero division)
+            diameter = base_diameter / zoom_factor if zoom_factor and zoom_factor != 0 else base_diameter
 
+            # If position is given, treat it as center
+            if position is not None:
+                center_y, center_x = position
+            else:
+                center_x = NextGenTrackerRoutine.instance().frame_width // 2
+                center_y = NextGenTrackerRoutine.instance().frame_height // 2
 
-            # roi = EllipseRoi(layer_idx, roi_idx, image_plot, (0, 0), (1, 1))
+            # Calculate top-left position from center
+            top_left_x = center_x - diameter / 2
+            top_left_y = center_y - diameter / 2
+
+            # Angle is always zero here (no rotation)
+            angle = 0 if angle_degree is None else angle_degree
+
             roi = EllipseRoi(
                 layer_idx=layer_idx,
                 idx=roi_idx,
                 image_plot=image_plot,
-                update_callback=self.roi_updated,  # <--- hook it up here
+                update_callback=self.roi_updated,
                 pos=(0, 0),
                 size=(1, 1)
             )
-            # TODO: 24.06 --> fix here for correct layout in pyqt image
             image_plot.add_roi_to_plot(roi)
 
-            print(f"position in yx: {position[1], position[0]}")
-            roi.setPos((position[1], position[0]))
-            roi.setSize((size[1], size[0]))
-            roi.setAngle(angle_degree)
+            # Set position and size: note that roi.setPos expects (x, y) = top-left corner
+            roi.setPos((top_left_x, top_left_y))
+            roi.setSize((diameter, diameter))
+            roi.setAngle(angle)
 
         elif roi_style == "poly_line":
 
@@ -1107,6 +1595,8 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
                                             default=NextGenTrackerRoutine.instance().roi_thresholds.get(
                                                 (layer_idx, roi_idx), 1.0),
                                             limits=(0, 50), step_size=0.1)
+
+
         thresh.connect_callback(roi.update_threshold)
 
         # Add to scroll layout
@@ -1194,8 +1684,6 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
             roi_instance = ROI(mode='polyline_points', params=points, layer_idx=layer_idx)
 
         elif isinstance(roi, EllipseRoi):
-            # Pass current image from ImagePlot to EllipseRoi method
-            # slice_params = roi.getAffineSliceParams(image_plot.image_item.image, image_plot)
             slice_params = roi.getAffineSliceParams(image_plot.image_item.image, image_plot.image_item)
             roi_instance = ROI(mode='affine_slice', params=slice_params, layer_idx=layer_idx)
 
@@ -1222,12 +1710,36 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         routine = NextGenTrackerRoutine.instance()
         self.add_auto_btn.setEnabled(not routine.current_auto_segment)
 
-    def automated_roi_search(self):
+    # def automated_roi_search(self):
+    #     """Trigger ROI detection routine."""
+    #     routine = NextGenTrackerRoutine.instance()
+    #     if not routine.current_auto_segment:
+    #         routine.current_auto_segment = True
+    #
+    #         # Hide button, show progress bar
+    #         # self.add_auto_btn.setVisible(False)
+    #         self.progress_bar.setVisible(True)
+    #         self.progress_bar.setValue(0)
+    #
+    #
+    #         routine.button_start_segmentation_clicked()
+    #     else:
+    #         print("Automated ROI search already running.")
+    def automated_roi_search(self, layer_idx: int | None = None):
         """Trigger ROI detection routine."""
         routine = NextGenTrackerRoutine.instance()
         if not routine.current_auto_segment:
             routine.current_auto_segment = True
-            routine.button_start_segmentation_clicked()
+
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0)
+
+            print(f"layer_idx: {layer_idx}")
+            # if layer_idx is not None:
+            #     routine.button_start_segmentation_clicked(layer_idx=layer_idx)
+            # else:
+            #     routine.button_start_segmentation_clicked()
+            routine.button_start_segmentation_clicked(layer_id=layer_idx)
         else:
             print("Automated ROI search already running.")
 
@@ -1239,16 +1751,482 @@ class NextGenTrackerWidget(vxui.WorkerAddonWidget):
         syscon.rois_to_stimulate.update(NextGenTrackerRoutine.instance().roi_slice_params)
         syscon.new_rois_set = True
 
+    def get_evaluation(self):
+        """Open/close the ROI evaluation window."""
+        routine = NextGenTrackerRoutine.instance()
 
+        if not getattr(routine, "layer_masks", None) or len(routine.layer_masks) == 0:
+            QtWidgets.QMessageBox.warning(self, "No ROI Data", "No segmentation masks available for evaluation.")
+            return
+
+        if hasattr(self, "_eval_window") and self._eval_window.isVisible():
+            routine.eval_active = False
+            self._eval_window.close()
+            del self._eval_window
+        else:
+            routine.eval_active = True
+            self._eval_window = EvalWindow(
+                tracker_routine=routine,
+                add_roi_callback=self.add_roi  # Pass your callback method here
+            )
+            self._eval_window.show()
+
+
+# class EvalWindow(QtWidgets.QWidget):
+#     def __init__(self, tracker_routine, add_roi_callback, parent=None):
+#         """
+#         Parameters
+#         ----------
+#         tracker_routine : NextGenTrackerRoutine
+#             Reference to your existing routine instance.
+#         add_roi_callback : callable
+#             Function to call when a trace is clicked, should accept (coords) argument.
+#         """
+#         super().__init__(parent)
+#         self.tracker_routine = tracker_routine
+#         self.add_roi_callback = add_roi_callback
+#
+#         self.setWindowTitle("Cell Measurements")
+#         self.resize(1200, 800)
+#
+#         main_layout = QtWidgets.QHBoxLayout(self)
+#
+#         # Left panel - controls
+#         control_widget = QtWidgets.QWidget()
+#         control_layout = QtWidgets.QVBoxLayout(control_widget)
+#
+#         # Measurement type dropdown
+#         self.measurement_box = QtWidgets.QComboBox()
+#         self.measurement_box.addItems(["mean", "std", "median", "sum", "df/dt"])
+#         control_layout.addWidget(QtWidgets.QLabel("Measurement Type:"))
+#         control_layout.addWidget(self.measurement_box)
+#
+#         # Frames spinbox
+#         self.frames_spin = QtWidgets.QSpinBox()
+#         self.frames_spin.setRange(1, 10000)
+#         self.frames_spin.setValue(100)
+#         control_layout.addWidget(QtWidgets.QLabel("Number of frames:"))
+#         control_layout.addWidget(self.frames_spin)
+#
+#         # Min pixels spinbox
+#         self.min_pixels_spin = QtWidgets.QSpinBox()
+#         self.min_pixels_spin.setRange(1, 100000)
+#         self.min_pixels_spin.setValue(20)
+#         control_layout.addWidget(QtWidgets.QLabel("Min pixels per ROI:"))
+#         control_layout.addWidget(self.min_pixels_spin)
+#
+#         # Layer selection
+#         self.layer_list = QtWidgets.QListWidget()
+#         self.layer_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+#         for layer_idx in sorted(self.tracker_routine.layer_masks.keys()):
+#             self.layer_list.addItem(str(layer_idx))
+#         control_layout.addWidget(QtWidgets.QLabel("Select Layers:"))
+#         control_layout.addWidget(self.layer_list)
+#
+#         # Calculate button
+#         self.calc_button = QtWidgets.QPushButton("Calculate")
+#         self.calc_button.clicked.connect(self.calculate_and_plot)
+#         control_layout.addWidget(self.calc_button)
+#
+#         control_layout.addStretch()
+#         main_layout.addWidget(control_widget, 0)
+#
+#         # Right panel - matplotlib canvas
+#         self.figure, self.ax = plt.subplots(figsize=(8, 6))
+#         self.canvas = FigureCanvas(self.figure)
+#         self.canvas.mpl_connect("pick_event", self.on_pick)
+#         main_layout.addWidget(self.canvas, 1)
+#
+#         self.results = {}  # store last calculation results
+#
+#     def calculate_and_plot(self):
+#         """Run calculation and update plot."""
+#         # Get GUI parameters
+#         measurement = self.measurement_box.currentText()
+#         n_frames = self.frames_spin.value()
+#         min_pixels = self.min_pixels_spin.value()
+#
+#         selected_layers = [
+#             int(item.text()) for item in self.layer_list.selectedItems()
+#         ]
+#         if not selected_layers:
+#             QtWidgets.QMessageBox.warning(self, "No Layers Selected", "Please select at least one layer.")
+#             return
+#
+#         # Call the routine's calculation
+#         self.results = self.tracker_routine.calculate_measurements(
+#             layer_indices=selected_layers,
+#             n_frames=n_frames,
+#             measurement_type=measurement,
+#             min_pixels=min_pixels
+#         )
+#
+#         # Plot
+#         self.ax.clear()
+#         for (layer_idx, label_id), data in self.results.items():
+#             line, = self.ax.plot(data["trace"], picker=5)  # picker=5 for click tolerance
+#             line._roi_key = (layer_idx, label_id)  # store mapping
+#         self.ax.set_title(f"Traces ({measurement})")
+#         self.ax.set_xlabel("Frame")
+#         self.ax.set_ylabel(measurement)
+#         self.canvas.draw()
+#
+#     def on_pick(self, event):
+#         """Handle clicking on a trace in the plot."""
+#         line = event.artist
+#         if hasattr(line, "_roi_key"):
+#             roi_key = line._roi_key
+#             coords = self.results[roi_key]["coords"]
+#             self.add_roi_callback(coords)
+#             QtWidgets.QMessageBox.information(
+#                 self, "ROI Added", f"Added ROI from layer {roi_key[0]}, label {roi_key[1]}"
+#             )
+
+class CollapsibleHelp(QtWidgets.QWidget):
+    def __init__(self, title="Help", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Toggle button (header)
+        self.toggle_button = QtWidgets.QToolButton(text=title, checkable=True, checked=False)
+        self.toggle_button.setStyleSheet("QToolButton { font-weight: bold; }")
+        self.toggle_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.toggle_button.setArrowType(QtCore.Qt.RightArrow)
+        self.toggle_button.clicked.connect(self.on_toggled)
+
+        # Collapsible content area
+        self.content_area = QtWidgets.QScrollArea()
+        self.content_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.content_area.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+        self.content_area.setMaximumHeight(0)  # collapsed
+        self.content_area.setMinimumHeight(0)
+
+        # Inner content (inherits palette from parent)
+        help_label = QtWidgets.QLabel(
+            "<b>Controls:</b><br>"
+            "- Show plot context menu: <i>Right-click on plot area</i><br>"
+            "- Add ROI:<br>"
+            "&nbsp;&nbsp;• Ellipse ROI: <i>Alt + Left-click</i> (or via context menu)<br>"
+            "&nbsp;&nbsp;• Polyline ROI: <i>Shift + Left-click</i> (or via context menu)<br>"
+            "- Delete ROI: <i>Right-click on selected ROI in top-right display</i><br>"
+            "- Show/Hide Image histogram: <i>Double-click plot area</i><br>"
+        )
+        help_label.setWordWrap(True)
+
+        inner_widget = QtWidgets.QWidget()
+        inner_layout = QtWidgets.QVBoxLayout(inner_widget)
+        inner_layout.addWidget(help_label)
+        inner_layout.addStretch()
+
+        self.content_area.setWidget(inner_widget)
+        self.content_area.setWidgetResizable(True)
+
+        # Main layout
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(0)
+        layout.addWidget(self.toggle_button)
+        layout.addWidget(self.content_area)
+
+        # Smooth expand/collapse animation
+        self.animation = QtCore.QPropertyAnimation(self.content_area, b"maximumHeight")
+        self.animation.setDuration(200)
+        self.animation.setEasingCurve(QtCore.QEasingCurve.OutCubic)
+
+    def on_toggled(self, checked):
+        self.toggle_button.setArrowType(QtCore.Qt.DownArrow if checked else QtCore.Qt.RightArrow)
+        content_height = self.content_area.sizeHint().height()
+
+        self.animation.setStartValue(self.content_area.maximumHeight())
+        self.animation.setEndValue(content_height if checked else 0)
+        self.animation.start()
+
+class EvalWindow(QtWidgets.QWidget):
+    def __init__(self, tracker_routine, add_roi_callback, parent=None):
+        super().__init__(parent)
+        self.tracker_routine = tracker_routine
+        self.add_roi_callback = add_roi_callback
+
+        self.setWindowTitle("Cell Measurements")
+        self.resize(1200, 800)
+
+        main_layout = QtWidgets.QHBoxLayout(self)
+
+        # Left panel - controls
+        control_widget = QtWidgets.QWidget()
+        control_layout = QtWidgets.QVBoxLayout(control_widget)
+
+        # Measurement type dropdown
+        self.measurement_box = QtWidgets.QComboBox()
+        self.measurement_box.addItems(["mean", "std", "median", "sum", "df/dt"])
+        control_layout.addWidget(QtWidgets.QLabel("Measurement Type:"))
+        control_layout.addWidget(self.measurement_box)
+
+        # Frames spinbox
+        self.frames_spin = QtWidgets.QSpinBox()
+        self.frames_spin.setRange(1, 10000)
+        self.frames_spin.setValue(100)
+        control_layout.addWidget(QtWidgets.QLabel("Number of frames:"))
+        control_layout.addWidget(self.frames_spin)
+
+        # Min pixels spinbox
+        self.min_pixels_spin = QtWidgets.QSpinBox()
+        self.min_pixels_spin.setRange(1, 100000)
+        self.min_pixels_spin.setValue(20)
+        control_layout.addWidget(QtWidgets.QLabel("Min pixels per ROI:"))
+        control_layout.addWidget(self.min_pixels_spin)
+
+        # Layer selection with "All" option
+        self.layer_list = QtWidgets.QListWidget()
+        self.layer_list.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
+
+        # Add "All" option (checkable)
+        all_item = QtWidgets.QListWidgetItem("All")
+        all_item.setFlags(all_item.flags() | QtCore.Qt.ItemIsUserCheckable)
+        all_item.setCheckState(QtCore.Qt.Checked)  # default to checked for convenience
+        self.layer_list.addItem(all_item)
+
+        # Add layers as checkable items
+        for layer_idx in sorted(self.tracker_routine.layer_masks.keys()):
+            item = QtWidgets.QListWidgetItem(str(layer_idx))
+            item.setFlags(item.flags() | QtCore.Qt.ItemIsUserCheckable)
+            item.setCheckState(QtCore.Qt.Checked)  # default checked
+            self.layer_list.addItem(item)
+
+        control_layout.addWidget(QtWidgets.QLabel("Select Layers:"))
+        control_layout.addWidget(self.layer_list)
+
+        control_layout.addStretch()
+        main_layout.addWidget(control_widget, 0)
+
+        # Right panel - matplotlib canvas
+        self.figure, self.ax = plt.subplots(figsize=(8, 6))
+        self.canvas = FigureCanvas(self.figure)
+        self.canvas.mpl_connect("pick_event", self.on_pick)
+        main_layout.addWidget(self.canvas, 1)
+
+        self.results = {}
+
+        # Connect controls to update routine params
+        self.measurement_box.currentIndexChanged.connect(self.update_routine_params)
+        self.frames_spin.valueChanged.connect(self.update_routine_params)
+        self.min_pixels_spin.valueChanged.connect(self.update_routine_params)
+        self.layer_list.itemChanged.connect(self.on_layer_item_changed)
+
+        # Initialize routine params and activate evaluation mode
+        self.update_routine_params()
+
+        # # Timer for live plot updates
+        # self.plot_timer = QtCore.QTimer(self)
+        # self.plot_timer.timeout.connect(self.calculate_and_plot)
+        # self.plot_timer.start(500)  # update plot every 500 ms
+
+
+
+        self.accumulated_traces = {}  # store full ongoing traces for each ROI
+        self.last_trace_lengths = {}  # track last length of trace stored for each ROI
+
+        # timer for live updates, every 500 ms
+        self.plot_timer = QtCore.QTimer(self)
+        self.plot_timer.timeout.connect(self.update_accumulated_traces_and_plot)
+        self.plot_timer.start(500)
+
+    def update_accumulated_traces_and_plot(self):
+        new_measurements = self.tracker_routine.latest_measurements
+        measurement = self.tracker_routine.eval_measurement_type
+
+        print(f"measurements {new_measurements}")
+        # Append new data points for each ROI
+        for roi_key, data in new_measurements.items():
+            new_trace = data["trace"]
+
+            if roi_key not in self.accumulated_traces:
+                # first time seeing this ROI: initialize
+                self.accumulated_traces[roi_key] = list(new_trace)
+                self.last_trace_lengths[roi_key] = len(new_trace)
+            else:
+                old_len = self.last_trace_lengths[roi_key]
+                # new_trace length might be equal or smaller (rolling window), append only new points
+                if len(new_trace) > old_len:
+                    append_vals = new_trace[old_len:]
+                    self.accumulated_traces[roi_key].extend(append_vals)
+                    self.last_trace_lengths[roi_key] = len(new_trace)
+                else:
+                    # Rolling window scenario, assume new_trace is a sliding window of length n_frames
+                    # To handle this, overwrite the last n points in accumulated trace:
+                    n = len(new_trace)
+                    self.accumulated_traces[roi_key][-n:] = new_trace
+                    self.last_trace_lengths[roi_key] = n
+
+        # Now plot all accumulated traces
+        self.ax.clear()
+        for roi_key, trace_list in self.accumulated_traces.items():
+            self.ax.plot(trace_list, picker=5)
+
+        self.ax.set_title(f"Live traces ({measurement})")
+        self.ax.set_xlabel("Frame (cumulative)")
+        self.ax.set_ylabel(measurement)
+
+        # Optionally expand x-axis to fit all points
+        max_len = max(len(t) for t in self.accumulated_traces.values()) if self.accumulated_traces else 100
+        self.ax.set_xlim(0, max_len)
+
+        self.canvas.draw()
+
+
+    def on_layer_item_changed(self, item):
+        if item.text() == "All":
+            # When "All" toggled, select/deselect all layers accordingly
+            check_state = item.checkState()
+            for i in range(1, self.layer_list.count()):
+                layer_item = self.layer_list.item(i)
+                layer_item.setCheckState(check_state)
+        else:
+            # Update "All" checkbox based on other layers
+            all_checked = True
+            for i in range(1, self.layer_list.count()):
+                if self.layer_list.item(i).checkState() != QtCore.Qt.Checked:
+                    all_checked = False
+                    break
+            all_item = self.layer_list.item(0)
+            all_item.setCheckState(QtCore.Qt.Checked if all_checked else QtCore.Qt.Unchecked)
+
+        self.update_routine_params()
+
+    def update_routine_params(self):
+        # Update routine parameters from GUI controls
+        self.tracker_routine.eval_measurement_type = self.measurement_box.currentText()
+        self.tracker_routine.eval_n_frames = self.frames_spin.value()
+        self.tracker_routine.eval_min_pixels = self.min_pixels_spin.value()
+
+        all_checked = self.layer_list.item(0).checkState() == QtCore.Qt.Checked
+        if all_checked:
+            self.tracker_routine.eval_layer_indices = "all"
+        else:
+            selected_layers = []
+            for i in range(1, self.layer_list.count()):
+                item = self.layer_list.item(i)
+                if item.checkState() == QtCore.Qt.Checked:
+                    try:
+                        selected_layers.append(int(item.text()))
+                    except ValueError:
+                        pass
+            self.tracker_routine.eval_layer_indices = selected_layers if selected_layers else []
+
+        # Activate eval mode so routine does calculation on incoming frames
+        self.tracker_routine.eval_active = True
+
+    def calculate_and_plot(self):
+        # Read the latest measurements calculated by the routine
+
+        print("yea")
+
+
+        self.results = self.tracker_routine.latest_measurements
+        self.ax.clear()
+
+        if not self.results:
+            self.ax.set_title("No measurement data available")
+            self.canvas.draw()
+            return
+
+        measurement = self.tracker_routine.eval_measurement_type
+        for (layer_idx, label_id), data in self.results.items():
+            line, = self.ax.plot(data["trace"], picker=5)
+            line._roi_key = (layer_idx, label_id)
+
+        self.ax.set_title(f"Traces ({measurement})")
+        self.ax.set_xlabel("Frame")
+        self.ax.set_ylabel(measurement)
+        self.canvas.draw()
+
+    def on_pick(self, event):
+        # Handle user clicking a trace
+        line = event.artist
+        if hasattr(line, "_roi_key"):
+            roi_key = line._roi_key
+            coords = self.results.get(roi_key, {}).get("coords", None)
+            if coords is not None:
+                self.add_roi_callback(coords)
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "ROI Added",
+                    f"Added ROI from layer {roi_key[0]}, label {roi_key[1]}"
+                )
+
+
+class CustomViewBox(pg.ViewBox):
+    """Custom ViewBox with a per-plot context menu."""
+    def __init__(self, parent_plot, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.parent_plot = parent_plot
+        self.setMenuEnabled(True)  # disable default pyqtgraph menu
+
+    def raiseContextMenu(self, ev):
+        # Only show menu if right-click occurred inside this plot
+        if not self.sceneBoundingRect().contains(ev.scenePos()):
+            return
+
+        # Map click to data coordinates
+        mouse_point = self.mapSceneToView(ev.scenePos())
+        y, x = int(mouse_point.x()), int(mouse_point.y())
+        zoom_factor = self.parent_plot.get_zoom_factor()
+
+        menu = QtWidgets.QMenu()
+
+        # ROI submenu
+        roi_menu = menu.addMenu("Add ROI")
+        poly_action = roi_menu.addAction("Polygon ROI")
+        ellipse_action = roi_menu.addAction("Ellipse ROI")
+
+        menu.addSeparator()
+        toggle_mask_action = menu.addAction("Toggle Mask Overlay")
+        reset_zoom_action = menu.addAction("Reset Zoom")
+        segment_layer_action = menu.addAction(f"Segment Layer {self.parent_plot.layer_idx}")
+        # save_image_action = menu.addAction("Save Image")
+
+        action = menu.exec(ev.screenPos().toPoint())
+
+        # ROI actions
+        if action == poly_action:
+            if self.parent_plot.on_roi_selected:
+                self.parent_plot.on_roi_selected(
+                    layer=self.parent_plot.layer_idx,
+                    x=x,
+                    y=y,
+                    roi_style="poly_line",
+                    zoom_factor=zoom_factor
+                )
+        elif action == ellipse_action:
+            if self.parent_plot.on_roi_selected:
+                self.parent_plot.on_roi_selected(
+                    layer=self.parent_plot.layer_idx,
+                    x=x,
+                    y=y,
+                    roi_style="ellipse",
+                    zoom_factor=zoom_factor
+                )
+
+        # Other actions
+        elif action == toggle_mask_action:
+            self.parent_plot.set_mask_visible()
+        elif action == reset_zoom_action:
+            self.parent_plot.reset_zoom()
+        elif action == segment_layer_action:
+            self.parent_plot.request_segmentation()
+        # elif action == save_image_action:
+        #     self.parent_plot.save_image_dialog()
 
 class ImagePlot:
-    def __init__(self, layer_idx, on_roi_selected=None, on_histogram_selected=None):
+    def __init__(self, layer_idx, on_roi_selected=None, on_histogram_selected=None, on_segment_layer = None):
         self.layer_idx = layer_idx
         self.on_roi_selected = on_roi_selected
         self.on_histogram_selected = on_histogram_selected
+        self.on_segment_layer = on_segment_layer
         self.no_init = True
 
-        self.plot_item = pg.PlotItem()
+        self.vb = CustomViewBox(parent_plot=self)
+        self.plot_item = pg.PlotItem(viewBox=self.vb)
+
+        # self.plot_item = pg.PlotItem()
         # self.vb = CustomViewBox(parent=self)
         # self.plot_item = pg.PlotItem(viewBox=self.vb)
         self.image_item = pg.ImageItem()
@@ -1273,7 +2251,67 @@ class ImagePlot:
         self.plot_item.addItem(self.text)
         self.text.setPos(0, 0)
 
+    # -------------------------
+    # Context Menu actions
+    # -------------------------
+    def set_mask_visible(self):
+        self.mask_visible = not self.mask_visible
+        self.mask_item.setVisible(self.mask_visible)
 
+    def reset_zoom(self):
+        self.plot_item.vb.autoRange()
+
+    def request_segmentation(self):
+        if self.on_segment_layer:
+            self.on_segment_layer(self.layer_idx)
+
+    # def save_image_dialog(self):
+    #     img = self.image_item.image
+    #     if img is None:
+    #         return
+    #     path, _ = QtWidgets.QFileDialog.getSaveFileName(
+    #         None, "Save Image", "", "PNG Files (*.png);;All Files (*)"
+    #     )
+    #     if path:
+    #         imageio.imwrite(path, img)
+
+    # def trigger_add_roi(self, roi_style):
+    #     """Trigger ROI selection callback from context menu."""
+    #     vb = self.plot_item.vb
+    #     view_range = vb.viewRange()
+    #     center_x = int((view_range[0][0] + view_range[0][1]) / 2)
+    #     center_y = int((view_range[1][0] + view_range[1][1]) / 2)
+    #
+    #     if self.on_roi_selected:
+    #         self.on_roi_selected(
+    #             layer=self.layer_idx,
+    #             x=center_x,
+    #             y=center_y,
+    #             roi_style=roi_style,
+    #             zoom_factor=self.get_zoom_factor()
+    #         )
+
+
+
+    ### Other functions ###
+    def get_zoom_factor(self):
+        """Calculate zoom factor based on current view range and image size."""
+        img = self.image_item.image
+        if img is None:
+            return 1.0  # Default zoom if no image set yet
+
+        img_height, img_width = img.shape[:2]
+        view_range = self.plot_item.vb.viewRange()
+        x_range, y_range = view_range[0], view_range[1]
+
+        current_width = x_range[1] - x_range[0]
+        current_height = y_range[1] - y_range[0]
+
+        zoom_x = img_width / current_width if current_width != 0 else 1.0
+        zoom_y = img_height / current_height if current_height != 0 else 1.0
+
+        # Return average zoom factor (can be adjusted to min/max as needed)
+        return (zoom_x + zoom_y) / 2
 
     # def handle_mouse_click(self, event):
     #     if event.button() != QtCore.Qt.LeftButton:
@@ -1311,6 +2349,7 @@ class ImagePlot:
         pos = event.scenePos()
         mouse_point = self.plot_item.vb.mapSceneToView(pos)
         y, x = int(mouse_point.x()), int(mouse_point.y())
+        zoom_factor = self.get_zoom_factor()
 
         if event.double():
             if self.on_histogram_selected:
@@ -1322,7 +2361,7 @@ class ImagePlot:
                     self.on_roi_selected(layer=self.layer_idx, x=x, y=y, roi_style='poly_line')
             elif modifiers == QtCore.Qt.AltModifier:
                 if self.on_roi_selected:
-                    self.on_roi_selected(layer=self.layer_idx, x=x, y=y, roi_style='ellipse')
+                    self.on_roi_selected(layer=self.layer_idx, x=x, y=y, roi_style='ellipse', zoom_factor=zoom_factor)
 
     def connect_scene_click(self):
         scene = self.plot_item.scene()
@@ -1362,6 +2401,7 @@ class ImagePlot:
     def add_roi_to_plot(self, roi):
         self.plot_item.getViewBox().addItem(roi)
         # self.plot_item.addItem(roi.label)
+
 
 
 
@@ -1712,6 +2752,7 @@ class ImageWidget(QtWidgets.QGroupBox):    #
             roi.setSize((size[1], size[0]))
             roi.setAngle(angle_degree)
 
+
         elif roi_style == "poly_line":
 
             # print(f"contours: {contours}")
@@ -1890,11 +2931,12 @@ class ImageWidget(QtWidgets.QGroupBox):    #
 #
 #         self.sigRegionChanged.connect(self.position_changed)
 class EllipseRoi(pg.EllipseROI):
-    def __init__(self, layer_idx: int, idx: int, image_plot: ImagePlot, update_callback: Callable, *args, **kwargs):
+    def __init__(self, layer_idx: int, idx: int, image_plot: ImagePlot, update_callback: Callable,  *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.layer_idx = layer_idx
         self.idx = idx
         self.image_plot = image_plot
+        self.maxBounds = self.image_plot.image_item.boundingRect()
         self.update_callback = update_callback  # ✅ Store the callback
 
         self.setPen(pg.mkPen(color=get_roi_color(self.idx), width=2))
@@ -1905,7 +2947,7 @@ class EllipseRoi(pg.EllipseROI):
 
         self.label_visible = True
 
-        # 🔁 Call the central callback when ROI is done changing
+        # Call the central callback when ROI is done changing
         self.sigRegionChangeFinished.connect(self._notify_parent)
         self.sigRegionChanged.connect(self._update_label_position)
         self._update_label_position()  # Set initial position
@@ -1938,15 +2980,16 @@ class EllipseRoi(pg.EllipseROI):
         NextGenTrackerRoutine.instance().roi_thresholds[(self.layer_idx, self.idx)] = value
 
 
+
 class PolyLineRoi(pg.PolyLineROI):
 
     def __init__(self, layer_idx: int, idx: int, image_plot: ImagePlot, points: list, closed: bool =True, **kwargs):
         super().__init__(points, closed=closed, **kwargs)
+
         self.layer_idx = layer_idx
         self.idx = idx
         self.image_plot = image_plot
-
-        # self.sigRegionChangeFinished.connect(self.image_widget.roi_updated) ### ??? makes sense here ?
+        self.maxBounds = self.image_plot.image_item.boundingRect()
         self.setPen(pg.mkPen(color=get_roi_color(self.idx), width=2))
 
 
@@ -1956,6 +2999,28 @@ class PolyLineRoi(pg.PolyLineROI):
 
         # Show/hide toggle support
         self.label_visible = True
+
+        # Remove handle interaction, maybe this can be done better... but it works
+        for handle_dict in self.handles:
+            handle = handle_dict['item']
+            handle.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+            handle.isMoving =False
+            handle.mouseClickEvent = lambda ev: ev.ignore()
+            handle.mouseDragEvent = lambda ev: ev.ignore()
+            handle.movePoint = lambda pos, modifiers=None, finish=True: None
+
+
+
+        self.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
+
+        if hasattr(self, 'setMovable'):
+            self.setMovable(False)
+
+    def mouseClickEvent(self, ev):
+        ev.ignore()
+
+    def mouseDragEvent(self, ev):
+        ev.ignore()
 
     def set_visible(self):
         self.setVisible(True)
@@ -1992,8 +3057,6 @@ class PolyLineRoi(pg.PolyLineROI):
         self.label.setVisible(False)
         self.setVisible(False)
 
-    # def position_changed(self):
-    #     self.label.setPos(self.pos())
 
     def update_threshold(self, value: int):
         NextGenTrackerRoutine.instance().roi_thresholds[(self.layer_idx, self.idx)] = value
@@ -2018,4 +3081,21 @@ class PolyLineRoi(pg.PolyLineROI):
 
 #Comment from 26.06 : I changed the x,y click coordinates back to the original (now the image is flipped again)
 #New traceback error appeared in ellipse handling (        self.image_plot.getViewBox().addItem(roi) was moved ? maybe need to be done before setting size etc. )
+
+
+#TODO 04.08
+# 1. Fix ROI threshold sliders back to original list implementation
+# 2. Remove handles from Polyline ROI
+# 3. Make custom viewbox to add ROI (+help box with shortcuts)
+# -> Make single layer cell segmentation
+# 5. Fix layout orientations
+# 6. Fix syscon file to new version layout
+# 7. Make new selection window based on std and other quality measurements (experimental)
+# 8. Make sure duration and diameter are passed correctly for sci conenction
+# 9. Get correct values for z layer and pixel to µm transformation
+# 10. Clean up unnecessary code + comment
+# 11. Upload button/ wait for trigger (SCI -> duration diameter)
+# 12. Make roi bounded to plot + make elipsoid zoom and click dependend
+
+
 

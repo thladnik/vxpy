@@ -6,7 +6,7 @@ Includes a manager for changing of configurations
 import os
 from typing import Any, Dict, Union
 
-import qdarktheme
+# import qdarktheme
 import yaml
 from PySide6 import QtWidgets
 
@@ -82,7 +82,7 @@ def run_configuration_manager(_config_path: str) -> None:
         _app = QtWidgets.QApplication([])
 
     # Set theme
-    qdarktheme.setup_theme('dark')
+    #qdarktheme.setup_theme('dark')
 
     # Load configuration
     set_configuration_data(load_configuration(_config_path))

@@ -60,119 +60,6 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
 
     frame_name: str = 'roi_activity_tracker_frame'
 
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-    #
-    #     self.mode = "mean"
-    #     self.image_plots = {}
-    #     self.layer_num = SysConRoutine.instance().num_layers
-    #
-    #     # --- Create splitter between left plot area and right control panel ---
-    #     splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
-    #     self.central_widget.setLayout(QtWidgets.QVBoxLayout())  # Root layout
-    #     self.central_widget.layout().addWidget(splitter)
-    #
-    #     # === Left Side: Placeholder for future plots ===
-    #     self.image_tiles = pg.GraphicsLayoutWidget()
-    #     splitter.addWidget(self.image_tiles)
-    #
-    #     # === Right Side: Container with vertical layout ===
-    #     right_container = QtWidgets.QWidget()
-    #     right_layout = QtWidgets.QVBoxLayout(right_container)
-    #     splitter.addWidget(right_container)
-    #
-    #     # --- Top Right: Scrollable ROI control section ---
-    #     self.roi_group_box = QtWidgets.QGroupBox("ROI Controls")
-    #     self.roi_group_box.setLayout(QtWidgets.QVBoxLayout())
-    #
-    #     self.scroll_area = QtWidgets.QScrollArea()
-    #     self.scroll_area.setWidgetResizable(True)
-    #     self.scroll_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-    #     self.scroll_area.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
-    #     self.scroll_widget = QtWidgets.QWidget()
-    #     self.scroll_layout = QtWidgets.QGridLayout(self.scroll_widget)
-    #     self.scroll_area.setWidget(self.scroll_widget)
-    #     self.roi_group_box.layout().addWidget(self.scroll_area)
-    #
-    #     # --- Bottom Right: Settings and Buttons ---
-    #     button_container = QtWidgets.QWidget()
-    #     button_layout = QtWidgets.QVBoxLayout(button_container)
-    #
-    #     # Label
-    #     label = QtWidgets.QLabel("SysCon export and controls.")
-    #     button_layout.addWidget(label)
-    #
-    #     # Laser Intensity
-    #     intensity_layout = QtWidgets.QHBoxLayout()
-    #     intensity_label = QtWidgets.QLabel("Set all laser intensity:")
-    #     self.intensity_field = QtWidgets.QLineEdit()
-    #     self.intensity_field.setPlaceholderText("%")
-    #     intensity_layout.addWidget(intensity_label)
-    #     intensity_layout.addWidget(self.intensity_field)
-    #     button_layout.addLayout(intensity_layout)
-    #     self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
-    #
-    #     # Toggle all
-    #     self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
-    #     self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
-    #     button_layout.addWidget(self.toggle_all_button)
-    #
-    #     # Duration
-    #     duration_layout = QtWidgets.QHBoxLayout()
-    #     duration_label = QtWidgets.QLabel("Duration:")
-    #     self.duration_field = QtWidgets.QLineEdit()
-    #     self.duration_field.setPlaceholderText("ms")
-    #     duration_layout.addWidget(duration_label)
-    #     duration_layout.addWidget(self.duration_field)
-    #     button_layout.addLayout(duration_layout)
-    #
-    #     # Scanning mode
-    #     scanning_layout = QtWidgets.QHBoxLayout()
-    #     scanning_label = QtWidgets.QLabel("Scanning mode:")
-    #     self.scanning_combo = QtWidgets.QComboBox()
-    #     self.scanning_combo.addItems(["spiral scanning", "parallel scanning"])
-    #     scanning_layout.addWidget(scanning_label)
-    #     scanning_layout.addWidget(self.scanning_combo)
-    #     button_layout.addLayout(scanning_layout)
-    #
-    #     # Diameter field
-    #     self.diameter_widget = QtWidgets.QWidget()
-    #     diameter_layout = QtWidgets.QHBoxLayout(self.diameter_widget)
-    #     diameter_label = QtWidgets.QLabel("Diameter:")
-    #     self.diameter_field = QtWidgets.QLineEdit()
-    #     self.diameter_field.setPlaceholderText("µm")
-    #     self.diameter_field.editingFinished.connect(self.update_all_circle_diameters)
-    #     diameter_layout.addWidget(diameter_label)
-    #     diameter_layout.addWidget(self.diameter_field)
-    #     button_layout.addWidget(self.diameter_widget)
-    #     self.update_diameter_visibility()
-    #     self.scanning_combo.currentTextChanged.connect(self.update_diameter_visibility)
-    #
-    #     # Write button
-    #     self.write_button = QtWidgets.QPushButton("Write SysCon File")
-    #     self.write_button.clicked.connect(self.write_SysCon_file)
-    #     button_layout.addWidget(self.write_button)
-    #
-    #
-    #     vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
-    #     # Top: Scrollable ROI controls
-    #     vertical_splitter.addWidget(self.roi_group_box)
-    #     # Bottom: Button/control container
-    #     vertical_splitter.addWidget(button_container)
-    #     # Optional: Set initial size ratio
-    #     vertical_splitter.setStretchFactor(0, 3)  # Top
-    #     vertical_splitter.setStretchFactor(1, 1)  # Bottom
-    #     right_layout.addWidget(vertical_splitter)
-    #
-    #
-    #     self.connect_to_timer(self.check_state)
-    #
-    #     self.global_laser_intensity = 0.0
-    #     self.laser_prep_list = []
-    #
-    #     # Store tuples: (checkbox, intensity_edit, layer_idx, roi_idx)
-    #     self.roi_widgets = []
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -271,8 +158,8 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         diameter_layout = QtWidgets.QHBoxLayout(self.diameter_widget)
         diameter_label = QtWidgets.QLabel("Diameter:")
         self.diameter_field = QtWidgets.QLineEdit()
-        self.diameter_field.setPlaceholderText("µm")
-        diameter_unit = QtWidgets.QLabel("µm")
+        self.diameter_field.setPlaceholderText("pixel")
+        diameter_unit = QtWidgets.QLabel("pixel")
         diameter_layout.addWidget(diameter_label)
         diameter_layout.addStretch(1)
         diameter_layout.addWidget(self.diameter_field)
@@ -286,77 +173,13 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         self.write_button = QtWidgets.QPushButton("Write SysCon File")
         self.write_button.clicked.connect(self.write_SysCon_file)
         button_layout.addWidget(self.write_button)
-        # Label at top
-        # label = QtWidgets.QLabel("SysCon export and controls.")
-        # button_layout.addWidget(label)
-        #
-        # # --- Form layout for all labeled fields ---
-        # form_layout = QtWidgets.QFormLayout()
-        # form_layout.setLabelAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        #
-        # # Laser Intensity (%)
-        # intensity_widget = QtWidgets.QWidget()
-        # intensity_layout = QtWidgets.QHBoxLayout(intensity_widget)
-        # intensity_layout.setContentsMargins(0, 0, 0, 0)
-        # self.intensity_field = QtWidgets.QLineEdit()
-        # self.intensity_field.setPlaceholderText("%")
-        # intensity_unit = QtWidgets.QLabel("%")
-        # intensity_layout.addWidget(self.intensity_field)
-        # intensity_layout.addWidget(intensity_unit)
-        # form_layout.addRow("Laser Intensity:", intensity_widget)
-        # self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
-        #
-        # # Duration (ms)
-        # duration_widget = QtWidgets.QWidget()
-        # duration_layout = QtWidgets.QHBoxLayout(duration_widget)
-        # duration_layout.setContentsMargins(0, 0, 0, 0)
-        # self.duration_field = QtWidgets.QLineEdit()
-        # self.duration_field.setPlaceholderText("ms")
-        # duration_unit = QtWidgets.QLabel("ms")
-        # duration_layout.addWidget(self.duration_field)
-        # duration_layout.addWidget(duration_unit)
-        # form_layout.addRow("Duration:", duration_widget)
-        #
-        # # Scanning Mode combo
-        # self.scanning_combo = QtWidgets.QComboBox()
-        # self.scanning_combo.addItems(["spiral scanning", "parallel scanning"])
-        # form_layout.addRow("Scanning mode:", self.scanning_combo)
-        #
-        # # Diameter (µm)
-        # diameter_widget = QtWidgets.QWidget()
-        # diameter_layout = QtWidgets.QHBoxLayout(diameter_widget)
-        # diameter_layout.setContentsMargins(0, 0, 0, 0)
-        # self.diameter_field = QtWidgets.QLineEdit()
-        # self.diameter_field.setPlaceholderText("µm")
-        # diameter_unit = QtWidgets.QLabel("µm")
-        # diameter_layout.addWidget(self.diameter_field)
-        # diameter_layout.addWidget(diameter_unit)
-        # form_layout.addRow("Diameter:", diameter_widget)
-        # self.diameter_field.editingFinished.connect(self.update_all_circle_diameters)
-        #
-        # # Add the form layout to the button_layout
-        # button_layout.addLayout(form_layout)
-        #
-        # # --- Buttons at the bottom ---
-        # button_box = QtWidgets.QWidget()
-        # button_box_layout = QtWidgets.QVBoxLayout(button_box)
-        # button_box_layout.setContentsMargins(0, 10, 0, 0)  # Add some spacing on top
-        #
-        # self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
-        # self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
-        # button_box_layout.addWidget(self.toggle_all_button)
-        #
-        # self.write_button = QtWidgets.QPushButton("Write SysCon File")
-        # self.write_button.clicked.connect(self.write_SysCon_file)
-        # button_box_layout.addWidget(self.write_button)
-        #
-        # button_layout.addWidget(button_box)
-        #
-        # # Connect scanning mode changes after creation
-        # self.scanning_combo.currentTextChanged.connect(self.update_diameter_visibility)
-        #
-        # # Update diameter visibility on startup
-        # self.update_diameter_visibility()
+
+        # --- Upload / Wait for Trigger Button ---
+
+        self.upload_button = QtWidgets.QPushButton("Upload/Wait for Trigger")
+        self.upload_button.clicked.connect(self.upload_and_wait)
+        button_layout.addWidget(self.upload_button)
+
         # === Combine Top/Bottom Right ===
         vertical_splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
         vertical_splitter.addWidget(self.roi_group_box)
@@ -684,6 +507,9 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
 
         print(f"SysCon file {writer.filename} written successfully.")
 
+    def upload_and_wait(self):
+
+        print(f"Scan mode: {self.scanning_combo}, Diameter: {self.diameter_field.text()}, Duration: {self.duration_field.text()}")
 
 class ImagePlot:
     def __init__(self, layer_idx):
@@ -978,7 +804,7 @@ class ROI:
         self.z_center: float = 0.0
         self.params = params
         self.pixel_coords: np.ndarray = np.array([])  # you can keep it simple without `field`
-        self.threshold: float = 2000
+        # self.threshold: float = 2000
         self.laser_intensity: float = 0.0
 
 
@@ -1058,7 +884,8 @@ class ROI:
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
 
-        return np.mean(activity_pixels) if len(activity_pixels) > 0 else 0 # *np.std(activity_pixels)
+        roi_activity = np.mean(activity_pixels)/1000 if len(activity_pixels) > 0 else 0 # * np.std(activity_pixels) /1000
+        return roi_activity #TODO: correct activity measurement ?
 
     def calculate_z(self):
 
