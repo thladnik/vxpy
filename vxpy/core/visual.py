@@ -644,5 +644,20 @@ class BoolAttribute(Parameter):
         Parameter.__init__(self, *args, **kwargs)
 
 
+class StringParameter(Parameter):
+    dtype = str
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, value: str):
+        self._data = value
+
+
 # Complete list of all visual bases
 visual_bases = (AbstractVisual, PlanarVisual, SphericalVisual, PlainVisual, )

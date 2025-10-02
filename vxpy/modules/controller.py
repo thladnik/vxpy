@@ -344,7 +344,9 @@ class Controller(vxprocess.AbstractProcess):
         kwargs.update(self._init_params)
 
         # Create subprocess
-        _proc = mp.Process(target=vxprocess.run_process, name=process_name, args=(target,), kwargs=kwargs)
+        # ctx = mp.get_context('fork')
+        ctx = mp.get_context()
+        _proc = ctx.Process(target=vxprocess.run_process, name=process_name, args=(target,), kwargs=kwargs)
         self._processes[process_name] = _proc
 
         # Start subprocess

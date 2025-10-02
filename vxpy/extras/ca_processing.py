@@ -39,6 +39,7 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
     trigger: vxevent.NewDataTrigger = None
     current_layer_num: int = -1
     new_metadata: bool = False
+    attrs_written_to_file: List[str] = []
 
     def __init__(self, *args, **kwargs):
         vxroutine.WorkerRoutine.__init__(self, *args, **kwargs)
@@ -65,9 +66,6 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
                 vxattribute.ArrayAttribute(self.roi_name(layer_idx, roi_idx), (1,), vxattribute.ArrayType.float64)
                 vxattribute.ArrayAttribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', (1,),
                                            vxattribute.ArrayType.float64)
-
-                # Register with plotter
-                vxattribute.write_to_file(self, self.roi_name(layer_idx, roi_idx))
 
             # Create trigger attribute
             vxattribute.ArrayAttribute(self.trigger_name(layer_idx), (1,), vxattribute.ArrayType.uint8)
@@ -115,27 +113,41 @@ class RoiActivityTrackerRoutine(vxroutine.WorkerRoutine):
             if layer_idx != current_layer_idx or len(slice_params) == 0:
                 continue
 
+            roi_str = self.roi_name(layer_idx, roi_idx)
+
             # Get ROI data
             _slice = pg.affineSlice(preprocessed_frame, slice_params[0], slice_params[2], slice_params[1], (0, 1))
 
             # Calculate activity
             activity = (np.std(_slice) * np.mean(_slice)) / 1000  # TODO: ???
             # Write activity attribute
-            vxattribute.write_attribute(self.roi_name(layer_idx, roi_idx), activity)
+            vxattribute.write_attribute(roi_str, activity)
 
             # Calculate zscore
             _, _, past_activities = vxattribute.read_attribute(self.roi_name(layer_idx, roi_idx), last=40)
             past_activities = past_activities.flatten()
             current_zscore = scipy.stats.zmap(past_activities[-1], past_activities[:-1])
-            vxattribute.write_attribute(f'{self.roi_name(layer_idx, roi_idx)}_zscore', current_zscore)
+            vxattribute.write_attribute(f'{roi_str}_zscore', current_zscore)
 
             # Threshold exceeded for this ROI?
             # over_thresh = current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
             # over_thresh = over_thresh or current_zscore > self.roi_thresholds[(layer_idx, roi_idx)]
             over_thresh = over_thresh or activity > self.roi_thresholds[(layer_idx, roi_idx)]
 
+            # Add attribute to be written to file
+            if roi_str not in self.attrs_written_to_file:
+                # Register with plotter
+                vxattribute.write_to_file(self, roi_str)
+                self.attrs_written_to_file.append(roi_str)
+
         # Write trigger
-        vxattribute.write_attribute(self.trigger_name(current_layer_idx), int(over_thresh))
+        trigger_str = self.trigger_name(current_layer_idx)
+        vxattribute.write_attribute(trigger_str, int(over_thresh))
+
+        # Add attribute to be written to file
+        if trigger_str not in self.attrs_written_to_file:
+            vxattribute.write_to_file(self, trigger_str)
+            self.attrs_written_to_file.append(trigger_str)
 
     @staticmethod
     def roi_name(layer_idx: int, roi_idx: int) -> str:
@@ -218,12 +230,15 @@ class RoiActivityTrackerWidget(vxui.WorkerAddonWidget):
             RoiActivityTrackerRoutine.instance().new_metadata = False
 
         for layer_idx in range(self.current_num_layers):
-            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}')
+            idx, time, frame = vxattribute.read_attribute(f'{self.frame_name}_{layer_idx}', last=10)
+
+            frame = np.mean(frame, axis=0)
 
             if len(idx) == 0:
                 return
 
-            self.image_widgets[layer_idx].update_frame(frame[0])
+            # self.image_widgets[layer_idx].update_frame(frame[0])
+            self.image_widgets[layer_idx].update_frame(frame)
 
 
 class ImageWidget(QtWidgets.QGroupBox):
@@ -242,7 +257,7 @@ class ImageWidget(QtWidgets.QGroupBox):
         self.controls.setLayout(QtWidgets.QGridLayout())
 
         # Add plot
-        self.image_plot = self.graphics_widget.addPlot(0, 0, 1, 10)
+        self.image_plot = self.graphics_widget.addPlot(0, 0)
         # Set up plot image item
         self.image_item = pg.ImageItem()
         self.image_plot.invertY(True)
@@ -253,6 +268,11 @@ class ImageWidget(QtWidgets.QGroupBox):
         self.text = pg.TextItem(f'Layer {self.layer_idx}', color=(255, 0, 0))
         self.image_plot.addItem(self.text)
         self.text.setPos(0, 0)
+
+        self.histogram = pg.HistogramLUTItem()
+        self.histogram.setImageItem(self.image_item)
+        self.graphics_widget.addItem(self.histogram, 0, 1)
+        self.no_init = True
 
         # Add ROI
         self.rois: List[Roi] = []
@@ -302,7 +322,13 @@ class ImageWidget(QtWidgets.QGroupBox):
         self.controls.layout().addWidget(thresh, roi_idx, 0)
 
     def update_frame(self, frame: np.ndarray):
-        self.image_item.setImage(frame)
+        if self.no_init:
+            immin, immax = np.min(frame), np.max(frame)
+            self.histogram.setHistogramRange(immin, immax)
+            self.histogram.setLevels(immin, immax)
+            self.no_init = False
+
+        self.image_item.setImage(frame, autoLevels=False)
 
     def roi_updated(self, roi: Roi):
         log.debug(f'Update ROI for layer {self.layer_idx}')

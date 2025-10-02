@@ -322,6 +322,7 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
         # Make add_buffer_attribute method accessible for RPCs
         self.exposed.append(PlottingWindow.add_buffer_attribute)
+        self.exposed.append(PlottingWindow.remove_buffer_attribute)
 
         # Add range widget
         self.topbar_widget = QtWidgets.QWidget()
@@ -505,56 +506,6 @@ class PlottingWindow(WindowWidget, ExposedWidget):
                     plot_item.hide()
         return _toggle
 
-    def _subplot(self, axis_name, units=None):
-
-        if units is None:
-            units = 'au'
-
-        # Return subplot if it exists
-        if axis_name in self.plot_items:
-            return self.plot_items[axis_name]
-
-        # Else create subplot
-
-        # Hide x axis for previously added subplot
-        if len(self.plot_items) > 0:
-            self.plot_items[list(self.plot_items)[-1]].hideAxis('bottom')
-
-        # Add new subplot
-        new_plot: pg.PlotItem = self.layout_widget.addPlot(col=0, row=len(self.plot_items))
-        new_plot.getViewBox().enableAutoRange(x=False)
-        new_plot.setLabel('bottom', text='Time', units='s')
-        new_plot.setLabel('left', text=axis_name, units=units)
-        new_plot.getAxis('left').setWidth(75)
-        new_plot.sigXRangeChanged.connect(self._xrange_changed)
-        self.plot_items[axis_name] = new_plot
-
-        # Add subplot toggle option
-        self._add_subplot_toggle(axis_name)
-
-        # Add legend for new plot
-        new_legend = pg.LegendItem()
-        new_legend.setParentItem(new_plot)
-        new_legend.setOffset([80, 1])
-        new_legend.setBrush(pg.mkBrush(color=(0, 0, 0, 180)))
-        self.legend_items[axis_name] = new_legend
-
-        return new_plot
-
-    def _dataitem(self, subplot, attr_name, color):
-
-        i = len(subplot.getViewBox().addedItems)
-        if color is None:
-            color = self.colors[i]
-
-        # idcs, times, values = vxattribute.read_attribute(attr_name)
-        new_dataitem = pg.PlotDataItem([], [], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
-        subplot.getViewBox().addItem(new_dataitem)
-        # Add dataitem to dict
-        self.data_items[attr_name] = new_dataitem
-
-        return new_dataitem
-
     def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None, color=None):
 
         if attr_name in self.cache:
@@ -567,14 +518,50 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         # Determine axis name
         axis_name = axis if axis is not None else 'Default'
 
-        # Fetch subplot
-        subplot = self._subplot(axis_name, units=units)
+        # Plot item
+        if axis_name not in self.plot_items:
+            if units is None:
+                units = 'au'
 
-        # Add dataitem
-        dataitem = self._dataitem(subplot, attr_name, color)
+            # Add new subplot
+            plot_item: pg.PlotItem = self.layout_widget.addPlot(col=0, row=len(self.plot_items))
+            plot_item.getViewBox().enableAutoRange(x=False)
+            plot_item.setLabel('bottom', text='Time', units='s')
+            plot_item.setLabel('left', text=axis_name, units=units)
+            plot_item.getAxis('left').setWidth(75)
+            plot_item.sigXRangeChanged.connect(self._xrange_changed)
+            self.plot_items[axis_name] = plot_item
+
+            # Add subplot toggle option
+            self._add_subplot_toggle(axis_name)
+
+            # Add legend for new plot
+            new_legend = pg.LegendItem()
+            new_legend.setParentItem(plot_item)
+            new_legend.setOffset([80, 1])
+            new_legend.setBrush(pg.mkBrush(color=(0, 0, 0, 180)))
+            self.legend_items[axis_name] = new_legend
+
+        else:
+            plot_item = self.plot_items[axis_name]
+
+        # Data item
+        if attr_name not in self.data_items:
+            i = len(plot_item.getViewBox().addedItems)
+            if color is None:
+                color = self.colors[i]
+
+            # idcs, times, values = vxattribute.read_attribute(attr_name)
+            data_item = pg.PlotDataItem([], [], pen=pg.mkPen(color=color, style=QtCore.Qt.PenStyle.SolidLine))
+            plot_item.getViewBox().addItem(data_item)
+            # Add dataitem to dict
+            self.data_items[attr_name] = data_item
+
+        else:
+            data_item = self.data_items[attr_name]
 
         # Add dataitem to legend
-        self.legend_items[axis_name].addItem(dataitem, name)
+        self.legend_items[axis_name].addItem(data_item, name)
 
         # Add temporary datasets
         grp = self.cache.create_group(attr_name)
@@ -584,20 +571,44 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         grp.attrs['last_idx'] = -1
         grp['mt'][0] = 0.
 
+        self.update_xaxes()
+
     def remove_buffer_attribute(self, attr_name, axis=None):
+        # TODO: not working right atm
+        return
+
+        print(f'Remove {attr_name} from axis {axis}')
 
         # Determine axis name
         axis_name = axis if axis is not None else 'Default'
 
         # Fetch subplot
-        subplot = self._subplot(axis_name)
+        plot_item = self.plot_items[axis_name]
 
-        dataitem = self.data_items[attr_name]
+        # Remove data item
+        data_item = self.data_items[attr_name]
+        plot_item.getViewBox().removeItem(data_item)
+        # Remove data item from legend
+        self.legend_items[axis_name].removeItem(data_item)
+        del self.data_items[attr_name]
 
-        subplot.getViewBox().addItem(dataitem)
+        if len(plot_item.getViewBox().addedItems) == 0:
+            self.legend_items[axis_name].setParent(None)
+            self.layout_widget.ci.removeItem(plot_item)
+            plot_item.setParent(None)
+            del self.legend_items[axis_name]
+            del self.plot_items[axis_name]
 
-        # Add dataitem to legend
-        self.legend_items[axis_name].removeItem(dataitem)
+        self.update_xaxes()
+
+    def update_xaxes(self):
+
+        row_num = len(self.layout_widget.ci.items)
+        for row in range(row_num):
+            item = self.layout_widget.getItem(col=0, row=row)
+            item.hideAxis('bottom')
+
+        self.layout_widget.getItem(col=0, row=row_num-1).showAxis('bottom')
 
 
 class ProcessInfo(QtWidgets.QWidget):

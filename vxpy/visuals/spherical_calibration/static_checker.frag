@@ -5,6 +5,7 @@ uniform float u_elevation_sp; // in deg
 uniform float u_azimuth_sp; // in deg
 uniform float u_elevation_phase; // in deg
 uniform float u_azimuth_phase; // in deg
+uniform float brightness; // Rel. from 0.0 to 1.0
 
 varying float v_azimuth; // in rad
 varying float v_elevation; // in rad
@@ -22,6 +23,7 @@ void main() {
 
     // Thresholding
     float c = step(c1 * c2, 0.0);
+    c = c * brightness;
 
     // Final color
     gl_FragColor = vec4(c, c, c, 1.0);
