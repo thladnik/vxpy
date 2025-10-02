@@ -1,20 +1,13 @@
-import ctypes
-import datetime
-import json
 import select
 import socket
 import time
-from enum import Enum
-from typing import Tuple
 
 import numpy as np
 
 import vxpy.core.attribute as vxattribute
 import vxpy.core.logger as vxlogger
 import vxpy.core.routine as vxroutine
-import vxpy.core.socket_server as vxsockserv
-import vxpy.core.socket_com as vxsockcom
-
+from vxpy.utils.communication import socket_com, socket_server
 
 log = vxlogger.getLogger(__name__)
 
@@ -61,7 +54,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
 
     def initialize(self):
         try:
-            self.mdns_adv, self.ip, self.port = vxsockserv.run_mdns_advertiser('_vxpy-ssm-serv._tcp.local.', 'vxpy_01')
+            self.mdns_adv, self.ip, self.port = socket_server.run_mdns_advertiser('_vxpy-ssm-serv._tcp.local.', 'vxpy_01')
             log.info(f'Listening for clients on port {self.port}')
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -253,7 +246,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
         # signal_code, data_length = np.frombuffer(com_buffer, ctypes.c_int64)
 
         # Read signal code
-        signal_code = vxsockcom.recv_any(self.sock)
+        signal_code = socket_com.recv_any(self.sock)
 
         if signal_code == -1:
             signal = 'disconnected'
@@ -278,7 +271,7 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
         # return signal, data_buffer
 
         # Read data
-        data = vxsockcom.recv_any(self.sock)
+        data = socket_com.recv_any(self.sock)
 
         return signal, data
 
