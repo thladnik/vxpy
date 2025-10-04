@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
-"""Attribute module for data acquisition and inter-process data synchronization
-
-
+"""Attribute module for data acquisition and inter-process data synchronization.
+Defines classes and functions for managing shared data buffers and attributes in vxPy.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -17,13 +16,18 @@ import vxpy.core.ipc as vxipc
 import vxpy.core.logger as vxlogger
 import vxpy.core.process as vxprocess
 import vxpy.core.routine as vxroutine
-# import vxpy.core.ui as vxui
+
 
 log = vxlogger.getLogger(__name__)
 
 
 def init(attrs: Union[Dict[str, Attribute], None]) -> None:
-    """Calls the build function of all specified attributes"""
+    """
+    Initialize and build all specified attributes.
+
+    Args:
+        attrs (dict or None): Dictionary of attribute name to Attribute instance.
+    """
 
     # Reset logger to include process_name
     global log
@@ -37,23 +41,50 @@ def init(attrs: Union[Dict[str, Attribute], None]) -> None:
 
 
 def read_attribute(attr_name: str, *args, **kwargs) -> Union[Tuple[np.ndarray, np.ndarray, Iterable], None]:
-    """Convenience method for calling an attribute's read function via its name"""
+    """
+    Read data from an attribute by name.
+
+    Args:
+        attr_name (str): Name of the attribute.
+        *args, **kwargs: Arguments passed to the attribute's read method.
+
+    Returns:
+        tuple or None: Data read from the attribute, or None if not found.
+    """
+
     if attr_name not in Attribute.all:
-        return
+        return None
 
     return Attribute.all[attr_name].read(*args, **kwargs)
 
 
 def write_attribute(attr_name: str, *args, **kwargs) -> None:
-    """Convenience method for calling an attribute's write function via its name"""
+    """
+    Write data to an attribute by name.
+
+    Args:
+        attr_name (str): Name of the attribute.
+        *args, **kwargs: Arguments passed to the attribute's write method.
+
+    Raises:
+        AttributeError: If the attribute is not found.
+    """
     if attr_name in Attribute.all:
         return Attribute.all[attr_name].write(*args, **kwargs)
     raise AttributeError(f'Attribute {attr_name} not found.')
 
 
 def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
-    """Method matches a given attribute name to a list of attribute name templates to determine whether
-     the attribute should be included for recording to file"""
+    """
+    Match an attribute name to recording templates.
+
+    Args:
+        attr_name (str): Name of the attribute.
+
+    Returns:
+        tuple: (found, include, record_ops) where found is True if matched,
+               include is True if included, and record_ops is the recording options.
+    """
     attribute_filters = config.REC_ATTRIBUTES
 
     # matched = False
@@ -91,6 +122,13 @@ def match_to_record_attributes(attr_name: str) -> Tuple[bool, bool, Dict]:
 
 
 def write_to_file(instance: Union[vxprocess.AbstractProcess, vxroutine.Routine], attr_name: str) -> None:
+    """
+    Mark an attribute to be written to file for a given process or routine.
+
+    Args:
+        instance (AbstractProcess or Routine): The process or routine instance.
+        attr_name (str): Name of the attribute.
+    """
     if isinstance(instance, vxprocess.AbstractProcess):
         process_name = instance.name
     elif isinstance(instance, vxroutine.Routine):
@@ -126,17 +164,34 @@ def write_to_file(instance: Union[vxprocess.AbstractProcess, vxroutine.Routine],
 
 
 def get_attribute_names() -> List[str]:
-    """Method returns a list of all attribute names"""
+    """
+    Get a list of all attribute names.
+
+    Returns:
+        list: List of attribute names.
+    """
     return [n for n in Attribute.all.keys()]
 
 
 def get_attribute_list() -> List[Tuple[str, Attribute]]:
-    """Method returns a list of tuples containing (attribute name, attribute object)"""
+    """
+    Get a list of tuples containing attribute names and objects.
+
+    Returns:
+        list: List of (name, Attribute) tuples.
+    """
     return [(k, v) for k, v in Attribute.all.items()]
 
 
 def get_attribute(attr_name: str) -> Union[Attribute, None]:
-    """Method returns an attribute with the given name or None if attribute does not exist
+    """
+    Get an attribute by name.
+
+    Args:
+        attr_name (str): Name of the attribute.
+
+    Returns:
+        Attribute or None: The attribute instance, or None if not found.
     """
     if attr_name not in Attribute.all:
         return None
@@ -145,7 +200,14 @@ def get_attribute(attr_name: str) -> Union[Attribute, None]:
 
 
 def get_permanent_attributes(process_name: str = None) -> List[Tuple[Attribute, Dict]]:
-    """Method returns a list of all attributes that are marked to be saved to file
+    """
+    Get attributes marked to be saved to file for a process.
+
+    Args:
+        process_name (str, optional): Name of the process.
+
+    Returns:
+        list: List of (Attribute, record_ops) tuples.
     """
     if process_name is None:
         process_name = vxipc.LocalProcess.name
@@ -157,14 +219,14 @@ def get_permanent_attributes(process_name: str = None) -> List[Tuple[Attribute, 
 
 
 def get_permanent_data(process_name: str = None) -> Iterator[Tuple[Attribute, Dict]]:
-    """Returns all newly added attribute data to be written to file
-    for the specified process.
+    """
+    Yield newly added attribute data to be written to file for a process.
 
-    :param process_name: Name of process for which to return data
-    :type process_name: str, optional
+    Args:
+        process_name (str, optional): Name of the process.
 
-    :return A
-    :rtype Iterator[Tuple[str, Any]
+    Yields:
+        tuple: (Attribute, record_ops) for attributes with new data.
     """
     for attribute, record_ops in get_permanent_attributes(process_name):
         if attribute.has_new_entry():
@@ -176,18 +238,15 @@ def get_permanent_data(process_name: str = None) -> Iterator[Tuple[Attribute, Di
 
 
 class Attribute(ABC):
-    """Attribute class at the core of vxPy's data management structure.
+    """
+    Abstract base class for vxPy's data management attributes.
 
     Attributes act as ring buffers and are shared and synchronized
-    across all different modules.
-    They are written to by one particular module (producer module)
-    and can be read by all modules (consumer modules, including producer).
+    across modules. Written by a producer, read by consumers.
 
-    :param name: Name of the attribute. Must be unique in the
-        current instance of vxPy
-    :type name: str
-    :param length: Length of the ring buffer
-    :type length: int, optional
+    Args:
+        name (str): Unique name of the attribute.
+        length (int, optional): Length of the ring buffer.
     """
 
     all: Dict[str, Attribute] = {}
@@ -195,6 +254,13 @@ class Attribute(ABC):
     _instance: ArrayAttribute = None
 
     def __init__(self, name: str, length: int = None):
+        """
+        Initialize the attribute.
+
+        Args:
+            name (str): Unique name.
+            length (int, optional): Buffer length.
+        """
         assert name not in self.all, f'Duplicate attribute {name}'
         self.name = name
         Attribute.all[name] = self
@@ -209,38 +275,41 @@ class Attribute(ABC):
         self._indices: np.ndarray = np.array([])
 
     def __repr__(self):
+        """Return string representation of the attribute."""
         return f'{self.__class__.__name__}(\'{self.name}\')'
 
     @property
     def length(self):
+        """Get the buffer length."""
         return self._length
 
     def _make_times(self):
-        """Generate the shared list of times corresponding to individual datapoints in the buffer"""
-        # self._times = vxipc.Manager.list([None] * self.length)
+        """Generate the shared list of times for buffer entries."""
         self._times_raw = mp.Array(ctypes.c_double, self.length)
 
     def _make_indices(self):
-        """Generate the shared list of times corresponding to individual datapoints in the buffer"""
-        # self._indices = vxipc.Manager.list([None] * self.length)
+        """Generate the shared list of indices for buffer entries."""
         self._indices_raw = mp.Array(ctypes.c_int64, self.length)
 
     def _next(self):
-        """Increment the (shared) current index value by one (only happens once per write operation)"""
+        """Increment the shared current index value."""
         self._index.value += 1
 
     @property
     def index(self):
-        """Return the (shared) current index value"""
+        """Get the current index value."""
         return self._index.value
 
     def _build(self):
-        """(Optional) method which is called after subprocess fork and which can be used to set up
-        fork-specific parts of the attribute"""
+        """
+        Optional method called after subprocess fork for fork-specific setup.
+        """
         pass
 
     def build(self):
-
+        """
+        Build the attribute's internal buffers and call subclass build.
+        """
         indices = np.frombuffer(self._indices_raw.get_obj(), ctypes.c_int64)
         self._indices = indices.reshape((self.length,))
         self._indices[:] = -1
@@ -253,29 +322,57 @@ class Attribute(ABC):
         self._build()
 
     def _get_times(self, indices: List[int]) -> np.ndarray:
-        """Returns the list of time points corresponding to the indices in the interval [start_idx, end_idx)
-        of datapoints written to the attribute """
+        """
+        Get time points for specified buffer indices.
+
+        Args:
+            indices (list): List of buffer indices.
+
+        Returns:
+            np.ndarray: Array of time points.
+        """
 
         return self._times[indices]
 
     def _get_indices(self, indices: List[int]) -> np.ndarray:
-        """Return list of indices, based on the 'last' number of datapoints specified"""
+        """
+        Get buffer indices for specified indices.
 
+        Args:
+            indices (list): List of buffer indices.
+
+        Returns:
+            np.ndarray: Array of indices.
+        """
         return self._indices[indices]
 
     def get_times(self, last) -> np.ndarray:
-        """Returns the list of time points corresponding to the <last> number of datapoints written to the attribute """
+        """
+        Get time points for the last N written entries.
+
+        Args:
+            last (int): Number of entries.
+
+        Returns:
+            np.ndarray: Array of time points.
+        """
         return self._get_times(*self._get_range(last))
 
     def has_new_entry(self) -> bool:
+        """
+        Check if new data has been added.
+
+        Returns:
+            bool: True if new data exists.
+        """
         return bool(self._new_data_num.value)
 
-    def _added_new(self):
+    def _added_new(self) -> None:
+        """Increment the new data counter."""
         self._new_data_num.value = self._new_data_num.value + 1
 
     def reset_new_counter(self) -> None:
-        """Set _new_data_flag state of this attribute. This usually happens when attribute is written to
-        or when the last attribute data is written to file"""
+        """Reset the new data counter."""
         self._new_data_num.value = 0
 
     def add_to_file(self):
@@ -284,16 +381,38 @@ class Attribute(ABC):
 
     @abstractmethod
     def _get_data(self, indices: List[int]) -> Iterable:
-        """Method that is called by read() method. Should return some kind of iterable"""
+        """
+        Get data for specified buffer indices.
+
+        Args:
+            indices (list): List of buffer indices.
+
+        Returns:
+            Iterable: Data for the indices.
+        """
         pass
 
     @abstractmethod
     def _read_empty_return(self) -> Tuple[List[int], List[float], Any]:
-        """Method to be called when read() method determines that result should be empty.
-        This method should return an empty version of the same types as _read()"""
+        """
+        Return empty data for read operations.
+
+        Returns:
+            tuple: Empty indices, times, and data.
+        """
         pass
 
     def read(self, last: int = None, from_idx: int = None):
+        """
+        Read data from the buffer.
+
+        Args:
+            last (int, optional): Number of last entries to read.
+            from_idx (int, optional): Start index to read from.
+
+        Returns:
+            tuple: Indices, times, and data.
+        """
         if last is not None:
             return self[-last:]
         elif from_idx is not None:
@@ -302,10 +421,18 @@ class Attribute(ABC):
             return self[-1]
 
     def __getitem__(self, item):
-        # TODO:
-        #  handle lists/arrays of ints or bools?
-        # Determine what the index_list should be for the selected subset
-        #  Note that index_list should ultimately be a list of relative indices within the ring buffer
+        """
+        Get data by index or slice.
+
+        Args:
+            item (int or slice): Index or slice.
+
+        Returns:
+            tuple: Indices, times, and data.
+
+        Raises:
+            KeyError: If the index is invalid.
+        """
         if isinstance(item, int):
 
             # Positive/zero index: this can only be an absolute index
@@ -344,22 +471,22 @@ class Attribute(ABC):
 
     @abstractmethod
     def _write(self, internal_idx: int, value: Any):
-        """Method that is called by write() method. Should handle the actual writing of the attribute datapoint
-        at the given 'internal_idx' position in the buffer."""
+        """
+        Write data to the buffer at the specified index.
+
+        Args:
+            internal_idx (int): Internal buffer index.
+            value (Any): Value to write.
+        """
         pass
 
     def write(self, value: Any) -> None:
-        """Write datapoint to the buffer."""
+        """
+        Write a datapoint to the buffer.
 
-        # Check time difference between last and current write operation and print a warning if it's too low
-        #  Individual occurrences may be caused by a temporary hiccups of the system
-        #  Regular occurrences may indicate an underlying issue with the timing precision of the system
-        #  or repeated erreneous calls to the write function of the attribute during a
-        #  single event loop iteration of the corresponding producer module
-        # if np.isclose(self._last_time, vxipc.get_time(), rtol=0., atol=vxipc.LocalProcess.interval / 4.):
-        #     log.warning(f'Trying to repeatedly write to attribute "{self.name}" '
-        #                 f'in process {vxipc.LocalProcess.name} during same iteration. '
-        #                 f'Last={self._last_time} / Current={vxipc.LocalProcess.global_t}')
+        Args:
+            value (Any): Value to write.
+        """
 
         internal_idx = self.index % self.length
 
@@ -382,11 +509,15 @@ class Attribute(ABC):
         self._next()
 
     def _get_range(self, last: int) -> Tuple[int, int]:
-        """Return the internal index range based on the specified 'last' number of datapoints in the attribute buffer
-
-
         """
+        Get the internal index range for the last N entries.
 
+        Args:
+            last (int): Number of entries.
+
+        Returns:
+            tuple: (start_idx, internal_idx)
+        """
         # Make sure nothing weird is happening
         assert last < self.length, 'Trying to read more values than stored in buffer'
         assert last >= 0, 'Trying to read negative number of entries from buffer'
