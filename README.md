@@ -23,7 +23,7 @@ VxPy has been tested on Windows 11 and Ubuntu 20.04, 22.04 and 24.04 LTS. It req
 
 ## Roadmap
 
-### Version 0.2: consolidation of core functions and integration of frequently used application-side code into core 
+### Version 0.2: consolidation of core functions and integration of application code into core 
 For version 0.2 the core function API of VxPy v0.1.x (legacy API) will be consolidated and fixed in place for future compatibility with existing experiments. 
 At the same time, plugins, controls, visuals and devices that were added to [VxPy-app](https://github.com/thladnik/vxPy_app) initially and are in use by multiple protocols regularly will be integrated into the VxPy core module. 
 Patches to fix remaining bugs will continue to be released under the v0.2.x release tags for the foreseeable future, but no new features will be added.
