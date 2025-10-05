@@ -1,3 +1,5 @@
+"""Device to control LED strips or matrices that use the NeoPixel (WS2812) protocol.
+"""
 import time
 import serial
 from vxpy.core.devices import serial as vxserial

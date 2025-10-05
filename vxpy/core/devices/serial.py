@@ -1,3 +1,5 @@
+"""Core module for serial devices.
+"""
 from __future__ import annotations
 import abc
 import importlib
@@ -302,7 +304,7 @@ class DaqDevice:
             return False
 
 
-class SerialDevice:
+class SerialDevice(abc.ABC):
     """Base class of any serial device"""
 
     def __init__(self, device_id: str, **kwargs):

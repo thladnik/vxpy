@@ -589,7 +589,7 @@ class ArrayAttribute(Attribute):
         # By default, calculate length based on dtype, shape and DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE
         max_multiplier = 1.
         itemsize = np.dtype(self._dtype[1]).itemsize  # number of bytes for datatype
-        attr_el_size = np.product(self.shape)  # number of elements
+        attr_el_size = np.prod(self.shape)  # number of elements
 
         # Significantly reduce max attribute buffer size in case element size is < 1KB
         if (itemsize * attr_el_size) < 10 ** 3:
@@ -597,7 +597,7 @@ class ArrayAttribute(Attribute):
 
         self._length = int((max_multiplier * DEFAULT_ARRAY_ATTRIBUTE_BUFFER_SIZE) // (attr_el_size * itemsize))
 
-        init = int(np.product((self.length,) + self.shape))
+        init = int(np.prod((self.length,) + self.shape))
         self._raw = mp.Array(self._dtype[0], init)
         self._data = np.array([])
 

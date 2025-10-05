@@ -25,7 +25,7 @@ import sys
 from typing import Any, Dict, Union
 
 
-# Check this version is a cloned repo and add commit hash to version
+# Check if this version is a cloned repo and add commit hash to version
 def get_version():
 
     try:
@@ -81,6 +81,8 @@ def load_config_data_from_string(_config):
 def run(_config: Union[str, Dict[str, Any]] = None):
     """Run vxPy
     """
+    import PySide6
+    print('PYSIDE', PySide6.__version__)
 
     # Get/load configuration data
     _config_data = load_config_data_from_string(_config)
@@ -92,28 +94,34 @@ def run(_config: Union[str, Dict[str, Any]] = None):
     # Set up controller
     from vxpy.modules import Controller
 
+
     if sys.platform == 'win32':
         # Set windows timer precision as high as possible
         try:
             import wres
-        except ImportError as exc:
+        except ModuleNotFoundError as exc:
             print(f'WARNING: Unable to import wres. '
                   f'Please consider installing wres for better performance on {sys.platform} platform')
+
             ctrl = Controller(_config_data)
+            ctrl.start()
         else:
             minres, maxres, curres = wres.query_resolution()
             with wres.set_resolution(maxres):
+                # Start controller
                 ctrl = Controller(_config_data)
+                ctrl.start()
 
     elif sys.platform == 'linux':
+        # Start controller
+
         ctrl = Controller(_config_data)
+        ctrl.start()
 
     else:
         print(f'Platform {sys.platform} not supported')
         sys.exit(1)
 
-    # Start controller
-    ctrl.start()
 
     # Save config if persistent
     if isinstance(_config, str):
