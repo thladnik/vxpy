@@ -12,11 +12,14 @@ This is the core package for VxPy. The accompanying application to configure and
 
 VxPy has been tested on Windows 11 and Ubuntu 20.04, 22.04 and 24.04 LTS. It requires Python 3.8 or higher. For best performance **Ubuntu is recommended**.
 
-## Quick start guide
+[//]: # (## Quick start guide)
 
-* Running VxPy
-* Creating a visual stimulus
-* Creating an online analysis routine
+[//]: # ()
+[//]: # (* Running VxPy)
+
+[//]: # (* Creating a visual stimulus)
+
+[//]: # (* Creating an online analysis routine)
 
 ## Roadmap
 
@@ -64,6 +67,14 @@ Run command in a terminal to install desired Python version (e.g. 3.10)
 ```console
 user@machine: ~$ sudo apt-get install python3.x 
 ```
+
+### Installing VxPy (simple way)
+
+Go to the VxPy [application repository](https://github.com/thladnik/vxPy_app). 
+Download the repository as a ZIP file and extract it to a folder of your choice. 
+
+* If you're using Windows 11 run the `install.bat` file in the extracted folder.
+* If you're using Ubuntu, open a terminal in the extracted folder and run `bash install.sh`.'
 
 ### Installing VxPy
 
