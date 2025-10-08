@@ -93,9 +93,8 @@ You can then run the default demo configuration with
 ```
 Upon first start, VxPy will download demo data files, which may take some additional time.
 
-### Notes on dependencies
-
-* Because of changes with regard to multiple inheritances in PySide6 (https://bugreports.qt.io/browse/PYSIDE-1564), PySide is currently locked to 6.4.3 until this issue is patched in VxPy. This also requires NumPy to be locked to the latest 1.x release (1.26.4).
+> [!NOTE] 
+> Because of changes with regard to multiple inheritances in PySide6 (https://bugreports.qt.io/browse/PYSIDE-1564), PySide is currently locked to 6.4.3 until this issue is patched in VxPy. This also requires NumPy to be locked to the latest 1.x release (1.26.4).
 
 ## Compatible devices
 
@@ -111,12 +110,13 @@ Within the Python environment, you then need to install `pycairo` and `PyGObject
 (venv) user@machine: ~/vxpy-app$ pip install pycairo PyGObject
 ```
 
-**WARNING**: starting with version 1.0.0, `tiscamera` no longer supports older camera models (see table [supported devices](https://www.theimagingsource.com/en-us/documentation/tiscamera/supported-devices.html)). 
-If you're using one of those, instead install the latest pre-1.0.0 stable release (0.14.0) by checking it out with
-```console
-user@machine: ~/tiscamera$ git checkout tags/v-tiscamera-0.14.0
-```
-directly after cloning the repository and before installing the dependencies or building the binaries.
+> [!WARNING]
+> starting with version 1.0.0, `tiscamera` no longer supports older camera models (see table [supported devices](https://www.theimagingsource.com/en-us/documentation/tiscamera/supported-devices.html)). 
+> If you're using one of those, instead install the latest pre-1.0.0 stable release (0.14.0) by checking it out with
+> ```console
+> user@machine: ~/tiscamera$ git checkout tags/v-tiscamera-0.14.0
+> ```
+> directly after cloning the repository and before installing the dependencies or building the binaries.
 
 #### Basler cameras
 
