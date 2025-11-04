@@ -20,6 +20,8 @@ from PySide6.QtGui import QBrush, QPen, QColor
 import vxpy.core.routine as vxroutine
 import vxpy.core.ui as vxui
 import vxpy.core.attribute as vxattribute
+from vxpy.extras.ca_processing_2nd_gen import NextGenTrackerRoutine, BaseROI
+from vxpy.extras.online_analysis import OnlineAnalysisRoutine
 from vxpy.extras.server import ScanImageFrameReceiverTcpServer
 
 
@@ -36,10 +38,12 @@ class SysConRoutine(vxroutine.WorkerRoutine):
         ui_update_rois (bool): Flag to indicate the UI should refresh ROIs.
     """
 
-    rois_to_stimulate: dict = {}
+    rois_to_stimulate: dict[tuple[int, int], BaseROI] = {}   #key: layer_idx, roi_idx; value: BaseROI instance
     new_rois_set: bool = False
     num_layers: int = 0
     ui_update_rois: bool = False
+
+    source = "from tracker"
 
     def __init__(self, *args, **kwargs):
         """
@@ -54,19 +58,41 @@ class SysConRoutine(vxroutine.WorkerRoutine):
         Checks for new ROIs to stimulate, updates internal flags,
         and performs processing.
         """
-        routine = SysConRoutine.instance()
 
-        if routine.new_rois_set:
+        if self.new_rois_set:
             # Print received ROIs (for debug/logging purposes)
-            print(routine.rois_to_stimulate)
-
+            self._pull_data()
+            print(self.rois_to_stimulate)
             # Reset flags after processing
-            routine.new_rois_set = False
-            routine.ui_update_rois = True
+            # self.new_rois_set = False
+            # self.ui_update_rois = True
 
         else:
             # Placeholder for other routine processing if needed
             pass
+
+    def _pull_data(self):
+
+        if self.source == "from tracker":
+            tracker = NextGenTrackerRoutine.instance()
+            self.num_layers = copy.copy(tracker.current_layer_num)
+            self.rois_to_stimulate.clear()
+            self.rois_to_stimulate.update(copy.deepcopy(tracker.rois_to_process))
+            self.new_rois_set = False
+            self.ui_update_rois = True
+
+            print(f"[pull_data] Routine id: {id(self)} object id: {id(self.rois_to_stimulate)}, ROIs: {len(self.rois_to_stimulate)}")
+
+            print(f"[pull_data] ROIs: {self.rois_to_stimulate} for the routine")
+
+        if self.source == "from analysis": #TODO: implement this correctly
+            analysis = OnlineAnalysisRoutine.instance()
+            self.num_layers = copy.copy(analysis.current_layer_num)
+            self.rois_to_stimulate.clear()
+            self.rois_to_stimulate.update(copy.deepcopy(analysis.rois_to_laser))
+            self.new_rois_set = False
+            self.ui_update_rois = True
+
 
 
 class SysConControlWindow(vxui.WorkerAddonWidget):
@@ -95,6 +121,29 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         self.global_laser_intensity: float = 0.0
         self.laser_prep_list: list = []
         self.roi_widgets: list[tuple] = []  # Tuples: (checkbox, intensity_edit, layer_idx, roi_idx)
+
+        # -----------------------
+        # Main Layout
+        # -----------------------
+        main_layout = QtWidgets.QVBoxLayout()
+        self.central_widget.setLayout(main_layout)
+
+        # --- Top control bar
+        top_bar = QtWidgets.QHBoxLayout()
+        main_layout.addLayout(top_bar)
+
+        # Dropdown menu
+        self.data_source_combo = QtWidgets.QComboBox()
+        self.data_source_combo.addItems(["from tracker", "from analysis"])
+        top_bar.addWidget(self.data_source_combo)
+
+        # Pull Data button
+        self.pull_data_btn = QtWidgets.QPushButton("Pull Data")
+        self.pull_data_btn.clicked.connect(self.on_pull_data_clicked)
+        top_bar.addWidget(self.pull_data_btn)
+
+        # Add stretch so button + combo stay left
+        top_bar.addStretch()
 
         # -----------------------
         # Layout: Horizontal splitter
@@ -215,6 +264,15 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         # -----------------------
         self.connect_to_timer(self.check_state)
 
+
+    def on_pull_data_clicked(self):
+        source = self.data_source_combo.currentText()
+        print(f"Pulling data from {source}")
+        print(f"[pull_data_clicked] Routine id: {id(SysConRoutine.instance())} object id: {id(SysConRoutine.instance().rois_to_stimulate)}, ROIs: {len(SysConRoutine.instance().rois_to_stimulate)}")
+        # SysConRoutine.instance().pull_data(source)
+        SysConRoutine.instance().source = source
+        SysConRoutine.instance().new_rois_set = True
+
     def update_diameter_visibility(self):
         """Show diameter input only for spiral scanning mode."""
         self.diameter_widget.setVisible(self.scanning_combo.currentText() == "spiral scanning")
@@ -250,20 +308,21 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             - Intensity field: editable if prep enabled
         """
         roi_dict = SysConRoutine.instance().rois_to_stimulate
-
+        print(f"populate_roi_rows: {len(roi_dict)}")
         # Filter only tracked ROIs
-        tracked_rois = [
-            ((layer_idx, roi_idx), roi)
-            for (layer_idx, roi_idx), roi in roi_dict.items()
-            if roi.tracked
-        ]
+        # tracked_rois = [
+        #     ((layer_idx, roi_idx), roi)
+        #     for (layer_idx, roi_idx), roi in roi_dict.items()
+        #     if roi.tracked
+        # ]
+
 
         # Clear old widgets & internal tracking lists
         self.clear_layout(self.scroll_layout)
         self.roi_widgets.clear()
         self.laser_prep_list.clear()
 
-        for row_idx, ((layer_idx, roi_idx), roi) in enumerate(tracked_rois):
+        for row_idx, ((layer_idx, roi_idx), roi) in enumerate(roi_dict.items()):
             # -----------------------
             # ROI label
             # -----------------------
@@ -897,138 +956,3 @@ class SysconFileWriter:
         self.rois.append(roi)
 
 
-class ROI:
-    """
-    Represents a Region of Interest (ROI) for a Syscon sequence file.
-
-    Attributes
-    ----------
-    mode : str
-        The ROI mode ('affine_slice' or 'polyline_points').
-    tracked : bool
-        Whether the ROI is tracked.
-    prep_laser : bool
-        Whether the laser should be prepared for this ROI.
-    layer_idx : int
-        The layer index of the ROI.
-    x_center : float
-        X-coordinate of the ROI center.
-    y_center : float
-        Y-coordinate of the ROI center.
-    z_center : float
-        Z-coordinate of the ROI center (layer).
-    params : any
-        Parameters required to define the ROI (slice parameters or polyline points).
-    pixel_coords : np.ndarray
-        Array of pixel coordinates covered by the ROI.
-    laser_intensity : float
-        Laser intensity for the ROI.
-    """
-
-    def __init__(self, mode: str = '', params=None, layer_idx: int = 0):
-        self.mode = mode
-        self.tracked: bool = False
-        self.prep_laser: bool = False
-        self.layer_idx = layer_idx
-        self.x_center: float = 0.0
-        self.y_center: float = 0.0
-        self.z_center: float = 0.0
-        self.params = params
-        self.pixel_coords: np.ndarray = np.array([])
-        self.laser_intensity: float = 0.0
-
-    def calculate_center(self, image_frame: np.ndarray):
-        """
-        Calculate the (x, y) center of the ROI.
-
-        Parameters
-        ----------
-        image_frame : np.ndarray
-            The image frame used for generating ROI pixel coordinates.
-
-        Updates
-        -------
-        self.x_center, self.y_center, self.pixel_coords
-        """
-        if self.mode == 'affine_slice':
-            slice_params = self.params
-            coords = pg.affineSliceCoords(
-                slice_params[0],
-                slice_params[2],
-                slice_params[1],
-                (0, 1)
-            )
-            ys, xs = coords
-            self.pixel_coords = np.vstack((ys, xs)).T
-            self.x_center = np.mean(xs)
-            self.y_center = np.mean(ys)
-
-        elif self.mode == 'polyline_points':
-            points = np.array(self.params)
-            points_int = np.round(points).astype(np.int32)
-            contour = points_int.reshape((-1, 1, 2))
-            contour = contour[..., [1, 0]]
-
-            mask = np.zeros(image_frame.shape, dtype=np.uint8)
-            cv2.fillPoly(mask, [contour], color=1)
-
-            ys, xs = np.nonzero(mask)
-            if len(xs) == 0 or len(ys) == 0:
-                self.x_center = None
-                self.y_center = None
-                self.pixel_coords = None
-            else:
-                self.pixel_coords = np.vstack((ys, xs)).T
-                self.x_center = np.mean(xs)
-                self.y_center = np.mean(ys)
-
-    def calculate_activity(self, preprocessed_frame: np.ndarray) -> float:
-        """
-        Calculate the average activity of the ROI in a preprocessed image.
-
-        Parameters
-        ----------
-        preprocessed_frame : np.ndarray
-            Image array used to compute activity.
-
-        Returns
-        -------
-        float
-            Mean activity of pixels in the ROI (scaled by 1/1000).
-        """
-        if self.mode == 'affine_slice':
-            slice_params = self.params
-            _slice, coords = pg.affineSlice(
-                preprocessed_frame,
-                slice_params[0],
-                slice_params[2],
-                slice_params[1],
-                (0, 1),
-                returnCoords=True
-            )
-            self.pixel_coords = coords
-            activity_pixels = _slice.flatten()
-
-        elif self.mode == 'polyline_points':
-            points = np.array(self.params)
-            points_int = np.round(points).astype(np.int32)
-            contour = points_int.reshape((-1, 1, 2))
-            contour = contour[..., [1, 0]]
-
-            mask = np.zeros(preprocessed_frame.shape, dtype=np.uint8)
-            cv2.fillPoly(mask, [contour], color=1)
-
-            self.pixel_coords = mask
-            activity_pixels = preprocessed_frame[mask > 0]
-
-        else:
-            raise ValueError(f"Unknown mode: {self.mode}")
-
-        roi_activity = np.mean(activity_pixels)/1000 if len(activity_pixels) > 0 else 0
-        return roi_activity
-
-    def calculate_z(self):
-        """
-        Set the Z-coordinate (layer index) for the ROI.
-        """
-        self.z_center = self.layer_idx
