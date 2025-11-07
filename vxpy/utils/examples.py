@@ -25,7 +25,8 @@ _available_datasets: Dict[str, Tuple[str, str, str]] = {
     'zf_optic_tectum_driven_activity_2Hz': ('0.1.4', 'zf_optic_tectum_driven_activity_2Hz.hdf5', 'imaging'),
     'zf_vor_eye_movements_50Hz': ('0.1.4', 'zf_vor_eye_movements_50Hz.hdf5', 'camera'),
     'zf_embedded_eyes_and_tail': ('0.1.6', 'zf_embedded_eyes_and_tail.hdf5', 'camera'),
-    'zf_embedded_eyes_and_tail2': ('0.1.6', 'zf_embedded_eyes_and_tail2.hdf5', 'camera')
+    'zf_embedded_eyes_and_tail2': ('0.1.6', 'zf_embedded_eyes_and_tail2.hdf5', 'camera'),
+    'zf_embedded_eyes_and_tail3': ('0.1.6', 'zf_embedded_eyes_and_tail3.hdf5', 'camera')
 }
 
 # List of all locally available (downloaded) example dataset keys
@@ -212,7 +213,7 @@ def avi_to_hdf5(avi_fn, hdf_fn):
 
 if __name__ == '__main__':
     # Example usage
-    avi_filename = './temp/zf_embedded_eyes_and_tail2.avi'  # Replace with your AVI file
-    hdf5_filename = './temp/zf_embedded_eyes_and_tail2.hdf5'  # Desired output HDF5 file
+    avi_filename = './temp/zf_embedded_eyes_and_tail3.avi'  # Replace with your AVI file
+    hdf5_filename = './temp/zf_embedded_eyes_and_tail3.hdf5'  # Desired output HDF5 file
 
     avi_to_hdf5(avi_filename, hdf5_filename)
