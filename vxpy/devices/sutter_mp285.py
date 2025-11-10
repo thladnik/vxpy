@@ -314,3 +314,15 @@ class SutterMP285(vxserial.SerialDevice):
                  (self.step_mult, self.current_velocity, self.v_scale_factor))
 
         return (self.step_mult, self.current_velocity, self.v_scale_factor)
+
+    def _start(self):
+        pass
+
+    def _end(self):
+        pass
+
+    def _open(self):
+        pass
+
+    def _close(self):
+        pass
