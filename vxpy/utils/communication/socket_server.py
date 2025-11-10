@@ -1,9 +1,13 @@
 """Server module for socket connections and mDNS advertising
 """
+import datetime
+import os
 import socket
 import threading
 import time
 import contextlib
+
+from vxpy.utils.communication import sci_commands as sci
 
 import zeroconf
 
@@ -91,17 +95,77 @@ def run_mdns_advertiser(service_type: str, instance_name: str):
 
 def test_handle_conn(sock: socket.socket, addr):
     from vxpy.utils.communication import socket_com
+
     with sock:
         while True:
 
-            # Just read and print data
+            localpath = "/home/localuser/PycharmProjects/vxPy-app/"     # loca path of sequence file
+
+            # set filename and path for sequence file on windows computer
+            today = datetime.date.today().strftime('%Y-%m-%d')
+            seq_name = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+            filename = seq_name + ".seq"
+            target_path_seq_file = "D:/data/syscon2_sci/" + today + "/"  # to be set in config file later
+
+            # load sequence file
+            with open(os.path.join(localpath, "mysequence_123.seq")) as f:
+                file = ''.join(f.readlines())
+
+            # send sequence file
+            socket_com.send_text(sock, 'seq_file')
+            socket_com.send_text(sock, target_path_seq_file + filename)
+            socket_com.send_text(sock, file)
             value = socket_com.recv_any(sock)
+            print(value)
+            print('--------------------------------')
+            time.sleep(1)
+
+            # check holo4D state
+            socket_com.send_text(sock, 'sci')
+            socket_com.send_bytes(sock, sci.sci_to_bytes(sci.get_holo4d_state()))
+            value = socket_com.recv_any(sock)
+            print(value)
+            print('--------------------------------')
+
+            if value.replace('\n', '').replace('\r', '') != 'Idle':
+                print("waiting")
+                continue
+
+            # import sequence file to syscon
+            socket_com.send_text(sock, 'sci')
+            socket_com.send_bytes(sock, sci.sci_to_bytes(sci.import_sequence(target_path_seq_file + filename, "")))
+            value = socket_com.recv_any(sock)
+            print(value)
+            print('--------------------------------')
+            time.sleep(1)
+
+            # select sequence
+            socket_com.send_text(sock, 'sci')
+            socket_com.send_bytes(sock, sci.sci_to_bytes(sci.select_sequence(filename)))
+            value = socket_com.recv_any(sock)
+            print(value)
+            print('--------------------------------')
+            time.sleep(1)
+
+            # upload sequence
+            socket_com.send_text(sock, 'sci')
+            socket_com.send_bytes(sock, sci.sci_to_bytes(sci.upload_holo4d_sequence(2)))
+            value = socket_com.recv_any(sock)
+            print(value)
+            print('--------------------------------')
+            time.sleep(3)
+
+            # run sequence
+            socket_com.send_text(sock, 'sci')
+            socket_com.send_bytes(sock, sci.sci_to_bytes(sci.run_holo4d_sequence("auto", "rising")))
+            value = socket_com.recv_any(sock)
+            print(value)
+            print('--------------------------------')
+            time.sleep(1)
 
             if isinstance(value, bytes) and value == b'\x00':
                 print('Look at this tasty poison pill')
                 break
-
-            print(value)
 
 
 def test_run_server(service_type: str, instance_name: str):

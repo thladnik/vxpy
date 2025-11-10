@@ -248,6 +248,8 @@ class ScanImageFrameReceiverTcpServer(vxroutine.WorkerRoutine):
         # Read signal code
         signal_code = socket_com.recv_any(self.sock)
 
+        print(f'signal code: {signal_code}')
+
         if signal_code == -1:
             signal = 'disconnected'
         elif signal_code == 10:
