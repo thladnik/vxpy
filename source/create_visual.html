@@ -1,0 +1,475 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Creating a new visual &mdash; vxPy 2020 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=939ec2ff"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Creating a new stimulation protocol" href="create_protocol.html" />
+    <link rel="prev" title="Installation guide" href="installation_guide.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            vxPy
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation_guide.html">Installation guide</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Creating a new visual</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#base-visuals">Base visuals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#vxpy-core-visual-basevisual"><code class="docutils literal notranslate"><span class="pre">vxpy.core.visual.BaseVisual</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vxpy-core-visual-planarvisual"><code class="docutils literal notranslate"><span class="pre">vxpy.core.visual.PlanarVisual</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#vxpy-core-visual-sphericalvisual"><code class="docutils literal notranslate"><span class="pre">vxpy.core.visual.SphericalVisual</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#example-creating-a-moving-grating-visual-stimulus">Example: creating a moving grating visual stimulus</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#on-a-flat-surface-e-g-projection-from-below-onto-a-petridish">On a flat surface (e.g. projection from below onto a petridish)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#minmal-visual-implementation">Minmal visual implementation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#creating-shader-program-and-defining-visual-parameters">Creating shader program and defining visual parameters</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#vertex-shader">Vertex shader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#fragment-shader">Fragment shader</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#resetting-the-visual-and-rendering-a-frame">Resetting the visual and rendering a frame</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#interactive-visual-stimulation">Interactive visual stimulation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#on-a-spherical-surface-here-using-the-4-way-projection-optics">On a spherical surface (here using the 4-way projection optics)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#creating-new-base-visuals-advanced">Creating new base visuals (advanced)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="create_protocol.html">Creating a new stimulation protocol</a></li>
+<li class="toctree-l1"><a class="reference internal" href="create_routine.html">Creating a new analysis routine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="create_visual_base_advanced.html">Creating a visual base class (advanced)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="vxpy_structure.html">vxpy core structure reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api_reference.html">API reference</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">vxPy</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Creating a new visual</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/source/create_visual.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="creating-a-new-visual">
+<h1>Creating a new visual<a class="headerlink" href="#creating-a-new-visual" title="Link to this heading"></a></h1>
+<p>Visuals are a way to define what’s being shown on a display device, like a computer or a video projector screen, during an experiment.
+All visuals should inherit directly from one of the base visuals, which are direct subclasses of <code class="docutils literal notranslate"><span class="pre">AbstractVisual</span></code> in the <code class="docutils literal notranslate"><span class="pre">vxpy.core.visual</span></code> module.</p>
+<section id="base-visuals">
+<h2>Base visuals<a class="headerlink" href="#base-visuals" title="Link to this heading"></a></h2>
+<p>Currently existing base visual classes are:</p>
+<section id="vxpy-core-visual-basevisual">
+<h3><code class="docutils literal notranslate"><span class="pre">vxpy.core.visual.BaseVisual</span></code><a class="headerlink" href="#vxpy-core-visual-basevisual" title="Link to this heading"></a></h3>
+<p>A visual with a perspective projection on the 2 or 3D model without any particular transformation</p>
+</section>
+<section id="vxpy-core-visual-planarvisual">
+<h3><code class="docutils literal notranslate"><span class="pre">vxpy.core.visual.PlanarVisual</span></code><a class="headerlink" href="#vxpy-core-visual-planarvisual" title="Link to this heading"></a></h3>
+<p>Stimuli meant to be presented on a flat screen. Coordinates are defined in a 2D cartesian coordinate system in the range from -1.0 to +1.0.
+The base unit for <code class="docutils literal notranslate"><span class="pre">PlanarVisual</span></code>s is <strong>mm</strong> and the conversion for a given display situation is based on the <code class="docutils literal notranslate"><span class="pre">CALIB_DISP_PLA_*</span></code> calibration parameters.</p>
+</section>
+<section id="vxpy-core-visual-sphericalvisual">
+<h3><code class="docutils literal notranslate"><span class="pre">vxpy.core.visual.SphericalVisual</span></code><a class="headerlink" href="#vxpy-core-visual-sphericalvisual" title="Link to this heading"></a></h3>
+<p>Stimuli meant to be presented on a spherical surface, using the 4-way projection system described <strong>here</strong> (coming soon-ish).
+The coordinate system for models is a unit sphere and the necessary conversion to fit the display situation is based on the <code class="docutils literal notranslate"><span class="pre">CALIB_DISP_SPH_*</span></code> calibration parameters.</p>
+</section>
+</section>
+<section id="example-creating-a-moving-grating-visual-stimulus">
+<h2>Example: creating a moving grating visual stimulus<a class="headerlink" href="#example-creating-a-moving-grating-visual-stimulus" title="Link to this heading"></a></h2>
+<section id="on-a-flat-surface-e-g-projection-from-below-onto-a-petridish">
+<h3>On a flat surface (e.g. projection from below onto a petridish)<a class="headerlink" href="#on-a-flat-surface-e-g-projection-from-below-onto-a-petridish" title="Link to this heading"></a></h3>
+<p>All visuals need to implement the <code class="docutils literal notranslate"><span class="pre">__init__</span></code>, <code class="docutils literal notranslate"><span class="pre">initialize</span></code> and <code class="docutils literal notranslate"><span class="pre">render</span></code> methods.</p>
+<p>The constructor <code class="docutils literal notranslate"><span class="pre">__init__</span></code> creates everything needed to run the visual stimulus and also initializes its parent base visual class (<code class="docutils literal notranslate"><span class="pre">PlanarVisual</span></code>, <code class="docutils literal notranslate"><span class="pre">SphericalVisual</span></code>, etc) by passing all arguments to it.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">initialize</span></code> method resets the visual stimulus prior to each presentation.</p>
+<p>The ‘render’ method gets called with a single argument <code class="docutils literal notranslate"><span class="pre">dt</span></code>, which contains the elapsed time since the last presented frame.
+It, as the name implies, is used to render the scene for the visual display.</p>
+<section id="minmal-visual-implementation">
+<h4>Minmal visual implementation<a class="headerlink" href="#minmal-visual-implementation" title="Link to this heading"></a></h4>
+<p>A minimal implementation of a <code class="docutils literal notranslate"><span class="pre">PlanarVisual</span></code> looks like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">vxpy.core.visual</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">vxvisual</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BlackAndWhiteGrating</span><span class="p">(</span><span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method to initialize and reset all parameters.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This function is called for each rendered frame&quot;&quot;&quot;</span>
+
+</pre></div>
+</div>
+<p>The above implementation would, however, not display anything, because we didn’t tell it what to do.</p>
+</section>
+<section id="creating-shader-program-and-defining-visual-parameters">
+<h4>Creating shader program and defining visual parameters<a class="headerlink" href="#creating-shader-program-and-defining-visual-parameters" title="Link to this heading"></a></h4>
+<p>In order to make the visual display something when active, we need to define a <strong>program</strong> and parameters that dictate what the program should do.
+<code class="docutils literal notranslate"><span class="pre">vxPy</span></code> uses the <a class="reference external" href="https://github.com/vispy/vispy">VisPy</a> library for fast and easy 2d and 3d visualization, so the program is an instance of <code class="docutils literal notranslate"><span class="pre">vispy.gloo.Program</span></code>.</p>
+<p>Generally, a program consists of a mesh model of something to be displayed (e.g. a 2D plane, sphere, …) and two so-called shaders, a vertex and a fragment shader, which perform linear transformations on the model (vertex) and determine pixel colors (fragment) based on those coordinates and additional global parameters (uniforms).</p>
+<p>VisPy uses OpenGL to accomplish visualizations (for more in-depth information on how to program 2D and 3D visualizations in OpenGL, have a look at <a class="reference external" href="https://learnopengl.com/Getting-started/OpenGL">this</a> great tutorial).</p>
+<p>The shader program must be created in the <code class="docutils literal notranslate"><span class="pre">__init__</span></code> method of the visual class:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">vispy</span><span class="w"> </span><span class="kn">import</span> <span class="n">gloo</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vxpy.core.visual</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">vxvisual</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vxpy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plane</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BlackAndWhiteGrating</span><span class="p">(</span><span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="p">):</span>
+
+    <span class="c1"># Define parameters</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">internal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">waveform</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">IntParameter</span><span class="p">(</span><span class="s1">&#39;waveform&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">direction</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">IntParameter</span><span class="p">(</span><span class="s1">&#39;direction&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">linear_velocity</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;linear_velocity&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">spatial_period</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;spatial_period&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Set up model of a 2d plane</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plane_2d</span> <span class="o">=</span> <span class="n">plane</span><span class="o">.</span><span class="n">XYPlane</span><span class="p">()</span>
+
+        <span class="c1"># Get vertex positions and corresponding face indices</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plane_2d</span><span class="o">.</span><span class="n">a_position</span>  <span class="c1"># These are the coordinates in a [-1.0, 1.0] 2D cartesian coordinate system</span>
+        <span class="n">faces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plane_2d</span><span class="o">.</span><span class="n">indices</span>  <span class="c1"># These are the indices of connected vertices to form triangles (so-called faces)</span>
+
+        <span class="c1"># Create vertex and index buffers to be passed to program</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">IndexBuffer</span><span class="p">(</span><span class="n">faces</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">position_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">VertexBuffer</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span>
+
+        <span class="c1"># Create a shader program</span>
+        <span class="c1"># Load shaders</span>
+        <span class="n">vert</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_vertex_shader</span><span class="p">(</span><span class="s1">&#39;./planar_grating.vert&#39;</span><span class="p">)</span>
+        <span class="n">frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_shader</span><span class="p">(</span><span class="s1">&#39;./planar_grating.frag&#39;</span><span class="p">)</span>
+        <span class="c1"># Create program</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">Program</span><span class="p">(</span><span class="n">vert</span><span class="p">,</span> <span class="n">frag</span><span class="p">)</span>
+
+        <span class="c1"># Connect the parameters to the program for automatic updating on change</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">waveform</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_velocity</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spatial_period</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_time</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This function is called at least once for every new rendered frame&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+</section>
+<section id="vertex-shader">
+<h4>Vertex shader<a class="headerlink" href="#vertex-shader" title="Link to this heading"></a></h4>
+<p>The vertex shader takes care of any transformations necessary for the physical presentation.
+It sets the <code class="docutils literal notranslate"><span class="pre">gl_Position</span></code> variable and may pass additional coordinates such as <code class="docutils literal notranslate"><span class="pre">v_position</span></code> (real coordinates, mapped to mm) or normalized positions (<code class="docutils literal notranslate"><span class="pre">v_nposition</span></code>) on to the fragment shader.</p>
+<p>In most simple cases this example vertex shader would suffice:</p>
+<div class="highlight-glsl notranslate"><div class="highlight"><pre><span></span><span class="c1">// Vertex shader: ./planar_grating.vert</span>
+
+<span class="c1">// Input</span>
+<span class="k">attribute</span><span class="w"> </span><span class="kt">vec3</span><span class="w"> </span><span class="n">a_position</span><span class="p">;</span>
+
+<span class="c1">// Output</span>
+<span class="k">varying</span><span class="w"> </span><span class="kt">vec2</span><span class="w"> </span><span class="n">v_position</span><span class="p">;</span>
+<span class="k">varying</span><span class="w"> </span><span class="kt">vec2</span><span class="w"> </span><span class="n">v_nposition</span><span class="p">;</span>
+
+<span class="c1">// Main</span>
+<span class="kt">void</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nb">gl_Position</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">transform_position</span><span class="p">(</span><span class="n">a_position</span><span class="p">);</span>
+<span class="w">    </span><span class="n">v_position</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">real_position</span><span class="p">(</span><span class="n">a_position</span><span class="p">);</span>
+<span class="w">    </span><span class="n">v_nposition</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">norm_position</span><span class="p">(</span><span class="n">a_position</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="fragment-shader">
+<h4>Fragment shader<a class="headerlink" href="#fragment-shader" title="Link to this heading"></a></h4>
+<p>The fragment shader defines what should ultimately be displayed, based on the position (here <code class="docutils literal notranslate"><span class="pre">v_position</span></code> in mm) and global visual parameters (<code class="docutils literal notranslate"><span class="pre">uniforms</span></code>).</p>
+<p>In the case of this moving grating stimulus, it uses the <code class="docutils literal notranslate"><span class="pre">direction</span></code> value to determine whether the grating moves along the x- or y-axis.
+The <code class="docutils literal notranslate"><span class="pre">linear_velocity</span></code> [mm/s] and <code class="docutils literal notranslate"><span class="pre">spatial_period</span></code> [mm] determine the sinusoidal brightness value for a pixel at a given <code class="docutils literal notranslate"><span class="pre">v_position</span></code> [mm].
+The <code class="docutils literal notranslate"><span class="pre">waveform</span></code> optionally thresholds the sinewave to create a binary grating.</p>
+<div class="highlight-glsl notranslate"><div class="highlight"><pre><span></span><span class="c1">// Fragment shader: ./planar_grating.frag</span>
+
+<span class="c1">// Constants</span>
+<span class="k">const</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">PI</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">3.14159265359</span><span class="p">;</span>
+
+<span class="c1">// Uniform input</span>
+<span class="k">uniform</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">waveform</span><span class="p">;</span>
+<span class="k">uniform</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">direction</span><span class="p">;</span>
+<span class="k">uniform</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">linear_velocity</span><span class="p">;</span>
+<span class="k">uniform</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">spatial_period</span><span class="p">;</span>
+<span class="k">uniform</span><span class="w"> </span><span class="kt">float</span><span class="w"> </span><span class="n">time</span><span class="p">;</span>
+
+<span class="c1">// Input</span>
+<span class="k">varying</span><span class="w"> </span><span class="kt">vec2</span><span class="w"> </span><span class="n">v_position</span><span class="p">;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="n">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="c1">// Set position to be used</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">p</span><span class="p">;</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">direction</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_position</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v_position</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Calculate brightness using position</span>
+<span class="w">    </span><span class="kt">float</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">sin</span><span class="p">((</span><span class="n">p</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">time</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">linear_velocity</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">spatial_period</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mf">2.0</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">PI</span><span class="p">);</span>
+
+<span class="w">    </span><span class="c1">// If shape is rectangular (1): apply threshold to brightness</span>
+<span class="w">    </span><span class="k">if</span><span class="p">(</span><span class="n">waveform</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">step</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="mf">0.</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="c1">// Set final color</span>
+<span class="w">    </span><span class="nb">gl_FragColor</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">vec4</span><span class="p">(</span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">,</span><span class="w"> </span><span class="mf">1.0</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</section>
+<section id="resetting-the-visual-and-rendering-a-frame">
+<h4>Resetting the visual and rendering a frame<a class="headerlink" href="#resetting-the-visual-and-rendering-a-frame" title="Link to this heading"></a></h4>
+<p>With the code above, the visual stimulus would, in principle, be able to display a grating.
+However, we actually need to tell the program to draw the stimulus.
+For this, the <code class="docutils literal notranslate"><span class="pre">render</span></code> method needs to be implemented:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">vispy</span><span class="w"> </span><span class="kn">import</span> <span class="n">gloo</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vxpy.core.visual</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">vxvisual</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vxpy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">plane</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BlackAndWhiteGrating</span><span class="p">(</span><span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="p">):</span>
+    
+    <span class="c1"># Define parameters</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">internal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">waveform</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">IntParameter</span><span class="p">(</span><span class="s1">&#39;waveform&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">direction</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">IntParameter</span><span class="p">(</span><span class="s1">&#39;direction&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">linear_velocity</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;linear_velocity&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">spatial_period</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;spatial_period&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Set up model of a 2d plane</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plane_2d</span> <span class="o">=</span> <span class="n">plane</span><span class="o">.</span><span class="n">XYPlane</span><span class="p">()</span>
+
+        <span class="c1"># Get vertex positions and corresponding face indices</span>
+        <span class="n">vertices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plane_2d</span><span class="o">.</span><span class="n">a_position</span>  <span class="c1"># These are the coordinates in a [-1.0, 1.0] 2D cartesian coordinate system</span>
+        <span class="n">faces</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plane_2d</span><span class="o">.</span><span class="n">indices</span>  <span class="c1"># These are the indices of connected vertices to form triangles (so-called faces)</span>
+
+        <span class="c1"># Create vertex and index buffers to be passed to program</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">IndexBuffer</span><span class="p">(</span><span class="n">faces</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">position_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">VertexBuffer</span><span class="p">(</span><span class="n">vertices</span><span class="p">)</span>
+
+        <span class="c1"># Create a shader program</span>
+        <span class="c1"># Load shaders</span>
+        <span class="n">vert</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_vertex_shader</span><span class="p">(</span><span class="s1">&#39;./planar_grating.vert&#39;</span><span class="p">)</span>
+        <span class="n">frag</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_shader</span><span class="p">(</span><span class="s1">&#39;./planar_grating.frag&#39;</span><span class="p">)</span>
+        <span class="c1"># Create program</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">Program</span><span class="p">(</span><span class="n">vert</span><span class="p">,</span> <span class="n">frag</span><span class="p">)</span>
+
+        <span class="c1"># Connect the parameters to the program for automatic updating on change</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">waveform</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">linear_velocity</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spatial_period</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Reset time to 0.0 on each visual initialization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="mf">0.0</span>
+        
+    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+        <span class="c1"># Add elapsed time to time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">data</span> <span class="o">+=</span> <span class="n">dt</span>
+
+        <span class="c1"># Apply default transforms to the program for mapping according to hardware calibration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_transform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+
+        <span class="c1"># Draw the actual visual stimulus using the indices of the triangular faces</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="s1">&#39;triangles&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_buffer</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">render</span></code> method first increments the <code class="docutils literal notranslate"><span class="pre">time</span></code> parameter by the elapsed time since the last time it was called.
+It then calls the <code class="docutils literal notranslate"><span class="pre">apply_transform</span></code> method on the shader program to apply any necessary transforms to the program’s models.</p>
+<p>Finally, the draw method of the shader program is called, telling <code class="docutils literal notranslate"><span class="pre">VisPy</span></code> to render the scene.</p>
+<p>Note, that the <code class="docutils literal notranslate"><span class="pre">initialze</span></code> method here simply resets the time back to zero.
+This means, that repeated stimulations with this particular visual don’t carry any history effect.</p>
+</section>
+<section id="interactive-visual-stimulation">
+<h4>Interactive visual stimulation<a class="headerlink" href="#interactive-visual-stimulation" title="Link to this heading"></a></h4>
+<p>The code above would now be a fully functional visual stimulus that could be used as part of a <a class="reference internal" href="create_protocol.html"><span class="doc std std-doc">stimulation protocol</span></a>.
+Beyond that, <code class="docutils literal notranslate"><span class="pre">vxPy</span></code> also supports interactive visual stimulation, for testing of stimuli or quick probing of different parameter combinations outside of any experimental protocol.
+In order for this to work, a valid parameter range and default values may optionally be specified for each parameter:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">BlackAndWhiteGrating</span><span class="p">(</span><span class="n">vxvisual</span><span class="o">.</span><span class="n">PlanarVisual</span><span class="p">):</span>
+    
+    <span class="c1"># Define parameters</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">internal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="n">waveform</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">IntParameter</span><span class="p">(</span><span class="s1">&#39;waveform&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                     <span class="n">value_map</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;rectangular&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;sinusoidal&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+    
+    <span class="n">direction</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">IntParameter</span><span class="p">(</span><span class="s1">&#39;direction&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                                      <span class="n">value_map</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;vertical&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;horizontal&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">})</span>
+    
+    <span class="n">linear_velocity</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;linear_velocity&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+                                              <span class="n">default</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">limits</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">80</span><span class="p">,</span> <span class="mi">80</span><span class="p">),</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+    
+    <span class="n">spatial_period</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;spatial_period&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> 
+                                             <span class="n">default</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">limits</span><span class="o">=</span><span class="p">(</span><span class="o">-</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span> <span class="n">step_size</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note, that the <code class="docutils literal notranslate"><span class="pre">time</span></code> parameter has no default value or range. This is because it is marked as <code class="docutils literal notranslate"><span class="pre">internal=True</span></code>, meaning it may not be changed externally.
+Only the visual itself may manipulate the <code class="docutils literal notranslate"><span class="pre">time</span></code> in this case.</p>
+</section>
+</section>
+<section id="on-a-spherical-surface-here-using-the-4-way-projection-optics">
+<h3>On a spherical surface (here using the 4-way projection optics)<a class="headerlink" href="#on-a-spherical-surface-here-using-the-4-way-projection-optics" title="Link to this heading"></a></h3>
+<p>Generating a moving grating stimulus on a spherical surface is almost identical to the planar case outlines above.</p>
+<p>There are two major differences.
+The first is, that the visual needs to subclass the <code class="docutils literal notranslate"><span class="pre">SphericalVisual</span></code> class, instead of <code class="docutils literal notranslate"><span class="pre">PlanarVisual</span></code>.
+The second is, that the model here needs to be in 3D, because the visual stimulus is created on a spherical 3D surface.</p>
+<p>A working example of a moving grating stimulus for a spherical display situation may look as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">vispy</span><span class="w"> </span><span class="kn">import</span> <span class="n">gloo</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">vxpy.core.visual</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">vxvisual</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">vxpy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">sphere</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">RotatingSphericalGrating</span><span class="p">(</span><span class="n">vxvisual</span><span class="o">.</span><span class="n">SphericalVisual</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Black und white contrast grating stimulus on a sphere</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># (optional) Add a short description</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="s1">&#39;A rotating spherical grating stimulus&#39;</span>
+
+    <span class="c1"># Define parameters</span>
+    <span class="n">time</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;time&#39;</span><span class="p">,</span> <span class="n">internal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">angular_velocity</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;angular_velocity&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">angular_period</span> <span class="o">=</span> <span class="n">vxvisual</span><span class="o">.</span><span class="n">FloatParameter</span><span class="p">(</span><span class="s1">&#39;angular_period&#39;</span><span class="p">,</span> <span class="n">static</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="c1"># Paths to shaders</span>
+    <span class="n">VERT_PATH</span> <span class="o">=</span> <span class="s1">&#39;./spherical_grating.vert&#39;</span>
+    <span class="n">FRAG_PATH</span> <span class="o">=</span> <span class="s1">&#39;./spherical_grating.frag&#39;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">vxvisual</span><span class="o">.</span><span class="n">SphericalVisual</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Set up 3d model of sphere</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sphere</span> <span class="o">=</span> <span class="n">sphere</span><span class="o">.</span><span class="n">UVSphere</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">index_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">IndexBuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sphere</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">position_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">VertexBuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sphere</span><span class="o">.</span><span class="n">a_position</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">azimuth_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">VertexBuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sphere</span><span class="o">.</span><span class="n">azimuth_degree</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">elevation_buffer</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">VertexBuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sphere</span><span class="o">.</span><span class="n">elevation_degree</span><span class="p">)</span>
+
+        <span class="c1"># Set up program</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span> <span class="o">=</span> <span class="n">gloo</span><span class="o">.</span><span class="n">Program</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">load_vertex_shader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">VERT_PATH</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_shader</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">FRAG_PATH</span><span class="p">))</span>
+
+        <span class="c1"># Set positions with buffers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">[</span><span class="s1">&#39;a_position&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">position_buffer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">[</span><span class="s1">&#39;a_azimuth&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">azimuth_buffer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">[</span><span class="s1">&#39;a_elevation&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">elevation_buffer</span>
+        
+        <span class="c1"># Connect parameters (this makes them be automatically updated in the connected programs)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">angular_velocity</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">angular_period</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+        <span class="c1"># Reset u_time to 0 on each visual initialization</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="mf">0.0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">render</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+        <span class="c1"># Add elapsed time to u_time</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">time</span><span class="o">.</span><span class="n">data</span> <span class="o">+=</span> <span class="n">dt</span>
+
+        <span class="c1"># Apply default transforms to the program for mapping according to hardware calibration</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_transform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="p">)</span>
+
+        <span class="c1"># Draw the actual visual stimulus using the indices of the  triangular faces</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">grating</span><span class="o">.</span><span class="n">draw</span><span class="p">(</span><span class="s1">&#39;triangles&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">index_buffer</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="creating-new-base-visuals-advanced">
+<h2>Creating new base visuals (advanced)<a class="headerlink" href="#creating-new-base-visuals-advanced" title="Link to this heading"></a></h2>
+<p>Subclasses of <code class="docutils literal notranslate"><span class="pre">AbstractVisual</span></code> (base visuals) should define a <a class="reference internal" href="create_visual_base_advanced.html"><span class="std std-doc">visual mapping</span></a>.
+They represent a transformation of a 2d or 3d model based on a set of parameters meant to translate the model to fit a physical display situation.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation_guide.html" class="btn btn-neutral float-left" title="Installation guide" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="create_protocol.html" class="btn btn-neutral float-right" title="Creating a new stimulation protocol" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Tim Hladnik.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
