@@ -118,9 +118,10 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         self.mode = "mean"
         self.image_plots: dict[int, ImagePlot] = {}
         self.layer_num = SysConRoutine.instance().num_layers
-        self.global_laser_intensity: float = 0.0
+        self.global_laser_intensity: float = 10.0
+        self.global_roi_diameter: float = 20.0
         self.laser_prep_list: list = []
-        self.roi_widgets: list[tuple] = []  # Tuples: (checkbox, intensity_edit, layer_idx, roi_idx)
+        self.roi_widgets: list[tuple] = []  # Tuples: (checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx)
 
         # -----------------------
         # Main Layout
@@ -163,6 +164,9 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         right_layout.setSpacing(10)
         splitter.addWidget(right_container)
 
+        splitter.setSizes([400, 500])  # left width = 300px, right width = 500px
+
+
         # -----------------------
         # Top right: ROI Controls
         # -----------------------
@@ -191,6 +195,12 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         # --- Label
         button_layout.addWidget(QtWidgets.QLabel("SysCon export and controls."))
 
+        # --- Toggle all ROIs
+        self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
+        self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
+        button_layout.addWidget(self.toggle_all_button)
+
+
         # --- Laser Intensity
         intensity_layout = QtWidgets.QHBoxLayout()
         intensity_layout.addWidget(QtWidgets.QLabel("Laser Intensity:"))
@@ -201,11 +211,6 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         intensity_layout.addWidget(QtWidgets.QLabel("%"))
         button_layout.addLayout(intensity_layout)
         self.intensity_field.editingFinished.connect(self.set_all_laser_intensity)
-
-        # --- Toggle all ROIs
-        self.toggle_all_button = QtWidgets.QPushButton("Toggle all ROIs for laser")
-        self.toggle_all_button.clicked.connect(self.toggle_all_roi_for_laser)
-        button_layout.addWidget(self.toggle_all_button)
 
         # --- Duration
         duration_layout = QtWidgets.QHBoxLayout()
@@ -308,19 +313,28 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             - Intensity field: editable if prep enabled
         """
         roi_dict = SysConRoutine.instance().rois_to_stimulate
-        print(f"populate_roi_rows: {len(roi_dict)}")
-        # Filter only tracked ROIs
-        # tracked_rois = [
-        #     ((layer_idx, roi_idx), roi)
-        #     for (layer_idx, roi_idx), roi in roi_dict.items()
-        #     if roi.tracked
-        # ]
-
 
         # Clear old widgets & internal tracking lists
         self.clear_layout(self.scroll_layout)
         self.roi_widgets.clear()
         self.laser_prep_list.clear()
+
+        # -----------------------
+        # Header row
+        # -----------------------
+        header_widget = QtWidgets.QWidget()
+        header_layout = QtWidgets.QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(4, 2, 4, 2)
+        header_layout.setSpacing(10)
+
+        header_labels = ["ROI", "Laser", "Intensity", "Diameter"]
+        for title in header_labels:
+            lbl = QtWidgets.QLabel(f"<b>{title}</b>")
+            lbl.setAlignment(QtCore.Qt.AlignCenter)
+            header_layout.addWidget(lbl, stretch=1)
+
+        self.scroll_layout.addWidget(header_widget)
+
 
         for row_idx, ((layer_idx, roi_idx), roi) in enumerate(roi_dict.items()):
             # -----------------------
@@ -337,56 +351,65 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             # -----------------------
             # Prep checkbox
             # -----------------------
-            prep_checkbox = QtWidgets.QCheckBox("Prep Laser")
+            prep_checkbox = QtWidgets.QCheckBox() #"Prep Laser"
             prep_checkbox.setChecked(roi.prep_laser)
 
             # -----------------------
             # Intensity field
             # -----------------------
-            intensity_edit = QtWidgets.QLineEdit()
-            intensity_edit.setPlaceholderText("Intensity")
-            intensity_edit.setFixedWidth(80)
+            # Create a spin box for laser intensity (float input between 0.0 and 1.0)
+            intensity_spin = QtWidgets.QDoubleSpinBox()
+            intensity_spin.setRange(0.0, 1.0)  # Minimum and maximum allowed intensity
+            intensity_spin.setSingleStep(0.01)  # Increment when using arrows
+            intensity_spin.setValue(self.global_laser_intensity)  # Set initial value
+            intensity_spin.setFixedWidth(80)  # Optional fixed width for layout
 
-            initial_intensity = self.global_laser_intensity
+            # -----------------------
+            # Diameter field
+            # -----------------------
+            # Create a spin box for ROI diameter (float input between 0.0 and 500.0)
+            diameter_spin = QtWidgets.QDoubleSpinBox()
+            diameter_spin.setRange(0.0, 500.0)  # Minimum and maximum diameter
+            diameter_spin.setSingleStep(0.5)  # Increment when using arrows
+            diameter_spin.setValue(self.global_roi_diameter)  # Set initial value
+            diameter_spin.setFixedWidth(80)  # Optional fixed width for layout
+
+            # -----------------------
+            # Enable or disable fields based on ROI laser preparation
+            # -----------------------
             if roi.prep_laser:
-                intensity_edit.setText(str(initial_intensity))
-                intensity_edit.setEnabled(True)
-                self.laser_prep_list.append((layer_idx, roi_idx, initial_intensity))
+                # Enable the spin boxes and set initial values
+                intensity_spin.setValue(self.global_laser_intensity)
+                intensity_spin.setEnabled(True)
+
+                diameter_spin.setValue(self.global_roi_diameter)
+                diameter_spin.setEnabled(True)
+
+                # Add to laser preparation list for later processing
+                self.laser_prep_list.append(
+                    (layer_idx, roi_idx, self.global_laser_intensity, self.global_roi_diameter)
+                )
             else:
-                intensity_edit.setEnabled(False)
+                # Disable the spin boxes if ROI is not prepared
+                intensity_spin.setEnabled(False)
+                diameter_spin.setEnabled(False)
 
-            # Track widgets for later updates
-            self.roi_widgets.append((prep_checkbox, intensity_edit, layer_idx, roi_idx))
 
-            # -----------------------
-            # Connect checkbox signal
-            # -----------------------
-            def on_checkbox_toggled(state, l=layer_idx, r=roi_idx, edit=intensity_edit):
-                self.on_checkbox_toggled(state, l, r, edit)
+            # Track widgets for later updates (include diameter widget)
+            self.roi_widgets.append((prep_checkbox, intensity_spin, diameter_spin, layer_idx, roi_idx))
 
-            prep_checkbox.stateChanged.connect(on_checkbox_toggled)
 
-            # -----------------------
-            # Connect intensity editing signal
-            # -----------------------
-            def on_intensity_changed(edit_widget, l_idx, r_idx):
-                """Validate and store intensity value."""
-                text = edit_widget.text()
-                try:
-                    val = float(text)
-                    val = max(0.0, min(100.0, val))  # clamp 0-100
-                except ValueError:
-                    val = 0.0
-                edit_widget.setText(str(int(val)))
 
-                # Update laser_prep_list
-                for idx, entry in enumerate(self.laser_prep_list):
-                    if entry[0] == l_idx and entry[1] == r_idx:
-                        self.laser_prep_list[idx] = (l_idx, r_idx, val)
+            #Connect widgets for live updating:
+            prep_checkbox.stateChanged.connect(
+                partial(self.on_checkbox_toggled, layer_idx=layer_idx, roi_idx=roi_idx,
+                        intensity_spin=intensity_spin, diameter_spin=diameter_spin))
 
-            intensity_edit.editingFinished.connect(
-                partial(on_intensity_changed, intensity_edit, layer_idx, roi_idx)
-            )
+            intensity_spin.editingFinished.connect(
+                partial(self.on_intensity_changed, intensity_spin, layer_idx, roi_idx))
+
+            diameter_spin.editingFinished.connect(
+                partial(self.on_diameter_changed, diameter_spin, layer_idx, roi_idx))
 
             # -----------------------
             # Combine widgets in a horizontal row
@@ -397,106 +420,243 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
             row_layout.setSpacing(10)
             row_layout.addWidget(roi_label, stretch=3)
             row_layout.addWidget(prep_checkbox, stretch=1)
-            row_layout.addWidget(intensity_edit, stretch=1)
+            row_layout.addWidget(intensity_spin, stretch=1)
+            row_layout.addWidget(diameter_spin, stretch=1)
 
             self.scroll_layout.addWidget(row_widget)
 
         # Ensure checkbox states are consistent with laser_prep_list
-        for checkbox, edit, layer_idx, roi_idx in self.roi_widgets:
-            self.on_checkbox_toggled(checkbox.isChecked(), layer_idx, roi_idx, edit)
+        for checkbox, intensity_spin, diameter_spin, layer_idx, roi_idx in self.roi_widgets:
+            checkbox.stateChanged.connect(
+                partial(
+                    self.on_checkbox_toggled,
+                    layer_idx=layer_idx,
+                    roi_idx=roi_idx,
+                    intensity_spin=intensity_spin,
+                    diameter_spin=diameter_spin
+                )
+            )
+            self.on_checkbox_toggled(checkbox.isChecked(), layer_idx, roi_idx, intensity_spin, diameter_spin)
 
-    # -------------------------
-    # Signal handlers
-    # -------------------------
-    def on_checkbox_toggled(self, state: int, layer_idx: int, roi_idx: int, intensity_edit: QtWidgets.QLineEdit) -> None:
+    def on_checkbox_toggled(
+            self,
+            state: int,
+            layer_idx: int,
+            roi_idx: int,
+            intensity_spin: QtWidgets.QDoubleSpinBox,
+            diameter_spin: QtWidgets.QDoubleSpinBox
+    ) -> None:
         """
-        Handle ROI prep checkbox toggled.
+        Handle toggling of a checkbox for a ROI.
+        Enables/disables the spin boxes, updates the visualization,
+        and manages the laser preparation list.
+        """
 
-        Args:
-            state: Checkbox state (Qt.Checked / Qt.Unchecked)
-            layer_idx: Layer of the ROI
-            roi_idx: ROI index
-            intensity_edit: Associated QLineEdit for intensity
-        """
+        # Get the ROI object
         roi = SysConRoutine.instance().rois_to_stimulate.get((layer_idx, roi_idx))
         if not roi:
             return
 
+        # Get the corresponding image plot
         image_plot = self.image_plots.get(layer_idx)
         if not image_plot:
             return
 
+        # Determine if checkbox is checked
         is_checked = bool(state)
-        intensity_edit.setEnabled(is_checked)
+        intensity_spin.setEnabled(is_checked)
+        diameter_spin.setEnabled(is_checked)
 
-        diameter = self._get_diameter()
+        # Get current values from spin boxes
+        intensity_val = intensity_spin.value()
+        diameter_val = diameter_spin.value()
 
+        # Update visualization for this ROI
         image_plot.create_or_update_circle(
             roi_idx=roi_idx,
             center=(roi.x_center, roi.y_center),
-            diameter=diameter,
+            alpha=intensity_val,
+            diameter=diameter_val,
             label=f"ROI {roi_idx}"
         )
-
         image_plot.set_circle_visible(roi_idx, is_checked)
 
-        # Update internal laser prep list
+        # Remove any previous entry for this ROI in the preparation list
         self.laser_prep_list = [
-            entry for entry in self.laser_prep_list if not (entry[0] == layer_idx and entry[1] == roi_idx)
+            entry for entry in self.laser_prep_list
+            if not (entry[0] == layer_idx and entry[1] == roi_idx)
         ]
+
+        # If checked, add updated entry
         if is_checked:
-            try:
-                intensity_value = float(intensity_edit.text())
-            except ValueError:
-                intensity_value = self.global_laser_intensity
-                intensity_edit.setText(str(intensity_value))
-            self.laser_prep_list.append((layer_idx, roi_idx, intensity_value))
+            self.laser_prep_list.append((layer_idx, roi_idx, intensity_val, diameter_val))
 
-    def on_intensity_changed(self, intensity_edit: QtWidgets.QLineEdit, layer_idx: int, roi_idx: int) -> None:
-        """
-        Handle editing finished for intensity field.
-
-        Args:
-            intensity_edit: QLineEdit widget
-            layer_idx: Layer index
-            roi_idx: ROI index
-        """
-        text = intensity_edit.text()
-        try:
-            intensity_value = float(text)
-            intensity_value = max(0.0, min(intensity_value, 100.0))
-            intensity_edit.setText(str(intensity_value))
-        except ValueError:
-            intensity_value = self.global_laser_intensity
-            intensity_edit.setText(str(intensity_value))
-
-        # Update laser prep list
-        for idx, entry in enumerate(self.laser_prep_list):
+    def update_laser_prep_entry(self, layer_idx, roi_idx, intensity=None, diameter=None):
+        for i, entry in enumerate(self.laser_prep_list):
             if entry[0] == layer_idx and entry[1] == roi_idx:
-                self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value)
+                old_l, old_r, old_int, old_diam = entry
+                new_int = intensity if intensity is not None else old_int
+                new_diam = diameter if diameter is not None else old_diam
+                self.laser_prep_list[i] = (old_l, old_r, new_int, new_diam)
+                return
+
+        # If no existing entry and both values specified, create one
+        if intensity is not None and diameter is not None:
+            self.laser_prep_list.append((layer_idx, roi_idx, intensity, diameter))
+
+    def on_intensity_changed(self, intensity_spin: QtWidgets.QDoubleSpinBox, layer_idx: int, roi_idx: int):
+        """
+        Handle changes to the intensity spin box.
+        Updates the laser prep list and immediately updates visualization.
+        """
+        intensity_value = intensity_spin.value()  # Already a valid float within range
+
+        # Update the laser prep list (add or modify entry)
+        self.update_laser_prep_entry(layer_idx, roi_idx, intensity=intensity_value)
+
+        # Update visualization
+        roi = SysConRoutine.instance().rois_to_stimulate.get((layer_idx, roi_idx))
+        image_plot = self.image_plots.get(layer_idx)
+        if roi and image_plot:
+            # Get current diameter from prep list
+            _, _, _, diameter = next(
+                ((l, r, inten, diam) for l, r, inten, diam in self.laser_prep_list if l == layer_idx and r == roi_idx),
+                (layer_idx, roi_idx, intensity_value, self.global_roi_diameter)
+            )
+            image_plot.create_or_update_circle(
+                roi_idx=roi_idx,
+                center=(roi.x_center, roi.y_center),
+                alpha=intensity_value,
+                diameter=diameter,
+                label=f"ROI {roi_idx}"
+            )
+
+    def on_diameter_changed(self, diameter_spin: QtWidgets.QDoubleSpinBox, layer_idx: int, roi_idx: int):
+        """
+        Handle changes to the diameter spin box.
+        Updates the laser prep list and immediately updates visualization.
+        """
+        diameter_value = diameter_spin.value()  # Already a valid float within range
+
+        # Update the laser prep list (add or modify entry)
+        self.update_laser_prep_entry(layer_idx, roi_idx, diameter=diameter_value)
+
+        # Update visualization
+        roi = SysConRoutine.instance().rois_to_stimulate.get((layer_idx, roi_idx))
+        image_plot = self.image_plots.get(layer_idx)
+        if roi and image_plot:
+            # Get current intensity from prep list
+            _, _, intensity_value, _ = next(
+                ((l, r, inten, diam) for l, r, inten, diam in self.laser_prep_list if l == layer_idx and r == roi_idx),
+                (layer_idx, roi_idx, self.global_laser_intensity, diameter_value)
+            )
+            image_plot.create_or_update_circle(
+                roi_idx=roi_idx,
+                center=(roi.x_center, roi.y_center),
+                alpha=intensity_value,
+                diameter=diameter_value,
+                label=f"ROI {roi_idx}"
+            )
+
+    # def on_intensity_changed(self, intensity_edit: QtWidgets.QLineEdit, layer_idx: int, roi_idx: int) -> None:
+    #     """
+    #     Handle editing finished for intensity field.
+    #
+    #     Args:
+    #         intensity_edit: QLineEdit widget
+    #         layer_idx: Layer index
+    #         roi_idx: ROI index
+    #     """
+    #     text = intensity_edit.text()
+    #     try:
+    #         intensity_value = float(text)
+    #         intensity_value = max(0.0, min(intensity_value, 100.0))
+    #         intensity_edit.setText(str(intensity_value))
+    #     except ValueError:
+    #         intensity_value = self.global_laser_intensity
+    #         intensity_edit.setText(str(intensity_value))
+    #
+    #     # Update laser prep list
+    #     for idx, entry in enumerate(self.laser_prep_list):
+    #         if entry[0] == layer_idx and entry[1] == roi_idx:
+    #             self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value)
 
     # -------------------------
     # Global controls
     # -------------------------
+    # def set_all_laser_intensity(self) -> None:
+    #     """
+    #     Apply global laser intensity to all ROI intensity spin boxes and update internal list.
+    #     """
+    #     # Get the value from the global intensity spin box (or fallback)
+    #     intensity_value = self.intensity_field.value() if hasattr(self.intensity_field,
+    #                                                               "value") else self.global_laser_intensity
+    #     self.global_laser_intensity = intensity_value
+    #
+    #     # Update the laser prep list
+    #     for idx, (layer_idx, roi_idx, _, diameter) in enumerate(self.laser_prep_list):
+    #         self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value, diameter)
+    #
+    #     # Update all circles in the image plots
+    #     for image_plot in self.image_plots.values():
+    #         image_plot.update_all_circle_intensity(intensity_value)
+    #
+    #     # Update all enabled intensity spin boxes
+    #     for checkbox, intensity_spin, diameter_spin, layer_idx, roi_idx in self.roi_widgets:
+    #         if intensity_spin.isEnabled():
+    #             intensity_spin.setValue(intensity_value)
+    #
+    #     # Clear the global intensity field if needed (optional)
+    #     if hasattr(self.intensity_field, "clear"):
+    #         self.intensity_field.clear()
     def set_all_laser_intensity(self) -> None:
         """
-        Apply global laser intensity to all ROI intensity edits and internal list.
+        Apply the global laser intensity to all ROI intensity fields and update the internal laser_prep_list.
+        Triggered when the user modifies the global intensity input field.
         """
+
+        # -----------------------
+        # 1. Read and validate global intensity
+        # -----------------------
         try:
-            intensity_value = float(self.intensity_field.text())
-            intensity_value = max(0.0, min(intensity_value, 100.0))
+            # Attempt to read the value from the intensity QLineEdit
+            intensity_value = float(self.intensity_field.text())/100
+            # Clamp the value to a valid range (0.0 to 1.0)
+            intensity_value = max(0.0, min(intensity_value, 1))
         except ValueError:
+            # Invalid input (empty or non-numeric) → fallback to the current global intensity
             intensity_value = self.global_laser_intensity
 
+        # Update the stored global laser intensity
         self.global_laser_intensity = intensity_value
 
-        # Update laser prep list and edits
-        for idx, (layer_idx, roi_idx, _) in enumerate(self.laser_prep_list):
-            self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value)
-        for checkbox, edit, layer_idx, roi_idx in self.roi_widgets:
-            if edit.isEnabled():
-                edit.setText(str(intensity_value))
+        # -----------------------
+        # 2. Update all entries in the laser_prep_list
+        # -----------------------
+        # Each entry is a tuple: (layer_idx, roi_idx, intensity, diameter)
+        for idx, (layer_idx, roi_idx, _, diameter) in enumerate(self.laser_prep_list):
+            # Replace the intensity with the new global intensity while keeping the diameter
+            self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value, diameter)
 
+        # -----------------------
+        # 3. Update all circles in all image plots
+        # -----------------------
+        for image_plot in self.image_plots.values():
+            # Update the intensity of all ROI circles to match the new global intensity
+            image_plot.update_all_circle_intensity(intensity_value)
+
+        # -----------------------
+        # 4. Update all enabled intensity fields in the ROI widgets
+        # -----------------------
+        # ROI widgets store: (checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx)
+        for checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx in self.roi_widgets:
+            if intensity_edit.isEnabled():
+                # Reflect the new global intensity in each ROI intensity QLineEdit
+                intensity_edit.setValue(intensity_value)
+
+        # -----------------------
+        # 5. Clear the global intensity input field (optional UX choice)
+        # -----------------------
         self.intensity_field.clear()
 
     def toggle_all_roi_for_laser(self) -> None:
@@ -505,20 +665,67 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         """
         all_on = len(self.laser_prep_list) == len(self.roi_widgets)
         new_state = not all_on
-        for checkbox, edit, layer_idx, roi_idx in self.roi_widgets:
+        for checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx in self.roi_widgets:
             checkbox.setChecked(new_state)
+
+    # def update_all_circle_diameters(self) -> None:
+    #     """
+    #     Update diameter of all visible circles across all layers.
+    #     """
+    #     try:
+    #         self.global_roi_diameter = float(self.diameter_field.text())
+    #     except ValueError:
+    #         return
+    #
+    #     for image_plot in self.image_plots.values():
+    #         image_plot.update_all_circle_diameters(self.global_roi_diameter)
 
     def update_all_circle_diameters(self) -> None:
         """
-        Update diameter of all visible circles across all layers.
+        Apply the global ROI diameter to all visible circles and update the internal laser_prep_list.
+        This is triggered when the user modifies the global diameter field.
         """
+
+        # -----------------------
+        # 1. Read and validate global diameter
+        # -----------------------
         try:
-            new_diameter = float(self.diameter_field.text())
+            # Attempt to read the value from the diameter QLineEdit
+            self.global_roi_diameter = float(self.diameter_field.text())
+            # Clamp the value to a sensible range (1 to 500 pixels)
+            self.global_roi_diameter = max(1.0, min(500.0, self.global_roi_diameter))
         except ValueError:
+            # Invalid input (empty or non-numeric) → do nothing
             return
 
+        # -----------------------
+        # 2. Update all circles in all image plots
+        # -----------------------
         for image_plot in self.image_plots.values():
-            image_plot.update_all_circle_diameters(new_diameter)
+            # This function should update all visible ROI circles to use the new diameter
+            image_plot.update_all_circle_diameters(self.global_roi_diameter)
+
+        # -----------------------
+        # 3. Update all entries in the laser_prep_list
+        # -----------------------
+        # Each entry is a tuple: (layer_idx, roi_idx, intensity, diameter)
+        for idx, (layer_idx, roi_idx, intensity, diameter) in enumerate(self.laser_prep_list):
+            # Replace the diameter with the new global diameter while keeping the intensity
+            self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity, self.global_roi_diameter)
+
+        # -----------------------
+        # 4. Update all enabled diameter fields in the ROI widgets
+        # -----------------------
+        # ROI widgets store: (checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx)
+        for checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx in self.roi_widgets:
+            if diameter_edit.isEnabled():
+                # Reflect the new global diameter in each ROI diameter QLineEdit
+                diameter_edit.setValue(self.global_roi_diameter)
+
+        # -----------------------
+        # 5. Clear the global diameter input field (optional UX choice)
+        # -----------------------
+        self.diameter_field.clear()
 
     # -------------------------
     # Frame & plot updates
@@ -571,14 +778,20 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         header = SysconHeader()
         writer.add_header(header)
 
-        for idx, (layer_idx, roi_idx, laser_intensity) in enumerate(self.laser_prep_list):
+        number_of_entities = 0
+
+        for idx, (layer_idx, roi_idx, laser_intensity, diameter) in enumerate(self.laser_prep_list):
             roi = SysConRoutine.instance().rois_to_stimulate[(layer_idx, roi_idx)]
-            temp_roi = SysconROI(idx)
-            temp_roi.CenterX = roi.x_center
-            temp_roi.CenterY = roi.y_center
-            temp_roi.CenterZ = roi.z_center
-            temp_roi.Intensity = laser_intensity
+            temp_roi = CircleROI(idx)
+            temp_roi.set_center(x=roi.x_center, y=roi.y_center, z=roi.z_center)
+            temp_roi.set_laster_intensity(laser_intensity)
+            temp_roi.add_vertex(x=diameter, y=diameter)
             writer.add_roi(temp_roi)
+            number_of_entities += 1
+
+        ttl_trigger = SysconTTL(number_of_entities, ttl_type="WaitForTTL")
+        writer.add_TTL(ttl_trigger)
+
 
         writer.save()
         print(f"SysCon file {writer.filename} written successfully.")
@@ -590,17 +803,6 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         print(f"Scan mode: {self.scanning_combo.currentText()}, "
               f"Diameter: {self.diameter_field.text()}, "
               f"Duration: {self.duration_field.text()}")
-
-    # -------------------------
-    # Helpers
-    # -------------------------
-    def _get_diameter(self) -> float:
-        """Return diameter from input field or default if invalid."""
-        try:
-            return float(self.diameter_field.text())
-        except ValueError:
-            return 30.0
-
 
 
 class ImagePlot:
@@ -674,33 +876,31 @@ class ImagePlot:
         self.image_item.setImage(frame, autoLevels=False)
 
     def create_or_update_circle(self, roi_idx, center, diameter, label=None,
-                                color=(0, 255, 0, 80), pen_color=(255, 0, 0)):
+                                alpha=0.0,  # transparency controller: 0=transparent, 1=opaque
+                                fill_color=(0, 255, 0),  # RGB only, alpha handled separately
+                                pen_color=(255, 0, 0)):
         """
-        Create a new ROI circle or update an existing one.
+        Create or update a circular ROI.
 
         Parameters
         ----------
-        roi_idx : int
-            Unique identifier for the ROI.
-        center : tuple of float
-            (row, column) coordinates of the ROI center.
-        diameter : float
-            Diameter of the circle.
-        label : str, optional
-            Text label to display in the circle. Defaults to 'ROI {roi_idx}'.
-        color : tuple of int, optional
-            RGBA color of the circle fill. Defaults to (0, 255, 0, 80).
-        pen_color : tuple of int, optional
-            RGB color of the circle outline and label. Defaults to (255, 0, 0).
+        alpha : float
+            Fill transparency between 0 and 1.
+            0 = fully transparent, 1 = fully opaque.
+        fill_color : tuple of int
+            RGB color for the fill (alpha handled separately).
         """
         radius = diameter / 2
         y = center[0] - radius
         x = center[1] - radius
 
+        # convert alpha 0–1 to Qt 0–255
+        qt_alpha = int(max(0, min(0.5, alpha/2)) * 255)
+        fill_rgba = (*fill_color, qt_alpha)
+
         if roi_idx not in self.circles:
-            # Create new ellipse and text items
             ellipse = QGraphicsEllipseItem(x, y, diameter, diameter)
-            ellipse.setBrush(QBrush(QColor(*color)))
+            ellipse.setBrush(QBrush(QColor(*fill_rgba)))
             ellipse.setPen(QPen(QColor(*pen_color)))
             ellipse.setZValue(10)
             self.plot_item.addItem(ellipse)
@@ -714,16 +914,18 @@ class ImagePlot:
                 'ellipse': ellipse,
                 'text': text_item,
                 'center': center,
-                'diameter': diameter
+                'diameter': diameter,
+                'alpha': alpha
             }
         else:
-            # Update existing ellipse and text
             ellipse = self.circles[roi_idx]['ellipse']
             text_item = self.circles[roi_idx]['text']
             ellipse.setRect(x, y, diameter, diameter)
+            ellipse.setBrush(QBrush(QColor(*fill_rgba)))
             text_item.setPos(center[1], center[0])
             self.circles[roi_idx]['center'] = center
             self.circles[roi_idx]['diameter'] = diameter
+            self.circles[roi_idx]['alpha'] = alpha
 
     def set_circle_visible(self, roi_idx: int, visible: bool):
         """
@@ -741,140 +943,577 @@ class ImagePlot:
             self.circles[roi_idx]['text'].setVisible(visible)
 
     def update_all_circle_diameters(self, new_diameter: float):
-        """
-        Update the diameter of all existing ROI circles.
-
-        Parameters
-        ----------
-        new_diameter : float
-            New diameter to apply to all circles.
-        """
         for roi_idx, info in self.circles.items():
-            self.create_or_update_circle(roi_idx, info['center'], new_diameter)
+            self.create_or_update_circle(
+                roi_idx,
+                info['center'],
+                new_diameter,
+                alpha=info['alpha'],
+                fill_color=info.get('fill_color', (0, 255, 0)),
+                pen_color=info.get('pen_color', (255, 0, 0)),
+                label=info['text'].toPlainText()
+            )
 
-class SysconHeader:
+    def update_all_circle_intensity(self, new_intensity: float):
+        for roi_idx, info in self.circles.items():
+            self.create_or_update_circle(
+                roi_idx,
+                info['center'],
+                info['diameter'],
+                alpha=new_intensity,
+                fill_color=info.get('fill_color', (0, 255, 0)),
+                pen_color=info.get('pen_color', (255, 0, 0)),
+                label=info['text'].toPlainText()
+            )
+
+# class SysconHeader:
+#     """
+#     Represents a SysconHeader object that encapsulates configuration data for a specific system
+#     or device setup and outputs it in a structured text format.
+#
+#     The class contains multiple attributes tied to configuration parameters, such as device
+#     sequences, scan modes, auto trigger rules, and timeline settings. This data can be exported
+#     to a `.txt`-formatted string for saving, viewing, or logging purposes.
+#
+#     :ivar name: Unique identifier or name of the SysconHeader.
+#     :type name: str
+#     :ivar version: Version number of the SysconHeader configuration.
+#     :type version: str
+#     :ivar scanmode: Scan mode setting (e.g., Accurate).
+#     :type scanmode: str
+#     :ivar runs: Number of execution runs for this configuration.
+#     :type runs: str
+#     :ivar DeviceSequenceID: Identifier for the device sequence.
+#     :type DeviceSequenceID: str
+#     :ivar invertedportcnt: Number of inverted ports associated with this configuration.
+#     :type invertedportcnt: str
+#     :ivar inverted0: Description of the first inverted port.
+#     :type inverted0: str
+#     :ivar AutoTriggerRulesCount: Number of auto-trigger rules defined.
+#     :type AutoTriggerRulesCount: str
+#     :ivar AutoTriggerRulesEnabled: Status indicating whether auto-trigger rules are enabled.
+#     :type AutoTriggerRulesEnabled: str
+#     :ivar timelinezoomfactor: Zoom factor for the timeline setting.
+#     :type timelinezoomfactor: str
+#     :ivar timelineviewposx: Horizontal view position for the timeline.
+#     :type timelineviewposx: str
+#     :ivar timelineviewposy: Vertical view position for the timeline.
+#     :type timelineviewposy: str
+#     :ivar TotalEditorGroups: Total groups in the editor associated with this configuration.
+#     :type TotalEditorGroups: str
+#     """
+    # def __init__(self):
+    #     self.name = "0E-04-16-81-9A-39-D0-E8-88-7E-A6-6A-FC-25-A0-2A"
+    #     self.version = "2"
+    #     self.scanmode = "Accurate"
+    #     self.runs = "1"
+    #     self.DeviceSequenceID = "0"
+    #     self.invertedportcnt = "1"
+    #     self.inverted0 = "240-2971_0 RMI In"
+    #     self.AutoTriggerRulesCount = "0"
+    #     self.AutoTriggerRulesEnabled = "False"
+    #     self.timelinezoomfactor = "73"
+    #     self.timelineviewposx = "0"
+    #     self.timelineviewposy = "0"
+    #     self.TotalEditorGroups = "0"
+    #
+    # def to_txt(self):
+    #     lines = []
+    #     lines.append(self.name)
+    #     lines.append(f"version={self.version}")
+    #     lines.append(f"scanmode={self.scanmode}")
+    #     lines.append(f"runs={self.runs}")
+    #     lines.append(f"DeviceSequenceID={self.DeviceSequenceID}")
+    #     lines.append(f"invertedportcnt={self.invertedportcnt}")
+    #     lines.append(f"inverted0={self.inverted0}")
+    #     lines.append(f"AutoTriggerRulesCount={self.AutoTriggerRulesCount}")
+    #     lines.append(f"AutoTriggerRulesEnabled={self.AutoTriggerRulesEnabled}")
+    #     lines.append(f"timelinezoomfactor={self.timelinezoomfactor}")
+    #     lines.append(f"timelineviewposx={self.timelineviewposx}")
+    #     lines.append(f"timelineviewposy={self.timelineviewposy}")
+    #     lines.append(f"TotalEditorGroups={self.TotalEditorGroups}")
+    #     return "\n".join(lines)
+
+class SysconHeader():
     """
-    Represents a SysconHeader object that encapsulates configuration data for a specific system
-    or device setup and outputs it in a structured text format.
+    Represents the header of a Syscon sequence file.
 
-    The class contains multiple attributes tied to configuration parameters, such as device
-    sequences, scan modes, auto trigger rules, and timeline settings. This data can be exported
-    to a `.txt`-formatted string for saving, viewing, or logging purposes.
+    This class encapsulates global configuration settings for a Syscon
+    sequence file (.seq), including scan mode, run counts, inverted ports,
+    auto-trigger rules, and timeline view settings. The header is written
+    at the top of the sequence file.
 
-    :ivar name: Unique identifier or name of the SysconHeader.
-    :type name: str
-    :ivar version: Version number of the SysconHeader configuration.
-    :type version: str
-    :ivar scanmode: Scan mode setting (e.g., Accurate).
-    :type scanmode: str
-    :ivar runs: Number of execution runs for this configuration.
-    :type runs: str
-    :ivar DeviceSequenceID: Identifier for the device sequence.
-    :type DeviceSequenceID: str
-    :ivar invertedportcnt: Number of inverted ports associated with this configuration.
-    :type invertedportcnt: str
-    :ivar inverted0: Description of the first inverted port.
-    :type inverted0: str
-    :ivar AutoTriggerRulesCount: Number of auto-trigger rules defined.
-    :type AutoTriggerRulesCount: str
-    :ivar AutoTriggerRulesEnabled: Status indicating whether auto-trigger rules are enabled.
-    :type AutoTriggerRulesEnabled: str
-    :ivar timelinezoomfactor: Zoom factor for the timeline setting.
-    :type timelinezoomfactor: str
-    :ivar timelineviewposx: Horizontal view position for the timeline.
-    :type timelineviewposx: str
-    :ivar timelineviewposy: Vertical view position for the timeline.
-    :type timelineviewposy: str
-    :ivar TotalEditorGroups: Total groups in the editor associated with this configuration.
-    :type TotalEditorGroups: str
+    Attributes
+    ----------
+    nohash : str
+        Literal value 'nohash' for the header.
+    version : str
+        Version of the Syscon file format.
+    scanmode : str
+        Scan mode setting (e.g., 'Accurate').
+    runs : str
+        Number of runs to execute the sequence (0 = infinite).
+    DeviceSequenceID : str
+        Identifier for the device sequence (usually irrelevant for users).
+    invertedportcnt : str
+        Number of TTL ports that are inverted.
+    inverted0 : str
+        Name of the first inverted TTL port.
+    AutoTriggerRulesEnabled : str
+        Whether automatic TTL triggering is enabled ('True' or 'False').
+    AutoTriggerRulesCount : str
+        Number of auto-trigger rules defined.
+    timelinezoomfactor : str
+        Zoom factor for timeline view (visualization only).
+    timelineviewposx : str
+        Horizontal view position in timeline UI (visualization only).
+    timelineviewposy : str
+        Vertical view position in timeline UI (visualization only).
     """
+
+    # Methods: __init__, as_dict, to_txt
+
     def __init__(self):
-        self.name = "0E-04-16-81-9A-39-D0-E8-88-7E-A6-6A-FC-25-A0-2A"
-        self.version = "2"
+        self.nohash = "nohash"  # literal entry, not a variable name
+        self.version = "3"
         self.scanmode = "Accurate"
         self.runs = "1"
-        self.DeviceSequenceID = "0"
+        self.DeviceSequenceID = "1"
         self.invertedportcnt = "1"
-        self.inverted0 = "240-2971_0 RMI In"
-        self.AutoTriggerRulesCount = "0"
+        self.inverted0 = "UGA-42 TTL Out 1"
         self.AutoTriggerRulesEnabled = "False"
-        self.timelinezoomfactor = "73"
+        self.AutoTriggerRulesCount = "0"
+        self.timelinezoomfactor = "0"
         self.timelineviewposx = "0"
         self.timelineviewposy = "0"
-        self.TotalEditorGroups = "0"
+        # You can still include TotalEditorGroups if older tools expect it:
+        # self.TotalEditorGroups = "0"
 
-    def to_txt(self):
-        lines = []
-        lines.append(self.name)
-        lines.append(f"version={self.version}")
-        lines.append(f"scanmode={self.scanmode}")
-        lines.append(f"runs={self.runs}")
-        lines.append(f"DeviceSequenceID={self.DeviceSequenceID}")
-        lines.append(f"invertedportcnt={self.invertedportcnt}")
-        lines.append(f"inverted0={self.inverted0}")
-        lines.append(f"AutoTriggerRulesCount={self.AutoTriggerRulesCount}")
-        lines.append(f"AutoTriggerRulesEnabled={self.AutoTriggerRulesEnabled}")
-        lines.append(f"timelinezoomfactor={self.timelinezoomfactor}")
-        lines.append(f"timelineviewposx={self.timelineviewposx}")
-        lines.append(f"timelineviewposy={self.timelineviewposy}")
-        lines.append(f"TotalEditorGroups={self.TotalEditorGroups}")
+    def as_dict(self):
+        """Return ordered key-value pairs reflecting the new export structure."""
+        return {
+            "nohash": self.nohash,
+            "version": self.version,
+            "scanmode": self.scanmode,
+            "runs": self.runs,
+            "DeviceSequenceID": self.DeviceSequenceID,
+            "invertedportcnt": self.invertedportcnt,
+            "inverted0": self.inverted0,
+            "AutoTriggerRulesEnabled": self.AutoTriggerRulesEnabled,
+            "AutoTriggerRulesCount": self.AutoTriggerRulesCount,
+            "timelinezoomfactor": self.timelinezoomfactor,
+            "timelineviewposx": self.timelineviewposx,
+            "timelineviewposy": self.timelineviewposy,
+        }
+
+    def to_text(self):
+        """Export to updated .txt-style block for .seq file."""
+        data = self.as_dict()
+        lines = [data["nohash"]]  # first line is literal 'nohash'
+        for key, value in data.items():
+            if key != "nohash":
+                lines.append(f"{key}={value}")
         return "\n".join(lines)
 
 
-class SysconROI:
-    def __init__(self, index):
-        self.index = index
-        self.type = "Entity"
-        self.TotalTimings = 1
-        self.TimelineIndex = index
-        self.starttime = 0
-        self.description = ""
-        self.repeats = 0
-        self.LightsourceCount = 1
-        self.LightsourceID = "240-2971_0"
-        self.Intensity = 0
-        self.timelinegroupid = -1
-        self.Stepsize = 100
-        self.Entity_Type = 0
-        self.Entity_Filled = False
-        self.CenterX = 0
-        self.CenterY = 0
-        self.CenterZ = 0
-        self.Rotation = 0
-        self.ScaleX = 1
-        self.ScaleY = 1
-        self.ScaleZ = 1
-        self.VertexCount = 0
-        self.reversed = False
+class SysconEntity:
+    """
+    Base class for all Syscon sequence entities, including ROIs (shapes)
+    and TTL events.
 
-    def to_txt(self):
+    This class defines shared attributes like ID, timeline information,
+    repeats, lightsource references, and the block formatting required
+    to generate a valid Syscon file section.
+
+    Subclasses should override `_subclass_block()` to include
+    type-specific fields.
+
+    Attributes
+    ----------
+    block_index : int
+        The index used to identify the entity block in the sequence file.
+    entity_type : str
+        Type of the entity ('Shape', 'TTLPulse', 'WaitForTTL', etc.).
+    entity_id : int
+        Unique identifier for the entity (usually block_index + 1).
+    data : dict
+        Dictionary of common timeline-related fields such as repeats,
+        lightsource info, stepsize, and timeline index.
+    """
+
+    # Methods: __init__, set, get, _base_block, _subclass_block, to_text, __repr__
+
+    def __init__(self, block_index: int, entity_type: str = "Shape"):
+        self.block_index = block_index
+        self.entity_type = entity_type
+        self.entity_id = self.block_index + 1
+
+        # Common Syscon timeline fields
+        self.data = {
+            "ID": self.entity_id,
+            "type": self.entity_type,
+            "TotalTimings": 1,
+            "TimelineInfo0_TimelineIndex": 0,
+            "TimelineInfo0_starttime": 0,
+            "TimelineInfo0_description": "",
+            "TimelineInfo0_repeats": 1,
+            "TimelineInfo0_LightsourceCount": 1,
+            "TimelineInfo0_LightsourceID_0": "240-2971_0", #for the
+            "TimelineInfo0_Intensity_0": 0.0,
+            "TimelineInfo0_timelinegroupid": -1,
+            "TimelineInfo0_Stepsize": 1
+        }
+
+    def set(self, key: str, value):
+        """Sets a field in the entity dictionary."""
+        if key in self.data:
+            self.data[key] = value
+        else:
+            raise KeyError(f"Invalid SysconEntity key: {key}")
+
+    def set_laster_intensity(self, value):
+        self.data["TimelineInfo0_Intensity_0"] = value
+
+
+    def get(self, key: str):
+        """Gets a field value from the entity dictionary."""
+        return self.data.get(key, None)
+
+    def _base_block(self) -> str:
+        """Return the base Syscon lines for this entity (no subclass fields)."""
+        # Define the desired order of keys
+        keys_order = [
+            "ID",
+            "type",
+            "TotalTimings",
+            "TimelineInfo0_TimelineIndex",
+            "TimelineInfo0_starttime",
+            "TimelineInfo0_description",
+            "TimelineInfo0_repeats",
+            "TimelineInfo0_LightsourceCount",
+            "TimelineInfo0_LightsourceID_0",
+            "TimelineInfo0_Intensity_0",
+            "TimelineInfo0_timelinegroupid",
+            "TimelineInfo0_Stepsize"
+        ]
+
         lines = []
-        lines.append(f"[{self.index}]")
-        lines.append(f"type={self.type}")
-        lines.append(f"TotalTimings={self.TotalTimings}")
-        lines.append(f"TimelineInfo0_TimelineIndex={self.TimelineIndex}")
-        lines.append(f"TimelineInfo0_starttime={self.starttime}")
-        lines.append(f"TimelineInfo0_description={self.description}")
-        lines.append(f"TimelineInfo0_repeats={self.repeats}")
-        lines.append(f"TimelineInfo0_LightsourceCount={self.LightsourceCount}")
-        lines.append(f"TimelineInfo0_LightsourceID_0={self.LightsourceID}")
-        lines.append(f"TimelineInfo0_Intensity_0={self.Intensity}")
-        lines.append(f"TimelineInfo0_timelinegroupid={self.timelinegroupid}")
-        lines.append(f"TimelineInfo0_Stepsize={self.Stepsize}")
+        for key in keys_order:
+            # Only include keys that exist in self.data
+            if key in self.data:
+                lines.append(f"{key}={self.data[key]}")
 
-        lines.append(f"Entity{self.index}_Type={self.Entity_Type}")
-        lines.append(f"Entity{self.index}_Filled={str(self.Entity_Filled)}")
-        lines.append(f"Entity{self.index}_CenterX={self.CenterX}")
-        lines.append(f"Entity{self.index}_CenterY={self.CenterY}")
-        lines.append(f"Entity{self.index}_CenterZ={self.CenterZ}")
-        lines.append(f"Entity{self.index}_Rotation={self.Rotation}")
-        lines.append(f"Entity{self.index}_ScaleX={self.ScaleX}")
-        lines.append(f"Entity{self.index}_ScaleY={self.ScaleY}")
-        lines.append(f"Entity{self.index}_ScaleZ={self.ScaleZ}")
-        lines.append(f"Entity{self.index}_VertexCount={self.VertexCount}")
-        lines.append(f"Entity{self.index}_reversed={str(self.reversed)}")
-        lines.append(f"[/{self.index}]")
         return "\n".join(lines)
+
+
+    def _subclass_block(self) -> str:
+        """
+        Placeholder for subclass-specific content.
+        Subclasses should override this to add extra parameters.
+        """
+        return "(here should the subclass output be written)"
+
+    def to_text(self) -> str:
+        """Return the full formatted Syscon block."""
+        header = f"[{self.block_index}]"
+        footer = f"[/{self.block_index}]"
+        return f"{header}\n{self._base_block()}\n{self._subclass_block()}\n{footer}"
+
+    def __repr__(self):
+        return f"<SysconEntity block={self.block_index} ID={self.entity_id} type={self.entity_type}>"
+
+
+class SysconROI(SysconEntity):
+    """
+    Base class for all Region of Interest (ROI) shapes in a Syscon sequence file.
+
+    This class stores all shape-generic fields defined by the Syscon .seq
+    format and provides the common block output logic. Subclasses represent
+    specific shape types and enforce their own vertex requirements.
+
+    The Syscon format defines five ROI types:
+        0 : Point
+        1 : Line
+        2 : Circle
+        3 : Rectangle
+        4 : Polygon
+
+    All shapes share:
+    - A "center" position (CenterX, CenterY, CenterZ)
+    - An optional rotation
+    - A scale factor
+    - A vertex list (X, Y, Z tuples), interpreted differently per shape
+    - A consistent block output format: ShapeN_FieldName=value
+    """
+
+    def __init__(self, block_index: int, shape_type: int):
+        super().__init__(block_index, entity_type="Shape")
+
+        self.shape_data = {
+            "Type": shape_type,
+            "Filled": True,
+            "CenterX": 0.0,
+            "CenterY": 0.0,
+            "CenterZ": 0.0,
+            "Rotation": 0.0,
+            "Scale": 1.0,
+            "VerticesCount": 0,
+            "VerticesToDrawCount": 0,
+            "TranslationVerticesCount": 0,
+            "Reversed": False,
+            "GroupID": -1,
+            "Linewidth": 1.0,
+        }
+
+        # List of (x, y, z) vertices. Subclasses control allowed count.
+        self.vertices = []
+
+    def add_vertex(self, x: float, y: float, z: float = 0.0):
+        """
+        Adds a vertex to the shape. Subclasses override this to enforce
+        vertex-count rules appropriate to the Syscon shape type.
+        """
+        self.vertices.append((x, y, z))
+        self.shape_data["VerticesCount"] = len(self.vertices)
+
+    def set_shape(self, key: str, value):
+        """Sets a field in the entity dictionary."""
+        if key in self.shape_data:
+            self.shape_data[key] = value
+        else:
+            raise KeyError(f"Invalid SysconEntity key: {key}")
+
+    def set_center(self, x: float, y: float, z: float = 0.0):
+        """Sets the center position of the shape."""
+        self.shape_data["CenterX"] = x
+        self.shape_data["CenterY"] = y
+        self.shape_data["CenterZ"] = z
+
+
+
+    def _subclass_block(self) -> str:
+        """
+        Generates the ShapeN_… block containing all Syscon-specific fields.
+
+        Subclasses inherit this unless they need to modify output layout.
+        """
+        prefix = f"Shape{self.block_index}_"
+        lines = []
+
+        # Write all generic shape fields
+        for key, value in self.shape_data.items():
+            lines.append(f"{prefix}{key}={value}")
+
+        # Write vertex data
+        for i, (x, y, z) in enumerate(self.vertices):
+            lines.append(f"{prefix}Vertex{i}_X={x}")
+            lines.append(f"{prefix}Vertex{i}_Y={y}")
+            lines.append(f"{prefix}Vertex{i}_Z={z}")
+
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return f"<SysconROI block={self.block_index} ID={self.entity_id} Type={self.shape_data['Type']} Vertices={len(self.vertices)}>"
+
+class DotROI(SysconROI):
+    """
+    Represents a point-type ROI (Syscon Type 0).
+
+    A point does not use any vertices; all geometric meaning comes from its
+    center coordinates. Attempts to add vertices raise an exception.
+    """
+
+    def __init__(self, block_index: int):
+        super().__init__(block_index, shape_type=0)
+
+    def add_vertex(self, x: float, y: float, z: float = 0.0):
+        raise ValueError("DotROI does not support vertices.")
+
+class LineROI(SysconROI):
+    """
+    Represents a line-type ROI (Syscon Type 1).
+
+    A line is defined by exactly two vertices, given relative to the center.
+    Attempts to add more than two vertices are not allowed.
+    """
+
+    def __init__(self, block_index: int):
+        super().__init__(block_index, shape_type=1)
+
+    def add_vertex(self, x: float, y: float, z: float = 0.0):
+        if len(self.vertices) >= 2:
+            raise ValueError("LineROI requires exactly two vertices.")
+        super().add_vertex(x, y, z)
+
+class CircleROI(SysconROI):
+    """
+    Represents a circle-type ROI (Syscon Type 2).
+
+    Syscon circles use a single vertex representing a radius vector.
+    This vector, combined with the scale factor, determines the circle size.
+    """
+
+    def __init__(self, block_index: int):
+        super().__init__(block_index, shape_type=2)
+
+    def add_vertex(self, x: float, y: float, z: float = 0.0):
+        if len(self.vertices) >= 1:
+            raise ValueError("CircleROI uses exactly one radius vector vertex.")
+        super().add_vertex(x, y, z)
+
+class RectangleROI(SysconROI):
+    """
+    Represents a rectangle-type ROI (Syscon Type 3).
+
+    A rectangle is defined by four vertices relative to its center.
+    The ordering defines the drawing direction. Reversed=True flips the order.
+    """
+
+    def __init__(self, block_index: int):
+        super().__init__(block_index, shape_type=3)
+
+    def add_vertex(self, x: float, y: float, z: float = 0.0):
+        if len(self.vertices) >= 4:
+            raise ValueError("RectangleROI requires exactly four vertices.")
+        super().add_vertex(x, y, z)
+
+class PolygonROI(SysconROI):
+    """
+    Represents a polygon-type ROI (Syscon Type 4).
+
+    Polygons support any number of vertices (three or more). Vertices are
+    interpreted relative to the shape center. Drawing order is clockwise
+    unless Reversed=True.
+    """
+
+    def __init__(self, block_index: int):
+        super().__init__(block_index, shape_type=4)
+
+    def add_vertex(self, x: float, y: float, z: float = 0.0):
+        super().add_vertex(x, y, z)
+
+    def finalize(self):
+        """
+        Optional helper ensuring the polygon has enough vertices before export.
+        Call this before writing to file if desired.
+        """
+        if len(self.vertices) < 3:
+            raise ValueError("PolygonROI requires at least three vertices.")
+
+
+class SysconTTL(SysconEntity):
+    """
+    Represents a TTL signal entity in a Syscon sequence file.
+
+    A SysconTTL instance can represent either a TTL output pulse
+    ('TTLPulse') or a TTL input/wait condition ('WaitForTTL').
+    The entity stores port information and, for WaitForTTL, an
+    optional edge-trigger behaviour ("rise" or "fall").
+
+    Relationship to TimelineInfo fields
+    ----------------------------------
+    TTL entities rely on the parent SysconEntity's timeline fields.
+    In particular:
+
+        * If the TTL action targets a **lightsource**, the parent
+          entity must specify:
+              TimelineInfo0_LightsourceCount = 1
+
+        * If the TTL action targets a **controller port** (i.e. a
+          standard hardware TTL line), then:
+              TimelineInfo0_LightsourceCount = 0
+
+    Attributes
+    ----------
+    ttl_data : dict
+        TTL-specific configuration values:
+            port : str
+                Name of the TTL input/output port.
+            behaviour : str or None
+                For 'WaitForTTL' entities only. Defines the required
+                signal edge: "rise" or "fall".
+
+    Methods
+    -------
+    set_port(port_name)
+        Assign the TTL port for this entity.
+
+    set_behaviour(behaviour)
+        Assign the rising or falling edge behaviour. Valid only for
+        'WaitForTTL' entities.
+
+    _subclass_block()
+        Generate TTL-specific key-value lines for inclusion in the
+        Syscon output block.
+
+    """
+
+    #TODO: repeats: Wiederholungen der Ticktime des Systems (UGA-42 Systeme: 50us, Holo Systeme: 500us), 0 = 1 Ticktime
+
+
+    def __init__(self, block_index: int, ttl_type: str = "TTLPulse", target_lasers = 0):
+        super().__init__(block_index, entity_type=ttl_type)
+
+        self.ttl_data = {
+            "port": "UGA-42TTL In 1", #TODO
+            "behaviour": None
+        }
+
+        if ttl_type == "WaitForTTL":
+            self.ttl_data["behaviour"] = "rise"
+
+        # Set Lightsource fields if targeting a laser
+        if target_lasers:
+            self.data["TimelineInfo0_LightsourceCount"] = target_lasers
+            self.data["TimelineInfo0_LightsourceID_0"] = "2971_0"
+            self.data["TimelineInfo0_Intensity_0"] = 0
+
+        else:
+            # Controller TTL output -> remove lightsource info
+            self.data["TimelineInfo0_LightsourceCount"] = target_lasers
+            self.data.pop("TimelineInfo0_LightsourceID_0", None)
+            self.data.pop("TimelineInfo0_Intensity_0", None)
+
+
+    def set_port(self, port_name: str):
+        """Sets the TTL port name."""
+        self.ttl_data["port"] = port_name
+
+    def set_behaviour(self, behaviour: str):
+        """Sets the behaviour (for WaitForTTL type only)."""
+        if self.entity_type != "WaitForTTL":
+            raise ValueError("Behaviour can only be set for WaitForTTL entities")
+        if behaviour not in ("rise", "fall"):
+            raise ValueError("Invalid TTL behaviour: must be 'rise' or 'fall'")
+        self.ttl_data["behaviour"] = behaviour
+
+
+    def _subclass_block(self) -> str:
+        """
+        Generates the TTL-specific output block.
+
+        Enforces:
+            TotalTimings must be exactly 1.
+        """
+        if self.data["TotalTimings"] != 1:
+            raise ValueError(
+                f"SysconTTL requires TotalTimings = 1, found {self.data['TotalTimings']}"
+            )
+
+        lines = [f"port={self.ttl_data['port']}"]
+        if self.ttl_data["behaviour"] is not None:
+            lines.append(f"behaviour={self.ttl_data['behaviour']}")
+        return "\n".join(lines)
+
+    def __repr__(self):
+        return (
+            f"<SysconTTL block={self.block_index} "
+            f"ID={self.entity_id} type={self.entity_type} "
+            f"port={self.ttl_data['port']}>"
+        )
+
+
+
 
 
 class SysconFileWriter:
@@ -902,6 +1541,7 @@ class SysconFileWriter:
         """
         self.header = SysconHeader()
         self.rois = []
+        self.TTLs = []
 
         if filename is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -927,11 +1567,19 @@ class SysconFileWriter:
         full_path = os.path.join(filepath, self.filename)
 
         with open(full_path, 'w') as f:
-            f.write(self.header.to_txt())
+            f.write(self.header.to_text())
             f.write("\n")
             for roi in self.rois:
-                f.write(roi.to_txt())
+                f.write(roi.to_text())
                 f.write("\n")
+            for TTL in self.TTLs:
+                f.write(TTL.to_text())
+                f.write("\n")
+
+    def upload_via_tcp(self):
+        #TODO: implement this
+        raise Exception("Not yet implemented")
+
 
     def add_header(self, header):
         """
@@ -955,4 +1603,13 @@ class SysconFileWriter:
         """
         self.rois.append(roi)
 
+    def add_TTL(self, TTL):
+        """
+        Add a TTL to the list.
 
+        Parameters
+        ----------
+        TTL : SysconTTL
+            TTL object to append.
+        """
+        self.TTLs.append(TTL)

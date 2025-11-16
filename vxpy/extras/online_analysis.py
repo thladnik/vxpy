@@ -1,11 +1,14 @@
 from __future__ import annotations
 from functools import partial
+import os
 from typing import Dict, Tuple, Type, Optional, Any
 import numpy as np
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets, QtGui
 import pyqtgraph as pg
 import matplotlib as mpl
 import copy
+import time
+from collections import deque
 
 import vxpy.core.attribute as vxattribute
 import vxpy.core.event as vxevent
@@ -30,6 +33,10 @@ def safe_read_attribute(name, **kwargs):
     return data
 
 
+#TODO: Ideally make this private attribute of the OnlineAnalysisRoutine class (but not a shared dictionary)
+OnlineAnalysisRoutine_engine_instances : dict[str, AnalysisEngine] ={}
+
+
 class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
 
     online_frame_name: str = 'roi_activity_tracker_frame'    # Base name for output frames for attribute file
@@ -49,11 +56,12 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
     update_roi_selection = False
     number_of_layers = None
 
-    engine_instances: dict[str, AnalysisEngine] = {}
+
+
     current_engine_name: str = "Basic Stats"
     engine_switch = False
     update_engine_params = False
-    engi_parameters = {}
+    current_engine_parameters = {}
 
 
 
@@ -62,14 +70,46 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Instantiate all engines and set up their attributes immediately
+        # --- Store rolling compute durations for performance monitoring ---
+        self._frame_times = deque(maxlen=30)
+        self._incoming_frame_intervals = deque(maxlen=30)
+        self._last_frame_time = None
+
+
+
+        # self.engine_instances : dict[str, AnalysisEngine] ={}
+        self.engine_parameters: dict[str, dict] = {}
+
+
+        print(f'[OnlineAnalysisRoutine] Initializing worker: process ID: {os.getpid()}, dict_type: {type(OnlineAnalysisRoutine_engine_instances)}')
         for name, (engine_cls, _, _) in ANALYSIS_REGISTRY.items():
-            engine = engine_cls()
-            self.engine_instances[name] = engine
+            engine = engine_cls(max_rois=self.max_rois_tracked)
+            OnlineAnalysisRoutine_engine_instances[name] = engine
+            print(f"[WORKER] Created engine for {name}: Engine {engine}, id: {id(engine)} in dict: {OnlineAnalysisRoutine_engine_instances[name]} "f"(id={id(OnlineAnalysisRoutine_engine_instances[name])}) "f"PID: {os.getpid()}, PPID: {os.getppid()}")
+            # Make a copy of the engine default parameters for tracking/updating
+            # self.engine_parameters[name] = dict(self.engine_instances[name].engine_parameters)
+
+        for name in test_engine_instances.keys():
+            print(f"[WORKER]1 Stored engine {name}: {test_engine_instances[name]} (id={id(test_engine_instances[name])})")
+
+        for name in test_engine_instances.keys():
+            print(f"[WORKER]2 Stored engine {name}: {test_engine_instances[name]} (id={id(test_engine_instances[name])})")
+
+        for name in test_engine_instances.keys():
+            print(f"[WORKER]3 Stored engine {name}: {test_engine_instances[name]} (id={id(test_engine_instances[name])})")
+
+        for name in test_engine_instances.keys():
+            print(f"[WORKER]4 Stored engine {name}: {test_engine_instances[name]} (id={id(test_engine_instances[name])})")
+
 
         # Default engine
-        self.engine = self.engine_instances[self.current_engine_name]
-        self.engi_parameters.update(self.engine.engine_parameters)
+        self.current_engine_name = list(ANALYSIS_REGISTRY.keys())[0]
+        self.current_engine = OnlineAnalysisRoutine_engine_instances[self.current_engine_name]
+        self.current_engine_parameters.update(self.current_engine.engine_parameters)
+
+
+
+
 
     def main(self, *args, **kwargs):
         """
@@ -80,22 +120,46 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
         if self.new_rois_set:
             self._pull_data()
             print(
-                f"[pull_data_clicked_worker_routine] Routine id: {id(self)} object id: {id(self.rois_to_analyse)}, ROIs: {len(self.rois_to_analyse)}")
+                f"[OnlineAnalysisRoutine] [pull_data_clicked_worker_routine] Routine id: {id(self)} object id: {id(self.rois_to_analyse)}, ROIs: {len(self.rois_to_analyse)}")
 
             self.new_rois_set = False
 
         if self.engine_switch:
-            print(f"[engine_switch] Old engine parameters {self.engi_parameters}")
+            print(f"[OnlineAnalysisRoutine] [engine_switch] Old engine parameters {self.current_engine_parameters}")
             self._switch_engine()
             self.engine_switch = False
-            print(f"[engine_switch] New engine parameters {self.engi_parameters}")
+            print(f"[OnlineAnalysisRoutine] [engine_switch] New engine parameters {self.current_engine_parameters}")
 
         if self.update_engine_params:
             # Update current engine's parameters
-            print(f'[OnlineAnalysisRoutine] Updating engine parameters: {self.engi_parameters}')
-            self.engine.update_engine_parameters(self.engi_parameters)
+            print(f'[OnlineAnalysisRoutine] Previous engine params: {self.current_engine.engine_parameters}')
+
+            print(f'[OnlineAnalysisRoutine] Updating engine parameters to : {self.current_engine_parameters}')
+            self.current_engine.update_engine_parameters(self.current_engine_parameters)
             self.update_engine_params = False
 
+        if self.update_engine_params:
+            try:
+                # Fetch the engine instance by name
+                engine = OnlineAnalysisRoutine_engine_instances.get(self.current_engine_name, None)
+                if engine is None:
+                    print(f"[ERROR] Unknown engine: {self.current_engine_name}")
+                else:
+                    # Optional: validate keys exist in engine.engine_parameters
+                    invalid_keys = set(self.current_engine_parameters) - set(engine.engine_parameters)
+                    if invalid_keys:
+                        print(f"[WARN] Invalid engine parameter keys: {invalid_keys}")
+
+                        print(f'[OnlineAnalysisRoutine] Previous engine params: {engine.engine_parameters}')
+
+                    # Update parameters
+                    engine.update_engine_parameters(self.current_engine_parameters)
+                    print(
+                        f"[OnlineAnalysisRoutine] Updated '{self.current_engine_name}' engine parameters: {self.current_engine_parameters}")
+            except Exception as e:
+                print(f"[ERROR] Failed to update engine parameters: {e}")
+
+            self.update_engine_params = False
 
         if self.update_roi_selection:
             self._update_laser_rois()
@@ -109,6 +173,21 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
         """
         Set up runtime triggers to start processing incoming frames.
         """
+
+
+        # engine_names = list(ANALYSIS_REGISTRY.keys())
+        # engine_1_class, _ , _ = ANALYSIS_REGISTRY[engine_names[0]]
+        # self.engine1 = engine_1_class(max_rois=self.max_rois_tracked)
+        # print(f"[WORKER] Created engine for {engine_names[0]}: Engine {self.engine1}, id: {id(self.engine1)} "f"PID: {os.getpid()}, PPID: {os.getppid()}")
+        #
+        #
+        # engine_2_class, _, _ = ANALYSIS_REGISTRY[engine_names[1]]
+        # self.engine2 = engine_2_class(max_rois=self.max_rois_tracked)
+        # print(f"[WORKER] Created engine for {engine_names[1]}: Engine {self.engine2}, id: {id(self.engine2)} "f"PID: {os.getpid()}, PPID: {os.getppid()}")
+
+
+
+
         if self.analysis_type == "live":
 
             # Trigger fires whenever a new scanimage frame is available
@@ -129,6 +208,13 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
             last_time (float): Timestamp of the last received frame.
             last_frame (np.ndarray): Raw frame data from the acquisition.
         """
+
+        if self._last_frame_time is not None:
+            self._incoming_frame_intervals.append(last_time - self._last_frame_time)
+
+        self._last_frame_time = last_time
+        start = time.perf_counter()
+
 
 
 
@@ -152,7 +238,7 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
         # Read preprocessed frame from the attribute corresponding to the current layer
         current_layer_idx = int(last_frame_index) % ScanImageFrameReceiverTcpServer.instance().layer_num # TODO: Check this
 
-        index , time, preprocessed_frame = vxattribute.read_attribute(f'{self.online_frame_name}_{current_layer_idx}')
+        frame_index , frame_time, preprocessed_frame = vxattribute.read_attribute(f'{self.online_frame_name}_{current_layer_idx}')
 
         for assigned_idx, (layer_idx, roi_idx) in self.roi_idx_assignments.items():
             roi = self.rois_to_analyse[(layer_idx, roi_idx)]
@@ -167,7 +253,32 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
             if (assigned_idx, roi.roi_idx) not in self.roi_label_to_idx:
                 self.roi_label_to_idx.append((assigned_idx, roi.roi_idx))
 
-            self.engine.compute(preprocessed_frame.squeeze(), roi, assigned_idx, time, index)
+            for name in OnlineAnalysisRoutine_engine_instances.keys():
+                # print(f"[WORKER] Use engine {name}:  (id= / {test_engine_instances[name]} (id={id(test_engine_instances[name])})")
+
+                OnlineAnalysisRoutine_engine_instances[name].compute(preprocessed_frame.squeeze(), roi, assigned_idx, frame_time, frame_index)
+
+
+        # =====================================
+        # PERFORMANCE CHECK (minimal)
+        # =====================================
+
+        elapsed = time.perf_counter() - start
+        self._frame_times.append(elapsed)
+
+        avg_compute_time = sum(self._frame_times) / len(self._frame_times)
+
+        if len(self._incoming_frame_intervals) > 0:
+            incoming_period = sum(self._incoming_frame_intervals) / len(self._incoming_frame_intervals)
+
+            # # --- SANITY PRINT EVERY FRAME ---
+            # print(f"[perf] compute_time={elapsed:.4f}s  avg_compute_time={avg_compute_time:.4f}s  "
+            #       f"incoming_period={incoming_period:.4f}s")
+
+
+            if avg_compute_time > incoming_period:
+                print(f"[WARN] Analysis slower ({avg_compute_time:.4f}s > {incoming_period:.4f}s)")
+
 
 
     def require(self) -> None:
@@ -225,13 +336,14 @@ class OnlineAnalysisRoutine(vxroutine.WorkerRoutine):
                 self.rois_to_laser[(layer_idx, roi_idx)] = self.rois_to_analyse[(layer_idx, roi_idx)]
 
     def _switch_engine(self):
-        if self.current_engine_name not in self.engine_instances:
+        if self.current_engine_name not in test_engine_instances.keys():
             raise ValueError(f"Unknown engine {self.current_engine_name}")
         # self.current_engine_name = engine_name
-        self.engine = self.engine_instances[self.current_engine_name]
-        self.engi_parameters.clear()
-        self.engi_parameters.update(self.engine.engine_parameters)
-        print(f'[OnlineAnalysisRoutine] Switching engine to : {self.current_engine_name} with parameters: {self.engi_parameters}')
+        self.current_engine = test_engine_instances[self.current_engine_name]
+        self.current_engine_parameters.clear()
+        self.current_engine_parameters.update(self.current_engine.engine_parameters)
+
+        print(f'[OnlineAnalysisRoutine] Switching engine to : {self.current_engine_name} with parameters: {self.current_engine_parameters}')
 
 
 # ---------------------------------------------------------------------
@@ -540,8 +652,8 @@ class BaseAnalysisWidget(QtWidgets.QWidget):
     Supports multiple independent PlotWidgets.
     """
 
-    _analysis_engine: AnalysisEngine = None
-    _settings_widget: BaseSettingsWidget = None
+    # _analysis_engine: AnalysisEngine = None
+    # _settings_widget: BaseSettingsWidget = None
 
     def __init__(
         self,
@@ -577,6 +689,26 @@ class BaseAnalysisWidget(QtWidgets.QWidget):
         self._build_plot()
 
         self._last_updated_index = None
+
+        # Set a uniform initial height
+        self.set_fixed_height(120)
+
+    def set_fixed_height(self, height: int):
+        """Sets the normal height and applies it."""
+        self._normal_height = height
+        self.setFixedHeight(height)
+
+    def mouseDoubleClickEvent(self, event: QtGui.QMouseEvent):
+        """Toggle widget height on double-click"""
+        if self._normal_height is None:
+            return super().mouseDoubleClickEvent(event)
+
+        if self._expanded:
+            self.setFixedHeight(self._normal_height)
+        else:
+            self.setFixedHeight(self._normal_height * 2)
+        self._expanded = not self._expanded
+        event.accept()
 
     def _build_ui(self):
         self.main_layout = QtWidgets.QHBoxLayout(self)
@@ -618,8 +750,8 @@ class BaseAnalysisWidget(QtWidgets.QWidget):
 class BasicStatsWidget(BaseAnalysisWidget):
     """Single-plot widget for basic statistics"""
 
-    _analysis_engine: Type[BasicStatsEngine]
-    _settings_widget: Type[BasicStatsSettingsWidget]
+    # _analysis_engine: Type[BasicStatsEngine]
+    # _settings_widget: Type[BasicStatsSettingsWidget]
 
     def _build_plot(self):
         pw = pg.PlotWidget()
@@ -653,8 +785,8 @@ class BasicStatsWidget(BaseAnalysisWidget):
 class TuningCurveWidget(BaseAnalysisWidget):
     """Two-plot widget: left/right eye tuning curves"""
 
-    _analysis_engine: Type[EyeTuningCurveEngine]
-    _settings_widget: Type[TuningCurveSettingsWidget]
+    # _analysis_engine: Type[EyeTuningCurveEngine]
+    # _settings_widget: Type[TuningCurveSettingsWidget]
 
     widget_parameters = {
         "regression_type": 'None',
@@ -705,15 +837,16 @@ class TuningCurveWidget(BaseAnalysisWidget):
             epoch_indices, _, epoch_data = safe_read_attribute(attr_epoch, last=1)
             if not len(epoch_indices):
                 return
-            from_idx = epoch_data[-1]["index"]
+            from_idx_l = epoch_data[-1]["left_eye_index"]
+            from_idx_r = epoch_data[-1]["right_eye_index"]
 
             test = safe_read_attribute(f"roi_{self.index}_left_eye")
             # df/f and eye positions
-            df_f = np.array(safe_read_attribute(f"roi_{self.index}_df/f", from_idx=from_idx)[2]).squeeze()
-            left_eye = np.array(safe_read_attribute(f"roi_{self.index}_left_eye", from_idx=from_idx)[2]).squeeze()
-            right_eye = np.array(safe_read_attribute(f"roi_{self.index}_right_eye", from_idx=from_idx)[2]).squeeze()
+            df_f = np.array(safe_read_attribute(f"roi_{self.index}_df/f", from_idx=from_idx_r)[2]).squeeze()
+            left_eye = np.array(safe_read_attribute(f"roi_{self.index}_left_eye", from_idx=from_idx_r)[2]).squeeze()
+            right_eye = np.array(safe_read_attribute(f"roi_{self.index}_right_eye", from_idx=from_idx_r)[2]).squeeze()
 
-            print(f"[Tuning Curve Widget]: last index: {test[0]}, last time: {test[1]}, last value: {test[2]}, len of values since last init: {len(left_eye)}")
+            print(f"[Tuning Curve Widget]: last index: {test[0]}, last time: {test[1]}, last value: {test[2]}, len of values since last init: {len(left_eye)}, from_index: {from_idx_r}")
 
             if len(left_eye) == 0:
                 return
@@ -749,6 +882,28 @@ class TuningCurveWidget(BaseAnalysisWidget):
         except Exception as e:
             print(f"[TuningCurveWidget] Failed to update: {e}")
 
+    def set_active(self, active: bool):
+        """Change appearance of scatter + regression lines only."""
+        # Active/inactive styles
+        active_pen = self._pen_active
+        inactive_pen = self._pen_inactive
+
+        active_brush = pg.mkBrush(*self.color, 120)
+        inactive_brush = pg.mkBrush(150, 150, 150, 80)
+
+        for items in self.plot_items:
+            scatter, line1, line2, threshold_line = items
+
+            # Scatter: change brush + pen
+            scatter.setBrush(active_brush if active else inactive_brush)
+            scatter.setPen(active_pen if active else inactive_pen)
+
+            # Regression lines: pen only
+            line1.setPen(active_pen if active else inactive_pen)
+            line2.setPen(active_pen if active else inactive_pen)
+
+            # Do NOT touch threshold_line
+            # threshold_line stays visually stable
 
 
 # class BaseSettingsWidget(QtWidgets.QWidget):
@@ -1278,17 +1433,41 @@ class TuningCurveSettingsWidget(BaseSettingsWidget):
 class AnalysisEngine:
     """Base class for all analysis engines (math only)."""
 
-    analysis_attributes = []
-    engine_parameters = {}
+    analysis_attributes_default = []
+    engine_parameters_default = {}
+    # engine_parameters = {}
+    # widget_type : BaseAnalysisWidget = None
+    # settings_type: BaseSettingsWidget = None
 
-    widget_type : BaseAnalysisWidget = None
-    settings_type: BaseSettingsWidget = None
 
-    def __init__(self):
+    def __init__(self, max_rois = None):
         print("set up required attributes")
-        self._set_up_attribute_tracking()
 
+        self.analysis_attributes = copy.deepcopy(self.__class__.analysis_attributes_default)
+        self.engine_parameters = copy.deepcopy(self.__class__.engine_parameters_default)
+        self.max_rois = max_rois
+        self._set_up_attribute_tracking()
+        # self.max_rois = OnlineAnalysisRoutine.instance().max_rois_tracked
+        print(f"NEW ENGINE CREATED: {self} id={id(self)} Engine process ID: {os.getpid()},  PPID: {os.getppid()}")
         self.test_coutner = 0
+
+        self.test_coutner1 = 0
+
+    def _set_up_attribute_tracking(self):
+
+
+        for i in range(self.max_rois):
+            for attr in self.analysis_attributes:
+                full_name = f'roi_{i}_{attr["name"]}'
+                if attr['type'] == 'array':
+                    # print(f'Set up {full_name} as array attribute')
+                    vxattribute.ArrayAttribute(full_name, (1,), vxattribute.ArrayType.float64)
+                elif attr['type'] == 'object':
+                    # print(f'Set up {full_name} as object attribute')
+                    vxattribute.ObjectAttribute(full_name)
+                else:
+                    raise ValueError(f'Unknown attribute type {attr["type"]} for {full_name}')
+
 
     def compute(self):
         """Override in subclasses with specific logic."""
@@ -1330,45 +1509,35 @@ class AnalysisEngine:
         # print(f'I want to save {len(result)} roi attributes for {roi_name}')
         for key, value in result.items():
 
-            if self.test_coutner < 3:
-                print(f'roi_{roi_idx}_{key} attribute set up with value: {value}')
+            # if self.test_coutner < 3:
+            #     print(f' {self.test_coutner}: roi_{roi_idx}_{key} attribute set up with value: {value}')
             vxattribute.write_attribute(
                 f'roi_{roi_idx}_{key}', value
             )
 
         self.test_coutner += 1
 
-    def _set_up_attribute_tracking(self):
-
-        max_rois = OnlineAnalysisRoutine.instance().max_rois_tracked
-
-        for i in range(max_rois):
-            for attr in self.analysis_attributes:
-                full_name = f'roi_{i}_{attr["name"]}'
-                if attr['type'] == 'array':
-                    print(f'Set up {full_name} as array attribute')
-                    vxattribute.ArrayAttribute(full_name, (1,), vxattribute.ArrayType.float64)
-                elif attr['type'] == 'object':
-                    print(f'Set up {full_name} as object attribute')
-                    vxattribute.ObjectAttribute(full_name)
-                else:
-                    raise ValueError(f'Unknown attribute type {attr["type"]} for {full_name}')
 
 
 class BasicStatsEngine(AnalysisEngine):
 
 
-    analysis_attributes = [
+    analysis_attributes_default = [
         {'name': 'mean', 'type': 'array'},
         {'name': 'std', 'type': 'array'},
         {'name': 'median', 'type': 'array'}
     ]
 
-    widget_type :Type[BasicStatsWidget]
-    settings_type : Type[BasicStatsSettingsWidget]
+    # widget_type :Type[BasicStatsWidget]
+    # settings_type : Type[BasicStatsSettingsWidget]
 
+    def __init__(self, *args, **kwargs):
+        super(BasicStatsEngine, self).__init__(*args, **kwargs)
 
     def compute(self, frame: np.array, roi : "BaseROI", roi_idx: int = 0, time = None, frame_index=None):
+
+        # print(f'I compute for the {self.test_coutner1} time here')
+        # self.test_coutner1 += 1
         return self.compute_basic_stats(frame, roi, roi_idx)
 
 
@@ -1376,17 +1545,17 @@ class BasicStatsEngine(AnalysisEngine):
 class EyeTuningCurveEngine(AnalysisEngine):
     """Engine for computing eye-position tuning curves from ROI fluorescence data."""
 
-    analysis_attributes = [
+    analysis_attributes_default = [
         {'name': 'left_eye', 'type': 'array'},
         {'name': 'right_eye', 'type': 'array'},
         {'name': 'df/f', 'type': 'array'},
         {'name': 'f0_epoch', 'type': 'object'}
     ]
 
-    widget_type: Type[TuningCurveWidget]
-    settings_type: Type[TuningCurveSettingsWidget]
+    # widget_type: Type[TuningCurveWidget]
+    # settings_type: Type[TuningCurveSettingsWidget]
 
-    engine_parameters = {
+    engine_parameters_default = {
         'f0_mode': 'mean',           # method to compute intensity
         'f0_time_points': 20,         # number of frames for baseline estimation
         'f0_strategy': 'fixed',      # 'fixed' or 'decay'
@@ -1404,11 +1573,17 @@ class EyeTuningCurveEngine(AnalysisEngine):
     _f0_epoch_start = {}  # roi_idx -> {'index': int, 'time': float, 'strategy': str}
     _f0_last_strategy = {}  # roi_idx -> last used strategy
 
+
+    def __init__(self, *args, **kwargs):
+        super(EyeTuningCurveEngine, self).__init__(*args, **kwargs)
+
+
     def compute(self, frame: np.ndarray, roi: "BaseROI", roi_idx: int = 0, time=None, frame_index=None):
         """Compute ΔF/F for a given ROI and associate it with eye position data."""
         current_strategy = self.engine_parameters['f0_strategy']
         last_strategy = self._f0_last_strategy.get(roi_idx, current_strategy)
 
+        #TODO: Fix general indexing issue (maybe run all engines)
         # Detect external reinitialization or strategy change
         if (not self.engine_parameters['initialized_f0']) or (current_strategy != last_strategy):
             self._f0_initialized[roi_idx] = False
@@ -1417,11 +1592,6 @@ class EyeTuningCurveEngine(AnalysisEngine):
         # Initialize if not ready
         if not self._f0_initialized.get(roi_idx, False):
             self._initialize_f0(frame, roi, roi_idx, time, frame_index)
-
-            # TODO: Make this not rely on nan ?
-            # --- Write outputs ---
-            result = {'df/f': np.NAN, 'left_eye': np.NAN, 'right_eye': np.NAN}
-            self._write_result_to_attribute(roi_idx, result)
             return
 
         # Compute mean fluorescence
@@ -1443,8 +1613,8 @@ class EyeTuningCurveEngine(AnalysisEngine):
         df_f = (f_t - self._f0[roi_idx]) / self._f0[roi_idx]
 
         # --- Eye position retrieval ---
-        _, times_l, eyepos_l = vxattribute.read_attribute('eyepos_ang_le_pos_0', last=100) #TODO: make it not just work for 1 fish (0)
-        _, times_r, eyepos_r = vxattribute.read_attribute('eyepos_ang_re_pos_0', last=100)
+        _, times_l, eyepos_l = vxattribute.read_attribute('eyepos_ang_le_pos_0', from_idx=0) #TODO: make it not just work for 1 fish (0)
+        _, times_r, eyepos_r = vxattribute.read_attribute('eyepos_ang_re_pos_0', from_idx=0)
 
         i_l = np.argmin(np.abs(times_l - time))
         i_r = np.argmin(np.abs(times_r - time))
@@ -1463,7 +1633,15 @@ class EyeTuningCurveEngine(AnalysisEngine):
             print(f"Starting F₀ initialization for ROI {roi_idx}")
 
         roi_activity = frame[roi.pixel_mask]
-        f0_measure = np.nanmean(roi_activity)
+        if self.engine_parameters['f0_mode'] == 'mean':
+            f0_measure = np.nanmean(roi_activity)
+        elif self.engine_parameters['f0_mode'] == 'median':
+            f0_measure = np.nanmedian(roi_activity)
+        elif self.engine_parameters['f0_mode'] == 'std':
+            f0_measure = np.nanstd(roi_activity)
+        else:
+            raise ValueError(f"Unknown f0 mode {self.engine_parameters['f0_mode']}")
+
         self._f0_temp_save[roi_idx].append(f0_measure)
 
         # Enough frames collected → finalize baseline
@@ -1475,15 +1653,23 @@ class EyeTuningCurveEngine(AnalysisEngine):
             self.engine_parameters['initialized_f0'] = True
             self._f0_temp_save[roi_idx].clear()
 
+            # --- NEW: Find corresponding eye indices at this epoch start ---
+            _, times_l, _ = vxattribute.read_attribute('eyepos_ang_le_pos_0', from_idx=0)
+            _, times_r, _ = vxattribute.read_attribute('eyepos_ang_re_pos_0', from_idx=0)
+
+            left_eye_idx = int(np.argmin(np.abs(times_l - time)))
+            right_eye_idx = int(np.argmin(np.abs(times_r - time)))
+            # --------------------------------------------------------------
+
+            df_f = np.array(safe_read_attribute(f"roi_{roi_idx}_df/f")[0]).squeeze()
 
             self._f0_epoch_start[roi_idx] = {
                 'index': frame_index.flat[0],
-                'time':  float(time.flat[0]),
-                'strategy': self.engine_parameters['f0_strategy']
+                'time': float(time.flat[0]),
+                'strategy': self.engine_parameters['f0_strategy'],
+                'left_eye_index': df_f.flat[0],  # <--- stored for later alignment
+                'right_eye_index': df_f.flat[0]  # <--- stored for later alignment
             }
-
-            # Write to vxattribute for plotting
-            # vxattribute.write_attribute(f'roi_{roi_idx}_', self._f0_epoch_start[roi_idx])
 
             result = {'f0_epoch': self._f0_epoch_start[roi_idx]}
             self._write_result_to_attribute(roi_idx, result)
@@ -1491,9 +1677,18 @@ class EyeTuningCurveEngine(AnalysisEngine):
             print(
                 f"Baseline F₀ established for ROI {roi_idx} "
                 f"at frame {self._f0_epoch_start[roi_idx]['index']}, time {self._f0_epoch_start[roi_idx]['time']}, "
-                f"mode {self._f0_epoch_start[roi_idx]['strategy']}"
+                f"mode {self._f0_epoch_start[roi_idx]['strategy']}, "
+                f"eye indices (L: {left_eye_idx}, R: {right_eye_idx})"
             )
+
+        else:
+            # TODO: Make this not rely on nan ?
+            # --- Write outputs ---
+            result = {'df/f': np.NAN, 'left_eye': np.NAN, 'right_eye': np.NAN}
+            self._write_result_to_attribute(roi_idx, result)
         # ---------------------------------------------------------------------
+
+
 # Registry for analysis types (extendable)
 # ---------------------------------------------------------------------
 ANALYSIS_REGISTRY: Dict[str, Tuple[Type[AnalysisEngine], Type[BaseSettingsWidget], Type[BaseAnalysisWidget]]] = {
@@ -1511,6 +1706,8 @@ class OnlineAnalysisWidget(vxui.WorkerAddonWidget):
         super().__init__(*args, **kwargs)
 
         self._routine = OnlineAnalysisRoutine.instance()
+
+
         self._roi_data: dict[ROIKey, dict] = {}
 
         # Default analysis selection
@@ -1653,17 +1850,12 @@ class OnlineAnalysisWidget(vxui.WorkerAddonWidget):
         Update engine parameters in the routine.
         Widget parameters are unaffected.
         """
-        # Example test parameter
-        self._routine.engi_parameters['test_parameter'] = True
 
-        for key, value in engine_params.items():
-            self._routine.engi_parameters[key] = value
-            # print(f"Set engine parameter {key} to {value}")
-
+        self._routine.current_engine_parameters.update(engine_params)
         # Flag routine to update engine
         self._routine.update_engine_params = True
 
-        print(f"[OnlineAnalysisWidget]: Engine parameters after update: {self._routine.engi_parameters}")
+        print(f"[OnlineAnalysisWidget]: Engine parameters after update: {self._routine.current_engine_parameters}")
 
 
     def on_analysis_type_changed(self, text: str):
@@ -1843,13 +2035,6 @@ class OnlineAnalysisWidget(vxui.WorkerAddonWidget):
         #TODO: Add updated to the routine-
 
 
-    # def _refresh_active_list(self):
-    #     self.active_list.clear()
-    #     for roi_key, widget in self._roi_widgets.items():
-    #         # widget is the analysis widget; it should have .active_checkbox
-    #         state = "active" if widget.active_checkbox.isChecked() else "inactive"
-    #         self.active_list.addItem(f"{roi_key}: {state}")
-
     # ----------------------------
     # Refresh Loop
     # ----------------------------
@@ -1872,33 +2057,22 @@ class OnlineAnalysisWidget(vxui.WorkerAddonWidget):
 
 
 
-class TuningCurveEngine(AnalysisEngine):
-    def __init__(self, roi_to_analyse, stimulus_data):
-        super().__init__(roi_to_analyse)
-        self.stimulus_data = stimulus_data
-
-    def compute(self):
-
-        return
-
-    def _align_with_stimulus(self, roi_data, stim_data):
-        # TODO: implement
-        return roi_data
-
-    def _compute_tuning_curve(self, aligned_data):
-        # TODO: implement
-        return aligned_data.mean(axis=0)
-
-
-#TODO: Problem with ROI plot indexing (index is plotting by internel reference index, old plots do not get cleared...)
-#TODO: Color inactivation is not working correctly -> option 1: route hide and activate via the AnalysisWorkerWidget instead of the BaseAnalysisWidget
-#TODO: Change the Syscon file for new file format
-#TODO: Refactor Syscon file to handle pull data correctly (in the Routine)
 #TODO: Make Data evaluation from Files
-#TODO: Get online Tuningcurves
-#TODO: Clean up and Refactor BasicStatsWidget to incorporate Settings_menue
 #TODO: Combine all selected ROI in this
 #TODO: Make Multi ROI selection more intuitive
+
+
+#TODO: Update Syscon File Format (-> E-Mail)
+
+
+#TODO: Fix general ROI selection in tracker (+ellipse and polylines, maybe make dragable ??)
+#TODO: Make Online Analysis roi widgets correct size (+zoom on click maybe)
+#TODO: Create hide all active non active button maybe
+#TODO fix color and regression in the eye tuning curve widget... --> regression computation maybe in engines ?
+#TODO: Check engine parameter update again
+#TODO Move registery to config file
+#TODO: Install NVIDIA drivers again for cellpose
+#TODO: From file for tracker and online analyse
 
 
 #TODO: Nice to have Drag selection of ROI, Sorting for graphs (eg. via active non active or some criteria), general sorting of the graphs
