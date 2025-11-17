@@ -558,57 +558,6 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
                 label=f"ROI {roi_idx}"
             )
 
-    # def on_intensity_changed(self, intensity_edit: QtWidgets.QLineEdit, layer_idx: int, roi_idx: int) -> None:
-    #     """
-    #     Handle editing finished for intensity field.
-    #
-    #     Args:
-    #         intensity_edit: QLineEdit widget
-    #         layer_idx: Layer index
-    #         roi_idx: ROI index
-    #     """
-    #     text = intensity_edit.text()
-    #     try:
-    #         intensity_value = float(text)
-    #         intensity_value = max(0.0, min(intensity_value, 100.0))
-    #         intensity_edit.setText(str(intensity_value))
-    #     except ValueError:
-    #         intensity_value = self.global_laser_intensity
-    #         intensity_edit.setText(str(intensity_value))
-    #
-    #     # Update laser prep list
-    #     for idx, entry in enumerate(self.laser_prep_list):
-    #         if entry[0] == layer_idx and entry[1] == roi_idx:
-    #             self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value)
-
-    # -------------------------
-    # Global controls
-    # -------------------------
-    # def set_all_laser_intensity(self) -> None:
-    #     """
-    #     Apply global laser intensity to all ROI intensity spin boxes and update internal list.
-    #     """
-    #     # Get the value from the global intensity spin box (or fallback)
-    #     intensity_value = self.intensity_field.value() if hasattr(self.intensity_field,
-    #                                                               "value") else self.global_laser_intensity
-    #     self.global_laser_intensity = intensity_value
-    #
-    #     # Update the laser prep list
-    #     for idx, (layer_idx, roi_idx, _, diameter) in enumerate(self.laser_prep_list):
-    #         self.laser_prep_list[idx] = (layer_idx, roi_idx, intensity_value, diameter)
-    #
-    #     # Update all circles in the image plots
-    #     for image_plot in self.image_plots.values():
-    #         image_plot.update_all_circle_intensity(intensity_value)
-    #
-    #     # Update all enabled intensity spin boxes
-    #     for checkbox, intensity_spin, diameter_spin, layer_idx, roi_idx in self.roi_widgets:
-    #         if intensity_spin.isEnabled():
-    #             intensity_spin.setValue(intensity_value)
-    #
-    #     # Clear the global intensity field if needed (optional)
-    #     if hasattr(self.intensity_field, "clear"):
-    #         self.intensity_field.clear()
     def set_all_laser_intensity(self) -> None:
         """
         Apply the global laser intensity to all ROI intensity fields and update the internal laser_prep_list.
@@ -668,17 +617,6 @@ class SysConControlWindow(vxui.WorkerAddonWidget):
         for checkbox, intensity_edit, diameter_edit, layer_idx, roi_idx in self.roi_widgets:
             checkbox.setChecked(new_state)
 
-    # def update_all_circle_diameters(self) -> None:
-    #     """
-    #     Update diameter of all visible circles across all layers.
-    #     """
-    #     try:
-    #         self.global_roi_diameter = float(self.diameter_field.text())
-    #     except ValueError:
-    #         return
-    #
-    #     for image_plot in self.image_plots.values():
-    #         image_plot.update_all_circle_diameters(self.global_roi_diameter)
 
     def update_all_circle_diameters(self) -> None:
         """
@@ -966,73 +904,6 @@ class ImagePlot:
                 label=info['text'].toPlainText()
             )
 
-# class SysconHeader:
-#     """
-#     Represents a SysconHeader object that encapsulates configuration data for a specific system
-#     or device setup and outputs it in a structured text format.
-#
-#     The class contains multiple attributes tied to configuration parameters, such as device
-#     sequences, scan modes, auto trigger rules, and timeline settings. This data can be exported
-#     to a `.txt`-formatted string for saving, viewing, or logging purposes.
-#
-#     :ivar name: Unique identifier or name of the SysconHeader.
-#     :type name: str
-#     :ivar version: Version number of the SysconHeader configuration.
-#     :type version: str
-#     :ivar scanmode: Scan mode setting (e.g., Accurate).
-#     :type scanmode: str
-#     :ivar runs: Number of execution runs for this configuration.
-#     :type runs: str
-#     :ivar DeviceSequenceID: Identifier for the device sequence.
-#     :type DeviceSequenceID: str
-#     :ivar invertedportcnt: Number of inverted ports associated with this configuration.
-#     :type invertedportcnt: str
-#     :ivar inverted0: Description of the first inverted port.
-#     :type inverted0: str
-#     :ivar AutoTriggerRulesCount: Number of auto-trigger rules defined.
-#     :type AutoTriggerRulesCount: str
-#     :ivar AutoTriggerRulesEnabled: Status indicating whether auto-trigger rules are enabled.
-#     :type AutoTriggerRulesEnabled: str
-#     :ivar timelinezoomfactor: Zoom factor for the timeline setting.
-#     :type timelinezoomfactor: str
-#     :ivar timelineviewposx: Horizontal view position for the timeline.
-#     :type timelineviewposx: str
-#     :ivar timelineviewposy: Vertical view position for the timeline.
-#     :type timelineviewposy: str
-#     :ivar TotalEditorGroups: Total groups in the editor associated with this configuration.
-#     :type TotalEditorGroups: str
-#     """
-    # def __init__(self):
-    #     self.name = "0E-04-16-81-9A-39-D0-E8-88-7E-A6-6A-FC-25-A0-2A"
-    #     self.version = "2"
-    #     self.scanmode = "Accurate"
-    #     self.runs = "1"
-    #     self.DeviceSequenceID = "0"
-    #     self.invertedportcnt = "1"
-    #     self.inverted0 = "240-2971_0 RMI In"
-    #     self.AutoTriggerRulesCount = "0"
-    #     self.AutoTriggerRulesEnabled = "False"
-    #     self.timelinezoomfactor = "73"
-    #     self.timelineviewposx = "0"
-    #     self.timelineviewposy = "0"
-    #     self.TotalEditorGroups = "0"
-    #
-    # def to_txt(self):
-    #     lines = []
-    #     lines.append(self.name)
-    #     lines.append(f"version={self.version}")
-    #     lines.append(f"scanmode={self.scanmode}")
-    #     lines.append(f"runs={self.runs}")
-    #     lines.append(f"DeviceSequenceID={self.DeviceSequenceID}")
-    #     lines.append(f"invertedportcnt={self.invertedportcnt}")
-    #     lines.append(f"inverted0={self.inverted0}")
-    #     lines.append(f"AutoTriggerRulesCount={self.AutoTriggerRulesCount}")
-    #     lines.append(f"AutoTriggerRulesEnabled={self.AutoTriggerRulesEnabled}")
-    #     lines.append(f"timelinezoomfactor={self.timelinezoomfactor}")
-    #     lines.append(f"timelineviewposx={self.timelineviewposx}")
-    #     lines.append(f"timelineviewposy={self.timelineviewposy}")
-    #     lines.append(f"TotalEditorGroups={self.TotalEditorGroups}")
-    #     return "\n".join(lines)
 
 class SysconHeader():
     """
@@ -1448,8 +1319,7 @@ class SysconTTL(SysconEntity):
 
     """
 
-    #TODO: repeats: Wiederholungen der Ticktime des Systems (UGA-42 Systeme: 50us, Holo Systeme: 500us), 0 = 1 Ticktime
-
+    #TODO: "repeats: Wiederholungen der Ticktime des Systems (UGA-42 Systeme: 50us, Holo Systeme: 500us), 0 = 1 Ticktime" -> Do we need this?
 
     def __init__(self, block_index: int, ttl_type: str = "TTLPulse", target_lasers = 0):
         super().__init__(block_index, entity_type=ttl_type)
