@@ -1,3 +1,5 @@
+"""Arduino DAQ device interface using pyFirmata.
+"""
 from __future__ import annotations
 from typing import Iterator, Union, Tuple
 
@@ -6,6 +8,7 @@ import pyfirmata.util
 
 import vxpy.core.devices.serial as vxserial
 import vxpy.core.logger as vxlogger
+
 
 log = vxlogger.getLogger(__name__)
 

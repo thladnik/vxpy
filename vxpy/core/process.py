@@ -27,14 +27,14 @@ from vxpy.definitions import *
 log = vxlogger.getLogger(__name__)
 
 
-def run_process(target: AbstractProcess, **kwargs):
+def run_process(target: Callable, **kwargs):
     """Initialization function for forked processes
 
     This function should only be used in the Controller and constructs the AbstractProcess
     implementation within the respective subprocess.
 
     Args:
-        target: A reimplementation of AbstractProcess
+        target: AbstractProcess.run method of the Process class
         kwargs: Arguments to be provided to the constructor of AbstractProcess implementation
     """
 
@@ -48,7 +48,19 @@ def run_process(target: AbstractProcess, **kwargs):
     vxlogger.error = log.error
     vxlogger.setup_log_history(kwargs.pop('_log_history'))
 
-    return target(**kwargs)
+    if sys.platform == 'win32':
+        try:
+            import wres
+        except ModuleNotFoundError as exc:
+            return target(**kwargs)
+
+        else:
+            minres, maxres, curres = wres.query_resolution()
+            with wres.set_resolution(maxres):
+                return target(**kwargs)
+
+    else:
+        return target(**kwargs)
 
 
 class AbstractProcess:

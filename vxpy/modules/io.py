@@ -224,7 +224,7 @@ class Io(vxprocess.AbstractProcess):
     def main(self, dt: float):
 
         if self.current_control is not None and self.current_control.is_active:
-            self.current_control.main(dt)
+            self.current_control.main(dt, **self._daq_pins)
 
         # Go through all configured pins
         for pin in self._daq_pins.values():

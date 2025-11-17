@@ -96,14 +96,14 @@ class BaseTransform:
 class PerspectiveTransform(BaseTransform):
 
     vertex_map = """
-    uniform mat4  u_model;
-    uniform mat4  u_view;
-    uniform mat4  u_projection;
+    uniform mat4  u_perspective_model;
+    uniform mat4  u_perspective_view;
+    uniform mat4  u_perspective_projection;
 
     vec4 transform_position(vec3 position) {
 
         vec4 pos = vec4(position, 1.0);
-        pos = u_projection * u_view * u_model * pos;
+        pos = u_perspective_projection * u_perspective_view * u_perspective_model * pos;
 
         return pos;
     }
@@ -113,7 +113,7 @@ class PerspectiveTransform(BaseTransform):
         BaseTransform.__init__(self)
 
         self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(135, (0, 1, 0)))
-        self.translate = 10.
+        self.translate = 5.
         self.view = transforms.translate((0, 0, -self.translate))
 
     def apply(self, visual, dt: float):
@@ -121,8 +121,8 @@ class PerspectiveTransform(BaseTransform):
 
         gl.glEnable(gl.GL_DEPTH_TEST)
 
-        self.transform_uniforms['u_view'] = self.view
-        self.transform_uniforms['u_model'] = self.model
+        self.transform_uniforms['u_perspective_view'] = self.view
+        self.transform_uniforms['u_perspective_model'] = self.model
 
         self.zoom()
 
@@ -135,7 +135,7 @@ class PerspectiveTransform(BaseTransform):
     def zoom(self):
         gloo.set_viewport(0, 0, config.DISPLAY_WIN_SIZE_WIDTH_PX, config.DISPLAY_WIN_SIZE_HEIGHT_PX)
         self.projection = transforms.perspective(25.0, config.DISPLAY_WIN_SIZE_WIDTH_PX / config.DISPLAY_WIN_SIZE_HEIGHT_PX, 0.01, 1000.0)
-        self.transform_uniforms['u_projection'] = self.projection
+        self.transform_uniforms['u_perspective_projection'] = self.projection
 
 
 class OrthoTransform(BaseTransform):
