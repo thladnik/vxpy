@@ -1,19 +1,7 @@
-"""
-vxPy ./core/event.py
-Copyright (C) 2022 Tim Hladnik
+"""Event trigger module for vxPy.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+Provides trigger classes that monitor shared attributes and fire callbacks
+when user-defined conditions are met.
 """
 from __future__ import annotations
 from typing import Any, Callable, Iterable, List, Union
@@ -27,17 +15,47 @@ log = vxlogger.getLogger(__name__)
 
 
 class Trigger:
+    """Trigger class."""
+
     all: List[Trigger] = []
     attribute: Union[vxattribute.Attribute, None] = None
 
     @staticmethod
     def _return_empty() -> (bool, np.ndarray):
+        """ return empty.
+        
+        Returns
+        -------
+        (bool, np.ndarray)
+            ``(False, empty_mask)`` indicating that no trigger events were detected.
+        """
         return False, np.array([])
 
     def condition(self, data) -> (bool, np.ndarray):
+        """Condition.
+        
+        Parameters
+        ----------
+        data : Any
+            Newly read attribute payload to evaluate.
+
+        Returns
+        -------
+        (bool, np.ndarray)
+            Success flag and boolean mask selecting rows that should fire callbacks.
+        """
         return self._return_empty()
 
     def __init__(self, attr: Union[str, vxattribute.Attribute], callback: Union[Callable, List[Callable]] = None):
+        """  init  .
+        
+        Parameters
+        ----------
+        attr : Union[str, vxattribute.Attribute]
+            Attribute object or attribute name monitored by this trigger.
+        callback : Union[Callable, List[Callable]]
+            Callback(s) invoked as ``callback(index, time, value)`` on trigger events.
+        """
         if isinstance(attr, str):
             self.attribute_name = attr
             self.attribute = None
@@ -59,9 +77,13 @@ class Trigger:
         self._active = False
 
     def __repr__(self):
+        """  repr  .
+        """
         return f"{self.__class__.__name__}('{self.attribute.name}', {self.callbacks})"
 
     def set_active(self):
+        """Set active.
+        """
         if self not in self.all:
             self.all.append(self)
 
@@ -73,9 +95,18 @@ class Trigger:
         self._active = True
 
     def set_inactive(self):
+        """Set inactive.
+        """
         self._active = False
 
     def add_callback(self, callback: Union[Callable, Iterable[Callable]]):
+        """Add callback.
+        
+        Parameters
+        ----------
+        callback : Union[Callable, Iterable[Callable]]
+            Single callback or iterable of callbacks to append.
+        """
 
         if not isinstance(callback, Iterable):
             callback = [callback]
@@ -88,6 +119,8 @@ class Trigger:
             self.callbacks.append(c)
 
     def process(self):
+        """Process.
+        """
         if not self._active:
             return
 
@@ -115,8 +148,16 @@ class Trigger:
 
 
 class OnTrigger(Trigger):
+    """OnTrigger class."""
 
     def condition(self, data):
+        """Condition.
+        
+        Parameters
+        ----------
+        data : Any
+            Sequence or array of attribute samples to cast to boolean states.
+        """
 
         # Convert if necessary
         if not isinstance(data, np.ndarray):
@@ -137,8 +178,21 @@ class OnTrigger(Trigger):
 
 
 class NotNullTrigger(Trigger):
+    """NotNullTrigger class."""
 
     def condition(self, data) -> (bool, np.ndarray):
+        """Condition.
+        
+        Parameters
+        ----------
+        data : Any
+            Sequence or array of attribute samples to test for non-zero values.
+
+        Returns
+        -------
+        (bool, np.ndarray)
+            Success flag and mask marking samples that are not zero.
+        """
 
         # Convert if necessary
         if not isinstance(data, np.ndarray):
@@ -153,8 +207,16 @@ class NotNullTrigger(Trigger):
 
 
 class RisingEdgeTrigger(Trigger):
+    """RisingEdgeTrigger class."""
 
     def condition(self, data):
+        """Condition.
+        
+        Parameters
+        ----------
+        data : Any
+            Sequence or array of samples used to detect positive transitions.
+        """
 
         # Convert if necessary
         if not isinstance(data, np.ndarray):
@@ -180,8 +242,16 @@ class RisingEdgeTrigger(Trigger):
 
 
 class FallingEdgeTrigger(Trigger):
+    """FallingEdgeTrigger class."""
 
     def condition(self, data):
+        """Condition.
+        
+        Parameters
+        ----------
+        data : Any
+            Sequence or array of samples used to detect negative transitions.
+        """
 
         # Convert if necessary
         if not isinstance(data, np.ndarray):
@@ -207,8 +277,21 @@ class FallingEdgeTrigger(Trigger):
 
 
 class NewDataTrigger(Trigger):
+    """NewDataTrigger class."""
 
     def condition(self, data) -> (bool, np.ndarray):
+        """Condition.
+        
+        Parameters
+        ----------
+        data : Any
+            Sequence of newly read samples including the previously seen sample at index 0.
+
+        Returns
+        -------
+        (bool, np.ndarray)
+            Success flag and mask where all entries except the first are marked ``True``.
+        """
 
         success = False
         instances = np.zeros(len(data), dtype=bool)

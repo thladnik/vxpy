@@ -1,4 +1,8 @@
-"""Core module for serial devices.
+"""Core module for serial and DAQ devices.
+
+Provides base classes for serial communication devices (:class:`SerialDevice`)
+and data acquisition devices (:class:`DaqDevice`, :class:`DaqPin`), together
+with helper functions for looking up and reading/writing pins.
 """
 from __future__ import annotations
 import abc
@@ -19,9 +23,19 @@ devices: Dict[str, Union[SerialDevice, DaqDevice]] = {}
 daq_pins: Dict[str, DaqPin] = {}
 
 
-def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], Type[DaqDevice], None]:
-    """Fetch the specified serial device API class from given path.
-    API class should be a subclass of CameraDevice"""
+def get_serial_interface(api_path: str) -> Union[Type['SerialDevice'], Type['DaqDevice'], None]:
+    """Get serial interface.
+    
+    Parameters
+    ----------
+    api_path : str
+        Description.
+    
+    Returns
+    -------
+    Union[Type['SerialDevice'], Type['DaqDevice'], None]
+        Description.
+    """
 
     try:
         parts = api_path.split('.')
@@ -42,8 +56,18 @@ def get_serial_interface(api_path: str) -> Union[Type[SerialDevice], Type[DaqDev
     return device_cls
 
 
-def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, SerialDeviceProxy, DaqDevice, None]:
-    """Fetch the device by its string identifier
+def get_serial_device_by_id(device_id: str) -> Union['SerialDevice', 'DaqDevice', None]:
+    """Get serial device by id.
+    
+    Parameters
+    ----------
+    device_id : str
+        Description.
+    
+    Returns
+    -------
+    Union['SerialDevice', 'DaqDevice', None]
+        Description.
     """
     global devices
     if device_id in devices:
@@ -56,27 +80,45 @@ def get_serial_device_by_id(device_id: str) -> Union[SerialDevice, SerialDeviceP
     if device_props is None:
         return None
 
-
     # Get camera api class
     api_cls = get_serial_interface(device_props['api'])
 
     # Return the camera api object
     _device = api_cls(device_id, **device_props)
 
-    # # Return proxy, if local process is not IO
-    # if vxipc.LocalProcess != PROCESS_IO:
-    #     return SerialDeviceProxy(device_id, _device)
-
     return _device
 
 
-def get_pin(pin_id: str) -> Union[DaqPin, None]:
+def get_pin(pin_id: str) -> Union['DaqPin', None]:
+    """Get pin.
+    
+    Parameters
+    ----------
+    pin_id : str
+        Description.
+    
+    Returns
+    -------
+    Union['DaqPin', None]
+        Description.
+    """
     global daq_pins
     return daq_pins.get(pin_id, None)
 
 
 _write_pin_error_log = []
+
+
 def write_pin(pin_id: str, value: Union[bool, int, float]):
+    """Write pin.
+    
+    Parameters
+    ----------
+    pin_id : str
+        Description.
+    value : Union[bool, int, float]
+        Description.
+    """
     pin = get_pin(pin_id)
     if pin is None and pin not in _write_pin_error_log:
         log.error(f'Failed to write to pin {pin}. Does not exist')
@@ -86,7 +128,21 @@ def write_pin(pin_id: str, value: Union[bool, int, float]):
 
 
 _read_pin_error_log = []
+
+
 def read_pin(pin_id: str) -> Union[bool, int, float, None]:
+    """Read pin.
+    
+    Parameters
+    ----------
+    pin_id : str
+        Description.
+    
+    Returns
+    -------
+    Union[bool, int, float, None]
+        Description.
+    """
     pin = get_pin(pin_id)
     if pin is None and pin not in _read_pin_error_log:
         log.error(f'Failed to read from pin {pin}. Does not exist')
@@ -96,17 +152,31 @@ def read_pin(pin_id: str) -> Union[bool, int, float, None]:
 
 
 class PINSIGDIR(Enum):
+    """PINSIGDIR class."""
     INPUT = 1
     OUTPUT = 2
 
 
 class PINSIGTYPE(Enum):
+    """PINSIGTYPE class."""
     ANALOG = 1
     DIGITAL = 2
     PWM = 3
 
 
-def get_pin_prefix(pin: DaqPin) -> str:
+def get_pin_prefix(pin: 'DaqPin') -> str:
+    """Get pin prefix.
+    
+    Parameters
+    ----------
+    pin : 'DaqPin'
+        Description.
+    
+    Returns
+    -------
+    str
+        Description.
+    """
     if pin.signal_type == PINSIGTYPE.ANALOG:
         if pin.signal_direction == PINSIGDIR.INPUT:
             prefix = 'ai'
@@ -131,23 +201,30 @@ def get_pin_prefix(pin: DaqPin) -> str:
 
 
 class DaqPin:
+    """DaqPin class."""
 
     signal_direction: PINSIGDIR = None
     signal_type: PINSIGTYPE = None
     attribute: vxattribute.ArrayAttribute = None
     _new_write_value_proxy = None
 
-    def __init__(self, pin_id: str, board: DaqDevice, properties: Dict[str, Any]):
+    def __init__(self, pin_id: str, board: 'DaqDevice', properties: Dict[str, Any]):
+        """  init  .
+        
+        Parameters
+        ----------
+        pin_id : str
+            Description.
+        board : 'DaqDevice'
+            Description.
+        properties : Dict[str, Any]
+            Description.
+        """
         self.pin_id: str = pin_id
         self._board: DaqDevice = board
         self.properties: Dict[str, Any] = properties
 
         global daq_pins
-        # Checking if pin has been created does not work on Unix
-        # (forked subprocesses already get updated module with serial DAQ pin list from controller)
-        # if self.pin_id in daq_pins:
-        #     log.error(f'Tried setting up {self} more than once')
-        #     return
         daq_pins[self.pin_id] = self
 
         success = True
@@ -180,23 +257,38 @@ class DaqPin:
             self._new_write_value_proxy = vxipc.get_manager('io_devices').Value(_type, None)
 
     def __repr__(self):
+        """  repr  .
+        """
         return f'{self.__class__.__name__}(\'{self.pin_id}\', {self.signal_type}, {self.signal_direction})'
 
     @abc.abstractmethod
     def initialize(self):
+        """Initialize.
+        """
         pass
 
     def write(self, value):
-        """Write new value to pin"""
+        """Write.
+        
+        Parameters
+        ----------
+        value : Any
+            Description.
+        """
         self._new_write_value_proxy.value = value
 
     @abc.abstractmethod
     def _write_hw(self, value):
-        """Write new value to hardware (to be implemented in DaqPin subclass)
+        """ write hw.
+        
+        Parameters
+        ----------
+        value : Any
+            Description.
         """
 
     def write_hw(self):
-        """Write new value to hardware (called in Io module)
+        """Write hw.
         """
         # Get value from ValueProxy
         write_value = self._new_write_value_proxy.value
@@ -211,41 +303,65 @@ class DaqPin:
 
     @abc.abstractmethod
     def _read_hw(self) -> Union[bool, int, float]:
-        """Read new value from hardware and return it (to be implemented in DaqPin subclass)
+        """ read hw.
+        
+        Returns
+        -------
+        Union[bool, int, float]
+            Description.
         """
 
     def read_hw(self) -> None:
-        """Read new value from hardware (called in Io module)
+        """Read hw.
         """
         self.attribute.write(self._read_hw())
 
 
 class DaqDevice:
-    """Base class of a DAQ device"""
+    """DaqDevice class."""
 
     def __init__(self, device_id, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        device_id : Any
+            Description.
+        **kwargs : Any
+            Description.
+        """
         self.device_id: str = device_id
         self.properties: Dict[str, Any] = kwargs
         self.pins: Dict[str, DaqPin] = {}
 
         # Add device to global dictionary
         global devices
-        # Checking if device has been created does not work on Unix
-        # (forked subprocesses already get updated module with serial device list from controller)
-        # if self.device_id in devices:
-        #     log.error(f'Tried setting up device {self} more than once')
-        #     return
         devices[self.device_id] = self
 
     def __repr__(self):
+        """  repr  .
+        """
         return f'{self.__class__.__name__}(\'{self.device_id}\')'
 
     @abc.abstractmethod
     def _open(self) -> bool:
+        """ open.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def open(self) -> bool:
-
+        """Open.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._open()
 
@@ -255,9 +371,13 @@ class DaqDevice:
 
     @abc.abstractmethod
     def _setup_pins(self):
+        """ setup pins.
+        """
         pass
 
     def setup_pins(self) -> None:
+        """Setup pins.
+        """
         if len(self.pins) > 0:
             log.error(f'Tried to re-run pin setup for {self}')
             return
@@ -265,10 +385,23 @@ class DaqDevice:
 
     @abc.abstractmethod
     def _start(self) -> bool:
+        """ start.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def start(self) -> bool:
-
+        """Start.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._start()
 
@@ -278,10 +411,23 @@ class DaqDevice:
 
     @abc.abstractmethod
     def _end(self) -> bool:
+        """ end.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def end(self) -> bool:
-
+        """End.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._end()
 
@@ -291,11 +437,23 @@ class DaqDevice:
 
     @abc.abstractmethod
     def _close(self) -> bool:
+        """ close.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def close(self) -> bool:
-
-        # Try connecting
+        """Close.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._close()
 
@@ -305,30 +463,49 @@ class DaqDevice:
 
 
 class SerialDevice(abc.ABC):
-    """Base class of any serial device"""
+    """SerialDevice class."""
 
     def __init__(self, device_id: str, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        device_id : str
+            Description.
+        **kwargs : Any
+            Description.
+        """
         self.device_id: str = device_id
         self.properties: Dict[str, Any] = kwargs
 
         # Add device to global dictionary
         global devices
-        # Checking if device has been created does not work on Unix
-        # (forked subprocesses already get updated module with serial device list from controller)
-        # if self.device_id in devices:
-        #     log.error(f'Tried setting up device {self} more than once')
-        #     return
         devices[self.device_id] = self
 
     def __repr__(self):
+        """  repr  .
+        """
         return f'{SerialDevice.__name__}::{self.__class__.__name__}({self.device_id})'
 
     @abc.abstractmethod
     def _open(self) -> bool:
+        """ open.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def open(self) -> bool:
-
+        """Open.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._open()
 
@@ -338,10 +515,23 @@ class SerialDevice(abc.ABC):
 
     @abc.abstractmethod
     def _start(self) -> bool:
+        """ start.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def start(self) -> bool:
-
+        """Start.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._start()
 
@@ -351,10 +541,23 @@ class SerialDevice(abc.ABC):
 
     @abc.abstractmethod
     def _end(self) -> bool:
+        """ end.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def end(self) -> bool:
-
+        """End.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._end()
 
@@ -364,11 +567,23 @@ class SerialDevice(abc.ABC):
 
     @abc.abstractmethod
     def _close(self) -> bool:
+        """ close.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         pass
 
     def close(self) -> bool:
-
-        # Try connecting
+        """Close.
+        
+        Returns
+        -------
+        bool
+            Description.
+        """
         try:
             return self._close()
 
@@ -389,4 +604,4 @@ class SerialDevice(abc.ABC):
 #     #     # Intercept all function calls
 #     #     attr = getattr(self._device, item)
 #     #     if hasattr(attr, '__call__'):
-#     #         vxipc.io_rpc('execute_serial_device_call', self.device_id)
+

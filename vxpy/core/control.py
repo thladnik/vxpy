@@ -3,31 +3,62 @@ from typing import Dict, Any
 
 
 class BaseControl(ABC):
+    """BaseControl class."""
 
     def __init__(self):
+        """  init  .
+        """
         self.is_active = False
 
     def start(self):
+        """Start.
+        """
         self.is_active = True
 
     def update(self, parameters: Dict[str, Any]):
+        """Update control parameters by setting attributes.
+
+        Parameters
+        ----------
+        parameters : Dict[str, Any]
+            Dictionary of parameter names to values to set as attributes on this control.
+        """
         for name, value in parameters.items():
             setattr(self, name, value)
 
     def _end(self):
+        """ end.
+        """
         pass
 
     def end(self):
+        """End.
+        """
         self._end()
         self.is_active = False
 
     @abstractmethod
     def initialize(self, **kwargs):
-        """Method to be implemented in control. Called during start of phase"""
+        """Initialize the control with optional keyword arguments.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Optional keyword arguments for control-specific initialization.
+        """
 
     @abstractmethod
     def main(self, dt: float, **pins):
-        """Method to be implemented in control. Called on each event loop iteration"""
+        """Main control loop update method.
+
+        Parameters
+        ----------
+        dt : float
+            Time delta / elapsed time since last call in seconds.
+        **pins : Any
+            Named input pins/signals for control input.
+        """
 
     def destroy(self):
-        """Method to be implemented in control. Called after control phase has finished"""
+        """Destroy.
+        """

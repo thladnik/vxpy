@@ -1,19 +1,9 @@
-"""
-vxPy ./core/logger.py
-Copyright (C) 2022 Tim Hladnik
+"""Logging utilities for vxPy.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+Provides helpers to configure a shared multiprocessing log queue, an optional
+log history list, and a rotating file logger.  All loggers created via
+:func:`getLogger` are automatically routed through the queue once
+:func:`add_handlers` is called.
 """
 import logging
 import logging.handlers
@@ -26,36 +16,80 @@ _file_logger: logging.Logger = None
 
 
 def setup_log_queue(log_queue):
+    """Setup log queue.
+    
+    Parameters
+    ----------
+    log_queue : Any
+        Description.
+    """
     global _log_queue
     _log_queue = log_queue
 
 
 def setup_log_history(log_history):
+    """Setup log history.
+    
+    Parameters
+    ----------
+    log_history : Any
+        Description.
+    """
     global _log_history
     _log_history = log_history
 
 
 def add_to_history(record):
+    """Add to history.
+    
+    Parameters
+    ----------
+    record : Any
+        Description.
+    """
     global _log_history
     _log_history.append(record)
 
 
 def add_to_file(record):
+    """Add to file.
+    
+    Parameters
+    ----------
+    record : Any
+        Description.
+    """
     global _file_logger
     _file_logger.handle(record)
 
 
 def get_queue():
+    """Get queue.
+    """
     global _log_queue
     return _log_queue
 
 
 def get_history():
+    """Get history.
+    """
     global _log_history
     return _log_history
 
 
 def setup_log_to_file(filepath) -> logging.Handler:
+    """Setup log to file.
+    
+    Parameters
+    ----------
+    filepath : Any
+        Description.
+    
+    Returns
+    -------
+    logging.Handler
+        Description.
+    """
     global _file_logger
     if _file_logger is None:
         _file_logger = logging.getLogger('filelogger')
@@ -68,12 +102,31 @@ def setup_log_to_file(filepath) -> logging.Handler:
 
 
 def remove_log_to_file(h: logging.Handler):
+    """Remove log to file.
+    
+    Parameters
+    ----------
+    h : logging.Handler
+        Description.
+    """
     global _file_logger
 
     _file_logger.removeHandler(h)
 
 
 def getLogger(name) -> logging.Logger:
+    """Getlogger.
+    
+    Parameters
+    ----------
+    name : Any
+        Description.
+    
+    Returns
+    -------
+    logging.Logger
+        Description.
+    """
     global _log_queue
     log = logging.getLogger(name)
 
@@ -81,6 +134,8 @@ def getLogger(name) -> logging.Logger:
 
 
 def add_handlers():
+    """Add handlers.
+    """
     global _log_queue
     for name in logging.root.manager.loggerDict:
         log = logging.getLogger(name)

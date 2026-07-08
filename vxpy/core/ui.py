@@ -35,27 +35,36 @@ log = vxlogger.getLogger(__name__)
 
 
 class ExposedWidget:
-    """Widget base class for widgets which expose bound methods to be called from external sources"""
+    """ExposedWidget class."""
 
     instance: Type[ExposedWidget] = None
 
     def __init__(self):
         # List of exposed methods to register for rpc callbacks
+        """Initialize the list of RPC-exposed methods for this widget."""
         self.exposed: List[Callable] = []
         ExposedWidget.instance = self
 
     def create_hooks(self):
-        """Register exposed functions as callbacks with the local process"""
+        """Create hooks.
+        """
         for fun in self.exposed:
             vxipc.LocalProcess.register_rpc_callback(self, fun)
 
 
 class WindowWidget(QtWidgets.QWidget):
-    """Widget that should be displayed as a separate window"""
+    """WindowWidget class."""
 
     display_name: str = None
 
     def __init__(self, main_window: vxmodules.Window):
+        """  init  .
+        
+        Parameters
+        ----------
+        main_window : vxmodules.Window
+            Main GUI window used as parent and window manager anchor.
+        """
         self.main_window = main_window
         QtWidgets.QWidget.__init__(self, parent=main_window, f=QtCore.Qt.WindowType.Window)
 
@@ -69,7 +78,8 @@ class WindowWidget(QtWidgets.QWidget):
         self.show()
 
     def toggle_visibility(self):
-        """Switch visibility based on current visibility"""
+        """Toggle visibility.
+        """
 
         if self.isVisible():
             self.hide()
@@ -80,7 +90,13 @@ class WindowWidget(QtWidgets.QWidget):
             self.showNormal()
 
     def event(self, event):
-        """Catch all events and execute custom responses"""
+        """Event.
+        
+        Parameters
+        ----------
+        event : Any
+            Qt event processed to keep stacked addon windows in sync.
+        """
 
         if self.windowType() != QtCore.Qt.WindowType.Window:
             return False
@@ -101,11 +117,19 @@ class WindowWidget(QtWidgets.QWidget):
 
 
 class AddonWindow(WindowWidget, ExposedWidget):
+    """AddonWindow class."""
     timer = QtCore.QTimer()
 
     display_name = 'Addons'
 
     def __init__(self, main_window: vxmodules.Window):
+        """  init  .
+        
+        Parameters
+        ----------
+        main_window : vxmodules.Window
+            Main GUI window that owns and coordinates addon tabs.
+        """
         ExposedWidget.__init__(self)
         WindowWidget.__init__(self, main_window)
         self.setLayout(QtWidgets.QHBoxLayout())
@@ -121,6 +145,13 @@ class AddonWindow(WindowWidget, ExposedWidget):
 
     def attach_tab(self, widget: AddonWidget):
 
+        """Attach tab.
+        
+        Parameters
+        ----------
+        widget : AddonWidget
+            Addon widget moved into this tab container.
+        """
         if not isinstance(widget, AddonWidget):
             log.error(f'Unable to attach widget {widget.__class__.__name__}. Type must be {AddonWidget.__name__}')
             return
@@ -133,6 +164,13 @@ class AddonWindow(WindowWidget, ExposedWidget):
 
     def detach_tab(self, widget: AddonWidget):
 
+        """Detach tab.
+        
+        Parameters
+        ----------
+        widget : AddonWidget
+            Addon widget removed from tabs and restored as a floating window.
+        """
         if not isinstance(widget, AddonWidget):
             log.error(f'Unable to detach widget {widget.__class__.__name__}. Type must be {AddonWidget.__name__}')
             return
@@ -152,7 +190,7 @@ class AddonWindow(WindowWidget, ExposedWidget):
 
 # class AddonWidget(QtWidgets.QWidget, ExposedWidget):
 class AddonWidget(WindowWidget, ExposedWidget):
-    """Addon widget which should be subclassed by custom widgets in plugins, etc"""
+    """AddonWidget class."""
 
     name = None
     is_attached = True
@@ -163,6 +201,21 @@ class AddonWidget(WindowWidget, ExposedWidget):
                  preferred_size: Tuple[int, int] = None, preferred_pos: Tuple[int, int] = None,
                  **kwargs):
 
+        """  init  .
+        
+        Parameters
+        ----------
+        addon_window : AddonWindow
+            Addon tab container that can attach/detach this widget.
+        main_window : vxmodules.Window
+            Main application window used as parent.
+        preferred_size : Tuple[int, int]
+            Preferred floating size restored when detached.
+        preferred_pos : Tuple[int, int]
+            Preferred floating position restored when detached.
+        **kwargs : Any
+            Additional unused keyword arguments kept for subclass compatibility.
+        """
         ExposedWidget.__init__(self)
         WindowWidget.__init__(self, main_window)
 
@@ -202,6 +255,13 @@ class AddonWidget(WindowWidget, ExposedWidget):
 
     @property
     def display_props(self) -> Dict[str, Any]:
+        """Display props.
+        
+        Returns
+        -------
+        Dict[str, Any]
+            Persistable layout state (attach status, size, and relative position).
+        """
         return {'detached': not self.is_attached,
                 'preferred_size': (self.size().width(), self.size().height()),
                 'preferred_pos': (self.pos().x() - self.main_window.sx, self.pos().y() - self.main_window.sy)}
@@ -209,6 +269,8 @@ class AddonWidget(WindowWidget, ExposedWidget):
     def detach(self):
 
         # Detach first
+        """Detach.
+        """
         self.addon_window.detach_tab(self)
 
         # Then restore size and position
@@ -225,6 +287,8 @@ class AddonWidget(WindowWidget, ExposedWidget):
 
     def attach(self):
         # Save size and position
+        """Attach.
+        """
         if not self.is_attached:
             props = self.display_props
             self.preferred_size = props['preferred_size']
@@ -234,77 +298,178 @@ class AddonWidget(WindowWidget, ExposedWidget):
         self.addon_window.attach_tab(self)
 
     def set_attached(self):
+        """Set attached.
+        """
         self.attach_button.setVisible(False)
         self.detach_button.setVisible(True)
         self.is_attached = True
 
     def set_detached(self):
+        """Set detached.
+        """
         self.attach_button.setVisible(True)
         self.detach_button.setVisible(False)
         self.is_attached = False
 
     @staticmethod
     def connect_to_timer(fun: Callable):
+        """Connect to timer.
+        
+        Parameters
+        ----------
+        fun : Callable
+            Callback connected to the shared addon update timer.
+        """
         AddonWindow.timer.timeout.connect(fun)
 
     @classmethod
     def call_routine(cls, fun, *args, **kwargs):
+        """Call routine.
+        
+        Parameters
+        ----------
+        fun : Any
+            Routine callback symbol to invoke through IPC.
+        *args : Any
+            Positional arguments forwarded to the remote routine.
+        **kwargs : Any
+            Keyword arguments forwarded to the remote routine.
+        """
         vxipc.rpc(cls.name, fun, *args, **kwargs)
 
     def closeEvent(self, event: QtCore.QEvent):
+        """Closeevent.
+        
+        Parameters
+        ----------
+        event : QtCore.QEvent
+            Close event intercepted to reattach the widget as a tab.
+        """
         self.addon_window.attach_tab(self)
         event.ignore()
 
 
 class CameraAddonWidget(AddonWidget):
 
+    """CameraAddonWidget class."""
     name = PROCESS_CAMERA
 
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Forwarded to :class:`AddonWidget`.
+        **kwargs : Any
+            Forwarded to :class:`AddonWidget`.
+        """
         AddonWidget.__init__(self, *args, **kwargs)
 
 
 class DisplayAddonWidget(AddonWidget):
 
+    """DisplayAddonWidget class."""
     name = PROCESS_DISPLAY
 
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Forwarded to :class:`AddonWidget`.
+        **kwargs : Any
+            Forwarded to :class:`AddonWidget`.
+        """
         AddonWidget.__init__(self, *args, **kwargs)
 
 
 class IoAddonWidget(AddonWidget):
 
+    """IoAddonWidget class."""
     name = PROCESS_IO
 
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Forwarded to :class:`AddonWidget`.
+        **kwargs : Any
+            Forwarded to :class:`AddonWidget`.
+        """
         AddonWidget.__init__(self, *args, **kwargs)
 
 
 class WorkerAddonWidget(AddonWidget):
 
+    """WorkerAddonWidget class."""
     name = PROCESS_WORKER
 
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Forwarded to :class:`AddonWidget`.
+        **kwargs : Any
+            Forwarded to :class:`AddonWidget`.
+        """
         AddonWidget.__init__(self, *args, **kwargs)
 
 
 class IntegratedWidget(QtWidgets.QGroupBox, ExposedWidget):
-    """Integrated widgets which are part of the main window"""
+    """IntegratedWidget class."""
 
     def __init__(self, group_name: str, main):
+        """  init  .
+        
+        Parameters
+        ----------
+        group_name : str
+            Group box title shown in the main window.
+        main : Any
+            Parent widget.
+        """
         ExposedWidget.__init__(self)
         QtWidgets.QGroupBox.__init__(self, group_name, parent=main)
 
 
 def register_with_plotter(attr_name: str, *args, **kwargs):
+    """Register with plotter.
+    
+    Parameters
+    ----------
+    attr_name : str
+        Attribute name to add to the live plot cache.
+    *args : Any
+        Optional plotting metadata (display name, axis, units, color).
+    **kwargs : Any
+        Optional plotting metadata keyword arguments.
+    """
     vxipc.rpc(PROCESS_GUI, PlottingWindow.add_buffer_attribute, attr_name, *args, **kwargs)
 
 
 def remove_from_plotter(attr_name: str, *args, **kwargs):
+    """Remove from plotter.
+    
+    Parameters
+    ----------
+    attr_name : str
+        Attribute name to remove from the live plot cache.
+    *args : Any
+        Optional axis/context arguments.
+    **kwargs : Any
+        Optional axis/context keyword arguments.
+    """
     vxipc.rpc(PROCESS_GUI, PlottingWindow.remove_buffer_attribute, attr_name, *args, **kwargs)
 
 
 class PlottingWindow(WindowWidget, ExposedWidget):
+    """PlottingWindow class."""
     colors = (np.array([matplotlib.colormaps['tab20'](i)[:3] for i in range(20)]) * 2**8-1).astype(int)
 
     cache_chunk_size = 10 ** 4
@@ -312,6 +477,13 @@ class PlottingWindow(WindowWidget, ExposedWidget):
     display_name = 'Plotter'
 
     def __init__(self, main_window: vxmodules.Window):
+        """  init  .
+        
+        Parameters
+        ----------
+        main_window : vxmodules.Window
+            Main GUI window used as parent and stacking anchor.
+        """
         ExposedWidget.__init__(self)
         WindowWidget.__init__(self, main_window)
 
@@ -368,6 +540,8 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def _read_buffer_data(self):
 
+        """ read buffer data.
+        """
         grp = None
         for attr_name, grp in self.cache.items():
 
@@ -435,6 +609,8 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def update_plots(self):
 
+        """Update plots.
+        """
         new_tmax = -np.inf
         for attr_name, dataitem in self.data_items.items():
 
@@ -467,6 +643,13 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def _update_xrange(self, new_xmax):
 
+        """ update xrange.
+        
+        Parameters
+        ----------
+        new_xmax : Any
+            Description.
+        """
         if self.check_auto_scale.isChecked():
 
             # Calculate new range
@@ -482,9 +665,25 @@ class PlottingWindow(WindowWidget, ExposedWidget):
             plot_item.getViewBox().setXRange(self.xmin, self.xmax, padding=0.)
 
     def _xrange_changed(self, viewbox, xrange):
+        """ xrange changed.
+        
+        Parameters
+        ----------
+        viewbox : Any
+            Description.
+        xrange : Any
+            Description.
+        """
         self.xmin, self.xmax = xrange
 
     def _add_subplot_toggle(self, axis_name):
+        """ add subplot toggle.
+        
+        Parameters
+        ----------
+        axis_name : Any
+            Description.
+        """
         checkbox = QtWidgets.QCheckBox(axis_name)
         checkbox.setTristate(False)
         checkbox.setChecked(True)
@@ -493,7 +692,16 @@ class PlottingWindow(WindowWidget, ExposedWidget):
         self.subplot_toggles[axis_name] = checkbox
 
     def _toggle_subplot_visibility(self, axis_name):
+        """ toggle subplot visibility.
+        
+        Parameters
+        ----------
+        axis_name : Any
+            Description.
+        """
         def _toggle():
+            """ toggle.
+            """
             state = self.subplot_toggles[axis_name].isChecked()
             plot_item = self.plot_items[axis_name]
             if state:
@@ -508,6 +716,21 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def add_buffer_attribute(self, attr_name, name=None, axis=None, units=None, color=None):
 
+        """Add buffer attribute.
+        
+        Parameters
+        ----------
+        attr_name : Any
+            Description.
+        name : Any
+            Description.
+        axis : Any
+            Description.
+        units : Any
+            Description.
+        color : Any
+            Description.
+        """
         if attr_name in self.cache:
             log.warning(f'Tried to add buffer attribute "{attr_name}" again')
             return
@@ -575,6 +798,15 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def remove_buffer_attribute(self, attr_name, axis=None):
         # TODO: not working right atm
+        """Remove buffer attribute.
+        
+        Parameters
+        ----------
+        attr_name : Any
+            Description.
+        axis : Any
+            Description.
+        """
         return
 
         print(f'Remove {attr_name} from axis {axis}')
@@ -603,6 +835,8 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
     def update_xaxes(self):
 
+        """Update xaxes.
+        """
         row_num = len(self.layout_widget.ci.items)
         for row in range(row_num):
             item = self.layout_widget.getItem(col=0, row=row)
@@ -613,7 +847,17 @@ class PlottingWindow(WindowWidget, ExposedWidget):
 
 class ProcessInfo(QtWidgets.QWidget):
 
+    """ProcessInfo class."""
     def __init__(self, process_name: str, parent: ProcessMonitorWidget):
+        """  init  .
+        
+        Parameters
+        ----------
+        process_name : str
+            Description.
+        parent : ProcessMonitorWidget
+            Description.
+        """
         QtWidgets.QWidget.__init__(self, parent=parent)
 
         # Set layout
@@ -632,6 +876,8 @@ class ProcessInfo(QtWidgets.QWidget):
 
     def update_info(self):
 
+        """Update info.
+        """
         state = vxipc.get_state(self.process_name)
 
         # Set style based on state
@@ -669,9 +915,17 @@ class ProcessInfo(QtWidgets.QWidget):
 
 class ProcessMonitorWidget(IntegratedWidget):
 
+    """ProcessMonitorWidget class."""
     _process_widgets: Dict[str, ProcessInfo] = {}
 
     def __init__(self, *args):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Description.
+        """
         IntegratedWidget.__init__(self, 'Process monitor', *args)
 
         # Add info widgets
@@ -701,18 +955,40 @@ class ProcessMonitorWidget(IntegratedWidget):
 
     def _create_process_monitor_widget(self, process_name: str) -> ProcessInfo:
 
+        """ create process monitor widget.
+        
+        Parameters
+        ----------
+        process_name : str
+            Description.
+        
+        Returns
+        -------
+        ProcessInfo
+            Description.
+        """
         self._process_widgets[process_name] = ProcessInfo(process_name, self)
 
         return self._process_widgets[process_name]
 
     def _update_info(self):
+        """ update info.
+        """
         for state_widget in self._process_widgets.values():
             state_widget.update_info()
 
 
 class RecordingWidget(IntegratedWidget):
 
+    """RecordingWidget class."""
     def __init__(self, *args):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Description.
+        """
         IntegratedWidget.__init__(self, 'Recordings', *args)
         self.setLayout(QtWidgets.QVBoxLayout())
         self.setContentsMargins(0, 0, 0, 0)
@@ -824,6 +1100,8 @@ class RecordingWidget(IntegratedWidget):
 
     @staticmethod
     def open_base_folder():
+        """Open base folder.
+        """
         output_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
         output_path = output_path.replace('\\', '/')
 
@@ -835,11 +1113,15 @@ class RecordingWidget(IntegratedWidget):
         QtGui.QDesktopServices.openUrl(QtCore.QUrl(output_path))
 
     def show_lab_notebook(self):
+        """Show lab notebook.
+        """
         self.lab_nb_folder = os.path.join(vxipc.CONTROL[CTRL_REC_BASE_PATH], vxipc.CONTROL[CTRL_REC_FLDNAME])
         self.lab_notebook.setEnabled(True)
 
     def close_lab_notebook(self):
 
+        """Close lab notebook.
+        """
         if self.lab_nb_folder is not None:
             experimenter = self.nb_experimenter.text()
             notes = self.nb_notes.toPlainText()
@@ -850,6 +1132,8 @@ class RecordingWidget(IntegratedWidget):
         self.lab_notebook.setEnabled(False)
 
     def set_recording_folder(self):
+        """Set recording folder.
+        """
         text = self.rec_folder.text()
         if text not in self._previous_recnames:
             self._previous_recnames.append(text)
@@ -858,13 +1142,19 @@ class RecordingWidget(IntegratedWidget):
 
     @staticmethod
     def start_recording():
+        """Start recording.
+        """
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.start_recording)
 
     @staticmethod
     def stop_recording():
+        """Stop recording.
+        """
         vxipc.rpc(PROCESS_CONTROLLER, vxmodules.Controller.stop_recording)
 
     def _select_base_folder(self):
+        """ select base folder.
+        """
         dialog = QtWidgets.QFileDialog(parent=self)
         dialog.setWindowTitle('Select recording base directory')
         dialog.setFileMode(QtWidgets.QFileDialog.FileMode.Directory)
@@ -883,6 +1173,8 @@ class RecordingWidget(IntegratedWidget):
         vxipc.controller_rpc(vxmodules.Controller.set_recording_base_path, new_path)
 
     def _open_last_recording(self):
+        """ open last recording.
+        """
         base_path = vxipc.CONTROL[CTRL_REC_BASE_PATH]
         recording_list = []
         for s in os.listdir(base_path):
@@ -902,7 +1194,8 @@ class RecordingWidget(IntegratedWidget):
         self.h5views[last_recording] = h5gview.open_ui(file_list)
 
     def update_ui(self):
-        """(Periodically) update UI based on shared configuration"""
+        """Update ui.
+        """
 
         # Get states
         enabled = True
@@ -943,10 +1236,20 @@ class RecordingWidget(IntegratedWidget):
 
 class LogTextEdit(QtWidgets.QTextEdit):
 
+    """LogTextEdit class."""
     default_stylesheet = 'font-family: Courier;'
     scroll_to_bottom = True
 
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Description.
+        **kwargs : Any
+            Description.
+        """
         QtWidgets.QTextEdit.__init__(self, *args, **kwargs)
 
         # Set initial log line count
@@ -969,6 +1272,8 @@ class LogTextEdit(QtWidgets.QTextEdit):
         self.setStyleSheet(self.default_stylesheet)
 
     def print_log(self):
+        """Print log.
+        """
         self.setFont(self.font)
 
         # if self.verticalScrollBar().pos().y() < self.verticalScrollBar().maximum():
@@ -1024,6 +1329,13 @@ class LogTextEdit(QtWidgets.QTextEdit):
         #     self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
     def focusInEvent(self, event: QtGui.QFocusEvent) -> None:
+        """Focusinevent.
+        
+        Parameters
+        ----------
+        event : QtGui.QFocusEvent
+            Description.
+        """
         self.last_high_level = self.log_level
         self.setStyleSheet(self.default_stylesheet)
         self.parent().set_warning(None)
@@ -1032,7 +1344,15 @@ class LogTextEdit(QtWidgets.QTextEdit):
 
 class LoggingWidget(IntegratedWidget):
 
+    """LoggingWidget class."""
     def __init__(self, *args):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Description.
+        """
         IntegratedWidget.__init__(self, 'Log', *args)
 
         self.setLayout(QVBoxLayout())
@@ -1061,6 +1381,13 @@ class LoggingWidget(IntegratedWidget):
     #     self.txe_log.scroll_to_bottom = value
 
     def set_warning(self, level: Union[str, None]):
+        """Set warning.
+        
+        Parameters
+        ----------
+        level : Union[str, None]
+            Description.
+        """
         if level is not None:
             self.setTitle(f'Log (new {level.upper()})')
             return
@@ -1069,7 +1396,17 @@ class LoggingWidget(IntegratedWidget):
 
 class ProtocolWidget(IntegratedWidget):
 
+    """ProtocolWidget class."""
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Description.
+        **kwargs : Any
+            Description.
+        """
         IntegratedWidget.__init__(self, 'Protocols', *args, **kwargs)
         self.setLayout(QtWidgets.QHBoxLayout())
 
@@ -1146,6 +1483,8 @@ class ProtocolWidget(IntegratedWidget):
         self.load_protocol_list()
 
     def load_protocol_list(self):
+        """Load protocol list.
+        """
         self.protocol_list.clear()
 
         protocol_paths = vxprotocol.get_available_protocol_paths()
@@ -1162,6 +1501,8 @@ class ProtocolWidget(IntegratedWidget):
 
     def check_status(self):
 
+        """Check status.
+        """
         phase_id = vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
         if self.current_protocol is None or phase_id is None:
@@ -1189,6 +1530,8 @@ class ProtocolWidget(IntegratedWidget):
 
     def update_ui(self):
         # Enable/Disable control elements
+        """Update ui.
+        """
         protocol_name = vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
         protocol_type = vxipc.CONTROL[CTRL_PRCL_TYPE]
         protocol_is_running = bool(protocol_name)
@@ -1273,6 +1616,8 @@ class ProtocolWidget(IntegratedWidget):
             self.in_running_mode = False
 
     def start_protocol(self):
+        """Start protocol.
+        """
         selected_protocol = self.protocol_list.currentItem()
         if selected_protocol is None:
             log.warning('Please select protocol from list to run')
@@ -1287,12 +1632,26 @@ class ProtocolWidget(IntegratedWidget):
 
     @staticmethod
     def abort_protocol():
+        """Abort protocol.
+        """
         vxipc.controller_rpc(vxmodules.Controller.stop_protocol)
 
 
 class ImageWidget(pg.GraphicsLayoutWidget):
 
+    """ImageWidget class."""
     def __init__(self, parent, attribute: Union[str, vxattribute.Attribute] = None, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        parent : Any
+            Description.
+        attribute : Union[str, vxattribute.Attribute]
+            Description.
+        **kwargs : Any
+            Description.
+        """
         pg.GraphicsLayoutWidget.__init__(self, parent=parent, **kwargs)
 
         # Add plot
@@ -1315,6 +1674,13 @@ class ImageWidget(pg.GraphicsLayoutWidget):
         self.timer.start()
 
     def connect_to_attribute(self, attribute: Union[str, vxattribute.Attribute]):
+        """Connect to attribute.
+        
+        Parameters
+        ----------
+        attribute : Union[str, vxattribute.Attribute]
+            Description.
+        """
         if isinstance(attribute, str):
             attribute = vxattribute.get_attribute(attribute)
 
@@ -1322,6 +1688,8 @@ class ImageWidget(pg.GraphicsLayoutWidget):
 
     def update_image(self):
 
+        """Update image.
+        """
         if self._attribute is None:
             return
 
@@ -1337,7 +1705,17 @@ class ImageWidget(pg.GraphicsLayoutWidget):
 
 class SimpleAddonCameraWidget(AddonWidget):
 
+    """SimpleAddonCameraWidget class."""
     def __init__(self, *args, **kwargs):
+        """  init  .
+        
+        Parameters
+        ----------
+        *args : Any
+            Description.
+        **kwargs : Any
+            Description.
+        """
         AddonWidget.__init__(self, *args, **kwargs)
 
         self.setLayout(QtWidgets.QGridLayout())
@@ -1352,17 +1730,43 @@ class SimpleAddonCameraWidget(AddonWidget):
 
     @abstractmethod
     def structure(self):
+        """Structure.
+        """
         pass
 
     def add_interaction(self, itype: str, group: int):
+        """Add interaction.
+        
+        Parameters
+        ----------
+        itype : str
+            Description.
+        group : int
+            Description.
+        """
         pass
 
     def add_image(self, attribute: Union[str, vxattribute.Attribute], group: int, *args, **kwargs):
+        """Add image.
+        
+        Parameters
+        ----------
+        attribute : Union[str, vxattribute.Attribute]
+            Description.
+        group : int
+            Description.
+        *args : Any
+            Description.
+        **kwargs : Any
+            Description.
+        """
         if group not in self._components:
             self._components[group] = []
 
         self._components[group].append(ImageWidget(self, attribute))
 
     def build(self):
+        """Build.
+        """
         for group, widget_list in self._components.items():
             self.layout().addWidget(widget_list[0], group, 0)

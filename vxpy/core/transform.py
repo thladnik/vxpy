@@ -1,5 +1,10 @@
-"""Core visual transform module
+"""Core visual transform module.
+
+Defines the transform pipeline that maps stimulus coordinates onto the physical
+display geometry.  Each :class:`BaseTransform` subclass targets a specific
+display configuration (planar, spherical projection, cylindrical, etc.).
 """
+
 from __future__ import annotations
 from typing import Any, Callable, Dict, Type, Union
 
@@ -18,10 +23,24 @@ log = vxlogger.getLogger(__name__)
 
 
 def get_config_transform():
+    """Get config transform.
+    """
     return get_transform(config.DISPLAY_TRANSFORM)
 
 
 def get_transform(name: str) -> Union[Type[BaseTransform], None]:
+    """Get transform.
+    
+    Parameters
+    ----------
+    name : str
+        Transform class name expected to exist in this module.
+
+    Returns
+    -------
+    Union[Type[BaseTransform], None]
+        Matching transform class, or ``None`` when not found.
+    """
     if name in globals():
         return globals()[name]
 
@@ -29,8 +48,7 @@ def get_transform(name: str) -> Union[Type[BaseTransform], None]:
 
 
 class BaseTransform:
-    """BaseTransform class to be inherited by all visual transforms
-    """
+    """BaseTransform class."""
 
     # Display shaders
     _vertex_display = """
@@ -58,6 +76,7 @@ class BaseTransform:
 
     def __init__(self):
 
+        """Initialize framebuffers and the default full-screen output program."""
         self.transform_uniforms: Dict[str, Any] = {}
 
         self._buffer_shape = (config.DISPLAY_WIN_SIZE_HEIGHT_PX, config.DISPLAY_WIN_SIZE_WIDTH_PX)
@@ -72,28 +91,65 @@ class BaseTransform:
         self._display_prog['u_texture'] = self._out_texture
 
     def parse_vertex_shader(self, vert: str):
+        """Parse vertex shader.
+        
+        Parameters
+        ----------
+        vert : str
+            Raw vertex shader source for the visual.
+        """
         # return f'#version {config.DISPLAY_GL_VERSION}\n{self.vertex_map}\n{vert}'
         return f'{self.vertex_map}\n{vert}'
 
     @staticmethod
     def parse_fragment_shader(frag: str):
+        """Parse fragment shader.
+        
+        Parameters
+        ----------
+        frag : str
+            Raw fragment shader source for the visual.
+        """
         # return f'#version {config.DISPLAY_GL_VERSION}\n{frag}'
         return frag
 
     def apply_transforms_to_all(self, visual):
+        """Apply transforms to all.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance whose registered shader programs receive transform uniforms.
+        """
         for program in visual.get_programs().values():
             self.apply_transform(program)
 
     def apply_transform(self, program: gloo.Program):
-        """Set uniforms in transform_uniforms on program"""
+        """Apply transform.
+        
+        Parameters
+        ----------
+        program : gloo.Program
+            Program receiving all currently prepared transform uniforms.
+        """
         for u_name, u_value in self.transform_uniforms.items():
             program[u_name] = u_value
 
     def apply(self, visual, dt: float):
+        """Apply.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance to render with this transform.
+        dt : float
+            Elapsed time since the previous render call.
+        """
         pass
 
 
 class PerspectiveTransform(BaseTransform):
+    """PerspectiveTransform class."""
 
     vertex_map = """
     uniform mat4  u_perspective_model;
@@ -110,6 +166,8 @@ class PerspectiveTransform(BaseTransform):
     """
 
     def __init__(self):
+        """  init  .
+        """
         BaseTransform.__init__(self)
 
         self.model = np.dot(transforms.rotate(-90, (1, 0, 0)), transforms.rotate(135, (0, 1, 0)))
@@ -117,6 +175,15 @@ class PerspectiveTransform(BaseTransform):
         self.view = transforms.translate((0, 0, -self.translate))
 
     def apply(self, visual, dt: float):
+        """Apply.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance to render with perspective mapping.
+        dt : float
+            Elapsed time passed to the visual render method.
+        """
         gloo.clear()
 
         gl.glEnable(gl.GL_DEPTH_TEST)
@@ -133,12 +200,15 @@ class PerspectiveTransform(BaseTransform):
         visual.render(dt)
 
     def zoom(self):
+        """Zoom.
+        """
         gloo.set_viewport(0, 0, config.DISPLAY_WIN_SIZE_WIDTH_PX, config.DISPLAY_WIN_SIZE_HEIGHT_PX)
         self.projection = transforms.perspective(25.0, config.DISPLAY_WIN_SIZE_WIDTH_PX / config.DISPLAY_WIN_SIZE_HEIGHT_PX, 0.01, 1000.0)
         self.transform_uniforms['u_perspective_projection'] = self.projection
 
 
 class OrthoTransform(BaseTransform):
+    """OrthoTransform class."""
 
     vertex_map = """
     uniform mat4  u_model;
@@ -155,10 +225,13 @@ class OrthoTransform(BaseTransform):
     """
 
     def __init__(self):
+        """  init  .
+        """
         BaseTransform.__init__(self)
 
 
 class PlanarTransform(BaseTransform):
+    """PlanarTransform class."""
 
     vertex_map = """
     uniform float u_mapcalib_xscale;
@@ -193,7 +266,15 @@ class PlanarTransform(BaseTransform):
     """
 
     def apply(self, visual, dt):
-
+        """Apply.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance to render with planar calibration uniforms.
+        dt : Any
+            Elapsed time passed to the visual render method.
+        """
         gloo.clear()
 
         height = config.DISPLAY_WIN_SIZE_HEIGHT_PX
@@ -246,6 +327,7 @@ class PlanarTransform(BaseTransform):
 
 
 class Spherical4ChannelProjectionTransform(BaseTransform):
+    """Spherical4ChannelProjectionTransform class."""
 
     # Standard transforms of sphere for 4-way display configuration
     vertex_map = """
@@ -395,6 +477,8 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
     """
 
     def __init__(self):
+        """  init  .
+        """
         BaseTransform.__init__(self)
         # Create mask model
 
@@ -434,6 +518,15 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
 
     def apply(self, visual, dt: float):
 
+        """Apply.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance rendered into each projection quadrant.
+        dt : float
+            Elapsed time passed to the first per-frame visual render call.
+        """
         gloo.clear()
 
         # Get window dimensions
@@ -559,6 +652,7 @@ class Spherical4ChannelProjectionTransform(BaseTransform):
 
 
 class Spherical4ScreenCylindricalTransform(BaseTransform):
+    """Spherical4ScreenCylindricalTransform class."""
 
     vertex_map = """
         uniform mat4 u_mapcalib_model;
@@ -573,6 +667,8 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
     """
 
     def __init__(self):
+        """  init  .
+        """
         BaseTransform.__init__(self)
         # Create mask model
 
@@ -581,6 +677,15 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
 
     def apply(self, visual, dt: float):
 
+        """Apply.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance rendered for each cylindrical screen segment.
+        dt : float
+            Elapsed time passed to the first segment render.
+        """
         gloo.clear()
 
         win_width = config.DISPLAY_WIN_SIZE_WIDTH_PX
@@ -624,7 +729,9 @@ class Spherical4ScreenCylindricalTransform(BaseTransform):
 
         # self._display_prog.draw('triangle_strip')
 
+
 class Spherical2ScreenCylindricalTransform(BaseTransform):
+    """Spherical2ScreenCylindricalTransform class."""
 
     vertex_map = """
         uniform mat4 u_mapcalib_model;
@@ -639,6 +746,8 @@ class Spherical2ScreenCylindricalTransform(BaseTransform):
     """
 
     def __init__(self):
+        """  init  .
+        """
         BaseTransform.__init__(self)
         # Create mask model
 
@@ -647,6 +756,15 @@ class Spherical2ScreenCylindricalTransform(BaseTransform):
 
     def apply(self, visual, dt: float):
 
+        """Apply.
+        
+        Parameters
+        ----------
+        visual : Any
+            Visual instance rendered for each cylindrical half-screen.
+        dt : float
+            Elapsed time passed to the first segment render.
+        """
         gloo.clear()
 
         win_width = config.DISPLAY_WIN_SIZE_WIDTH_PX

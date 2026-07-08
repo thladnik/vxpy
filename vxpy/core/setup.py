@@ -1,19 +1,8 @@
-"""
-vxPy ./setup/__init__.py
-Copyright (C) 2022 Tim Hladnik
+"""vxPy application environment setup utilities.
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
+Provides helpers for creating and patching the vxPy application directory
+structure and for downloading pre-configured application resource files from
+the vxPy-app GitHub repository.
 """
 from typing import Union
 import requests
@@ -24,21 +13,48 @@ from vxpy.definitions import *
 
 
 class WorkInDirectory:
-    """Context manager to change working directory to a different path temporarily"""
+    """WorkInDirectory class."""
+
     def __init__(self, new_path: Union[str, None]):
+        """  init  .
+        
+        Parameters
+        ----------
+        new_path : Union[str, None]
+            Description.
+        """
         self.new_path = new_path
         self.previous_path = os.getcwd()
 
     def __enter__(self):
+        """  enter  .
+        """
         if self.new_path is not None:
             os.chdir(self.new_path)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """  exit  .
+        
+        Parameters
+        ----------
+        exc_type : Any
+            Description.
+        exc_val : Any
+            Description.
+        exc_tb : Any
+            Description.
+        """
         os.chdir(self.previous_path)
 
 
 def patch_dir(use_path: str = None):
-    """Create potentially missing application folders in the specified base path"""
+    """Patch dir.
+    
+    Parameters
+    ----------
+    use_path : str
+        Description.
+    """
 
     with WorkInDirectory(use_path):
         print(f'Patch folders in vxPy application environment at {os.getcwd()}')
@@ -52,10 +68,12 @@ def patch_dir(use_path: str = None):
 
 
 def setup_resources(use_path: str = None):
-    """Set up the application resources on the specified base path.
-
-    Method will first check if there is an corresponding application version
-     to the currently installed vxPy core version and fallback to the vxPy_app master head version.
+    """Setup resources.
+    
+    Parameters
+    ----------
+    use_path : str
+        Description.
     """
 
     # Patch it first to avoid missing paths

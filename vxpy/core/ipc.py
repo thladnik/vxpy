@@ -1,4 +1,7 @@
 """Inter-modules-communication placeholders and functions.
+
+This module holds module-level references to the local process instance, shared
+control/state dictionaries, inter-process pipes, and convenience RPC helpers.
 """
 from __future__ import annotations
 import multiprocessing as mp
@@ -24,6 +27,13 @@ _sub_managers: Dict[str, SyncManager] = {}
 
 
 def get_manager(sub_name: str):
+    """Get manager.
+    
+    Parameters
+    ----------
+    sub_name : str
+        Description.
+    """
     if sub_name not in _sub_managers:
         _sub_managers[sub_name] = mp.Manager()
     return _sub_managers[sub_name]
@@ -43,6 +53,19 @@ Pipes: Dict[str, Tuple[mp.connection.Connection, mp.connection.Connection]] = di
 
 
 def init(local_instance, pipes, states, controls):
+    """Init.
+    
+    Parameters
+    ----------
+    local_instance : Any
+        Description.
+    pipes : Any
+        Description.
+    states : Any
+        Description.
+    controls : Any
+        Description.
+    """
     global LocalProcess
     LocalProcess = local_instance
 
@@ -63,15 +86,24 @@ def init(local_instance, pipes, states, controls):
 
 
 def set_state(new_state: STATE):
-    """Set state of local modules to new_state"""
+    """Set state.
+    
+    Parameters
+    ----------
+    new_state : STATE
+        Description.
+    """
     log.debug(f'Set state from {get_state()} to {new_state}')
     STATE[LocalProcess.name] = new_state
 
 
 def get_state(process_name: str = None):
-    """Get state of modules.
-
-    By default, if process_name is None, the local modules's name is used
+    """Get state.
+    
+    Parameters
+    ----------
+    process_name : str
+        Description.
     """
     if process_name is None:
         process_name = LocalProcess.name
@@ -80,9 +112,14 @@ def get_state(process_name: str = None):
 
 
 def in_state(state: STATE, process_name: str = None):
-    """Check if modules is in the given state.
-
-    By default, if process_name is None, the local modules's name is used
+    """In state.
+    
+    Parameters
+    ----------
+    state : STATE
+        Description.
+    process_name : str
+        Description.
     """
     if process_name is None:
         process_name = LocalProcess.name
@@ -91,10 +128,20 @@ def in_state(state: STATE, process_name: str = None):
 
 
 def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs) -> None:
-    """Send a message to another modules via pipe.
-
-    Convenience function for sending messages to modules with process_name.
-    All messages have the format [Signal code, Argument list, Keyword argument dictionary]
+    """Send IPC message
+    
+    Parameters
+    ----------
+    process_name : str
+        Description.
+    signal : Enum
+        Description.
+    *args : Any
+        Description.
+    _send_verbosely : Any
+        Description.
+    **kwargs : Any
+        Description.
     """
     if _send_verbosely:
         log.debug(f'Send to modules {process_name} with signal {signal} > args: {args} > kwargs: {kwargs}')
@@ -107,7 +154,18 @@ def send(process_name: str, signal: Enum, *args, _send_verbosely=True, **kwargs)
 
 
 def rpc(process_name: str, function: Union[Callable, str], *args, **kwargs) -> None:
-    """Send a remote procedure call of given function to another modules.
+    """Rpc.
+    
+    Parameters
+    ----------
+    process_name : str
+        Description.
+    function : Union[Callable, str]
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
     """
     if not (isinstance(function, str)):
         function = function.__qualname__
@@ -115,6 +173,8 @@ def rpc(process_name: str, function: Union[Callable, str], *args, **kwargs) -> N
 
 
 def get_recording_path():
+    """Get recording path.
+    """
     return os.path.join(CONTROL[CTRL_REC_BASE_PATH], CONTROL[CTRL_REC_FLDNAME])
 
 
@@ -122,35 +182,104 @@ _local_time = 0.0
 
 
 def update_time():
-    """Don't you dare call this outside of vxpy.core.process!"""
+    """Update time.
+    """
     global _local_time
     _local_time = time.time() - LocalProcess.program_start_time
 
 
 def get_time():
+    """Get time.
+    """
     global _local_time
     return _local_time
 
 
 def camera_rpc(function, *args, **kwargs):
+    """Camera RPC call
+    
+    Parameters
+    ----------
+    function : Any
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
+    """
     rpc(PROCESS_CAMERA, function, *args, **kwargs)
 
 
 def controller_rpc(function, *args, **kwargs):
+    """Controller RPC call
+    
+    Parameters
+    ----------
+    function : Any
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
+    """
     rpc(PROCESS_CONTROLLER, function, *args, **kwargs)
 
 
 def display_rpc(function, *args, **kwargs):
+    """Display RPC call
+    
+    Parameters
+    ----------
+    function : Any
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
+    """
     rpc(PROCESS_DISPLAY, function, *args, **kwargs)
 
 
 def gui_rpc(function, *args, **kwargs):
+    """Gui RPC call
+    
+    Parameters
+    ----------
+    function : Any
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
+    """
     rpc(PROCESS_GUI, function, *args, **kwargs)
 
 
 def worker_rpc(function, *args, **kwargs):
+    """Worker RPC call
+    
+    Parameters
+    ----------
+    function : Any
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
+    """
     rpc(PROCESS_WORKER, function, *args, **kwargs)
 
 
 def io_rpc(function, *args, **kwargs):
+    """Io RPC call
+    
+    Parameters
+    ----------
+    function : Any
+        Description.
+    *args : Any
+        Description.
+    **kwargs : Any
+        Description.
+    """
     rpc(PROCESS_IO, function, *args, **kwargs)

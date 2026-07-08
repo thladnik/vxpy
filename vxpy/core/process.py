@@ -1,6 +1,8 @@
-"""Process core module
+"""Process core module.
 
-Contains base class for all process modules, including controller and submodules.
+Contains the base class for all process modules, including the controller and
+sub-process implementations.  Each process implementation subclasses
+:class:`AbstractProcess` and overrides :meth:`AbstractProcess.main`.
 """
 from __future__ import annotations
 
@@ -28,14 +30,14 @@ log = vxlogger.getLogger(__name__)
 
 
 def run_process(target: Callable, **kwargs):
-    """Initialization function for forked processes
-
-    This function should only be used in the Controller and constructs the AbstractProcess
-    implementation within the respective subprocess.
-
-    Args:
-        target: AbstractProcess.run method of the Process class
-        kwargs: Arguments to be provided to the constructor of AbstractProcess implementation
+    """Run process.
+    
+    Parameters
+    ----------
+    target : Callable
+        Process entry callable (usually a process class) executed in the child process.
+    **kwargs : Any
+        Bootstrap keyword arguments forwarded to ``target`` after logging setup.
     """
 
     # Set up logging
@@ -64,7 +66,7 @@ def run_process(target: Callable, **kwargs):
 
 
 class AbstractProcess:
-    """Class which is reimplemented by every process implementation"""
+    """AbstractProcess class."""
 
     name: str
 
@@ -102,7 +104,33 @@ class AbstractProcess:
                  _states=None,
                  _attrs=None,
                  **kwargs):
-
+        """  init  .
+        
+        Parameters
+        ----------
+        _program_start_time : float
+            Global experiment start timestamp used for synchronized process timing.
+        _configuration_data : dict
+            Loaded configuration dictionary shared by all processes.
+        _controls : dict
+            Shared manager dictionary for control values.
+        _log : Any
+            Reserved logging payload from launcher (currently unused here).
+        _pipes : dict
+            Inter-process pipe map used for inbox/outbox communication.
+        _devices : dict
+            Pre-initialized device registry to merge into serial device globals.
+        _daq_pins : dict
+            Pre-configured DAQ pin registry to merge into serial pin globals.
+        _routines : dict
+            Routine instances grouped by process name.
+        _states : dict
+            Shared process state storage for IPC state transitions.
+        _attrs : dict
+            Shared attribute handles used by the attribute subsystem.
+        **kwargs : Any
+            Additional process-specific attributes set directly on ``self``.
+        """
         # Register default file container types
         vxcontainer.register_file_type(vxcontainer.H5File.__name__, vxcontainer.H5File)
 
@@ -184,12 +212,13 @@ class AbstractProcess:
         self.loop_times: List[float] = [time.perf_counter()]
 
     def run(self, interval: float):
-        """Function to run the event loop of the process
-
-        Args:
-            interval: the target interval at which the event loop should run
+        """Run subprocess event loop
+        
+        Parameters
+        ----------
+        interval : float
+            Target loop interval in seconds.
         """
-
         self.interval = interval
         log.info(f'Process started')
 
@@ -250,8 +279,14 @@ class AbstractProcess:
             self.next_iteration_time = vxipc.get_time() + self.interval
 
     def main(self, dt: float):
-        """Event loop to be re-implemented in subclass"""
-        raise NotImplementedError(f'Event loop of modules base class is not implemented in {self.name}.')
+        """Main.
+        
+        Parameters
+        ----------
+        dt : float
+            Elapsed time in seconds since the previous iteration.
+        """
+        raise NotImplementedError(f'Event loop of modules base class is not implemented in {self.name}')
 
     # Shared control properties
 
@@ -259,71 +294,146 @@ class AbstractProcess:
 
     @property
     def record_base_path(self) -> str:
-        """Recording base folder path"""
+        """Record base path.
+        
+        Returns
+        -------
+        str
+            Base output directory for recordings.
+        """
         return vxipc.CONTROL[CTRL_REC_BASE_PATH]
 
     @property
     def recording_folder_name(self) -> str:
-        """Folder name of current recording"""
+        """Recording folder name.
+        
+        Returns
+        -------
+        str
+            Name of the currently selected recording folder.
+        """
         return vxipc.CONTROL[CTRL_REC_FLDNAME]
 
     @property
     def recording_active(self) -> bool:
-        """Flag which indicates if recording is currently active"""
+        """Recording active.
+        
+        Returns
+        -------
+        bool
+            Whether recording is currently active.
+        """
         return vxipc.CONTROL[CTRL_REC_ACTIVE]
 
     @property
     def record_protocol_group_id(self) -> int:
-        """Record ID of the currently active protocol"""
+        """Record protocol group id.
+        
+        Returns
+        -------
+        int
+            Current protocol-level recording group id.
+        """
         return vxipc.CONTROL[CTRL_REC_PRCL_GROUP_ID]
 
     @property
     def record_phase_group_id(self) -> int:
-        """Record ID of the currently active protocol phase"""
+        """Record phase group id.
+        
+        Returns
+        -------
+        int
+            Current phase-level recording group id.
+        """
         return vxipc.CONTROL[CTRL_REC_PHASE_GROUP_ID]
 
     # Protocol
 
     @property
     def protocol_type(self) -> Type[vxprotocol.BaseProtocol]:
-        """Type of the currently active protocol
+        """Protocol type.
+        
+        Returns
+        -------
+        Type[vxprotocol.BaseProtocol]
+            Active protocol class type selected by the controller.
         """
         return vxipc.CONTROL[CTRL_PRCL_TYPE]
 
     @property
     def protocol_import_path(self) -> str:
-        """The full import path to the currently active protocol"""
+        """Protocol import path.
+        
+        Returns
+        -------
+        str
+            Dotted import path of the active protocol.
+        """
         return vxipc.CONTROL[CTRL_PRCL_IMPORTPATH]
 
     @property
     def phase_id(self) -> int:
-        """The current phase ID within the currently active protocol"""
+        """Phase id.
+        
+        Returns
+        -------
+        int
+            Current phase index within the active protocol.
+        """
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ID]
 
     @property
     def phase_info(self) -> dict:
-        """Protocol phase information"""
+        """Phase info.
+        
+        Returns
+        -------
+        dict
+            Additional metadata for the current phase.
+        """
         return vxipc.CONTROL[CTRL_PRCL_PHASE_INFO]
 
     @property
     def phase_start_time(self) -> float:
-        """Start time in application time (seconds since start of app) of the currently active protocol phase"""
+        """Phase start time.
+        
+        Returns
+        -------
+        float
+            Scheduled start time of the current phase in experiment time.
+        """
         return vxipc.CONTROL[CTRL_PRCL_PHASE_START_TIME]
 
     @property
     def phase_active(self) -> bool:
-        """Flag whether protocol phase is currently active"""
+        """Phase active.
+        
+        Returns
+        -------
+        bool
+            Controller-side flag indicating whether the phase is marked active.
+        """
         return vxipc.CONTROL[CTRL_PRCL_PHASE_ACTIVE]
 
     @property
     def phase_end_time(self) -> float:
-        """End time in application time (seconds since start of app) of the currently active protocol phase"""
+        """Phase end time.
+        
+        Returns
+        -------
+        float
+            Scheduled end time of the current phase in experiment time.
+        """
         return vxipc.CONTROL[CTRL_PRCL_PHASE_END_TIME]
 
     @property
     def phase_is_active(self) -> bool:
-        """Flag which is True if the current local time is within
-        the defined start and end times of the currently active protocol phase
+        """Phase is active.
+        
+        Returns
+        -------
+        bool
+            Runtime evaluation of whether the current phase should still be running.
         """
         if vxipc.CONTROL[CTRL_PRCL_TYPE] == vxprotocol.StaticProtocol:
             return self.phase_start_time <= vxipc.get_time() < self.phase_end_time
@@ -332,62 +442,73 @@ class AbstractProcess:
             return self.phase_start_time <= vxipc.get_time()
 
     def prepare_static_protocol(self):
-        """To be reimplemented in fork. Method is called by _prepare_static_protocol"""
+        """Prepare static protocol.
+        """
         pass
 
     def prepare_static_protocol_phase(self):
-        """Method is called when the Controller has set the next protocol phase."""
+        """Prepare static protocol phase.
+        """
         pass
 
     def start_static_protocol_phase(self):
-        """To be reimplemented in fork. Method is called by _start_static_protocol_phase"""
+        """Start static protocol phase.
+        """
         pass
 
     def end_static_protocol_phase(self):
-        """Method is called at end of stimulation protocol phase."""
+        """End static protocol phase.
+        """
         pass
 
     def end_static_protocol(self):
-        """Method is called after the last phase at the end of the protocol."""
+        """End static protocol.
+        """
         pass
 
     def prepare_trigger_protocol(self):
-        """To be reimplemented in fork"""
+        """Prepare trigger protocol.
+        """
         pass
 
     def prepare_trigger_protocol_phase(self):
-        """To be reimplemented in fork"""
+        """Prepare trigger protocol phase.
+        """
         pass
 
     def start_trigger_protocol_phase(self):
-        """To be reimplemented in fork"""
+        """Start trigger protocol phase.
+        """
         pass
 
     def end_trigger_protocol_phase(self):
-        """To be reimplemented in fork"""
+        """End trigger protocol phase.
+        """
         pass
 
     def end_trigger_protocol(self):
-        """To be reimplemented in fork"""
+        """End trigger protocol.
+        """
         pass
 
     def _recording_attributes(self) -> Dict[str, Any]:
-        """To be reimplemented in fork.
-
-        Returns a dictionary of key-value pairs with session data that should
-        be saved to the process's record file.
+        """ recording attributes.
+        
+        Returns
+        -------
+        Dict[str, Any]
+            Extra metadata attributes written when recording starts.
         """
         return {}
 
     def _start_recording(self) -> bool:
-        """Start a new recording to disk
-
-        Method opens a new file container and adds basic version and debug information.
-        It also creates the ``__record_group_id`` and corresponding ``__time`` datasets in file
-        and datasets for all ``vxpy.core.attribute.Attribute`` instances that have been marked
-        to be saved to disk via a call to ``vxpy.core.attribute.write_to_file``
+        """ start recording.
+        
+        Returns
+        -------
+        bool
+            ``True`` when recording start initialization succeeds.
         """
-
         # If recorder is enabled, it's going to take care of saving the data
         if config.RECORDER_USE:
             return True
@@ -434,7 +555,13 @@ class AbstractProcess:
         return True
 
     def _stop_recording(self) -> bool:
-
+        """ stop recording.
+        
+        Returns
+        -------
+        bool
+            ``True`` when recording resources were shut down successfully.
+        """
         # If recorder is enabled, it's going to take care of saving the data
         if config.RECORDER_USE:
             return True
@@ -456,7 +583,8 @@ class AbstractProcess:
         return True
 
     def _start_protocol(self):
-        """"""
+        """ start protocol.
+        """
         # If fork has already started/loaded protocol, ignore this
         if vxipc.in_state(STATE.PRCL_STARTED):
             return
@@ -492,7 +620,8 @@ class AbstractProcess:
         vxipc.set_state(STATE.PRCL_STARTED)
 
     def _started_protocol(self):
-        """"""
+        """ started protocol.
+        """
         if not vxipc.in_state(STATE.PRCL_IN_PROGRESS, PROCESS_CONTROLLER):
             return
 
@@ -500,8 +629,8 @@ class AbstractProcess:
         vxipc.set_state(STATE.PRCL_STC_WAIT_FOR_PHASE)
 
     def _stop_protocol(self):
-        """"""
-
+        """ stop protocol.
+        """
         if self.protocol_type == vxprotocol.StaticProtocol:
             self.end_static_protocol_phase()
             self.end_static_protocol()
@@ -514,11 +643,13 @@ class AbstractProcess:
         vxipc.set_state(STATE.PRCL_STOPPED)
 
     def _stopped_protocol(self):
-        """"""
+        """ stopped protocol.
+        """
         vxipc.set_state(STATE.IDLE)
 
     def _process_static_protocol(self):
-
+        """ process static protocol.
+        """
         if self.phase_end_time < vxipc.get_time():
             if vxipc.in_state(STATE.PRCL_STC_WAIT_FOR_PHASE):
                 return
@@ -549,6 +680,8 @@ class AbstractProcess:
                 vxipc.set_state(STATE.PRCL_IN_PHASE)
 
     def _process_trigger_protocol(self):
+        """ process trigger protocol.
+        """
         # Check if protocol has not yet advanced to next phase (in Controller)
         if self.last_phase_id == self.phase_id:
             return
@@ -560,8 +693,8 @@ class AbstractProcess:
         self.last_phase_id = self.phase_id
 
     def _eval_process_state(self):
-
-        # Check controller states
+        """ eval process state.
+        """
 
         # Controller is in idle
         if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
@@ -601,7 +734,8 @@ class AbstractProcess:
             self._start_shutdown()
 
     def _eval_protocol_state(self):
-
+        """ eval protocol state.
+        """
         if vxipc.in_state(STATE.IDLE, PROCESS_CONTROLLER):
             # Check own states
             if vxipc.in_state(STATE.PRCL_STARTED):
@@ -632,27 +766,51 @@ class AbstractProcess:
                 self._stop_protocol()
 
     def idle(self):
+        """Idle.
+        """
         if self.enable_idle_timeout:
             time.sleep(vxipc.CONTROL[CTRL_MIN_SLEEP_TIME])
 
     @staticmethod
     def get_state(process_name: str = None):
-        """Convenience function for access in modules class"""
+        """Get state.
+        
+        Parameters
+        ----------
+        process_name : str
+            Optional process name; defaults to the local process in IPC helper.
+        """
         return vxipc.get_state(process_name)
 
     @staticmethod
     def set_state(code):
-        """Convenience function for access in modules class"""
+        """Set state.
+        
+        Parameters
+        ----------
+        code : Any
+            Process state enum value to set for the local process.
+        """
         vxipc.set_state(code)
 
     def in_state(self, code: STATE, process_name: str = None):
-        """Convenience function for access in modules class"""
+        """In state.
+        
+        Parameters
+        ----------
+        code : STATE
+            State value to test.
+        process_name : str
+            Process name to query; defaults to this process.
+        """
         if process_name is None:
             process_name = self.name
 
         return vxipc.in_state(code, process_name)
 
     def _start_shutdown(self):
+        """ start shutdown.
+        """
         # Handle all pipe messages before shutdown
         while vxipc.Pipes[self.name][1].poll():
             self._handle_inbox()
@@ -663,9 +821,20 @@ class AbstractProcess:
         self._shutdown = True
 
     def _is_running(self):
+        """ is running.
+        """
         return self._running and not self._shutdown
 
     def register_rpc_callback(self, obj, fun):
+        """Register rpc callback.
+        
+        Parameters
+        ----------
+        obj : Any
+            Instance that owns the callback method.
+        fun : Any
+            Bound or unbound method to expose through RPC dispatch.
+        """
         fun_str = fun.__qualname__
         if fun_str not in self._registered_callbacks:
             log.debug(f'Register callback {obj.__class__.__qualname__}:{fun_str} in module {self.name}')
@@ -677,9 +846,17 @@ class AbstractProcess:
     # Private functions
 
     def _execute_rpc(self, fun_str: str, *args, **kwargs):
-        """Execute a remote call to the specified function and pass args, kwargs
+        """ execute rpc.
+        
+        Parameters
+        ----------
+        fun_str : str
+            Callback identifier (``Class.method`` or registered callback key).
+        *args : Any
+            Positional arguments forwarded to the callback.
+        **kwargs : Any
+            Keyword arguments forwarded to the callback.
         """
-
         fun_path = fun_str.split('.')
 
         _send_verbosely = kwargs.pop('_send_verbosely')
@@ -724,6 +901,13 @@ class AbstractProcess:
     def _handle_inbox(self, *args):
 
         # Poll pipe
+        """ handle inbox.
+        
+        Parameters
+        ----------
+        *args : Any
+            Unused compatibility arguments for callback signatures.
+        """
         if not vxipc.Pipes[self.name][1].poll():
             return
 
@@ -744,16 +928,20 @@ class AbstractProcess:
 
     @property
     def record_group_name(self):
+        """Record group name.
+        """
         return f'phase{self.record_group}' if self.record_group >= 0 else ''
 
     def update_routines(self, *args, **kwargs):
-        """Method updates the routines of the local process and saves new attribute data to file.
-
-        Args:
-            args: List of arguments that depend on the type of the local process
-            kwargs: Dict of named arguments that depend on the type of the local process
+        """Update routines.
+        
+        Parameters
+        ----------
+        *args : Any
+            Positional arguments passed to each routine ``main`` call.
+        **kwargs : Any
+            Keyword arguments passed to each routine ``main`` call.
         """
-
         # Call routine main functions
         if self.name in self._routines:
             for routine_name, routine in self._routines[self.name].items():
@@ -786,10 +974,14 @@ class AbstractProcess:
                 vxcontainer.add_to_dataset(f'{attribute.name}_time', attr_time)
 
     def handle_sigint(self, sig, frame):
-        """Method called on system interrupt.
-
-        Ensures that, when the program crashes or is insterrupted,
-        the process exists by itself.
+        """Handle sigint.
+        
+        Parameters
+        ----------
+        sig : Any
+            Signal number received by the handler.
+        frame : Any
+            Current stack frame at signal dispatch time.
         """
         print(f'> SIGINT handled in  {self.__class__}')
         sys.exit(0)
